@@ -5,7 +5,6 @@ import {
   Users,
   Truck,
   BarChart2,
-  Settings,
   User,
   Sliders,
   Bell,
@@ -35,7 +34,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'drivers', label: 'Drivers', icon: Users },
     { id: 'vehicles', label: 'Vehicles', icon: Truck },
     { id: 'reports', label: 'Reports', icon: BarChart2 },
-    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (

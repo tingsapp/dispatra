@@ -320,6 +320,18 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
   const selectedJobIdRef = useRef(selectedJobId);
   selectedJobIdRef.current = selectedJobId;
 
+  // Keep map gestures available after a marker opens an anchored popover.
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+
+    map.dragPan.enable();
+    map.scrollZoom.enable();
+    map.boxZoom.enable();
+    map.doubleClickZoom.enable();
+    map.touchZoomRotate.enable();
+  }, [selectedDriverId, selectedJobId]);
+
   // Convert Route Waypoints [lat, lng] to GeoJSON LineStrings [lng, lat]
   const blueRouteGeoJson = useMemo(
     () => ({
@@ -461,13 +473,14 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
           if (!map) return;
           const lat = Math.abs(center[0]) > 90 ? center[1] : center[0];
           const lng = Math.abs(center[0]) > 90 ? center[0] : center[1];
-          map.flyTo({
+          const flyToOptions: maplibregl.FlyToOptions = {
             center: [lng, lat],
             zoom: zoom ?? 13.5,
-            duration: typeof duration === 'number' && duration < 10 ? duration * 1000 : duration,
-            pitch,
-            bearing
-          });
+            duration: typeof duration === 'number' && duration < 10 ? duration * 1000 : duration
+          };
+          if (pitch !== undefined) flyToOptions.pitch = pitch;
+          if (bearing !== undefined) flyToOptions.bearing = bearing;
+          map.flyTo(flyToOptions);
         } catch (err) {
           console.warn('Map flyTo safe catch:', err);
         }
@@ -579,7 +592,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
           initialViewState={{
             longitude: VANCOUVER_CENTER_LNG_LAT[0],
             latitude: VANCOUVER_CENTER_LNG_LAT[1],
-            zoom: 13,
+            zoom: 11,
             pitch: 0,
             bearing: 0
           }}
