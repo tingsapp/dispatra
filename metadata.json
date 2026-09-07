@@ -1,0 +1,6 @@
+{
+  "name": "Dispatra - AI Dispatch Operations",
+  "description": "AI-first dispatch operations and supervisory monitoring platform for logistics and fleet management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

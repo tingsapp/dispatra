@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/* Custom animated flow for active dispatch polylines */
+.animated-route-blue {
+  stroke-dasharray: 8, 12;
+  animation: routeDashFlow 2.4s linear infinite;
+}
+
+.animated-route-green {
+  stroke-dasharray: 8, 12;
+  animation: routeDashFlow 2.8s linear infinite;
+}
+
+.animated-route-orange {
+  stroke-dasharray: 8, 12;
+  animation: routeDashFlow 2.2s linear infinite;
+}
+
+.animated-traffic-flow {
+  stroke-dasharray: 6, 14;
+  animation: trafficDashFlow 1.8s linear infinite;
+}
+
+@keyframes routeDashFlow {
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes trafficDashFlow {
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Radar ping keyframe animation */
+@keyframes markerRadarPing {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.animate-radar-ping {
+  animation: markerRadarPing 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-radar-ping-fast {
+  animation: markerRadarPing 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Smooth vehicle transition when coordinates update */
+.vehicle-marker-smooth {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+/* MapLibre full dimensions and interactive cursor support */
+.maplibregl-map {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  background: #f1f5f9;
+  font-family: inherit;
+  outline: none;
+}
+
+.maplibregl-canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  cursor: grab;
+}
+
+.maplibregl-canvas-container.maplibregl-interactive:active {
+  cursor: grabbing;
+}
+
+canvas.maplibregl-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  outline: none;
+}
+
+/* Hide default control group since custom MapControls are rendered */
+.maplibregl-ctrl-group {
+  display: none !important;
+}
+
+.maplibregl-ctrl-attrib {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(4px);
+  padding: 2px 8px !important;
+  font-size: 10px !important;
+  color: #64748b !important;
+  border-radius: 6px 0 0 0;
+}
+.maplibregl-ctrl-attrib a {
+  color: #3b82f6 !important;
+}
