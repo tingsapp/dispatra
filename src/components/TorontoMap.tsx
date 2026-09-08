@@ -25,10 +25,11 @@ export const VANCOUVER_CENTER_LAT_LNG: [number, number] = [49.2827, -123.1207];
 export const VANCOUVER_CENTER_LNG_LAT: [number, number] = [-123.1207, 49.2827];
 export const TORONTO_CENTER_LNG_LAT: [number, number] = VANCOUVER_CENTER_LNG_LAT;
 
-// 100% FREE Vector & Satellite Styles requiring ZERO API keys or tokens
-export const CARTO_VOYAGER_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+// OpenFreeMap's public street map uses OpenStreetMap data with no API key.
+// Keep MapLibre so the existing route layers, markers and map controls are unchanged.
+export const OPENFREEMAP_STREET_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
-export const SATELLITE_STYLE: any = {
+export const SATELLITE_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
     'esri-satellite': {
@@ -36,7 +37,8 @@ export const SATELLITE_STYLE: any = {
       tiles: [
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
       ],
-      tileSize: 256
+      tileSize: 256,
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
     }
   },
   layers: [
@@ -580,7 +582,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
     }
   }, []);
 
-  const activeMapStyle = layerConfig.mode === 'satellite' ? SATELLITE_STYLE : CARTO_VOYAGER_STYLE;
+  const activeMapStyle = layerConfig.mode === 'satellite' ? SATELLITE_STYLE : OPENFREEMAP_STREET_STYLE;
 
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden select-none bg-slate-100">
