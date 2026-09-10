@@ -8,6 +8,11 @@ import { DriverPopover } from './components/DriverPopover';
 import { JobDetailPopover } from './components/JobDetailPopover';
 import { MapControls } from './components/MapControls';
 import { DetailModalDialog } from './components/DetailModalDialog';
+import { PricingServicesPage } from './pages/PricingServicesPage';
+import { PricingSimulatorPage } from './pages/PricingSimulatorPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { HelpSupportPage } from './pages/HelpSupportPage';
+import { CustomersPage } from './pages/CustomersPage';
 import {
   INITIAL_DRIVERS,
   INITIAL_JOBS,
@@ -225,6 +230,30 @@ export default function App() {
     });
   };
 
+  const handleOpenPricingServices = () => {
+    setShowAccountPopover(false);
+    setModalDialog({ isOpen: false, type: null });
+    setActiveTab('services-accessorials');
+  };
+
+  const handleOpenPricingSimulator = () => {
+    setShowAccountPopover(false);
+    setModalDialog({ isOpen: false, type: null });
+    setActiveTab('pricing-simulator');
+  };
+
+  const handleOpenProfile = () => {
+    setShowAccountPopover(false);
+    setModalDialog({ isOpen: false, type: null });
+    setActiveTab('profile');
+  };
+
+  const handleOpenHelp = () => {
+    setShowAccountPopover(false);
+    setModalDialog({ isOpen: false, type: null });
+    setActiveTab('help');
+  };
+
   const handleCloseModal = () => {
     setModalDialog({ isOpen: false, type: null });
   };
@@ -292,11 +321,45 @@ export default function App() {
         showAccountPopover={showAccountPopover}
         setShowAccountPopover={setShowAccountPopover}
         onActionNotification={showToast}
+        onOpenPricingServices={handleOpenPricingServices}
+        onOpenPricingSimulator={handleOpenPricingSimulator}
+        onOpenProfile={handleOpenProfile}
+        onOpenHelp={handleOpenHelp}
       />
 
-      {/* MAIN VIEWPORT / MAP STAGE */}
+      {/* MAIN VIEWPORT / MAP STAGE OR DEDICATED SETTINGS / SIMULATOR / PROFILE / HELP PAGE */}
       <main className="relative flex-1 h-full w-full overflow-hidden">
-        {/* MAPLIBRE GL / LEAFLET INTERACTIVE MAP CANVAS */}
+        {activeTab === 'services-accessorials' || activeTab === 'pricing-services' ? (
+          <PricingServicesPage
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onOpenSimulator={() => setActiveTab('pricing-simulator')}
+            onNotification={showToast}
+          />
+        ) : activeTab === 'pricing-simulator' ? (
+          <PricingSimulatorPage
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onNavigateToServices={() => setActiveTab('services-accessorials')}
+            onNotification={showToast}
+          />
+        ) : activeTab === 'profile' ? (
+          <ProfilePage
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onNotification={showToast}
+          />
+        ) : activeTab === 'help' ? (
+          <HelpSupportPage
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onNotification={showToast}
+          />
+        ) : activeTab === 'customers' ? (
+          <CustomersPage
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onNotification={showToast}
+            onSelectJob={handleSelectJob}
+          />
+        ) : (
+          <>
+            {/* MAPLIBRE GL / LEAFLET INTERACTIVE MAP CANVAS */}
         <TorontoMap
           mapRef={mapRef}
           mapInstanceRef={mapRef}
@@ -419,6 +482,8 @@ export default function App() {
           <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
           <span>Vancouver Overview</span>
         </button>
+          </>
+        )}
 
         {/* NOTIFICATION TOAST */}
         <AnimatePresence>

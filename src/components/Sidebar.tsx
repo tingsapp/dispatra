@@ -1,17 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Monitor,
   ClipboardList,
   Users,
   Truck,
+  Building2,
   BarChart2,
   User,
   Sliders,
   Bell,
   HelpCircle,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Tag,
+  Calculator
 } from 'lucide-react';
+import { loadUserProfile } from '../lib/profileStorage';
 
 interface SidebarProps {
   activeTab: string;
@@ -19,6 +23,10 @@ interface SidebarProps {
   showAccountPopover: boolean;
   setShowAccountPopover: React.Dispatch<React.SetStateAction<boolean>>;
   onActionNotification: (msg: string) => void;
+  onOpenPricingServices?: () => void;
+  onOpenPricingSimulator?: () => void;
+  onOpenProfile?: () => void;
+  onOpenHelp?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,13 +34,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   showAccountPopover,
   setShowAccountPopover,
-  onActionNotification
+  onActionNotification,
+  onOpenPricingServices,
+  onOpenPricingSimulator,
+  onOpenProfile,
+  onOpenHelp
 }) => {
+  const [showOrgSubmenu, setShowOrgSubmenu] = useState<boolean>(false);
+  const [profile, setProfile] = useState(() => loadUserProfile());
+
+  useEffect(() => {
+    const handleSync = () => {
+      setProfile(loadUserProfile());
+    };
+    window.addEventListener('storage', handleSync);
+    handleSync();
+    return () => window.removeEventListener('storage', handleSync);
+  }, [activeTab, showAccountPopover]);
+
   const navItems = [
     { id: 'monitor', label: 'Monitor', icon: Monitor },
     { id: 'jobs', label: 'Jobs', icon: ClipboardList },
     { id: 'drivers', label: 'Drivers', icon: Users },
     { id: 'vehicles', label: 'Vehicles', icon: Truck },
+    { id: 'customers', label: 'Customers', icon: Building2 },
     { id: 'reports', label: 'Reports', icon: BarChart2 },
   ];
 
@@ -106,20 +131,136 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Popover Items */}
             <div className="space-y-0.5 px-1">
               <button
-                onClick={() => onActionNotification('Opening Sarah K. profile')}
-                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors text-left font-medium"
+                type="button"
+                onClick={() => {
+                  setActiveTab('profile');
+                  onActionNotification('Navigating to My Profile');
+                  if (onOpenProfile) {
+                    onOpenProfile();
+                  }
+                  setShowAccountPopover(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg transition-colors text-left font-medium ${
+                  activeTab === 'profile'
+                    ? 'bg-slate-100 text-slate-900 font-semibold'
+                    : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                }`}
               >
                 <User className="w-3.5 h-3.5 text-slate-400" />
                 <span>My Profile</span>
               </button>
 
-              <button
-                onClick={() => onActionNotification('Opening Organization Settings')}
-                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors text-left font-medium"
+              {/* Organization Settings with Submenu: Pricing and services */}
+              <div
+                className="relative group"
+                onMouseEnter={() => setShowOrgSubmenu(true)}
+                onMouseLeave={() => setShowOrgSubmenu(false)}
               >
-                <Sliders className="w-3.5 h-3.5 text-slate-400" />
-                <span>Organization Settings</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setShowOrgSubmenu((prev) => !prev)}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-lg transition-colors text-left font-medium ${
+                    showOrgSubmenu
+                      ? 'bg-slate-100 text-slate-900'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                  aria-expanded={showOrgSubmenu}
+                  aria-haspopup="true"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Sliders className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Organization Settings</span>
+                  </div>
+                  <ChevronRight
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${
+                      showOrgSubmenu ? 'rotate-90 sm:rotate-0 sm:translate-x-0.5 text-slate-600' : ''
+                    }`}
+                  />
+                </button>
+
+                {/* Submenu on Organization Settings */}
+                {showOrgSubmenu && (
+                  <>
+                    {/* Desktop/Tablet Flyout Submenu to the right */}
+                    <div className="hidden sm:block absolute left-full -top-1 ml-1.5 w-52 bg-white rounded-xl shadow-xl shadow-slate-900/10 border border-slate-200/90 p-1 z-50 animate-in fade-in slide-in-from-left-2 duration-150 before:absolute before:-left-2.5 before:top-0 before:bottom-0 before:w-2.5 space-y-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab('services-accessorials');
+                          onActionNotification('Navigating to Services & Accessorials');
+                          if (onOpenPricingServices) {
+                            onOpenPricingServices();
+                          }
+                          setShowOrgSubmenu(false);
+                          setShowAccountPopover(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors text-left font-normal"
+                      >
+                        <Tag className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-normal text-slate-700">Services & Accessorials</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab('pricing-simulator');
+                          onActionNotification('Navigating to Pricing Simulator');
+                          if (onOpenPricingSimulator) {
+                            onOpenPricingSimulator();
+                          }
+                          setShowOrgSubmenu(false);
+                          setShowAccountPopover(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors text-left font-normal"
+                      >
+                        <Calculator className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-normal text-slate-700">Pricing Simulator</span>
+                      </button>
+                    </div>
+
+                    {/* Mobile/Narrow Screen Inline Accordion Submenu */}
+                    <div className="sm:hidden pl-6 pr-1 py-1 space-y-0.5 border-l-2 border-slate-200 ml-3 mt-0.5 animate-in fade-in duration-150">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab('services-accessorials');
+                          onActionNotification('Navigating to Services & Accessorials');
+                          if (onOpenPricingServices) {
+                            onOpenPricingServices();
+                          }
+                          setShowOrgSubmenu(false);
+                          setShowAccountPopover(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-md transition-colors text-left font-normal"
+                      >
+                        <Tag className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-normal text-slate-700">Services & Accessorials</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab('pricing-simulator');
+                          onActionNotification('Navigating to Pricing Simulator');
+                          if (onOpenPricingSimulator) {
+                            onOpenPricingSimulator();
+                          }
+                          setShowOrgSubmenu(false);
+                          setShowAccountPopover(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-md transition-colors text-left font-normal"
+                      >
+                        <Calculator className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-normal text-slate-700">Pricing Simulator</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
 
               <button
                 onClick={() => onActionNotification('Viewing Sarah K. notifications')}
@@ -135,8 +276,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
 
               <button
-                onClick={() => onActionNotification('Opening Help & Support')}
-                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors text-left font-medium"
+                type="button"
+                onClick={() => {
+                  setActiveTab('help');
+                  onActionNotification('Navigating to Help & Support');
+                  if (onOpenHelp) {
+                    onOpenHelp();
+                  }
+                  setShowAccountPopover(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg transition-colors text-left font-medium ${
+                  activeTab === 'help'
+                    ? 'bg-slate-100 text-slate-900 font-semibold'
+                    : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                }`}
               >
                 <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
                 <span>Help & Support</span>
@@ -155,7 +308,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* Sarah K. Trigger Card */}
+        {/* Dispatcher Account Trigger Card with Dynamic Logo */}
         <button
           onClick={() => setShowAccountPopover((prev) => !prev)}
           className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-colors text-left group relative ${
@@ -163,14 +316,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }`}
           title="Dispatcher Account"
         >
-          <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center shrink-0 group-hover:bg-slate-300 transition-colors ring-2 ring-white">
-            SK
+          <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center shrink-0 group-hover:bg-slate-300 transition-colors ring-2 ring-white overflow-hidden">
+            {profile.avatarUrl ? (
+              <img
+                src={profile.avatarUrl}
+                alt={profile.name}
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              profile.avatarInitials || 'SK'
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold text-slate-900 leading-snug truncate">
-              Sarah K.
+              {profile.name || 'Sarah K.'}
             </div>
-            <div className="text-xs text-slate-500 truncate">Dispatcher</div>
+            <div className="text-xs text-slate-500 truncate">{profile.role || 'Dispatcher'}</div>
           </div>
         </button>
       </div>

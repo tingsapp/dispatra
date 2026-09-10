@@ -22,7 +22,11 @@ import {
   SlidersHorizontal,
   Compass,
   Zap,
-  DollarSign
+  DollarSign,
+  Tag,
+  BadgePercent,
+  Check,
+  Layers
 } from 'lucide-react';
 import { Job, Driver, NeedsAttentionItem, ModalDialogType } from '../types';
 
@@ -187,6 +191,16 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
               onClose={onClose}
               onSelectJob={onSelectJob}
               onApproveAiFix={effectiveApproveAi}
+              onActionNotification={onActionNotification}
+            />
+          )}
+
+          {/* ========================================================= */}
+          {/* VIEW 6: ORGANIZATION SETTINGS - PRICING AND SERVICES     */}
+          {/* ========================================================= */}
+          {effectiveType === 'pricing_services' && (
+            <PricingAndServicesView
+              onClose={onClose}
               onActionNotification={onActionNotification}
             />
           )}
@@ -1106,6 +1120,617 @@ const AllExceptionsView: React.FC<{
         >
           Close
         </button>
+      </div>
+    </>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/* SUB-VIEW 6: ORGANIZATION SETTINGS - PRICING AND SERVICES                   */
+/* -------------------------------------------------------------------------- */
+interface ServiceTier {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  slaWindow: string;
+  baseFare: number;
+  perKmRate: number;
+  minCharge: number;
+  active: boolean;
+  handling: string;
+}
+
+const INITIAL_SERVICE_TIERS: ServiceTier[] = [
+  {
+    id: 's1',
+    name: 'Same-Day Express',
+    code: 'EXP-SAME',
+    description: 'High-priority direct vehicle dispatch with guaranteed 2-hour delivery window.',
+    slaWindow: '2-hour SLA',
+    baseFare: 28.00,
+    perKmRate: 2.15,
+    minCharge: 35.00,
+    active: true,
+    handling: 'Direct route • Signature required • SMS ETA tracking'
+  },
+  {
+    id: 's2',
+    name: 'Standard Next-Day',
+    code: 'STD-NEXT',
+    description: 'Consolidated commercial distribution across Greater Vancouver metro area.',
+    slaWindow: 'Next day by 17:00',
+    baseFare: 16.50,
+    perKmRate: 1.45,
+    minCharge: 22.00,
+    active: true,
+    handling: 'Batch route • Photo safe-drop allowed • Regular stops'
+  },
+  {
+    id: 's3',
+    name: 'Scheduled LTL Freight',
+    code: 'FRT-SCHED',
+    description: 'Heavy palletized freight shipments requiring tailgate lift and pallet jack equipment.',
+    slaWindow: 'Scheduled appointment',
+    baseFare: 65.00,
+    perKmRate: 3.25,
+    minCharge: 95.00,
+    active: true,
+    handling: 'Dock-to-dock • Hydraulic liftgate • Up to 4,000 lbs'
+  },
+  {
+    id: 's4',
+    name: 'White Glove & Sensitive',
+    code: 'WHT-GLOVE',
+    description: 'Inside delivery, room-of-choice placement, inspection, and debris unpack removal.',
+    slaWindow: 'Scheduled 1-hour slot',
+    baseFare: 85.00,
+    perKmRate: 3.80,
+    minCharge: 120.00,
+    active: true,
+    handling: '2-person team • Padded blankets • Recipient verified ID'
+  }
+];
+
+const PricingAndServicesView: React.FC<{
+  onClose: () => void;
+  onActionNotification: (msg: string) => void;
+}> = ({ onClose, onActionNotification }) => {
+  const [activeTab, setActiveTab] = useState<'services' | 'calculator' | 'accessorials' | 'zones'>('services');
+  const [services, setServices] = useState<ServiceTier[]>(INITIAL_SERVICE_TIERS);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Rate calculator test state
+  const [calcTierId, setCalcTierId] = useState<string>('s1');
+  const [calcDistance, setCalcDistance] = useState<number>(18.5);
+  const [calcStops, setCalcStops] = useState<number>(1);
+  const [calcLiftgate, setCalcLiftgate] = useState<boolean>(false);
+
+  const selectedCalcTier = services.find((s) => s.id === calcTierId) || services[0];
+  const fuelSurchargePct = 0.114; // 11.4% fuel surcharge
+  const mileageCost = calcDistance * selectedCalcTier.perKmRate;
+  const extraStopsCost = Math.max(0, calcStops - 1) * 8.50;
+  const liftgateCost = calcLiftgate ? 25.00 : 0;
+  const subtotalBeforeMin = selectedCalcTier.baseFare + mileageCost + extraStopsCost + liftgateCost;
+  const applicableSubtotal = Math.max(subtotalBeforeMin, selectedCalcTier.minCharge);
+  const fuelSurcharge = applicableSubtotal * fuelSurchargePct;
+  const totalCalculatedFare = applicableSubtotal + fuelSurcharge;
+
+  const handleToggleService = (id: string) => {
+    setServices((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, active: !s.active } : s))
+    );
+    setIsSaved(false);
+  };
+
+  const handleUpdateFare = (id: string, field: 'baseFare' | 'perKmRate' | 'minCharge', val: number) => {
+    setServices((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, [field]: val } : s))
+    );
+    setIsSaved(false);
+  };
+
+  const handleSave = () => {
+    setIsSaved(true);
+    onActionNotification('Pricing and services configuration saved successfully');
+    setTimeout(() => {
+      setIsSaved(false);
+    }, 3500);
+  };
+
+  return (
+    <>
+      {/* Modal Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/80 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm">
+            <Tag className="w-5 h-5 stroke-[2.2]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Organization Settings
+              </span>
+              <span className="text-xs text-slate-300">•</span>
+              <span className="text-xs font-bold text-blue-600">Pricing and services</span>
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+              Service Levels & Dispatch Rate Cards
+            </h2>
+          </div>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors"
+          title="Close dialog (Esc)"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Internal Navigation Tabs */}
+      <div className="flex items-center gap-1 px-6 pt-3 pb-2 border-b border-slate-200 bg-white shrink-0 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('services')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-2 ${
+            activeTab === 'services'
+              ? 'bg-blue-50 text-blue-600'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Service Levels</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 font-bold">
+            {services.filter((s) => s.active).length} Active
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('calculator')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-2 ${
+            activeTab === 'calculator'
+              ? 'bg-blue-50 text-blue-600'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          <DollarSign className="w-3.5 h-3.5" />
+          <span>Rate Calculator</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('accessorials')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-2 ${
+            activeTab === 'accessorials'
+              ? 'bg-blue-50 text-blue-600'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          <BadgePercent className="w-3.5 h-3.5" />
+          <span>Surcharges & Rules</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('zones')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-2 ${
+            activeTab === 'zones'
+              ? 'bg-blue-50 text-blue-600'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          <Compass className="w-3.5 h-3.5" />
+          <span>Coverage Zones</span>
+        </button>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+        {/* TAB 1: SERVICE LEVELS */}
+        {activeTab === 'services' && (
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-sm text-slate-900">Active Fleet Service Offerings</h3>
+                <p className="text-slate-500 text-xs">
+                  Configure the service catalog available to dispatchers and automated job routing.
+                </p>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+                Currency: CAD ($)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              {services.map((tier) => (
+                <div
+                  key={tier.id}
+                  className={`p-4 rounded-xl border transition-all ${
+                    tier.active
+                      ? 'bg-white border-slate-200 shadow-xs'
+                      : 'bg-slate-50/70 border-slate-200/60 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-bold text-sm text-slate-900">{tier.name}</span>
+                        <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                          {tier.code}
+                        </span>
+                        <span className="text-[10px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                          {tier.slaWindow}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-xs">{tier.description}</p>
+                      <p className="text-[11px] text-slate-400 font-medium">{tier.handling}</p>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <button
+                        onClick={() => handleToggleService(tier.id)}
+                        className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                          tier.active
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                            : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                        }`}
+                      >
+                        {tier.active ? 'Enabled' : 'Disabled'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Pricing Inputs */}
+                  <div className="mt-3.5 pt-3 border-t border-slate-100 grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                        Base Fare
+                      </label>
+                      <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                        <span className="text-slate-500 font-bold">$</span>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={tier.baseFare}
+                          onChange={(e) =>
+                            handleUpdateFare(tier.id, 'baseFare', parseFloat(e.target.value) || 0)
+                          }
+                          className="w-full bg-transparent text-xs font-bold text-slate-900 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                        Per KM Rate
+                      </label>
+                      <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                        <span className="text-slate-500 font-bold">$</span>
+                        <input
+                          type="number"
+                          step="0.05"
+                          value={tier.perKmRate}
+                          onChange={(e) =>
+                            handleUpdateFare(tier.id, 'perKmRate', parseFloat(e.target.value) || 0)
+                          }
+                          className="w-full bg-transparent text-xs font-bold text-slate-900 outline-none"
+                        />
+                        <span className="text-[10px] text-slate-400 font-semibold">/km</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                        Minimum Charge
+                      </label>
+                      <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                        <span className="text-slate-500 font-bold">$</span>
+                        <input
+                          type="number"
+                          step="1.0"
+                          value={tier.minCharge}
+                          onChange={(e) =>
+                            handleUpdateFare(tier.id, 'minCharge', parseFloat(e.target.value) || 0)
+                          }
+                          className="w-full bg-transparent text-xs font-bold text-slate-900 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: RATE CALCULATOR */}
+        {activeTab === 'calculator' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
+              <h3 className="font-bold text-sm text-slate-900">Fare Simulation Parameters</h3>
+              <p className="text-slate-500 text-xs">
+                Test how rate cards evaluate customer quotes against real dispatch routes.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Select Service Level
+                </label>
+                <select
+                  value={calcTierId}
+                  onChange={(e) => setCalcTierId(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {services.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.code}) - Base ${s.baseFare.toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Total Travel Distance (KM)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="1"
+                    max="100"
+                    step="0.5"
+                    value={calcDistance}
+                    onChange={(e) => setCalcDistance(parseFloat(e.target.value))}
+                    className="flex-1 accent-blue-600"
+                  />
+                  <span className="font-mono font-bold text-sm text-slate-900 w-16 text-right">
+                    {calcDistance.toFixed(1)} km
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Waypoints / Stops Count
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="12"
+                  value={calcStops}
+                  onChange={(e) => setCalcStops(parseInt(e.target.value, 10) || 1)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 outline-none"
+                />
+              </div>
+
+              <div className="pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={calcLiftgate}
+                    onChange={(e) => setCalcLiftgate(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs font-semibold text-slate-700">
+                    Require Hydraulic Liftgate (+$25.00)
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Calculated Breakdown Card */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <span className="font-bold text-sm text-slate-900">Fare Calculation Result</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                    Live Rate Engine
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-2.5">
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Base Dispatch Fee</span>
+                    <span className="font-semibold text-slate-900">
+                      ${selectedCalcTier.baseFare.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>
+                      Mileage ({calcDistance.toFixed(1)} km @ ${selectedCalcTier.perKmRate.toFixed(2)}/km)
+                    </span>
+                    <span className="font-semibold text-slate-900">
+                      ${mileageCost.toFixed(2)}
+                    </span>
+                  </div>
+
+                  {extraStopsCost > 0 && (
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Additional Stops ({calcStops - 1} extra)</span>
+                      <span className="font-semibold text-slate-900">
+                        ${extraStopsCost.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {liftgateCost > 0 && (
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Accessorial: Liftgate Required</span>
+                      <span className="font-semibold text-slate-900">
+                        ${liftgateCost.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-slate-600 pt-2 border-t border-slate-100">
+                    <span>Subtotal</span>
+                    <span className="font-semibold text-slate-900">
+                      ${applicableSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>Variable Fuel Surcharge (11.4%)</span>
+                    <span className="font-semibold text-slate-900">
+                      ${fuelSurcharge.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t-2 border-slate-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                      Total Projected Fare
+                    </div>
+                    <div className="text-2xl font-black text-slate-900 tracking-tight">
+                      ${totalCalculatedFare.toFixed(2)} CAD
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-3 py-1 rounded-lg">
+                    SLA: {selectedCalcTier.slaWindow}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: ACCESSORIALS & RULES */}
+        {activeTab === 'accessorials' && (
+          <div className="space-y-4">
+            <h3 className="font-bold text-sm text-slate-900">Accessorial & Billing Surcharges</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-xs text-slate-900">Fuel Surcharge Index</span>
+                  <span className="font-bold text-xs text-blue-600">11.4%</span>
+                </div>
+                <p className="text-slate-500 text-[11px]">
+                  Applied automatically to all active haul routes based on weekly diesel index.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-xs text-slate-900">Detention / Wait Time</span>
+                  <span className="font-bold text-xs text-slate-900">$45.00 / hr</span>
+                </div>
+                <p className="text-slate-500 text-[11px]">
+                  15 minutes grace period allowed per waypoint before automated detention accrual.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-xs text-slate-900">After-Hours Dispatch</span>
+                  <span className="font-bold text-xs text-slate-900">+25% Base Rate</span>
+                </div>
+                <p className="text-slate-500 text-[11px]">
+                  Applies to pickups scheduled between 20:00 and 06:00 local time.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-xs text-slate-900">Inside Delivery / Stairs</span>
+                  <span className="font-bold text-xs text-slate-900">+$35.00 Flat</span>
+                </div>
+                <p className="text-slate-500 text-[11px]">
+                  Added when consignee lacks loading dock and freight exceeds threshold weight.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: COVERAGE ZONES */}
+        {activeTab === 'zones' && (
+          <div className="space-y-4">
+            <h3 className="font-bold text-sm text-slate-900">Vancouver Regional Dispatch Zones</h3>
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                    <span className="font-bold text-slate-900">Zone 1: Metro Vancouver Core</span>
+                  </div>
+                  <p className="text-slate-500 text-[11px] mt-0.5">
+                    Downtown, Kitsilano, Mount Pleasant, Burnaby, Richmond Core.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+                  Standard Rates (0% Surcharge)
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                    <span className="font-bold text-slate-900">Zone 2: Greater Metro & Fraser Valley</span>
+                  </div>
+                  <p className="text-slate-500 text-[11px] mt-0.5">
+                    Surrey, Langley, Coquitlam, Maple Ridge, Delta, Abbotsford.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+                  +15% Inter-zone Mileage
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-600" />
+                    <span className="font-bold text-slate-900">Zone 3: Port & Airport Intermodal</span>
+                  </div>
+                  <p className="text-slate-500 text-[11px] mt-0.5">
+                    Port of Vancouver (Centerm/Vanterm/Deltaport) & YVR Cargo Terminal.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+                  +$40.00 Security Gate Pass
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modal Footer */}
+      <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50/80 flex items-center justify-between shrink-0">
+        <span className="text-xs text-slate-500">
+          Organization ID: <span className="font-mono text-slate-700 font-semibold">org_dispatra_van_01</span>
+        </span>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-semibold text-xs transition-colors"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={handleSave}
+            className={`px-5 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-2 shadow-sm ${
+              isSaved
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                : 'bg-slate-900 hover:bg-slate-800 text-white'
+            }`}
+          >
+            {isSaved ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Changes Saved</span>
+              </>
+            ) : (
+              <span>Save & Apply Changes</span>
+            )}
+          </button>
+        </div>
       </div>
     </>
   );

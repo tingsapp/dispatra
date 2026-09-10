@@ -79,7 +79,13 @@ export interface MapLayerConfig {
   labels: boolean;
 }
 
-export type ModalDialogType = 'job_detail' | 'driver_detail' | 'all_jobs' | 'all_drivers' | 'all_exceptions';
+export type ModalDialogType =
+  | 'job_detail'
+  | 'driver_detail'
+  | 'all_jobs'
+  | 'all_drivers'
+  | 'all_exceptions'
+  | 'pricing_services';
 
 export interface ModalDialogState {
   isOpen: boolean;
