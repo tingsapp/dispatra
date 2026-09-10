@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
 import { TopMetrics } from './components/TopMetrics';
@@ -13,6 +13,11 @@ import { PricingSimulatorPage } from './pages/PricingSimulatorPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HelpSupportPage } from './pages/HelpSupportPage';
 import { CustomersPage } from './pages/CustomersPage';
+import { JobsPage } from './pages/JobsPage';
+import { DriversPage } from './pages/DriversPage';
+import { VehiclesPage } from './pages/VehiclesPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { BillingSettingsPage } from './pages/BillingSettingsPage';
 import {
   INITIAL_DRIVERS,
   INITIAL_JOBS,
@@ -230,10 +235,79 @@ export default function App() {
     });
   };
 
+  // Navigating from a list page to the Monitor map with the entity selected.
+  // The map is unmounted while a list page is open, so the selection is queued
+  // and applied once the remounted map can project coordinates again.
+  const [pendingLocate, setPendingLocate] = useState<{ type: 'job' | 'driver'; id: string } | null>(null);
+
+  const handleLocateJobOnMap = useCallback((jobNumber: string) => {
+    setActiveTab('monitor');
+    setPendingLocate({ type: 'job', id: jobNumber });
+  }, []);
+
+  const handleLocateDriverOnMap = useCallback((driverId: string) => {
+    setActiveTab('monitor');
+    setPendingLocate({ type: 'driver', id: driverId });
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'monitor' || !pendingLocate) return;
+
+    let attempts = 0;
+    const apply = () => {
+      const pt = mapRef.current?.project?.(VANCOUVER_CENTER_LNG_LAT);
+      const mapReady = !!pt && (pt.x !== 0 || pt.y !== 0);
+      if (!mapReady && attempts < 40) {
+        attempts += 1;
+        return false;
+      }
+      if (pendingLocate.type === 'job') {
+        handleSelectJob(pendingLocate.id);
+      } else {
+        handleSelectDriver(pendingLocate.id);
+      }
+      setPendingLocate(null);
+      return true;
+    };
+
+    if (apply()) return;
+    const timer = window.setInterval(() => {
+      if (apply()) window.clearInterval(timer);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [activeTab, pendingLocate, handleSelectJob, handleSelectDriver]);
+
+  // Job & Driver mutations coming from the Jobs / Drivers pages
+  const handleUpdateJob = useCallback((updatedJob: Job) => {
+    setJobs((prev) => prev.map((j) => (j.id === updatedJob.id ? updatedJob : j)));
+  }, []);
+
+  const handleCreateJob = useCallback((newJob: Job) => {
+    setJobs((prev) => [newJob, ...prev]);
+    setActiveJobsCount((prev) => prev + 1);
+  }, []);
+
+  const handleUpdateDriver = useCallback((updatedDriver: Driver) => {
+    setDrivers((prev) => prev.map((d) => (d.id === updatedDriver.id ? updatedDriver : d)));
+  }, []);
+
+  const handleCreateDriver = useCallback((newDriver: Driver) => {
+    setDrivers((prev) => [newDriver, ...prev]);
+    if (newDriver.status === 'available') {
+      setAvailableDriversCount((prev) => prev + 1);
+    }
+  }, []);
+
   const handleOpenPricingServices = () => {
     setShowAccountPopover(false);
     setModalDialog({ isOpen: false, type: null });
     setActiveTab('services-accessorials');
+  };
+
+  const handleOpenBillingSettings = () => {
+    setShowAccountPopover(false);
+    setModalDialog({ isOpen: false, type: null });
+    setActiveTab('billing-settings');
   };
 
   const handleOpenPricingSimulator = () => {
@@ -323,6 +397,7 @@ export default function App() {
         onActionNotification={showToast}
         onOpenPricingServices={handleOpenPricingServices}
         onOpenPricingSimulator={handleOpenPricingSimulator}
+        onOpenBillingSettings={handleOpenBillingSettings}
         onOpenProfile={handleOpenProfile}
         onOpenHelp={handleOpenHelp}
       />
@@ -341,6 +416,12 @@ export default function App() {
             onNavigateToServices={() => setActiveTab('services-accessorials')}
             onNotification={showToast}
           />
+        ) : activeTab === 'billing-settings' ? (
+          <BillingSettingsPage
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onOpenSimulator={() => setActiveTab('pricing-simulator')}
+            onNotification={showToast}
+          />
         ) : activeTab === 'profile' ? (
           <ProfilePage
             onBackToMonitor={() => setActiveTab('monitor')}
@@ -355,7 +436,39 @@ export default function App() {
           <CustomersPage
             onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
-            onSelectJob={handleSelectJob}
+            onSelectJob={handleLocateJobOnMap}
+          />
+        ) : activeTab === 'jobs' ? (
+          <JobsPage
+            jobs={jobs}
+            drivers={drivers}
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onSelectJob={handleLocateJobOnMap}
+            onUpdateJob={handleUpdateJob}
+            onCreateJob={handleCreateJob}
+            onNotification={showToast}
+          />
+        ) : activeTab === 'drivers' ? (
+          <DriversPage
+            drivers={drivers}
+            jobs={jobs}
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onSelectDriver={handleLocateDriverOnMap}
+            onUpdateDriver={handleUpdateDriver}
+            onCreateDriver={handleCreateDriver}
+            onNotification={showToast}
+          />
+        ) : activeTab === 'vehicles' ? (
+          <VehiclesPage
+            drivers={drivers}
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onSelectDriver={handleLocateDriverOnMap}
+            onNotification={showToast}
+          />
+        ) : activeTab === 'reports' ? (
+          <ReportsPage
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onNotification={showToast}
           />
         ) : (
           <>

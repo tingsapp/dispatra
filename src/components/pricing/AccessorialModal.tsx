@@ -70,7 +70,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+    <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
       <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
@@ -101,7 +101,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Stair Carry, Two-Person Crew, Liftgate"
-              className="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
             />
           </div>
 
@@ -152,7 +152,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                   required
                   value={price}
                   onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-                  className="w-full text-sm pl-6 pr-2 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="w-full text-sm pl-6 pr-2 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
               </div>
             </div>
@@ -166,7 +166,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                 value={unitLabel}
                 onChange={(e) => setUnitLabel(e.target.value)}
                 placeholder={pricingType === 'flat' ? 'flat fee' : 'e.g., per flight, per min'}
-                className="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
               />
             </div>
           </div>
@@ -180,7 +180,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g., Billed per flight of stairs navigated at pickup or delivery site."
-              className="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 resize-none"
             />
           </div>
 
@@ -190,7 +190,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
               id="accessorialActive"
               checked={active}
               onChange={(e) => setActive(e.target.checked)}
-              className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900 border-slate-300 cursor-pointer"
+              className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
             />
             <label htmlFor="accessorialActive" className="text-xs font-medium text-slate-700 cursor-pointer">
               Accessorial is active and billable

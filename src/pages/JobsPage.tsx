@@ -24,6 +24,8 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Job, Driver } from '../types';
+import { Select } from '../components/ui/Select';
+import { SearchInput } from '../components/ui/SearchInput';
 
 interface JobsPageProps {
   jobs: Job[];
@@ -181,106 +183,117 @@ export function JobsPage({
   };
 
   return (
-    <div className="relative flex flex-col h-full w-full bg-slate-50 text-slate-900 overflow-hidden font-sans">
-      {/* TOP BAR */}
-      <header className="flex-none bg-white border-b border-slate-200 px-6 py-4 z-10 shadow-xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBackToMonitor}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Back to Monitor
-            </button>
-            <div className="h-4 w-px bg-slate-300" />
+    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
+      {/* HEADER BAR */}
+      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBackToMonitor}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            title="Return to Monitor Map"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>Back to Monitor</span>
+          </button>
+
+          <div className="h-4 w-px bg-slate-200" />
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
+              <Package className="w-4 h-4" />
+            </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                <Package className="w-5 h-5 text-blue-600" />
+              <h1 className="text-base font-semibold text-slate-900 leading-tight">
                 Jobs & Dispatches
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] text-slate-500 leading-tight">
                 Live delivery manifests, route windows, cargo specs, and driver assignments
               </p>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-colors shadow-xs cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-600" />
-              Export Manifest
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New Job Dispatch
-            </button>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export Manifest</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Job Dispatch</span>
+          </button>
         </div>
       </header>
 
-      {/* METRIC CARDS BANNER */}
-      <div className="flex-none bg-white/70 border-b border-slate-200 px-6 py-3">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-slate-500">Total Today's Jobs</div>
-            <div className="text-xl font-bold text-slate-900 mt-1">{totalCount}</div>
-          </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> On Schedule
+      {/* BODY CONTENT */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* STATS OVERVIEW CARDS */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Total Today's Jobs</span>
+              <Package className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="text-xl font-bold text-slate-900 mt-1">{onTimeCount}</div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">{totalCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">All dispatches scheduled today</div>
           </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-rose-600 flex items-center gap-1">
-              <AlertTriangle className="w-3.5 h-3.5" /> At Risk / Late
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>On Schedule</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             </div>
-            <div className="text-xl font-bold text-rose-600 mt-1">{atRiskCount}</div>
+            <div className="mt-2 text-2xl font-bold text-emerald-600">{onTimeCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Running inside the delivery window</div>
           </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-amber-600 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" /> Unassigned
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>At Risk / Late</span>
+              <AlertTriangle className="w-4 h-4 text-rose-500" />
             </div>
-            <div className="text-xl font-bold text-amber-600 mt-1">{noDriverCount}</div>
+            <div className="mt-2 text-2xl font-bold text-rose-600">{atRiskCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Needs dispatcher intervention</div>
           </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-slate-500">Completed</div>
-            <div className="text-xl font-bold text-slate-700 mt-1">{completedCount}</div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Unassigned</span>
+              <AlertCircle className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="mt-2 text-2xl font-bold text-amber-600">{noDriverCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Awaiting a driver assignment</div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Completed</span>
+              <Check className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">{completedCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Delivered and closed out</div>
           </div>
         </div>
-      </div>
 
-      {/* SEARCH AND FILTERS */}
-      <div className="flex-none px-6 py-3 bg-slate-100 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search job #, customer, address, driver..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+        {/* SEARCH & FILTERS BAR */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search job #, customer, address, or driver..."
+          />
 
-          <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+          <div className="flex items-center gap-2">
             {/* Status Filter Buttons */}
-            <div className="inline-flex bg-white p-0.5 border border-slate-300 rounded-lg text-xs font-medium">
+            <div className="inline-flex bg-slate-50 p-0.5 border border-slate-200 rounded-lg text-xs font-medium">
               <button
                 onClick={() => setStatusFilter('all')}
                 className={`px-2.5 py-1 rounded-md transition-colors ${
@@ -324,24 +337,24 @@ export function JobsPage({
             </div>
 
             {/* Service Type Filter */}
-            <select
+            <Select
+              aria-label="Filter by service level"
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="all">All Service Levels</option>
-              <option value="Standard">Standard Delivery</option>
-              <option value="Priority">Priority Freight</option>
-              <option value="Medical">Medical Supplies</option>
-              <option value="Express">Express Courier</option>
-            </select>
+              onValueChange={setTypeFilter}
+              align="end"
+              options={[
+                { value: 'all', label: 'All Service Levels' },
+                { value: 'Standard', label: 'Standard Delivery' },
+                { value: 'Priority', label: 'Priority Freight' },
+                { value: 'Medical', label: 'Medical Supplies' },
+                { value: 'Express', label: 'Express Courier' }
+              ]}
+            />
           </div>
         </div>
-      </div>
 
-      {/* JOBS MAIN TABLE */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        <div className="max-w-7xl mx-auto bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+        {/* JOBS TABLE */}
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
           {filteredJobs.length === 0 ? (
             <div className="p-12 text-center">
               <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -361,9 +374,10 @@ export function JobsPage({
               </button>
             </div>
           ) : (
-            <table className="w-full text-left text-xs border-collapse">
+            <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-medium">
+                <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide uppercase">
                   <th className="py-3 px-4">Job / Status</th>
                   <th className="py-3 px-4">Customer</th>
                   <th className="py-3 px-4">Route Leg (Pickup → Delivery)</th>
@@ -373,7 +387,7 @@ export function JobsPage({
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
                 {filteredJobs.map((job) => {
                   const assignedDriver = drivers.find((d) => d.id === job.assignedDriverId);
 
@@ -483,7 +497,7 @@ export function JobsPage({
 
                             {/* Dropdown for assignment */}
                             {reassigningJobId === job.id && (
-                              <div className="absolute left-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg p-2 z-50">
+                              <div className="absolute left-0 top-full mt-1 w-52 bg-white rounded-xl border border-slate-200/90 shadow-lg p-2 z-50">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
                                   Select Driver
                                 </div>
@@ -538,19 +552,20 @@ export function JobsPage({
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
 
       {/* JOB DOSSIER SLIDE-OVER DRAWER */}
       {activeJobDossier && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden animate-in slide-in-from-right duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Header */}
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <span className="text-base font-bold text-slate-900">{activeJobDossier.jobNumber}</span>
                 <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
@@ -593,7 +608,7 @@ export function JobsPage({
               </div>
 
               {/* Routing Leg Details */}
-              <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
+              <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-3">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Route & Stops</div>
                 
                 <div className="space-y-3">
@@ -627,24 +642,25 @@ export function JobsPage({
               </div>
 
               {/* Assigned Driver Section */}
-              <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
+              <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Driver Assignment</div>
                   <span className="text-[11px] text-slate-400">Select to reassign</span>
                 </div>
 
-                <select
+                <Select
+                  aria-label="Reassign driver"
+                  className="w-full"
                   value={activeJobDossier.assignedDriverId || 'unassigned'}
-                  onChange={(e) => handleReassignDriver(activeJobDossier, e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-                >
-                  <option value="unassigned">-- Unassigned (Needs Dispatch) --</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} ({d.id}) - {d.statusLabel} ({d.vehicle.split(' ')[0]})
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(v) => handleReassignDriver(activeJobDossier, v)}
+                  options={[
+                    { value: 'unassigned', label: '— Unassigned (Needs Dispatch) —' },
+                    ...drivers.map((d) => ({
+                      value: d.id,
+                      label: `${d.name} (${d.id}) · ${d.statusLabel} (${d.vehicle.split(' ')[0]})`
+                    }))
+                  ]}
+                />
               </div>
 
               {/* Cargo & Handling Specs */}
@@ -694,12 +710,12 @@ export function JobsPage({
 
       {/* CREATE NEW JOB MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">New Job Dispatch</h3>
                 <p className="text-xs text-slate-500">Register a new customer pickup and delivery route</p>
@@ -720,24 +736,26 @@ export function JobsPage({
                     type="text"
                     value={newJobNumber}
                     onChange={(e) => setNewJobNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Service Level</label>
-                  <select
+                  <Select
+                    aria-label="Service level"
+                    className="w-full"
                     value={newJobType}
-                    onChange={(e) => setNewJobType(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Standard Delivery">Same-Day Standard</option>
-                    <option value="Rush Expedited">Rush Expedited (2-Hour)</option>
-                    <option value="Direct Hotshot">Direct Hotshot</option>
-                    <option value="Scheduled Economy">Scheduled Economy</option>
-                    <option value="Medical Supplies">Medical Supplies (Cold Chain)</option>
-                    <option value="Priority Freight">Priority Freight (Heavy)</option>
-                  </select>
+                    onValueChange={setNewJobType}
+                    options={[
+                      { value: 'Standard Delivery', label: 'Same-Day Standard' },
+                      { value: 'Rush Expedited', label: 'Rush Expedited (2-Hour)' },
+                      { value: 'Direct Hotshot', label: 'Direct Hotshot' },
+                      { value: 'Scheduled Economy', label: 'Scheduled Economy' },
+                      { value: 'Medical Supplies', label: 'Medical Supplies (Cold Chain)' },
+                      { value: 'Priority Freight', label: 'Priority Freight (Heavy)' }
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -749,7 +767,7 @@ export function JobsPage({
                     placeholder="e.g. Pacific Coast Fresh"
                     value={newCustomerName}
                     onChange={(e) => setNewCustomerName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
@@ -759,7 +777,7 @@ export function JobsPage({
                     type="tel"
                     value={newCustomerPhone}
                     onChange={(e) => setNewCustomerPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
@@ -772,7 +790,7 @@ export function JobsPage({
                   placeholder="e.g. 1055 W Georgia St, Vancouver, BC"
                   value={newPickupAddress}
                   onChange={(e) => setNewPickupAddress(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                   required
                 />
               </div>
@@ -784,7 +802,7 @@ export function JobsPage({
                   placeholder="e.g. 200 Water St, Gastown, Vancouver, BC"
                   value={newDropoffAddress}
                   onChange={(e) => setNewDropoffAddress(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                   required
                 />
               </div>
@@ -796,7 +814,7 @@ export function JobsPage({
                     type="text"
                     value={newScheduledTime}
                     onChange={(e) => setNewScheduledTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                   />
                 </div>
                 <div>
@@ -805,25 +823,26 @@ export function JobsPage({
                     type="text"
                     value={newCargoWeight}
                     onChange={(e) => setNewCargoWeight(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Assign Driver (Optional)</label>
-                <select
+                <Select
+                  aria-label="Assign driver"
+                  className="w-full"
                   value={newDriverId}
-                  onChange={(e) => setNewDriverId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-                >
-                  <option value="unassigned">-- Leave Unassigned (Staged for Dispatch) --</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} ({d.id}) - {d.statusLabel}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={setNewDriverId}
+                  options={[
+                    { value: 'unassigned', label: '— Leave Unassigned (Staged for Dispatch) —' },
+                    ...drivers.map((d) => ({
+                      value: d.id,
+                      label: `${d.name} (${d.id}) · ${d.statusLabel}`
+                    }))
+                  ]}
+                />
               </div>
 
               <div>
@@ -833,7 +852,7 @@ export function JobsPage({
                   placeholder="e.g. Liftgate required, call receiver 10m before arrival."
                   value={newInstructions}
                   onChange={(e) => setNewInstructions(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
               </div>
 

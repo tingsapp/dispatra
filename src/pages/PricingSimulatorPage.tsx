@@ -26,63 +26,66 @@ export const PricingSimulatorPage: React.FC<PricingSimulatorPageProps> = ({
   };
 
   return (
-    <div className="h-full w-full bg-slate-50 flex flex-col overflow-y-auto select-none">
-      {/* TOP HEADER */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onBackToMonitor}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Return to Monitor</span>
-            </button>
-            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans select-none">
+      {/* HEADER BAR */}
+      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={onBackToMonitor}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            title="Return to Monitor Map"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>Back to Monitor</span>
+          </button>
+
+          <div className="h-4 w-px bg-slate-200" />
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
+              <Calculator className="w-4 h-4" />
+            </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-semibold text-slate-900 tracking-tight flex items-center gap-2">
-                  <Calculator className="w-5 h-5 text-slate-700" />
-                  <span>Pricing Simulator</span>
-                </h1>
-                <span className="text-[11px] font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200/60">
+              <h1 className="text-base font-semibold text-slate-900 leading-tight flex items-center gap-2">
+                Pricing Simulator
+                <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full border border-slate-200">
                   Live Calculator
                 </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Simulate quote calculations by selecting vehicle class, delivery speed, trip distance, and extra accessorials.
+              </h1>
+              <p className="text-[11px] text-slate-500 leading-tight">
+                Simulate quote calculations by vehicle class, delivery speed, trip distance, and extra accessorials.
               </p>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2">
-            {onNavigateToServices && (
-              <button
-                type="button"
-                onClick={onNavigateToServices}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
-              >
-                <Sliders className="w-3.5 h-3.5 text-slate-500" />
-                <span>Services & Accessorials Settings</span>
-              </button>
-            )}
-
+        <div className="flex items-center gap-3">
+          {onNavigateToServices && (
             <button
               type="button"
-              onClick={handleResetRates}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
-              title="Reset rates to standard defaults"
+              onClick={onNavigateToServices}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-              <span>Reset Defaults</span>
+              <Sliders className="w-3.5 h-3.5 text-slate-500" />
+              <span>Services & Accessorials</span>
             </button>
-          </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleResetRates}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            title="Reset rates to standard defaults"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+            <span>Reset Defaults</span>
+          </button>
         </div>
       </header>
 
       {/* MAIN SIMULATOR WORKSPACE */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-6">
+      <main className="flex-1 overflow-y-auto p-6">
         <SimpleSimulator
           key={resetKey}
           services={config.services}

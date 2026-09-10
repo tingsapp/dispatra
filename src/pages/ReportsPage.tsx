@@ -17,6 +17,8 @@ import {
   Printer,
   ChevronDown
 } from 'lucide-react';
+import { Select } from '../components/ui/Select';
+import { SearchInput } from '../components/ui/SearchInput';
 import {
   AUDIT_LOG_ITEMS,
   SEVEN_DAYS_PERFORMANCE,
@@ -99,122 +101,129 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
   };
 
   return (
-    <div className="relative flex flex-col h-full w-full bg-slate-50 text-slate-900 overflow-hidden font-sans">
+    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
       {/* TOP BAR */}
-      <header className="flex-none bg-white border-b border-slate-200 px-6 py-4 z-10 shadow-xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBackToMonitor}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Back to Monitor
-            </button>
-            <div className="h-4 w-px bg-slate-300" />
+      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBackToMonitor}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            title="Return to Monitor Map"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>Back to Monitor</span>
+          </button>
+
+          <div className="h-4 w-px bg-slate-200" />
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
+              <BarChart2 className="w-4 h-4" />
+            </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                <BarChart2 className="w-5 h-5 text-blue-600" />
+              <h1 className="text-base font-semibold text-slate-900 leading-tight">
                 Operational Reports & SLA Analytics
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] text-slate-500 leading-tight">
                 On-time compliance, hourly dispatch throughput, driver utilization, and billing audits
               </p>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2.5">
-            {/* Date Range Selector */}
-            <div className="inline-flex bg-slate-100 p-0.5 border border-slate-300 rounded-lg text-xs font-medium">
-              <button
-                onClick={() => setDateRange('today')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  dateRange === 'today' ? 'bg-white text-slate-900 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Today
-              </button>
-              <button
-                onClick={() => setDateRange('7days')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  dateRange === '7days' ? 'bg-white text-slate-900 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Last 7 Days
-              </button>
-              <button
-                onClick={() => setDateRange('month')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  dateRange === 'month' ? 'bg-white text-slate-900 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Month to Date
-              </button>
-            </div>
-
+        <div className="flex items-center gap-3">
+          {/* Date Range Selector */}
+          <div className="inline-flex bg-slate-50 p-0.5 border border-slate-200 rounded-lg text-xs font-medium">
             <button
-              onClick={handlePrintSummary}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-colors shadow-xs cursor-pointer"
+              onClick={() => setDateRange('today')}
+              className={`px-2.5 py-1 rounded-md transition-colors ${
+                dateRange === 'today' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <Printer className="w-3.5 h-3.5 text-slate-600" />
-              Print PDF
+              Today
             </button>
             <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
+              onClick={() => setDateRange('7days')}
+              className={`px-2.5 py-1 rounded-md transition-colors ${
+                dateRange === '7days' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <Download className="w-3.5 h-3.5" />
-              Export CSV
+              Last 7 Days
+            </button>
+            <button
+              onClick={() => setDateRange('month')}
+              className={`px-2.5 py-1 rounded-md transition-colors ${
+                dateRange === 'month' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Month to Date
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={handlePrintSummary}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-500" />
+            <span>Print PDF</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
         </div>
       </header>
 
-      {/* BODY SCROLLABLE AREA */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+      {/* BODY CONTENT */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="space-y-6">
           {/* TOP KPI PERFORMANCE TILES */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-              <div className="text-xs font-medium text-slate-500 flex items-center justify-between">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
+              <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
                 <span>On-Time SLA</span>
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
                   +1.4%
                 </span>
               </div>
               <div className="text-2xl font-bold text-slate-900 mt-2">96.8%</div>
-              <div className="text-[11px] text-slate-400 mt-1">Target threshold: 95.0%</div>
+              <div className="mt-1 text-[11px] text-slate-500">Target threshold: 95.0%</div>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-              <div className="text-xs font-medium text-slate-500">Dispatches Completed</div>
+            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
+              <div className="text-[11px] font-medium text-slate-500">Dispatches Completed</div>
               <div className="text-2xl font-bold text-slate-900 mt-2">306</div>
-              <div className="text-[11px] text-slate-400 mt-1">44 completed today</div>
+              <div className="mt-1 text-[11px] text-slate-500">44 completed today</div>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-              <div className="text-xs font-medium text-slate-500">Average Stop Dwell</div>
+            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
+              <div className="text-[11px] font-medium text-slate-500">Average Stop Dwell</div>
               <div className="text-2xl font-bold text-slate-900 mt-2">8.4 min</div>
               <div className="text-[11px] text-emerald-600 mt-1">1.2 min faster vs avg</div>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-              <div className="text-xs font-medium text-slate-500">Fleet Distance</div>
+            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
+              <div className="text-[11px] font-medium text-slate-500">Fleet Distance</div>
               <div className="text-2xl font-bold text-slate-900 mt-2">1,840 km</div>
-              <div className="text-[11px] text-slate-400 mt-1">Across 8 active units</div>
+              <div className="mt-1 text-[11px] text-slate-500">Across 8 active units</div>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-              <div className="text-xs font-medium text-slate-500">Dispatched Revenue</div>
+            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
+              <div className="text-[11px] font-medium text-slate-500">Dispatched Revenue</div>
               <div className="text-2xl font-bold text-slate-900 mt-2">$28,270</div>
-              <div className="text-[11px] text-slate-400 mt-1">Avg $92.40 per stop</div>
+              <div className="mt-1 text-[11px] text-slate-500">Avg $92.40 per stop</div>
             </div>
           </div>
 
           {/* VISUAL ANALYTICS: HOURLY THROUGHPUT & 7-DAY COMPLIANCE */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Chart 1: Hourly Dispatch Volume */}
-            <div className="p-5 bg-white border border-slate-200 rounded-xl shadow-xs">
+            <div className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Hourly Dispatch Volume & Rush Peaks</h3>
@@ -230,18 +239,21 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
                 {HOURLY_VOLUMES.map((item) => {
                   const heightPercent = Math.round((item.volume / 45) * 100);
                   return (
-                    <div key={item.hour} className="flex-1 flex flex-col items-center gap-1 group">
+                    <div key={item.hour} className="flex-1 h-full flex flex-col items-center gap-1 group">
                       <div className="text-[10px] font-mono text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
                         {item.volume}
                       </div>
-                      <div
-                        className={`w-full rounded-t-sm transition-all duration-300 ${
-                          item.peak
-                            ? 'bg-blue-600 group-hover:bg-blue-700'
-                            : 'bg-slate-200 group-hover:bg-slate-300'
-                        }`}
-                        style={{ height: `${heightPercent}%` }}
-                      />
+                      {/* flex-1 gives this track a resolved height so the bar's % height applies */}
+                      <div className="flex-1 w-full flex items-end">
+                        <div
+                          className={`w-full rounded-t-sm transition-all duration-300 ${
+                            item.peak
+                              ? 'bg-slate-900 group-hover:bg-slate-700'
+                              : 'bg-slate-200 group-hover:bg-slate-300'
+                          }`}
+                          style={{ height: `${heightPercent}%` }}
+                        />
+                      </div>
                       <div className="text-[9px] text-slate-400 font-mono mt-1">{item.hour}</div>
                     </div>
                   );
@@ -249,7 +261,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
               </div>
               <div className="flex items-center justify-between text-xs text-slate-400 mt-3">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-blue-600 rounded-xs" /> Priority Peak Windows (09:00 - 11:00, 14:00)
+                  <span className="w-2.5 h-2.5 bg-slate-900 rounded-xs" /> Priority Peak Windows (09:00 - 11:00, 14:00)
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 bg-slate-200 rounded-xs" /> Standard Flow
@@ -258,7 +270,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
             </div>
 
             {/* Chart 2: 7-Day Performance & SLA Trend */}
-            <div className="p-5 bg-white border border-slate-200 rounded-xl shadow-xs">
+            <div className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">7-Day SLA Trend & Revenue</h3>
@@ -313,7 +325,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
           </div>
 
           {/* ACCESSORIAL BREAKDOWN TILES */}
-          <div className="p-5 bg-white border border-slate-200 rounded-xl shadow-xs">
+          <div className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
             <h3 className="text-sm font-bold text-slate-900 mb-1">Accessorial Surcharges & Extra Services</h3>
             <p className="text-xs text-slate-500 mb-4">Value-add billing captured during dispatch and offload</p>
 
@@ -342,7 +354,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
           </div>
 
           {/* SLA DISPATCH AUDIT LOG TABLE */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
             <div className="p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Dispatch Audit & SLA Variance Log</h3>
@@ -352,34 +364,32 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="relative w-64">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search audit log..."
-                    value={auditSearchQuery}
-                    onChange={(e) => setAuditSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                <SearchInput
+                  className="w-64"
+                  value={auditSearchQuery}
+                  onChange={setAuditSearchQuery}
+                  placeholder="Search audit log..."
+                />
 
-                <select
+                <Select
+                  aria-label="Filter by SLA outcome"
                   value={slaFilter}
-                  onChange={(e) => setSlaFilter(e.target.value as any)}
-                  className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
-                >
-                  <option value="all">All SLA Outcomes</option>
-                  <option value="on_time">On Time</option>
-                  <option value="late">Late (SLA Breached)</option>
-                  <option value="ahead">Ahead of Schedule</option>
-                </select>
+                  onValueChange={(v) => setSlaFilter(v as any)}
+                  align="end"
+                  options={[
+                    { value: 'all', label: 'All SLA Outcomes' },
+                    { value: 'on_time', label: 'On Time' },
+                    { value: 'late', label: 'Late (SLA Breached)' },
+                    { value: 'ahead', label: 'Ahead of Schedule' }
+                  ]}
+                />
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-medium">
+                  <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide uppercase">
                     <th className="py-3 px-4">Timestamp / Job</th>
                     <th className="py-3 px-4">Customer</th>
                     <th className="py-3 px-4">Driver & Vehicle</th>
@@ -390,7 +400,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
                     <th className="py-3 px-4 text-center">POD Verified</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
                   {filteredAuditLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 whitespace-nowrap">

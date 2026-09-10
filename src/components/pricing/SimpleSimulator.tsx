@@ -10,10 +10,13 @@ import {
   Layers,
   ShieldCheck,
   AlertTriangle,
+  TrendingUp,
   Weight,
   Package
 } from 'lucide-react';
 import { DeliveryService, VehicleType, AccessorialItem } from '../../types/simplePricing';
+import { loadBillingConfig } from '../../lib/billingStorage';
+import { computeQuote, applyDistanceRules } from '../../lib/billingEngine';
 
 interface SimpleSimulatorProps {
   services: DeliveryService[];
@@ -41,6 +44,9 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
   });
 
   const [distanceKm, setDistanceKm] = useState<number>(15);
+
+  // Org-wide charges, tax, and cost basis from Organization Settings > Billing.
+  const [billing] = useState(() => loadBillingConfig());
 
   // Optional Cargo Fit Inputs for Dispatch Testing
   const [testWeightKg, setTestWeightKg] = useState<number | ''>('');
@@ -140,14 +146,15 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
         kmCharge: 0,
         accessorialItems: [],
         accessorialTotal: 0,
-        grandTotal: 0
+        grandTotal: 0,
+        quote: null as ReturnType<typeof computeQuote> | null
       };
     }
 
     const serviceBaseFee = currentService.basePrice;
     const vehicleSurcharge = currentVehicle ? currentVehicle.baseSurcharge : 0;
     const includedKm = currentService.includedKm;
-    const billableKm = Math.max(0, distanceKm - includedKm);
+    const billableKm = Math.max(0, applyDistanceRules(distanceKm, billing) - includedKm);
     const kmCharge = billableKm * currentService.perKmPrice;
 
     const accessorialItems: {
@@ -180,7 +187,18 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
       }
     });
 
-    const grandTotal = serviceBaseFee + vehicleSurcharge + kmCharge + accessorialTotal;
+    // Transport is the priced side; org-wide charges and tax come from Billing settings.
+    const transport = serviceBaseFee + vehicleSurcharge + kmCharge;
+    const quote = computeQuote(
+      {
+        transport,
+        accessorials: accessorialTotal,
+        distanceKm,
+        stopCount: 2,
+        vehicleId: currentVehicle?.id
+      },
+      billing
+    );
 
     return {
       serviceBaseFee,
@@ -190,13 +208,14 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
       kmCharge,
       accessorialItems,
       accessorialTotal,
-      grandTotal
+      grandTotal: quote.total,
+      quote
     };
-  }, [currentService, currentVehicle, distanceKm, activeAccessorials, selectedAccessorials]);
+  }, [currentService, currentVehicle, distanceKm, activeAccessorials, selectedAccessorials, billing]);
 
   if (activeServices.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+      <div className="bg-white rounded-xl border border-slate-200/90 p-8 text-center">
         <p className="text-sm text-slate-500">
           No active services found. Please activate or add at least one service in the Services tab.
         </p>
@@ -209,7 +228,7 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
       {/* LEFT COLUMN: SIMPLE INPUTS */}
       <div className="lg:col-span-7 space-y-5">
         {/* 1. SELECT VEHICLE TYPE */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <Truck className="w-3.5 h-3.5 text-slate-700" />
@@ -275,7 +294,7 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
                   placeholder="Cargo kg"
                   value={testWeightKg}
                   onChange={(e) => setTestWeightKg(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  className="w-full text-xs px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  className="w-full text-xs px-2 py-1 border border-slate-200 rounded focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
                 <span className="absolute right-1.5 top-1 text-[10px] text-slate-400">kg</span>
               </div>
@@ -286,7 +305,7 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
                   placeholder="Pallets"
                   value={testPallets}
                   onChange={(e) => setTestPallets(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                  className="w-full text-xs px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  className="w-full text-xs px-2 py-1 border border-slate-200 rounded focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
                 <span className="absolute right-1.5 top-1 text-[10px] text-slate-400">skids</span>
               </div>
@@ -320,7 +339,7 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
         </div>
 
         {/* 2. SELECT SERVICE */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               2. Choose Delivery Service
@@ -375,7 +394,7 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
         </div>
 
         {/* 3. DISTANCE (KM) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               3. Trip Distance
@@ -394,7 +413,7 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
                 step="1"
                 value={distanceKm}
                 onChange={(e) => setDistanceKm(Math.max(0, parseFloat(e.target.value) || 0))}
-                className="w-full text-base font-medium pl-9 pr-12 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full text-base font-medium pl-9 pr-12 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
               />
               <span className="absolute right-3.5 top-2.5 text-xs font-medium text-slate-400">km</span>
             </div>
@@ -420,7 +439,7 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
         </div>
 
         {/* 4. ACCESSORIAL CHARGES */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs">
+        <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               4. Extra Accessorials
@@ -450,7 +469,7 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
                         type="checkbox"
                         checked={state.checked}
                         onChange={() => toggleAccessorial(acc.id)}
-                        className="w-4 h-4 mt-0.5 rounded text-slate-900 focus:ring-slate-900 border-slate-300 cursor-pointer"
+                        className="mt-0.5 w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
                       />
                       <div>
                         <div className="flex items-center gap-2">
@@ -499,7 +518,7 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
 
       {/* RIGHT COLUMN: INSTANT QUOTE BREAKDOWN */}
       <div className="lg:col-span-5 sticky top-6">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-sm overflow-hidden">
           {/* Header with big total */}
           <div className="p-6 bg-slate-900 text-white">
             <div className="flex items-center justify-between">
@@ -610,13 +629,93 @@ export const SimpleSimulator: React.FC<SimpleSimulatorProps> = ({
               )}
             </div>
 
+            {/* Org-wide charges, minimum floor, and tax from Billing settings */}
+            {calculation.quote && (
+              <>
+                {(calculation.quote.lines.length > 0 || calculation.quote.taxLines.length > 0) && (
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    {calculation.quote.lines.map((line) => (
+                      <div key={line.key} className="flex items-center justify-between">
+                        <div className="text-slate-700">
+                          <span>{line.label}</span>
+                          {line.detail && (
+                            <span className="text-slate-500 text-[11px] ml-1">({line.detail})</span>
+                          )}
+                        </div>
+                        <span className="font-medium text-slate-900">
+                          +${line.amount.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <span className="font-semibold text-slate-700">Subtotal</span>
+                      <span className="font-semibold text-slate-900">
+                        ${calculation.quote.netSubtotal.toFixed(2)}
+                      </span>
+                    </div>
+
+                    {calculation.quote.taxLines.map((line) => (
+                      <div key={line.key} className="flex items-center justify-between">
+                        <div className="text-slate-700">
+                          <span>{line.label}</span>
+                          <span className="text-slate-500 text-[11px] ml-1">{line.detail}</span>
+                        </div>
+                        <span className="font-medium text-slate-900">
+                          +${line.amount.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
             {/* Total summary bar */}
             <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
               <span className="text-sm font-semibold text-slate-900">Total Quote</span>
               <span className="text-base font-bold text-slate-900">
-                ${calculation.grandTotal.toFixed(2)} CAD
+                ${calculation.grandTotal.toFixed(2)} {billing.invoicing.currency}
               </span>
             </div>
+
+            {/* Internal margin readout — cost basis from Billing settings */}
+            {calculation.quote && (
+              <div
+                className={`p-3 rounded-lg border text-[11px] space-y-1.5 ${
+                  calculation.quote.meetsTargetMargin
+                    ? 'bg-emerald-50/70 border-emerald-200'
+                    : 'bg-rose-50/70 border-rose-200'
+                }`}
+              >
+                <div className="flex items-center justify-between font-medium text-slate-700">
+                  <span className="flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-slate-500" />
+                    Internal margin (not shown to customer)
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      calculation.quote.meetsTargetMargin ? 'text-emerald-700' : 'text-rose-700'
+                    }`}
+                  >
+                    {calculation.quote.grossMarginPercent.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Estimated cost</span>
+                  <span className="font-mono">${calculation.quote.estimatedCost.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Gross profit</span>
+                  <span className="font-mono">${calculation.quote.grossProfit.toFixed(2)}</span>
+                </div>
+                {!calculation.quote.meetsTargetMargin && (
+                  <p className="text-rose-700 font-medium pt-1">
+                    Below the {billing.operatingCost.targetGrossMarginPercent}% target margin.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Vehicle Specs Summary Badge */}
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-[11px] space-y-1">

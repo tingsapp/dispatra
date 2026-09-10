@@ -22,6 +22,8 @@ import {
   LayoutGrid
 } from 'lucide-react';
 import { Driver, Job } from '../types';
+import { Select } from '../components/ui/Select';
+import { SearchInput } from '../components/ui/SearchInput';
 
 interface DriversPageProps {
   drivers: Driver[];
@@ -130,100 +132,108 @@ export function DriversPage({
   };
 
   return (
-    <div className="relative flex flex-col h-full w-full bg-slate-50 text-slate-900 overflow-hidden font-sans">
-      {/* TOP BAR */}
-      <header className="flex-none bg-white border-b border-slate-200 px-6 py-4 z-10 shadow-xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBackToMonitor}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Back to Monitor
-            </button>
-            <div className="h-4 w-px bg-slate-300" />
+    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
+      {/* HEADER BAR */}
+      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBackToMonitor}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            title="Return to Monitor Map"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>Back to Monitor</span>
+          </button>
+
+          <div className="h-4 w-px bg-slate-200" />
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
+              <Users className="w-4 h-4" />
+            </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-600" />
+              <h1 className="text-base font-semibold text-slate-900 leading-tight">
                 Fleet Drivers Directory
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] text-slate-500 leading-tight">
                 Active driver roster, vehicle assignments, real-time GPS telemetry, and duty status
               </p>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => onNotification('Broadcast alert sent to all active fleet drivers')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-colors shadow-xs cursor-pointer"
-            >
-              <Radio className="w-3.5 h-3.5 text-blue-600" />
-              Fleet Broadcast
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Driver
-            </button>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onNotification('Broadcast alert sent to all active fleet drivers')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+          >
+            <Radio className="w-3.5 h-3.5 text-slate-500" />
+            <span>Fleet Broadcast</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Driver</span>
+          </button>
         </div>
       </header>
 
-      {/* METRIC CARDS BANNER */}
-      <div className="flex-none bg-white/70 border-b border-slate-200 px-6 py-3">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-slate-500">Total Drivers Roster</div>
-            <div className="text-xl font-bold text-slate-900 mt-1">{totalDrivers}</div>
-          </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-blue-600 flex items-center gap-1">
-              <Truck className="w-3.5 h-3.5" /> On Route / En Route
+      {/* BODY CONTENT */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* STATS OVERVIEW CARDS */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Total Drivers Roster</span>
+              <Users className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="text-xl font-bold text-blue-600 mt-1">{onRouteCount}</div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">{totalDrivers}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Registered fleet operators</div>
           </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Available for Dispatch
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>On Route / En Route</span>
+              <Truck className="w-4 h-4 text-blue-500" />
             </div>
-            <div className="text-xl font-bold text-emerald-600 mt-1">{availableCount}</div>
+            <div className="mt-2 text-2xl font-bold text-blue-600">{onRouteCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Currently running live consignments</div>
           </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-slate-500">Fleet On-Time Rate</div>
-            <div className="text-xl font-bold text-slate-900 mt-1">98.2%</div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Available for Dispatch</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            </div>
+            <div className="mt-2 text-2xl font-bold text-emerald-600">{availableCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Ready to accept new assignments</div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Fleet On-Time Rate</span>
+              <Activity className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">98.2%</div>
+            <div className="mt-1 text-[11px] text-slate-500">Rolling 30-day delivery performance</div>
           </div>
         </div>
-      </div>
 
-      {/* SEARCH AND FILTERS */}
-      <div className="flex-none px-6 py-3 bg-slate-100 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search driver name, ID (D14), vehicle..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+        {/* SEARCH & FILTERS BAR */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search drivers by name, ID (D14), or vehicle..."
+          />
 
-          <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+          <div className="flex items-center gap-2">
             {/* Status Filter Buttons */}
-            <div className="inline-flex bg-white p-0.5 border border-slate-300 rounded-lg text-xs font-medium">
+            <div className="inline-flex bg-slate-50 p-0.5 border border-slate-200 rounded-lg text-xs font-medium">
               <button
                 onClick={() => setStatusFilter('all')}
                 className={`px-2.5 py-1 rounded-md transition-colors ${
@@ -257,17 +267,17 @@ export function DriversPage({
             </div>
 
             {/* View Mode Toggle */}
-            <div className="inline-flex bg-white p-0.5 border border-slate-300 rounded-lg text-slate-500">
+            <div className="inline-flex bg-slate-50 p-0.5 border border-slate-200 rounded-lg text-slate-500">
               <button
                 onClick={() => setViewMode('cards')}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === 'cards' ? 'bg-slate-100 text-slate-900' : 'hover:text-slate-700'}`}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === 'cards' ? 'bg-white text-slate-900 shadow-2xs' : 'hover:text-slate-700'}`}
                 title="Grid Cards View"
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === 'table' ? 'bg-slate-100 text-slate-900' : 'hover:text-slate-700'}`}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === 'table' ? 'bg-white text-slate-900 shadow-2xs' : 'hover:text-slate-700'}`}
                 title="Table View"
               >
                 <List className="w-4 h-4" />
@@ -275,13 +285,11 @@ export function DriversPage({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* DRIVERS CONTENT */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        <div className="max-w-7xl mx-auto">
+        {/* DRIVERS CONTENT */}
+        <div>
           {filteredDrivers.length === 0 ? (
-            <div className="p-12 text-center bg-white border border-slate-200 rounded-xl">
+            <div className="p-12 text-center bg-white rounded-xl border border-slate-200/90 shadow-2xs">
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-slate-800">No drivers match your criteria</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
@@ -307,7 +315,7 @@ export function DriversPage({
                   <div
                     key={driver.id}
                     onClick={() => setActiveDriverDrawer(driver)}
-                    className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+                    className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-blue-300 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
                   >
                     <div>
                       {/* Driver Top Header */}
@@ -403,10 +411,11 @@ export function DriversPage({
             </div>
           ) : (
             /* TABLE VIEW */
-            <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
+              <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-medium">
+                  <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide uppercase">
                     <th className="py-3 px-4">Driver</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Assigned Vehicle</th>
@@ -416,7 +425,7 @@ export function DriversPage({
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
                   {filteredDrivers.map((driver) => (
                     <tr
                       key={driver.id}
@@ -484,6 +493,7 @@ export function DriversPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
@@ -491,13 +501,13 @@ export function DriversPage({
 
       {/* DRIVER PROFILE DRAWER */}
       {activeDriverDrawer && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden animate-in slide-in-from-right duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Header */}
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
                   src={activeDriverDrawer.avatar}
@@ -548,7 +558,7 @@ export function DriversPage({
               </div>
 
               {/* Vehicle Assignment */}
-              <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
+              <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-2">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assigned Fleet Asset</div>
                 <div className="text-sm font-bold text-slate-900">{activeDriverDrawer.vehicle}</div>
                 <div className="text-slate-500 text-[11px]">
@@ -601,12 +611,12 @@ export function DriversPage({
 
       {/* ADD DRIVER MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Add Fleet Driver</h3>
                 <p className="text-xs text-slate-500">Register a new driver to the Metro Vancouver dispatch roster</p>
@@ -628,7 +638,7 @@ export function DriversPage({
                     placeholder="e.g. Jordan Lee"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
@@ -638,7 +648,7 @@ export function DriversPage({
                     type="text"
                     value={newId}
                     onChange={(e) => setNewId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
@@ -651,7 +661,7 @@ export function DriversPage({
                     type="tel"
                     value={newPhone}
                     onChange={(e) => setNewPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
@@ -661,24 +671,26 @@ export function DriversPage({
                     type="text"
                     value={newLicenseClass}
                     onChange={(e) => setNewLicenseClass(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Assigned Vehicle</label>
-                <select
+                <Select
+                  aria-label="Assigned vehicle"
+                  className="w-full"
                   value={newVehicle}
-                  onChange={(e) => setNewVehicle(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="V14 (BC DISP 901)">V14 (BC DISP 901) - 1T Mercedes Sprinter</option>
-                  <option value="V12 (BC L2 ABC 123)">V12 (BC L2 ABC 123) - 2T Ford Cutaway</option>
-                  <option value="V08 (BC TRK 882)">V08 (BC TRK 882) - 3T Freightliner Reefer</option>
-                  <option value="V04 (BC FLT 319)">V04 (BC FLT 319) - 5T Hino Box Truck</option>
-                  <option value="V19 (BC VAN 442)">V19 (BC VAN 442) - 1T Electric E-Transit</option>
-                </select>
+                  onValueChange={setNewVehicle}
+                  options={[
+                    { value: 'V14 (BC DISP 901)', label: 'V14 (BC DISP 901) · 1T Mercedes Sprinter' },
+                    { value: 'V12 (BC L2 ABC 123)', label: 'V12 (BC L2 ABC 123) · 2T Ford Cutaway' },
+                    { value: 'V08 (BC TRK 882)', label: 'V08 (BC TRK 882) · 3T Freightliner Reefer' },
+                    { value: 'V04 (BC FLT 319)', label: 'V04 (BC FLT 319) · 5T Hino Box Truck' },
+                    { value: 'V19 (BC VAN 442)', label: 'V19 (BC VAN 442) · 1T Electric E-Transit' }
+                  ]}
+                />
               </div>
 
               <div>
@@ -690,7 +702,7 @@ export function DriversPage({
                       name="status"
                       checked={newStatus === 'available'}
                       onChange={() => setNewStatus('available')}
-                      className="text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
                     />
                     <span>Available (Staged)</span>
                   </label>
@@ -700,7 +712,7 @@ export function DriversPage({
                       name="status"
                       checked={newStatus === 'on_route'}
                       onChange={() => setNewStatus('on_route')}
-                      className="text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
                     />
                     <span>On Route</span>
                   </label>

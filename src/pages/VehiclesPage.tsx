@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { VehicleAsset, loadVehicles, saveVehicles } from '../lib/vehicleStorage';
 import { Driver } from '../types';
+import { Select } from '../components/ui/Select';
+import { SearchInput } from '../components/ui/SearchInput';
 
 interface VehiclesPageProps {
   drivers: Driver[];
@@ -142,132 +144,153 @@ export function VehiclesPage({
   };
 
   return (
-    <div className="relative flex flex-col h-full w-full bg-slate-50 text-slate-900 overflow-hidden font-sans">
-      {/* TOP BAR */}
-      <header className="flex-none bg-white border-b border-slate-200 px-6 py-4 z-10 shadow-xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBackToMonitor}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Back to Monitor
-            </button>
-            <div className="h-4 w-px bg-slate-300" />
+    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
+      {/* HEADER BAR */}
+      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBackToMonitor}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            title="Return to Monitor Map"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>Back to Monitor</span>
+          </button>
+
+          <div className="h-4 w-px bg-slate-200" />
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
+              <Truck className="w-4 h-4" />
+            </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                <Truck className="w-5 h-5 text-blue-600" />
+              <h1 className="text-base font-semibold text-slate-900 leading-tight">
                 Vehicles & Fleet Assets
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] text-slate-500 leading-tight">
                 Commercial vehicle inventory, tonnage classifications, liftgate & reefer equipment, and service inspections
               </p>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => onNotification('Fleet mechanical inspection report generated')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-colors shadow-xs cursor-pointer"
-            >
-              <ShieldAlert className="w-3.5 h-3.5 text-slate-600" />
-              Inspection Log
-            </button>
-            <button
-              onClick={() => setShowRegisterModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Register Vehicle
-            </button>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onNotification('Fleet mechanical inspection report generated')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+            <span>Inspection Log</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowRegisterModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Register Vehicle</span>
+          </button>
         </div>
       </header>
 
-      {/* METRIC CARDS BANNER */}
-      <div className="flex-none bg-white/70 border-b border-slate-200 px-6 py-3">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-slate-500">Total Fleet Assets</div>
-            <div className="text-xl font-bold text-slate-900 mt-1">{totalVehicles}</div>
-          </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-blue-600 flex items-center gap-1">
-              <Truck className="w-3.5 h-3.5" /> In Service
+      {/* BODY CONTENT */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* STATS OVERVIEW CARDS */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Total Fleet Assets</span>
+              <Truck className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="text-xl font-bold text-blue-600 mt-1">{inServiceCount}</div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">{totalVehicles}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Registered commercial units</div>
           </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Available / Staged
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>In Service</span>
+              <Gauge className="w-4 h-4 text-blue-500" />
             </div>
-            <div className="text-xl font-bold text-emerald-600 mt-1">{availableCount}</div>
+            <div className="mt-2 text-2xl font-bold text-blue-600">{inServiceCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Assigned and out on route</div>
           </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-slate-600">Standby Reserve</div>
-            <div className="text-xl font-bold text-slate-700 mt-1">{standbyCount}</div>
-          </div>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="text-xs font-medium text-amber-600 flex items-center gap-1">
-              <Wrench className="w-3.5 h-3.5" /> Maintenance / Shop
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Available / Staged</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             </div>
-            <div className="text-xl font-bold text-amber-600 mt-1">{maintenanceCount}</div>
+            <div className="mt-2 text-2xl font-bold text-emerald-600">{availableCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Ready for immediate dispatch</div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Standby Reserve</span>
+              <Layers className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">{standbyCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Held back as spare capacity</div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
+            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>Maintenance / Shop</span>
+              <Wrench className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="mt-2 text-2xl font-bold text-amber-600">{maintenanceCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Out of service for repairs</div>
           </div>
         </div>
-      </div>
 
-      {/* SEARCH AND FILTERS */}
-      <div className="flex-none px-6 py-3 bg-slate-100 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search unit #, plate, model, driver..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-            />
-          </div>
+        {/* SEARCH & FILTERS BAR */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search vehicles by unit #, plate, model, or driver..."
+          />
 
-          <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+          <div className="flex items-center gap-2">
             {/* Status Filter */}
-            <select
+            <Select
+              aria-label="Filter by operational status"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
-            >
-              <option value="all">All Operational Statuses</option>
-              <option value="in_service">In Service / En Route</option>
-              <option value="available">Available / Staged</option>
-              <option value="standby">Standby</option>
-              <option value="maintenance">In Maintenance</option>
-            </select>
+              onValueChange={setStatusFilter}
+              align="end"
+              options={[
+                { value: 'all', label: 'All Operational Statuses' },
+                { value: 'in_service', label: 'In Service / En Route' },
+                { value: 'available', label: 'Available / Staged' },
+                { value: 'standby', label: 'Standby' },
+                { value: 'maintenance', label: 'In Maintenance' }
+              ]}
+            />
 
             {/* Category Filter */}
-            <select
+            <Select
+              aria-label="Filter by vehicle category"
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
-            >
-              <option value="all">All Vehicle Categories</option>
-              <option value="1 Tonne Van">1 Tonne Van</option>
-              <option value="2 Tonne Cube">2 Tonne Cube</option>
-              <option value="3 Tonne Box">3 Tonne Box</option>
-              <option value="5 Tonne Freight">5 Tonne Freight</option>
-              <option value="Refrigerated Reefer">Refrigerated Reefer</option>
-              <option value="Flatbed">Flatbed</option>
-            </select>
+              onValueChange={setCategoryFilter}
+              align="end"
+              options={[
+                { value: 'all', label: 'All Vehicle Categories' },
+                { value: '1 Tonne Van', label: '1 Tonne Van' },
+                { value: '2 Tonne Cube', label: '2 Tonne Cube' },
+                { value: '3 Tonne Box', label: '3 Tonne Box' },
+                { value: '5 Tonne Freight', label: '5 Tonne Freight' },
+                { value: 'Refrigerated Reefer', label: 'Refrigerated Reefer' },
+                { value: 'Flatbed', label: 'Flatbed' }
+              ]}
+            />
           </div>
         </div>
-      </div>
 
-      {/* VEHICLES MAIN GRID */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        <div className="max-w-7xl mx-auto">
+        {/* VEHICLES GRID */}
+        <div>
           {filteredVehicles.length === 0 ? (
-            <div className="p-12 text-center bg-white border border-slate-200 rounded-xl">
+            <div className="p-12 text-center bg-white rounded-xl border border-slate-200/90 shadow-2xs">
               <Truck className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-slate-800">No vehicles match your filter</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
@@ -293,7 +316,7 @@ export function VehiclesPage({
                   <div
                     key={vehicle.id}
                     onClick={() => setActiveVehicleDrawer(vehicle)}
-                    className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+                    className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-blue-300 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
                   >
                     <div>
                       {/* Top Header */}
@@ -430,12 +453,12 @@ export function VehiclesPage({
 
       {/* VEHICLE DOSSIER SLIDE-OVER DRAWER */}
       {activeVehicleDrawer && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden animate-in slide-in-from-right duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="text-lg font-bold text-slate-900 font-mono">
                   {activeVehicleDrawer.unitNumber}
@@ -478,7 +501,7 @@ export function VehiclesPage({
               </div>
 
               {/* Cargo & Equipment Specs */}
-              <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
+              <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-3">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cargo & Capacity Ratings</div>
                 <div className="grid grid-cols-2 gap-3 text-slate-700">
                   <div>
@@ -555,12 +578,12 @@ export function VehiclesPage({
 
       {/* REGISTER VEHICLE MODAL */}
       {showRegisterModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Register Vehicle Asset</h3>
                 <p className="text-xs text-slate-500">Add a new commercial vehicle to the Metro Vancouver fleet</p>
@@ -581,7 +604,7 @@ export function VehiclesPage({
                     type="text"
                     value={newUnitNumber}
                     onChange={(e) => setNewUnitNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
@@ -591,7 +614,7 @@ export function VehiclesPage({
                     type="text"
                     value={newPlateNumber}
                     onChange={(e) => setNewPlateNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 uppercase focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
@@ -600,31 +623,35 @@ export function VehiclesPage({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Vehicle Category</label>
-                  <select
+                  <Select
+                    aria-label="Vehicle category"
+                    className="w-full"
                     value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="1 Tonne Van">1 Tonne Van (Sprinter/Transit)</option>
-                    <option value="2 Tonne Cube">2 Tonne Cube Cutaway</option>
-                    <option value="3 Tonne Box">3 Tonne Box Truck</option>
-                    <option value="5 Tonne Freight">5 Tonne Freight Box</option>
-                    <option value="Refrigerated Reefer">Refrigerated Reefer</option>
-                    <option value="Flatbed">Flatbed</option>
-                  </select>
+                    onValueChange={(v) => setNewCategory(v as any)}
+                    options={[
+                      { value: '1 Tonne Van', label: '1 Tonne Van (Sprinter/Transit)' },
+                      { value: '2 Tonne Cube', label: '2 Tonne Cube Cutaway' },
+                      { value: '3 Tonne Box', label: '3 Tonne Box Truck' },
+                      { value: '5 Tonne Freight', label: '5 Tonne Freight Box' },
+                      { value: 'Refrigerated Reefer', label: 'Refrigerated Reefer' },
+                      { value: 'Flatbed', label: 'Flatbed' }
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Fuel Type</label>
-                  <select
+                  <Select
+                    aria-label="Fuel type"
+                    className="w-full"
                     value={newFuelType}
-                    onChange={(e) => setNewFuelType(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Diesel">Diesel</option>
-                    <option value="Gasoline">Gasoline</option>
-                    <option value="Electric">Electric (EV)</option>
-                    <option value="Hybrid">Hybrid</option>
-                  </select>
+                    onValueChange={(v) => setNewFuelType(v as any)}
+                    options={[
+                      { value: 'Diesel', label: 'Diesel' },
+                      { value: 'Gasoline', label: 'Gasoline' },
+                      { value: 'Electric', label: 'Electric (EV)' },
+                      { value: 'Hybrid', label: 'Hybrid' }
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -634,7 +661,7 @@ export function VehiclesPage({
                   type="text"
                   value={newMakeModel}
                   onChange={(e) => setNewMakeModel(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                   required
                 />
               </div>
@@ -646,7 +673,7 @@ export function VehiclesPage({
                     type="number"
                     value={newPayload}
                     onChange={(e) => setNewPayload(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
@@ -656,7 +683,7 @@ export function VehiclesPage({
                     type="number"
                     value={newPallets}
                     onChange={(e) => setNewPallets(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     required
                   />
                 </div>
@@ -668,7 +695,7 @@ export function VehiclesPage({
                     type="checkbox"
                     checked={newHasLiftgate}
                     onChange={(e) => setNewHasLiftgate(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500"
+                    className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
                   />
                   <span>Equipped with Liftgate</span>
                 </label>
@@ -677,7 +704,7 @@ export function VehiclesPage({
                     type="checkbox"
                     checked={newHasReefer}
                     onChange={(e) => setNewHasReefer(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500"
+                    className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
                   />
                   <span>Reefer Temp Controlled</span>
                 </label>

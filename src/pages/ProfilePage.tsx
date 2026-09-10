@@ -178,69 +178,72 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   };
 
   return (
-    <div className="h-full w-full bg-slate-50 flex flex-col overflow-y-auto">
-      {/* TOP HEADER */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0 sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onBackToMonitor}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Return to Monitor</span>
-            </button>
-            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
+      {/* HEADER BAR */}
+      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={onBackToMonitor}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            title="Return to Monitor Map"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>Back to Monitor</span>
+          </button>
+
+          <div className="h-4 w-px bg-slate-200" />
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
+              <User className="w-4 h-4" />
+            </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-semibold text-slate-900 tracking-tight">
-                  My Profile
-                </h1>
-                <span className="text-[11px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
+              <h1 className="text-base font-semibold text-slate-900 leading-tight flex items-center gap-2">
+                My Profile
+                <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full border border-slate-200">
                   {profile.role}
                 </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              </h1>
+              <p className="text-[11px] text-slate-500 leading-tight">
                 Manage your dispatcher credentials, operating hub, and monitor display preferences.
               </p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
-              title="Reset to defaults"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-              <span>Reset</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSave()}
-              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                isSaved
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-slate-900 hover:bg-black text-white shadow-xs'
-              }`}
-            >
-              {isSaved ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Changes Saved</span>
-                </>
-              ) : (
-                <span>Save Profile</span>
-              )}
-            </button>
-          </div>
         </div>
 
-        {/* SUB-NAVIGATION TABS */}
-        <div className="max-w-5xl mx-auto flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            title="Reset to defaults"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+            <span>Reset</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSave()}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-white transition-colors shadow-2xs ${
+              isSaved ? 'bg-emerald-600' : 'bg-slate-900 hover:bg-slate-800'
+            }`}
+          >
+            {isSaved ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Changes Saved</span>
+              </>
+            ) : (
+              <span>Save Profile</span>
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* SUB-NAVIGATION TABS */}
+      <div className="h-12 bg-white border-b border-slate-200/90 px-6 flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveSection('details')}
@@ -279,16 +282,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <Shield className="w-3.5 h-3.5" />
             <span>Security & Sessions</span>
           </button>
-        </div>
-      </header>
+      </div>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 max-w-5xl w-full mx-auto p-6 space-y-6">
+      <main className="flex-1 overflow-y-auto p-6 space-y-6">
         {/* SECTION 1: PERSONAL & HUB DETAILS */}
         {activeSection === 'details' && (
           <div className="space-y-6">
             {/* Dispatcher Identity Card with Changeable Logo */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
+            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
                 {/* Changeable Logo / Avatar with drag & drop */}
                 <div
@@ -299,7 +301,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   onClick={() => avatarInputRef.current?.click()}
                   className={`relative w-20 h-20 rounded-full border-2 cursor-pointer transition-all flex items-center justify-center overflow-hidden group select-none shrink-0 ${
                     isAvatarDragging
-                      ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-100'
+                      ? 'border-slate-900 bg-slate-50 ring-4 ring-slate-900/10'
                       : 'border-slate-200 bg-slate-100 hover:border-slate-400'
                   }`}
                   title="Click or drag & drop image to change logo"
@@ -381,7 +383,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
 
             {/* Profile Form */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-5">
+            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-5">
               <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-3">
                 Contact & Station Information
               </h3>
@@ -529,7 +531,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       onClick={() => orgLogoInputRef.current?.click()}
                       className={`relative w-36 h-20 rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer transition-colors bg-white overflow-hidden shrink-0 group select-none ${
                         isOrgLogoDragging
-                          ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-100'
+                          ? 'border-slate-900 bg-slate-50 ring-4 ring-slate-900/10'
                           : 'border-slate-300 hover:border-slate-400'
                       }`}
                       title="Click or drag and drop logo image"
@@ -600,7 +602,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         {/* SECTION 2: DISPATCH & MONITOR PREFERENCES */}
         {activeSection === 'preferences' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6">
+            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-6">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">
                   Monitor Canvas & Map Defaults
@@ -761,7 +763,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         {activeSection === 'security' && (
           <div className="space-y-6">
             {/* Change Password */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">
                   Account Credentials
@@ -830,7 +832,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
 
             {/* Two Factor Authentication */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">
@@ -851,7 +853,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
 
             {/* Active Session */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
               <h3 className="text-sm font-semibold text-slate-900">
                 Active Dispatcher Session
               </h3>

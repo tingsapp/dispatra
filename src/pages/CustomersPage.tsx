@@ -21,6 +21,8 @@ import {
   Filter
 } from 'lucide-react';
 import { Customer, loadCustomers, saveCustomers } from '../lib/customerStorage';
+import { Select } from '../components/ui/Select';
+import { SearchInput } from '../components/ui/SearchInput';
 
 interface CustomersPageProps {
   onBackToMonitor: () => void;
@@ -287,47 +289,39 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
         {/* SEARCH & FILTERS BAR */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search customers by company, code, contact name, address, or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs text-slate-900 bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-            />
-          </div>
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search customers by company, code, contact name, address, or email..."
+          />
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-xs text-slate-500 font-medium">Type:</span>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:border-slate-400"
-              >
-                <option value="ALL">All Account Types</option>
-                <option value="Enterprise">Enterprise</option>
-                <option value="Scheduled Contract">Scheduled Contract</option>
-                <option value="Express / On-Demand">Express / On-Demand</option>
-                <option value="Standard Freight">Standard Freight</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-500 font-medium">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:border-slate-400"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="Active">Active</option>
-                <option value="Preferred">Preferred</option>
-                <option value="On Hold">On Hold</option>
-              </select>
-            </div>
+            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <Select
+              aria-label="Filter by account type"
+              value={typeFilter}
+              onValueChange={setTypeFilter}
+              align="end"
+              options={[
+                { value: 'ALL', label: 'All Account Types' },
+                { value: 'Enterprise', label: 'Enterprise' },
+                { value: 'Scheduled Contract', label: 'Scheduled Contract' },
+                { value: 'Express / On-Demand', label: 'Express / On-Demand' },
+                { value: 'Standard Freight', label: 'Standard Freight' }
+              ]}
+            />
+            <Select
+              aria-label="Filter by status"
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as any)}
+              align="end"
+              options={[
+                { value: 'ALL', label: 'All Statuses' },
+                { value: 'Active', label: 'Active' },
+                { value: 'Preferred', label: 'Preferred' },
+                { value: 'On Hold', label: 'On Hold' }
+              ]}
+            />
           </div>
         </div>
 
@@ -769,31 +763,35 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <label className="block text-xs font-medium text-slate-700 mb-1">
                     Account Tier
                   </label>
-                  <select
+                  <Select
+                    aria-label="Account tier"
+                    className="w-full"
                     value={formData.accountType || 'Enterprise'}
-                    onChange={(e) => setFormData({ ...formData, accountType: e.target.value as any })}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-slate-400"
-                  >
-                    <option value="Enterprise">Enterprise</option>
-                    <option value="Scheduled Contract">Scheduled Contract</option>
-                    <option value="Express / On-Demand">Express / On-Demand</option>
-                    <option value="Standard Freight">Standard Freight</option>
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, accountType: v as any })}
+                    options={[
+                      { value: 'Enterprise', label: 'Enterprise' },
+                      { value: 'Scheduled Contract', label: 'Scheduled Contract' },
+                      { value: 'Express / On-Demand', label: 'Express / On-Demand' },
+                      { value: 'Standard Freight', label: 'Standard Freight' }
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">
                     Status
                   </label>
-                  <select
+                  <Select
+                    aria-label="Customer status"
+                    className="w-full"
                     value={formData.status || 'Active'}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-slate-400"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Preferred">Preferred</option>
-                    <option value="On Hold">On Hold</option>
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, status: v as any })}
+                    options={[
+                      { value: 'Active', label: 'Active' },
+                      { value: 'Preferred', label: 'Preferred' },
+                      { value: 'On Hold', label: 'On Hold' }
+                    ]}
+                  />
                 </div>
               </div>
 

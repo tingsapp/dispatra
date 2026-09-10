@@ -65,7 +65,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+    <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
       <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
@@ -96,7 +96,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Rush Delivery (2-Hour)"
-              className="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
             />
           </div>
 
@@ -114,7 +114,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
                   required
                   value={basePrice}
                   onChange={(e) => setBasePrice(parseFloat(e.target.value) || 0)}
-                  className="w-full text-sm pl-6 pr-2 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="w-full text-sm pl-6 pr-2 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
               </div>
             </div>
@@ -130,7 +130,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
                   min="0"
                   value={includedKm}
                   onChange={(e) => setIncludedKm(parseFloat(e.target.value) || 0)}
-                  className="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
                 <span className="absolute right-2.5 top-2.5 text-xs text-slate-400">km</span>
               </div>
@@ -149,7 +149,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
                   required
                   value={perKmPrice}
                   onChange={(e) => setPerKmPrice(parseFloat(e.target.value) || 0)}
-                  className="w-full text-sm pl-6 pr-2 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="w-full text-sm pl-6 pr-2 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
               </div>
             </div>
@@ -166,7 +166,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
                 value={estimatedTime}
                 onChange={(e) => setEstimatedTime(e.target.value)}
                 placeholder="e.g., Under 2 Hours, Same-Day by 5 PM"
-                className="w-full text-sm pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full text-sm pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
               />
             </div>
           </div>
@@ -180,7 +180,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief details about vehicle exclusivity or dispatch window..."
-              className="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 resize-none"
             />
           </div>
 
@@ -190,7 +190,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               id="serviceActive"
               checked={active}
               onChange={(e) => setActive(e.target.checked)}
-              className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900 border-slate-300 cursor-pointer"
+              className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
             />
             <label htmlFor="serviceActive" className="text-xs font-medium text-slate-700 cursor-pointer">
               Service is active and available for booking

@@ -29,6 +29,7 @@ import {
   Layers
 } from 'lucide-react';
 import { Job, Driver, NeedsAttentionItem, ModalDialogType } from '../types';
+import { Select } from './ui/Select';
 
 interface DetailModalDialogProps {
   isOpen?: boolean;
@@ -764,7 +765,7 @@ const AllJobsRosterView: React.FC<{
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by job #, customer, address..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400/20 focus:border-blue-500"
           />
         </div>
         <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-auto text-xs">
@@ -927,7 +928,7 @@ const AllDriversRosterView: React.FC<{
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by driver name, ID, vehicle..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400/20 focus:border-blue-500"
           />
         </div>
         <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-auto text-xs">
@@ -1455,17 +1456,16 @@ const PricingAndServicesView: React.FC<{
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Select Service Level
                 </label>
-                <select
+                <Select
+                  aria-label="Select service level"
+                  className="w-full"
                   value={calcTierId}
-                  onChange={(e) => setCalcTierId(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.code}) - Base ${s.baseFare.toFixed(2)}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={setCalcTierId}
+                  options={services.map((s) => ({
+                    value: s.id,
+                    label: `${s.name} (${s.code}) · Base $${s.baseFare.toFixed(2)}`
+                  }))}
+                />
               </div>
 
               <div>
@@ -1498,7 +1498,7 @@ const PricingAndServicesView: React.FC<{
                   max="12"
                   value={calcStops}
                   onChange={(e) => setCalcStops(parseInt(e.target.value, 10) || 1)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 outline-none"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 outline-none"
                 />
               </div>
 
@@ -1508,7 +1508,7 @@ const PricingAndServicesView: React.FC<{
                     type="checkbox"
                     checked={calcLiftgate}
                     onChange={(e) => setCalcLiftgate(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                    className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
                   />
                   <span className="text-xs font-semibold text-slate-700">
                     Require Hydraulic Liftgate (+$25.00)
