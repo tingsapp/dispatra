@@ -1,255 +1,336 @@
-// Pure, typed domain models for Dispatra Organization Pricing & Services
+// Commercial pricing model: Rate Cards, Zones, Customer Groups, and the
+// Order-side inputs/outputs of the pricing engine.
+//
+// Four kinds of value, four homes:
+//   Order facts           → PricingOrderInput   (route km, weight, stops…)
+//   Pricing configuration → RateCard / Zone / catalogue / org defaults
+//   Calculated amounts    → ChargeLine
+//   Frozen result         → PricingSnapshot
+//
+// `null` on a Rate Card field means "inherit from the level below"
+// (service default, vehicle default, or organization default).
+// A numeric zero means explicitly zero.
 
-export type BasePricingMethod =
-  | 'distance_based' // Base fee + road distance (per km)
-  | 'zone_to_zone'   // Zone pair matrix table
-  | 'fixed_delivery' // Flat fee per delivery
-  | 'hourly'         // Billable duration per hour
-  | 'whole_trip';    // Dedicated route/trip basis
+export type PricingMethod = 'BASE_PLUS_DISTANCE' | 'FIXED' | 'ZONE' | 'HOURLY' | 'IMPORTED';
 
-export type ServiceSpeedId = 'direct' | 'within_4h' | 'same_day' | 'next_day' | 'scheduled';
+export type RateCardScope = 'ORGANIZATION' | 'CUSTOMER_GROUP' | 'CUSTOMER';
 
-export interface ServiceSpeed {
-  id: ServiceSpeedId;
-  name: string;
-  code: string;
-  description: string;
-  active: boolean;
-  bookingCutoffTime: string; // "14:00"
-  operatingHours: {
-    start: string; // "07:00"
-    end: string;   // "19:00"
-    days: ('Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun')[];
-  };
-  deadlineRule: {
-    startsAt: 'booking' | 'collection' | 'scheduled_window_start';
-    durationHours: number;
-  };
-  exclusiveVehicle: boolean; // Direct: true (no unrelated stops, batching disabled)
-  rateCardId: string;
+export type RateCardStatus = 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
+
+export type DiscountType = 'NONE' | 'PERCENT' | 'FIXED';
+
+/** Which charges a contractual discount reduces. */
+export type DiscountScope = 'TRANSPORT_ONLY' | 'SUBTOTAL';
+
+export interface Discount {
+  type: DiscountType;
+  value: number;
+  scope: DiscountScope;
 }
 
-export type HandlingLevelId = 'curbside' | 'doorstep' | 'inside_delivery' | 'room_of_choice' | 'white_glove';
-
-export interface HandlingLevel {
-  id: HandlingLevelId;
-  name: string;
-  description: string;
-  active: boolean;
-  premiumType: 'fixed' | 'percentage';
-  premiumValue: number; // e.g., $15.00 or 15%
-  appliesTo: 'base_fee' | 'transport_total' | 'subtotal';
-  stairEligible: boolean; // Curbside = false, Inside = true
-}
-
-export interface DistanceBand {
-  minKm: number;
-  maxKm: number | null; // null = unlimited
-  ratePerKm: number;
+/** Per-service rate overrides inside a Rate Card. `null` inherits the card's base values. */
+export interface ServiceRateOverride {
+  baseFee: number | null;
+  includedKm: number | null;
+  kmRate: number | null;
+  /** Overrides the Service's default multiplier. */
+  multiplier: number | null;
 }
 
 export interface RateCard {
   id: string;
   name: string;
-  version: string;
-  status: 'published' | 'draft' | 'archived';
-  isOrganizationDefault: boolean;
-  customerId?: string;
-  customerName?: string;
-  effectiveFrom: string;
-  effectiveTo?: string;
+  code: string;
+  status: RateCardStatus;
+  /** Incremented on every save so a PricingSnapshot can pin the exact revision. */
+  version: number;
+
+  // ---- Scope & applicability -------------------------------------------
+  scope: RateCardScope;
+  customerId: string | null;
+  customerGroupId: string | null;
+  /** Restrict to one service. `null` = all services. */
+  serviceId: string | null;
+  /** Restrict to one vehicle type. `null` = any vehicle. */
+  vehicleId: string | null;
+  /** Tie-breaker within a level — higher wins. Equal priority = conflict. */
+  priority: number;
+  effectiveFrom: string; // ISO date
+  effectiveTo: string | null;
   currency: 'CAD' | 'USD';
-  pricingMethod: BasePricingMethod;
-  
-  // Transport & Base
+
+  pricingMethod: PricingMethod;
+
+  // ---- BASE_PLUS_DISTANCE --------------------------------------------------
   baseFee: number;
-  baseFeeIncludesKm: number; // e.g. first 5 km included
-  additionalKmRate: number;  // after included km
-  useDistanceBands: boolean;
-  distanceBands: DistanceBand[];
-  
-  // Time & Hourly
+  includedKm: number;
+  kmRate: number;
   includedMinutes: number;
-  additionalHourlyRate: number;
+  minuteRate: number;
+  includedWeightKg: number;
+  weightRatePerKg: number;
+  includedPieces: number;
+  pieceRate: number;
+  /** `null` inherits the organization default. */
+  includedStops: number | null;
+  extraStopRate: number | null;
+  /** Floor applied to freight *before* the service multiplier. */
+  minimumFreight: number;
+  serviceOverrides: Record<string, ServiceRateOverride>;
+
+  // ---- FIXED -------------------------------------------------------------
+  fixedAmount: number;
+
+  // ---- HOURLY ------------------------------------------------------------
+  hourlyRate: number;
   minimumBillableMinutes: number;
-  timeRoundingIncrementMinutes: number; // 5m, 15m
-  
-  // Trip & Route Basis
-  distanceBasis: 'individual_delivery' | 'whole_trip';
-  includeApproachTravel: boolean;
-  includeReturnDepotTravel: boolean;
-  minimumCharge: number;
+  billingIncrementMinutes: number;
 
-  // Fuel Surcharge
-  fuelSurchargeEnabled: boolean;
-  fuelSurchargePercentage: number; // e.g. 11.4%
-  fuelSurchargeBasis: 'transport_only' | 'transport_and_handling' | 'net_subtotal';
+  // ---- ZONE --------------------------------------------------------------
+  /** What to do when no origin→destination rate exists. */
+  zoneNoMatchFallback: 'NEEDS_ATTENTION' | 'BASE_PLUS_DISTANCE';
+
+  // ---- What still applies around a non-calculated freight amount ----------
+  applyServiceMultiplier: boolean;
+  applyVehicleSurcharge: boolean;
+  applyFuelSurcharge: boolean;
+  applyAccessorials: boolean;
+
+  // ---- Overrides of organization / catalogue defaults (`null` = inherit) --
+  fuelPercent: number | null;
+  dimensionalPricingEnabled: boolean | null;
+  dimensionalDivisor: number | null;
+  waitFreeMinutes: number | null;
+  waitIncrementMinutes: number | null;
+  vehicleSurchargeOverrides: Record<string, number>;
+  accessorialRateOverrides: Record<string, number>;
+
+  discount: Discount;
+  notes: string;
+  updatedAt: string;
 }
 
-export interface VehicleTypeRate {
-  vehicleId: string;
+export interface Zone {
+  id: string;
+  code: string;
   name: string;
-  category: 'car' | 'cargo_van' | 'box_truck' | 'specialist';
-  maxPayloadKg: number;
-  maxVolumeCbm: number;
-  baseRateMultiplier: number;
-  flatFeeAdjustment: number;
-  requiresCommercialLicense: boolean;
-}
-
-export interface CrewEquipmentRules {
-  driverOnly: { baseRateMultiplier: number; flatFee: number };
-  twoPersonCrew: { flatFee: number; minimumNoticeHours: number };
-  extraHelperRate: number; // Per additional helper
-  tailLiftSurcharge: number;
-  palletJackSurcharge: number;
-  refrigeratedSurcharge: number;
-}
-
-export interface ItemsAndLoadRules {
-  dimWeightDivisor: number; // e.g., 5000 cm³/kg
-  dimWeightUnit: 'metric_cm_kg' | 'imperial_in_lb';
-  dimWeightRule: 'greater_of_actual_or_dim' | 'actual_only' | 'dim_only';
-  oversizedDimensionThresholdCm: number; // length > 220cm
-  oversizedItemFee: number;
-  fragileHandlingFee: number;
-  nonStackableFee: number;
-  palletRatePerUnit: number;
-  maxSingleItemWeightKg: number; // e.g., 400kg -> requires manual review
-}
-
-export interface AccessHandlingRules {
-  freeWaitTimeMinutes: number;
-  detentionRatePerHour: number;
-  stairPricingModel: 'per_flight_flat' | 'per_item_per_flight' | 'time_duration';
-  stairFlightRate: number; // e.g. $12.00 per flight
-  stairFreeFlightAllowance: number; // e.g. 0 flights free
-  elevatorReservationWaitFee: number;
-  longCarryDistanceThresholdMeters: number; // > 40m
-  longCarryFee: number;
-  dockAccessDiscount: number; // discount if standard loading dock exists
-}
-
-export interface SchedulingExceptionsRules {
-  narrowWindowFee: number; // delivery window <= 1h
-  afterHoursFeePercent: number; // 25% (20:00 - 06:00)
-  weekendFeePercent: number;    // 15%
-  holidayFeePercent: number;    // 30%
-  remoteAreaSurcharge: number;  // $35.00 flat
-  failedAttemptFee: number;     // 75% of base
-  redeliveryFee: number;        // 50% of trip
-  returnToSenderFee: number;    // 100% of transport
-  cancellationFreeNoticeHours: number; // 2 hours
-  lateCancellationFee: number;
-}
-
-export interface CustomerAgreement {
-  customerId: string;
-  customerName: string;
-  contactEmail: string;
-  activeRateCardId: string;
-  discountPercentage: number;
-  paymentTerms: 'NET15' | 'NET30' | 'COD';
-  quoteValidityDays: number;
-  requiresPO: boolean;
-}
-
-export interface OrganizationPricingSettings {
-  organizationId: string;
-  organizationName: string;
-  timezone: string; // 'America/Vancouver'
-  defaultCurrency: 'CAD' | 'USD';
-  serviceSpeeds: ServiceSpeed[];
-  handlingLevels: HandlingLevel[];
-  rateCards: RateCard[];
-  vehicleTypes: VehicleTypeRate[];
-  crewEquipment: CrewEquipmentRules;
-  itemsAndLoad: ItemsAndLoadRules;
-  accessHandling: AccessHandlingRules;
-  schedulingExceptions: SchedulingExceptionsRules;
-  customerAgreements: CustomerAgreement[];
-  readOnlyMode: boolean;
-}
-
-// Quote Simulator Types
-export interface SimulatorStop {
-  id: string;
-  stopType: 'pickup' | 'dropoff';
-  address: string;
-  linkedJobId?: string;
-  scheduledTime?: string;
-  stairFlights: number;
-  elevatorAvailable: boolean;
-  itemFitsElevator: boolean;
-  carryDistanceMeters: number;
-  hasLoadingDock: boolean;
-  actualWaitMinutes?: number;
-}
-
-export interface SimulatorItem {
-  id: string;
   description: string;
+}
+
+export interface ZoneRate {
+  id: string;
+  originZoneId: string;
+  destinationZoneId: string;
+  amount: number;
+  /** Optional service restriction. `null` = any service. */
+  serviceId: string | null;
+}
+
+export interface CustomerGroup {
+  id: string;
+  name: string;
+  description: string;
+  /** Group-level card; a customer-specific card still wins. */
+  rateCardId: string | null;
+  discount: Discount;
+}
+
+export interface PricingConfig {
+  rateCards: RateCard[];
+  zones: Zone[];
+  zoneRates: ZoneRate[];
+  customerGroups: CustomerGroup[];
+}
+
+// ---------------------------------------------------------------------------
+// Order-side input
+// ---------------------------------------------------------------------------
+
+export interface PricingStopInput {
+  id: string;
+  type: 'PICKUP' | 'DROPOFF';
+  label?: string;
+  zoneId: string | null;
+  residential: boolean;
+  /** Actual or expected waiting at this stop. */
+  waitMinutes: number;
+}
+
+export interface PricingPackageInput {
+  id: string;
   quantity: number;
+  /** Per piece. Canonical units: kg and cm. */
   weightKg: number;
   lengthCm: number;
   widthCm: number;
   heightCm: number;
-  isFragile: boolean;
-  isPallet: boolean;
-  isNonStackable: boolean;
+  declaredValue: number;
 }
 
-export interface QuoteCalculationRequest {
-  pricingMode: 'individual_delivery' | 'dedicated_trip';
-  serviceSpeedId: ServiceSpeedId;
-  handlingLevelId: HandlingLevelId;
-  customerId?: string; // or default org rate card
-  rateCardId?: string; // explicitly chosen or derived
-  distanceKm: number;
-  durationMinutes: number;
-  stops: SimulatorStop[];
-  items: SimulatorItem[];
-  selectedVehicleId: string;
-  crewType: 'driver_only' | 'two_person';
-  requiresTailLift: boolean;
-  requiresPalletJack: boolean;
-  isAfterHours: boolean;
-  isWeekend: boolean;
-  isNarrowWindow: boolean;
-  manualLockedPrice?: number; // Manual or imported price that must not be overwritten
+export interface PricingAccessorialInput {
+  accessorialId: string;
+  quantity: number;
 }
 
-export interface QuoteLineItem {
-  code: string;
-  name: string;
-  category: 'base_transport' | 'handling' | 'equipment_crew' | 'accessorial' | 'surcharge' | 'discount' | 'tax';
-  description: string;
+export interface OrderPriceAdjustment {
+  id: string;
+  amount: number; // negative = discount
+  reason: string;
+  taxable: boolean;
+}
+
+export interface PricingOrderInput {
+  customerId: string | null;
+  serviceId: string;
+  vehicleId: string | null;
+  stops: PricingStopInput[];
+  /** Standalone route for this order's stops. Never the driver's approach. */
+  routeKm: number | null;
+  estimatedMinutes: number | null;
+  /** Settled duration for HOURLY at completion. */
+  actualMinutes: number | null;
+  packages: PricingPackageInput[];
+  accessorials: PricingAccessorialInput[];
+  /** ISO datetime the service window starts — drives after-hours / weekend rules. */
+  scheduledAt: string | null;
+  /** Order source — customer portal bookings can carry a channel discount later. */
+  source: 'DISPATCHER' | 'CUSTOMER_PORTAL' | 'IMPORT';
+  importedPrice: number | null;
+  externalSource: string | null;
+  externalReference: string | null;
+  adjustments: OrderPriceAdjustment[];
+  /** Explicit Rate Card override chosen by an authorized dispatcher. */
+  rateCardOverrideId: string | null;
+  /** ESTIMATE prices from estimates; FINAL uses actuals where available. */
+  stage: 'ESTIMATE' | 'FINAL';
+}
+
+// ---------------------------------------------------------------------------
+// Output
+// ---------------------------------------------------------------------------
+
+export type ChargeGroupKey =
+  | 'FREIGHT'
+  | 'MINIMUM'
+  | 'SERVICE'
+  | 'VEHICLE'
+  | 'FUEL'
+  | 'COMPANY_CHARGE'
+  | 'ACCESSORIAL'
+  | 'DISCOUNT'
+  | 'ADJUSTMENT'
+  | 'TAX';
+
+export interface ChargeLine {
+  key: string;
+  group: ChargeGroupKey;
+  label: string;
+  detail?: string;
+  quantity?: number;
+  unitRate?: number;
   amount: number;
-  rateApplied?: string;
-  allowanceApplied?: string;
+  fuelEligible: boolean;
+  taxable: boolean;
 }
 
-export interface QuoteCalculationResult {
-  isManualReviewRequired: boolean;
-  manualReviewReasons: string[];
-  rateCardUsed: {
-    id: string;
-    name: string;
-    version: string;
-    isCustomerSpecific: boolean;
-  };
-  lineItems: QuoteLineItem[];
+export type PricingStatus = 'PRICED' | 'NEEDS_ATTENTION' | 'UNAVAILABLE';
+
+export interface PricingError {
+  code:
+    | 'NO_RATE_CARD'
+    | 'RATE_CARD_CONFLICT'
+    | 'MISSING_DISTANCE'
+    | 'ZONE_NO_MATCH'
+    | 'MISSING_ZONE'
+    | 'MISSING_DURATION'
+    | 'MISSING_IMPORTED_PRICE'
+    | 'CURRENCY_MISMATCH'
+    | 'INACTIVE_SERVICE';
+  message: string;
+}
+
+export type RateCardSource =
+  | 'OVERRIDE'
+  | 'CUSTOMER'
+  | 'CUSTOMER_GROUP'
+  | 'ORGANIZATION_SERVICE'
+  | 'ORGANIZATION_DEFAULT';
+
+export interface ResolvedRateCard {
+  id: string;
+  name: string;
+  version: number;
+  scope: RateCardScope;
+  source: RateCardSource;
+  pricingMethod: PricingMethod;
+}
+
+/** One entry per card considered during resolution — shown under "View calculation". */
+export interface RateCardCandidate {
+  id: string;
+  name: string;
+  source: RateCardSource;
+  eligible: boolean;
+  reason: string;
+}
+
+export interface ResolvedInputs {
+  routeKm: number | null;
+  billableKm: number;
+  estimatedMinutes: number | null;
+  billableMinutes: number;
+  actualWeightKg: number;
+  volumeCm3: number;
+  dimensionalWeightKg: number;
+  chargeableWeightKg: number;
+  pieces: number;
+  stopCount: number;
+  serviceMultiplier: number;
+  fuelPercent: number;
+  fuelBase: number;
+  dimensionalDivisor: number;
+  dimensionalPricingEnabled: boolean;
+  waitFreeMinutes: number;
+  waitIncrementMinutes: number;
+  declaredValue: number;
+}
+
+export interface CostEstimate {
+  estimatedCost: number;
+  costLines: ChargeLine[];
+  grossProfit: number;
+  grossMarginPercent: number;
+  meetsTargetMargin: boolean;
+}
+
+export interface PricingSnapshot {
+  engineVersion: string;
+  pricedAt: string;
+  stage: 'ESTIMATE' | 'FINAL';
+  status: PricingStatus;
+  errors: PricingError[];
+  warnings: string[];
+  currency: 'CAD' | 'USD';
+  rateCard: ResolvedRateCard | null;
+  candidates: RateCardCandidate[];
+  method: PricingMethod | null;
+  taxProfile: { id: string; name: string } | null;
+  taxExempt: boolean;
+  inputs: ResolvedInputs;
+  lines: ChargeLine[];
+  freight: number;
+  serviceFreight: number;
+  vehicleSurcharge: number;
+  fuelSurcharge: number;
+  companyCharge: number;
+  accessorialsTotal: number;
+  minimumAdjustment: number;
+  discount: number;
+  adjustmentsTotal: number;
+  /** Before tax. */
   subtotal: number;
-  appliedDiscounts: number;
-  minimumChargeAdjustment: number;
-  fuelSurchargeAmount: number;
-  taxAmount: number; // 5% GST in BC
+  taxLines: ChargeLine[];
+  taxTotal: number;
   total: number;
-  currency: string;
-  calculationOrderBreakdown: string[];
-  isLockedManualPrice: boolean;
-  postDispatchAdjustmentsAvailable?: {
-    waitingTimeAdjustment: number;
-    failedAttemptAdjustment: number;
-  };
+  cost: CostEstimate | null;
 }

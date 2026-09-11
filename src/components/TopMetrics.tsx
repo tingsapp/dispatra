@@ -15,6 +15,8 @@ import {
 import { Driver, Job, NeedsAttentionItem } from '../types';
 
 interface TopMetricsProps {
+  /** Shift right to make room for the floating menu button when the sidebar is hidden. */
+  offsetForMenu?: boolean;
   drivers: Driver[];
   jobs: Job[];
   activeJobsCount: number;
@@ -36,6 +38,7 @@ interface TopMetricsProps {
 }
 
 export const TopMetrics: React.FC<TopMetricsProps> = ({
+  offsetForMenu = false,
   drivers,
   jobs,
   activeJobsCount,
@@ -116,7 +119,11 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
   };
 
   return (
-    <div className="absolute top-5 left-6 flex items-start gap-3 z-30 pointer-events-auto select-none">
+    <div
+      className={`absolute top-5 flex items-start gap-3 z-30 pointer-events-auto select-none transition-[left] duration-300 ease-in-out ${
+        offsetForMenu ? 'left-[4.25rem]' : 'left-6'
+      }`}
+    >
       {/* 1. ACTIVE JOBS BADGE & MENU */}
       <div className="relative">
         <button
@@ -136,7 +143,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
               {activeJobsCount}
             </span>
             <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
-              Active Jobs
+              Active Orders
             </span>
           </div>
           <ChevronDown
@@ -157,7 +164,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
               className="absolute left-0 top-full mt-2.5 w-96 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-200/90 p-4 z-50"
             >
               {/* Directional arrow pointing up directly to badge */}
-              <div className="absolute -top-2 left-6 w-0 h-0 border-x-[8px] border-x-transparent border-b-[8px] border-b-white drop-shadow-[0_-1px_1px_rgba(0,0,0,0.06)] pointer-events-none" />
+              <div className="absolute -top-2 left-6 w-0 h-0 border-x-8 border-x-transparent border-b-8 border-b-white drop-shadow-[0_-1px_1px_rgba(0,0,0,0.06)] pointer-events-none" />
 
               {/* Header */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -166,7 +173,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     <Truck className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
                   <h3 className="font-semibold text-slate-900 text-sm">
-                    Active Dispatch Jobs
+                    Active Dispatch Orders
                   </h3>
                   <span className="text-xs bg-blue-100 text-blue-700 font-bold px-1.5 py-0.5 rounded-full">
                     {jobs.length}
@@ -231,7 +238,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
               <div className="mt-2 divide-y divide-slate-100 max-h-72 overflow-y-auto pr-1">
                 {filteredJobs.length === 0 ? (
                   <div className="py-6 text-center text-xs text-slate-400">
-                    No matching jobs found
+                    No matching Orders found
                   </div>
                 ) : (
                   filteredJobs.map((job) => (
@@ -250,7 +257,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                             {job.jobNumber}
                           </span>
                           <span className="text-slate-400">•</span>
-                          <span className="text-xs font-semibold text-slate-700 truncate max-w-[130px]">
+                          <span className="text-xs font-semibold text-slate-700 truncate max-w-32.5">
                             {job.customerName}
                           </span>
                         </div>
@@ -291,7 +298,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     if (onOpenAllJobs) {
                       onOpenAllJobs();
                     } else {
-                      onActionNotification('Opened full Jobs Management table');
+                      onActionNotification('Opened full Orders Management table');
                     }
                   }}
                   className="font-semibold text-blue-600 hover:text-blue-700"
@@ -344,7 +351,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
               className="absolute left-0 top-full mt-2.5 w-96 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-200/90 p-4 z-50"
             >
               {/* Directional arrow pointing up directly to badge */}
-              <div className="absolute -top-2 left-6 w-0 h-0 border-x-[8px] border-x-transparent border-b-[8px] border-b-white drop-shadow-[0_-1px_1px_rgba(0,0,0,0.06)] pointer-events-none" />
+              <div className="absolute -top-2 left-6 w-0 h-0 border-x-8 border-x-transparent border-b-8 border-b-white drop-shadow-[0_-1px_1px_rgba(0,0,0,0.06)] pointer-events-none" />
 
               {/* Header */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -538,7 +545,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
               className="absolute left-0 top-full mt-2.5 w-84 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-200/90 p-4 z-50"
             >
               {/* Directional arrow pointing up directly to badge */}
-              <div className="absolute -top-2 left-6 w-0 h-0 border-x-[8px] border-x-transparent border-b-[8px] border-b-white drop-shadow-[0_-1px_1px_rgba(0,0,0,0.06)] pointer-events-none" />
+              <div className="absolute -top-2 left-6 w-0 h-0 border-x-8 border-x-transparent border-b-8 border-b-white drop-shadow-[0_-1px_1px_rgba(0,0,0,0.06)] pointer-events-none" />
 
               {/* Header with Close Icon */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">

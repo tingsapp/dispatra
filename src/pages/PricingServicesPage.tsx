@@ -24,7 +24,7 @@ import {
 } from '../lib/simplePricingStorage';
 import { ServiceModal } from '../components/pricing/ServiceModal';
 import { VehicleModal } from '../components/pricing/VehicleModal';
-import { AccessorialModal } from '../components/pricing/AccessorialModal';
+import { AccessorialModal, CALC_TYPE_OPTIONS } from '../components/pricing/AccessorialModal';
 
 interface PricingServicesPageProps {
   onBackToMonitor: () => void;
@@ -289,7 +289,7 @@ export const PricingServicesPage: React.FC<PricingServicesPageProps> = ({
                   Delivery Services
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Delivery options available to customers, each with its base fee, included distance, and per-km rate.
+                  Delivery speeds offered to customers. Each carries a default price multiplier; base fees and km rates are set on Rate Cards.
                 </p>
               </div>
 
@@ -357,24 +357,24 @@ export const PricingServicesPage: React.FC<PricingServicesPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Pricing metrics */}
+                  {/* Service defaults */}
                   <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-100 text-xs">
                     <div>
-                      <span className="text-slate-400 text-[11px] block">Base Fee</span>
+                      <span className="text-slate-400 text-[11px] block">Default Multiplier</span>
                       <span className="font-semibold text-slate-800 text-sm">
-                        ${service.basePrice.toFixed(2)}
+                        ×{service.defaultMultiplier.toFixed(2)}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[11px] block">Included Distance</span>
+                      <span className="text-slate-400 text-[11px] block">Booking Cut-off</span>
                       <span className="font-semibold text-slate-800">
-                        {service.includedKm} km
+                        {service.bookingCutoffTime || '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[11px] block">After Allowance</span>
+                      <span className="text-slate-400 text-[11px] block">Vehicle</span>
                       <span className="font-semibold text-slate-800">
-                        ${service.perKmPrice.toFixed(2)} / km
+                        {service.exclusiveVehicle ? 'Exclusive' : 'Shared'}
                       </span>
                     </div>
                   </div>
@@ -527,6 +527,11 @@ export const PricingServicesPage: React.FC<PricingServicesPageProps> = ({
                           Power Liftgate
                         </span>
                       )}
+                      {vehicle.fuelEligible && vehicle.baseSurcharge > 0 && (
+                        <span className="text-[11px] font-medium bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200/60">
+                          Fuel-eligible surcharge
+                        </span>
+                      )}
                       {vehicle.requiresCommercialLicense && (
                         <span className="text-[11px] font-medium bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200/60">
                           CDL / Air Brakes
@@ -578,7 +583,7 @@ export const PricingServicesPage: React.FC<PricingServicesPageProps> = ({
                   Accessorial Surcharges & Add-ons
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Extra fees applied for stairs, second crew helpers, liftgate equipment, detention, or inside delivery.
+                  Configurable charges — stairs, waiting, helpers, elevator, after-hours — each with its own calculation, allowance, and fuel/tax treatment. Rate Cards can override any rate.
                 </p>
               </div>
 
@@ -611,11 +616,41 @@ export const PricingServicesPage: React.FC<PricingServicesPageProps> = ({
                         </h3>
                         <div className="flex items-center gap-1.5 mt-1">
                           <span className="text-base font-bold text-slate-900">
-                            ${acc.price.toFixed(2)}
+                            {acc.calculationType.startsWith('PERCENT') ? `${acc.rate}%` : `$${acc.rate.toFixed(2)}`}
                           </span>
                           <span className="text-xs text-slate-500 font-medium">
                             {acc.unitLabel}
                           </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                          <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {acc.code}
+                          </span>
+                          {acc.appliesAt === 'PER_STOP' && (
+                            <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                              per stop
+                            </span>
+                          )}
+                          {acc.freeAllowance != null && acc.freeAllowance > 0 && (
+                            <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {acc.freeAllowance} free
+                            </span>
+                          )}
+                          {acc.autoRule !== 'NONE' && (
+                            <span className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200/60 px-1.5 py-0.5 rounded">
+                              auto: {acc.autoRule.toLowerCase().replace(/_/g, ' ')}
+                            </span>
+                          )}
+                          {acc.fuelEligible && (
+                            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded">
+                              fuel
+                            </span>
+                          )}
+                          {!acc.taxable && (
+                            <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                              no tax
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -649,7 +684,7 @@ export const PricingServicesPage: React.FC<PricingServicesPageProps> = ({
 
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                     <span className="text-[11px] text-slate-500">
-                      {acc.pricingType === 'flat' ? 'Fixed fee' : 'Unit-based'}
+                      {CALC_TYPE_OPTIONS.find((o) => o.value === acc.calculationType)?.label ?? acc.calculationType}
                     </span>
                     <button
                       type="button"

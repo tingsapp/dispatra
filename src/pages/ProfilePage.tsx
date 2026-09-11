@@ -643,37 +643,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     </button>
                   </div>
                 </div>
-
-                {/* Distance Units */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                    Distance Measurement Unit
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleTextChange('distanceUnits', 'km')}
-                      className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors text-center ${
-                        profile.distanceUnits === 'km'
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      Kilometers (km) - Standard
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTextChange('distanceUnits', 'mi')}
-                      className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors text-center ${
-                        profile.distanceUnits === 'mi'
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      Miles (mi)
-                    </button>
-                  </div>
-                </div>
               </div>
 
               {/* Toggles */}

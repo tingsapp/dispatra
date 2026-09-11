@@ -15,7 +15,6 @@ export interface UserProfile {
   telemetryThresholdMinutes: number;
   enableSoundAlerts: boolean;
   autoCenterOnSelect: boolean;
-  distanceUnits: 'km' | 'mi';
   timeFormat: '12h' | '24h';
   twoFactorEnabled: boolean;
   lastLogin: string;
@@ -36,7 +35,6 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   telemetryThresholdMinutes: 5,
   enableSoundAlerts: true,
   autoCenterOnSelect: true,
-  distanceUnits: 'km',
   timeFormat: '24h',
   twoFactorEnabled: true,
   lastLogin: 'Today at 07:15 AM (Pacific Time)'

@@ -20,6 +20,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   const [palletCapacity, setPalletCapacity] = useState<number>(2);
   const [cargoBedFeet, setCargoBedFeet] = useState<number>(12);
   const [baseSurcharge, setBaseSurcharge] = useState<number>(0);
+  const [fuelEligible, setFuelEligible] = useState(true);
   const [hasLiftgate, setHasLiftgate] = useState(false);
   const [requiresCommercialLicense, setRequiresCommercialLicense] = useState(false);
   const [description, setDescription] = useState('');
@@ -32,6 +33,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setPalletCapacity(initialVehicle.palletCapacity);
       setCargoBedFeet(initialVehicle.cargoBedFeet || 12);
       setBaseSurcharge(initialVehicle.baseSurcharge);
+      setFuelEligible(initialVehicle.fuelEligible ?? true);
       setHasLiftgate(initialVehicle.hasLiftgate);
       setRequiresCommercialLicense(initialVehicle.requiresCommercialLicense);
       setDescription(initialVehicle.description || '');
@@ -42,6 +44,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setPalletCapacity(2);
       setCargoBedFeet(12);
       setBaseSurcharge(0);
+      setFuelEligible(true);
       setHasLiftgate(false);
       setRequiresCommercialLicense(false);
       setDescription('');
@@ -62,6 +65,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       palletCapacity: Math.max(1, Number(palletCapacity) || 1),
       cargoBedFeet: cargoBedFeet > 0 ? Number(cargoBedFeet) : undefined,
       baseSurcharge: Math.max(0, Number(baseSurcharge) || 0),
+      fuelEligible,
       hasLiftgate,
       requiresCommercialLicense,
       description: description.trim() || undefined,
@@ -246,6 +250,22 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </span>
 
             <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="vehicleFuelEligible"
+                checked={fuelEligible}
+                onChange={(e) => setFuelEligible(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
+              />
+              <label htmlFor="vehicleFuelEligible" className="text-xs text-slate-700 cursor-pointer select-none">
+                <strong>Surcharge is fuel-eligible</strong>
+                <span className="block text-[11px] text-slate-500">
+                  Include the vehicle surcharge in the base the fuel surcharge is calculated on
+                </span>
+              </label>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
               <input
                 type="checkbox"
                 id="hasLiftgate"

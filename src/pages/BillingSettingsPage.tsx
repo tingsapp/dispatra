@@ -8,17 +8,22 @@ import {
   Fuel,
   Coins,
   Landmark,
-  Ruler,
   Plus,
   Trash2,
   TrendingUp,
   AlertTriangle,
-  Calculator
+  Calculator,
+  SlidersHorizontal,
+  ArrowRight
 } from 'lucide-react';
-import { BillingConfig, TaxRate, ChargeGroup } from '../types/billing';
+import { BillingConfig, TaxRate, ChargeGroup, TaxProfileConfig } from '../types/billing';
 import { loadBillingConfig, saveBillingConfig, resetBillingConfig } from '../lib/billingStorage';
-import { computeQuote, resolveFuelPercent } from '../lib/billingEngine';
+import { resolveFuelPercent } from '../lib/billingEngine';
+import { calculatePricing } from '../lib/pricingEngine';
 import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
+import { loadPricingConfig } from '../lib/pricingStorage';
+import { loadCustomers } from '../lib/customerStorage';
+import { PricingOrderInput } from '../types/pricing';
 import { Select } from '../components/ui/Select';
 
 interface BillingSettingsPageProps {
@@ -27,7 +32,7 @@ interface BillingSettingsPageProps {
   onNotification?: (msg: string) => void;
 }
 
-type TabId = 'taxes' | 'charges' | 'costs' | 'rules';
+type TabId = 'general' | 'taxes' | 'charges' | 'costs';
 
 const CHARGE_GROUPS: { value: ChargeGroup; label: string }[] = [
   { value: 'transport', label: 'Transport' },
@@ -86,10 +91,16 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
   onNotification
 }) => {
   const [config, setConfig] = useState<BillingConfig>(() => loadBillingConfig());
-  const [activeTab, setActiveTab] = useState<TabId>('taxes');
+  const [activeTab, setActiveTab] = useState<TabId>('general');
   const [isSaved, setIsSaved] = useState(false);
 
-  const vehicles = useMemo(() => loadSimplePricingConfig().vehicles, []);
+  const catalogue = useMemo(() => loadSimplePricingConfig(), []);
+  const pricing = useMemo(() => loadPricingConfig(), []);
+  const customers = useMemo(() => loadCustomers(), []);
+  const vehicles = catalogue.vehicles;
+  const [activeTaxProfileId, setActiveTaxProfileId] = useState<string>(
+    () => loadBillingConfig().invoicing.defaultTaxProfileId
+  );
 
   const patch = <K extends keyof BillingConfig>(key: K, value: Partial<BillingConfig[K]>) => {
     setConfig((prev) => ({ ...prev, [key]: { ...(prev[key] as object), ...value } }));
@@ -104,34 +115,64 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
   };
 
   const handleReset = () => {
-    setConfig(resetBillingConfig());
+    const defaults = resetBillingConfig();
+    setConfig(defaults);
+    setActiveTaxProfileId(defaults.invoicing.defaultTaxProfileId);
     setIsSaved(false);
     onNotification?.('Reset billing settings to defaults.');
   };
 
-  // Worked example so every change shows its effect on a real quote immediately.
-  const preview = useMemo(
-    () =>
-      computeQuote(
-        { transport: 42.5, accessorials: 18, distanceKm: 25, stopCount: 2, vehicleId: 'veh_2_ton' },
-        config
-      ),
-    [config]
-  );
+  // Worked example through the shared engine so every change shows its effect immediately.
+  const preview = useMemo(() => {
+    const service = catalogue.services.find((s) => s.active) ?? catalogue.services[0];
+    const order: PricingOrderInput = {
+      customerId: null,
+      serviceId: service?.id ?? '',
+      vehicleId: 'veh_2_ton',
+      stops: [
+        { id: 'p', type: 'PICKUP', zoneId: null, residential: false, waitMinutes: 0 },
+        { id: 'd', type: 'DROPOFF', zoneId: null, residential: false, waitMinutes: 25 }
+      ],
+      routeKm: 25,
+      estimatedMinutes: 45,
+      actualMinutes: null,
+      packages: [{ id: 'pk', quantity: 2, weightKg: 30, lengthCm: 60, widthCm: 50, heightCm: 50, declaredValue: 0 }],
+      accessorials: [{ accessorialId: 'acc_stairs', quantity: 2 }],
+      scheduledAt: null,
+      source: 'DISPATCHER',
+      importedPrice: null,
+      externalSource: null,
+      externalReference: null,
+      adjustments: [],
+      rateCardOverrideId: null,
+      stage: 'ESTIMATE'
+    };
+    return calculatePricing(order, { billing: config, catalogue, pricing, customers });
+  }, [config, catalogue, pricing, customers]);
 
-  const updateTax = (id: string, changes: Partial<TaxRate>) => {
+  const activeProfile: TaxProfileConfig | undefined =
+    config.taxProfiles.find((p) => p.id === activeTaxProfileId) ?? config.taxProfiles[0];
+
+  const patchProfile = (id: string, changes: Partial<TaxProfileConfig>) => {
     setConfig((prev) => ({
       ...prev,
-      taxes: prev.taxes.map((t) => (t.id === id ? { ...t, ...changes } : t))
+      taxProfiles: prev.taxProfiles.map((p) => (p.id === id ? { ...p, ...changes } : p))
     }));
     setIsSaved(false);
   };
 
+  const updateTax = (id: string, changes: Partial<TaxRate>) => {
+    if (!activeProfile) return;
+    patchProfile(activeProfile.id, {
+      taxes: activeProfile.taxes.map((t) => (t.id === id ? { ...t, ...changes } : t))
+    });
+  };
+
   const addTax = () => {
-    setConfig((prev) => ({
-      ...prev,
+    if (!activeProfile) return;
+    patchProfile(activeProfile.id, {
       taxes: [
-        ...prev.taxes,
+        ...activeProfile.taxes,
         {
           id: `tax_${Date.now()}`,
           name: 'New Tax',
@@ -140,13 +181,12 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
           active: false
         }
       ]
-    }));
-    setIsSaved(false);
+    });
   };
 
   const removeTax = (id: string) => {
-    setConfig((prev) => ({ ...prev, taxes: prev.taxes.filter((t) => t.id !== id) }));
-    setIsSaved(false);
+    if (!activeProfile) return;
+    patchProfile(activeProfile.id, { taxes: activeProfile.taxes.filter((t) => t.id !== id) });
   };
 
   const toggleTaxGroup = (tax: TaxRate, group: ChargeGroup) => {
@@ -156,11 +196,40 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
     updateTax(tax.id, { appliesTo: next });
   };
 
+  const addProfile = () => {
+    const id = `taxp_${Date.now()}`;
+    setConfig((prev) => ({
+      ...prev,
+      taxProfiles: [...prev.taxProfiles, { id, name: 'New Tax Profile', description: '', taxes: [] }]
+    }));
+    setActiveTaxProfileId(id);
+    setIsSaved(false);
+  };
+
+  const removeProfile = (id: string) => {
+    if (config.taxProfiles.length <= 1) {
+      onNotification?.('At least one tax profile is required.');
+      return;
+    }
+    const remaining = config.taxProfiles.filter((p) => p.id !== id);
+    setConfig((prev) => ({
+      ...prev,
+      taxProfiles: remaining,
+      invoicing: {
+        ...prev.invoicing,
+        defaultTaxProfileId:
+          prev.invoicing.defaultTaxProfileId === id ? remaining[0].id : prev.invoicing.defaultTaxProfileId
+      }
+    }));
+    setActiveTaxProfileId(remaining[0].id);
+    setIsSaved(false);
+  };
+
   const tabs: { id: TabId; label: string; icon: typeof Percent }[] = [
+    { id: 'general', label: 'General', icon: SlidersHorizontal },
     { id: 'taxes', label: 'Taxes & Invoicing', icon: Landmark },
     { id: 'charges', label: 'Company & Fuel Charges', icon: Percent },
-    { id: 'costs', label: 'Operating Cost & Margin', icon: Coins },
-    { id: 'rules', label: 'Minimums & Rounding', icon: Ruler }
+    { id: 'costs', label: 'Operating Cost & Margin', icon: Coins }
   ];
 
   return (
@@ -259,13 +328,30 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
           <div className="space-y-6">
-            {/* ---------- TAXES & INVOICING ---------- */}
-            {activeTab === 'taxes' && (
+            {/* ---------- GENERAL (ORGANIZATION DEFAULTS) ---------- */}
+            {activeTab === 'general' && (
               <>
+                <div className="rounded-xl border border-blue-200/70 bg-blue-50/60 px-4 py-3 flex items-start gap-3">
+                  <SlidersHorizontal className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                  <div className="text-xs text-slate-700">
+                    <div className="font-semibold text-slate-900">These are organization defaults</div>
+                    <p className="mt-0.5 text-slate-600">
+                      They apply everywhere unless a Rate Card overrides them for its own customers.
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-2 text-[11px] font-medium">
+                      <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
+                        Organization default
+                      </span>
+                      <ArrowRight className="w-3 h-3 text-slate-400" />
+                      <span className="px-2 py-0.5 rounded-md bg-slate-900 text-white">Rate Card override</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className={cardClass}>
-                  <h2 className="text-sm font-semibold text-slate-900">Invoicing Basics</h2>
+                  <h2 className="text-sm font-semibold text-slate-900">Currency & Units</h2>
                   <p className="text-xs text-slate-500 mt-0.5 mb-4">
-                    Currency, tax registration, and the default terms applied to new quotes.
+                    How distance, weight, and dimensions are captured and displayed across the organization.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -282,7 +368,200 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                         ]}
                       />
                     </div>
+                    <div>
+                      <label className={labelClass}>Distance Unit</label>
+                      <Select
+                        aria-label="Distance unit"
+                        className="w-full"
+                        value={config.general.distanceUnit}
+                        onValueChange={(v) => patch('general', { distanceUnit: v as 'km' | 'mi' })}
+                        options={[
+                          { value: 'km', label: 'km — Kilometres' },
+                          { value: 'mi', label: 'mi — Miles' }
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Weight Unit</label>
+                      <Select
+                        aria-label="Weight unit"
+                        className="w-full"
+                        value={config.general.weightUnit}
+                        onValueChange={(v) => patch('general', { weightUnit: v as 'kg' | 'lb' })}
+                        options={[
+                          { value: 'kg', label: 'kg — Kilograms' },
+                          { value: 'lb', label: 'lb — Pounds' }
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Dimension Unit</label>
+                      <Select
+                        aria-label="Dimension unit"
+                        className="w-full"
+                        value={config.general.dimensionUnit}
+                        onValueChange={(v) => patch('general', { dimensionUnit: v as 'cm' | 'in' })}
+                        options={[
+                          { value: 'cm', label: 'cm — Centimetres' },
+                          { value: 'in', label: 'in — Inches' }
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
 
+                <div className={cardClass}>
+                  <h2 className="text-sm font-semibold text-slate-900">Pricing Defaults</h2>
+                  <p className="text-xs text-slate-500 mt-0.5 mb-4">
+                    Fallback values a Rate Card inherits when it does not set its own.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <NumberField
+                      label="Default Fuel Surcharge"
+                      value={config.fuelSurcharge.percent}
+                      onChange={(v) => patch('fuelSurcharge', { percent: v })}
+                      suffix="%"
+                      step={0.1}
+                      hint="Basis, taxability, and fuel-index pegging are set under Company & Fuel Charges."
+                    />
+                    <div>
+                      <NumberField
+                        label="Dimensional Divisor"
+                        value={config.general.dimensionalDivisor}
+                        onChange={(v) => patch('general', { dimensionalDivisor: v })}
+                        suffix={`${config.general.dimensionUnit}³/${config.general.weightUnit}`}
+                        step={1}
+                        hint="L × W × H ÷ divisor = dimensional weight. 5000 is the courier standard."
+                      />
+                      <label className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.general.dimensionalPricingEnabled}
+                          onChange={(e) => patch('general', { dimensionalPricingEnabled: e.target.checked })}
+                          className={checkboxClass}
+                        />
+                        Charge on the greater of actual or dimensional weight
+                      </label>
+                    </div>
+                    <NumberField
+                      label="Included Stops"
+                      value={config.general.defaultIncludedStops}
+                      onChange={(v) => patch('general', { defaultIncludedStops: v })}
+                      suffix="stops"
+                      step={1}
+                      hint="Typically 2 — one pickup and one drop-off."
+                    />
+                    <NumberField
+                      label="Extra Stop Rate"
+                      value={config.general.defaultExtraStopRate}
+                      onChange={(v) => patch('general', { defaultExtraStopRate: v })}
+                      prefix="$"
+                      hint="Per stop beyond the included count. Rate Cards can override."
+                    />
+                    <NumberField
+                      label="Default Wait-Free Allowance"
+                      value={config.general.defaultWaitFreeMinutes}
+                      onChange={(v) => patch('general', { defaultWaitFreeMinutes: v })}
+                      suffix="min"
+                      step={1}
+                      hint="Waiting included in every stop before wait-time charges start."
+                    />
+                    <NumberField
+                      label="Default Wait Increment"
+                      value={config.general.defaultWaitIncrementMinutes}
+                      onChange={(v) => patch('general', { defaultWaitIncrementMinutes: v })}
+                      suffix="min"
+                      step={1}
+                      hint="Wait time beyond the allowance is billed in blocks of this size."
+                    />
+                    <div>
+                      <label className={labelClass}>Rounding</label>
+                      <Select
+                        aria-label="Money rounding"
+                        className="w-full"
+                        value={config.rules.moneyRounding}
+                        onValueChange={(v) => patch('rules', { moneyRounding: v as any })}
+                        options={[
+                          { value: 'none', label: 'Nearest cent' },
+                          { value: 'nearest_05', label: 'Nearest $0.05' },
+                          { value: 'nearest_25', label: 'Nearest $0.25' },
+                          { value: 'nearest_1', label: 'Nearest $1.00' }
+                        ]}
+                      />
+                      <p className={hintClass}>Applied to the final quote total.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={cardClass}>
+                  <h2 className="text-sm font-semibold text-slate-900">Minimums & Distance Rounding</h2>
+                  <p className="text-xs text-slate-500 mt-0.5 mb-4">
+                    Floors stop short jobs being priced below what they cost to serve.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <NumberField
+                      label="Minimum Charge per Job"
+                      value={config.rules.minimumChargePerJob}
+                      onChange={(v) => patch('rules', { minimumChargePerJob: v })}
+                      prefix="$"
+                      hint="Quotes below this are raised to the floor."
+                    />
+                    <NumberField
+                      label="Minimum Billable Distance"
+                      value={config.rules.minimumBillableKm}
+                      onChange={(v) => patch('rules', { minimumBillableKm: v })}
+                      suffix={config.general.distanceUnit}
+                      step={0.5}
+                    />
+                    <div>
+                      <label className={labelClass}>Distance Rounding</label>
+                      <Select
+                        aria-label="Distance rounding"
+                        className="w-full"
+                        value={String(config.rules.distanceRoundingKm)}
+                        onValueChange={(v) => patch('rules', { distanceRoundingKm: Number(v) })}
+                        options={[
+                          { value: '0', label: 'No rounding' },
+                          { value: '0.1', label: 'Up to nearest 0.1 km' },
+                          { value: '0.5', label: 'Up to nearest 0.5 km' },
+                          { value: '1', label: 'Up to nearest 1 km' }
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={cardClass}>
+                  <h2 className="text-sm font-semibold text-slate-900">Dispatch</h2>
+                  <p className="text-xs text-slate-500 mt-0.5 mb-4">
+                    Assignment policy. Applies to new eligible assignments only and never changes the customer price.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <NumberField
+                      label="Maximum Active Orders per Driver"
+                      value={config.dispatch.maxActiveOrdersPerDriver}
+                      onChange={(v) => patch('dispatch', { maxActiveOrdersPerDriver: Math.max(1, Math.round(v)) })}
+                      suffix="orders"
+                      step={1}
+                      hint="Drivers at this count are ineligible for further AUTO assignment. The Auto/Manual mode switch lives in the sidebar."
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ---------- TAXES & INVOICING ---------- */}
+            {activeTab === 'taxes' && (
+              <>
+                <div className={cardClass}>
+                  <h2 className="text-sm font-semibold text-slate-900">Invoicing Basics</h2>
+                  <p className="text-xs text-slate-500 mt-0.5 mb-4">
+                    Tax registration and the default terms applied to new quotes.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className={labelClass}>Tax Registration Number</label>
                       <input
@@ -352,24 +631,112 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                 <div className={cardClass}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-slate-900">Tax Rates</h2>
+                      <h2 className="text-sm font-semibold text-slate-900">Tax Profiles</h2>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Rates stack. Each one applies only to the charge groups you tick, so a
-                        freight-exempt provincial tax can skip the transport line.
+                        A profile bundles the rates for one jurisdiction. The organization default applies
+                        unless a customer selects another profile or is tax exempt.
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={addTax}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs shrink-0"
+                      onClick={addProfile}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs shrink-0"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Add Tax</span>
+                      <span>Add Profile</span>
                     </button>
                   </div>
 
-                  <div className="mt-4 space-y-3">
-                    {config.taxes.map((tax) => (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {config.taxProfiles.map((profile) => {
+                      const selected = activeProfile?.id === profile.id;
+                      const isDefault = config.invoicing.defaultTaxProfileId === profile.id;
+                      return (
+                        <button
+                          key={profile.id}
+                          type="button"
+                          onClick={() => setActiveTaxProfileId(profile.id)}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                            selected
+                              ? 'bg-slate-900 text-white border-slate-900'
+                              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                          }`}
+                        >
+                          <span>{profile.name}</span>
+                          {isDefault && (
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                selected ? 'bg-white/15 text-white' : 'bg-emerald-50 text-emerald-700'
+                              }`}
+                            >
+                              default
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {activeProfile && (
+                    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.5fr_auto] gap-3 items-end">
+                        <div>
+                          <label className={labelClass}>Profile Name</label>
+                          <input
+                            type="text"
+                            value={activeProfile.name}
+                            onChange={(e) => patchProfile(activeProfile.id, { name: e.target.value })}
+                            className={fieldClass}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Description</label>
+                          <input
+                            type="text"
+                            value={activeProfile.description}
+                            onChange={(e) => patchProfile(activeProfile.id, { description: e.target.value })}
+                            className={fieldClass}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={config.invoicing.defaultTaxProfileId === activeProfile.id}
+                            onClick={() => patch('invoicing', { defaultTaxProfileId: activeProfile.id })}
+                            className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-default whitespace-nowrap"
+                          >
+                            Set as default
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeProfile(activeProfile.id)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Remove profile"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/70">
+                        <p className="text-xs text-slate-500">
+                          Rates stack. Each applies only to the charge groups you tick, so a freight-exempt
+                          provincial tax can skip the transport line.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={addTax}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Tax</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-3 space-y-3">
+                    {(activeProfile?.taxes ?? []).map((tax) => (
                       <div
                         key={tax.id}
                         className={`rounded-lg border p-4 transition-colors ${
@@ -600,13 +967,20 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                     </div>
 
                     {config.fuelSurcharge.mode === 'fixed_percent' ? (
-                      <NumberField
-                        label="Surcharge"
-                        value={config.fuelSurcharge.percent}
-                        onChange={(v) => patch('fuelSurcharge', { percent: v })}
-                        suffix="%"
-                        step={0.1}
-                      />
+                      <div>
+                        <label className={labelClass}>Surcharge</label>
+                        <div className={`${fieldClass} flex items-center justify-between bg-slate-50 text-slate-600`}>
+                          <span>{config.fuelSurcharge.percent}%</span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('general')}
+                            className="text-[11px] font-medium text-blue-600 hover:underline"
+                          >
+                            Edit in General
+                          </button>
+                        </div>
+                        <p className={hintClass}>Uses the organization default fuel rate.</p>
+                      </div>
                     ) : (
                       <>
                         <NumberField
@@ -775,62 +1149,6 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
               </>
             )}
 
-            {/* ---------- MINIMUMS & ROUNDING ---------- */}
-            {activeTab === 'rules' && (
-              <div className={cardClass}>
-                <h2 className="text-sm font-semibold text-slate-900">Minimums & Rounding</h2>
-                <p className="text-xs text-slate-500 mt-0.5 mb-4">
-                  Floors stop short jobs being priced below what they cost to serve.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <NumberField
-                    label="Minimum Charge per Job"
-                    value={config.rules.minimumChargePerJob}
-                    onChange={(v) => patch('rules', { minimumChargePerJob: v })}
-                    prefix="$"
-                    hint="Quotes below this are raised to the floor."
-                  />
-                  <NumberField
-                    label="Minimum Billable Distance"
-                    value={config.rules.minimumBillableKm}
-                    onChange={(v) => patch('rules', { minimumBillableKm: v })}
-                    suffix="km"
-                    step={0.5}
-                  />
-                  <div>
-                    <label className={labelClass}>Distance Rounding</label>
-                    <Select
-                      aria-label="Distance rounding"
-                      className="w-full"
-                      value={String(config.rules.distanceRoundingKm)}
-                      onValueChange={(v) => patch('rules', { distanceRoundingKm: Number(v) })}
-                      options={[
-                        { value: '0', label: 'No rounding' },
-                        { value: '0.1', label: 'Up to nearest 0.1 km' },
-                        { value: '0.5', label: 'Up to nearest 0.5 km' },
-                        { value: '1', label: 'Up to nearest 1 km' }
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Total Rounding</label>
-                    <Select
-                      aria-label="Money rounding"
-                      className="w-full"
-                      value={config.rules.moneyRounding}
-                      onValueChange={(v) => patch('rules', { moneyRounding: v as any })}
-                      options={[
-                        { value: 'none', label: 'Exact cents' },
-                        { value: 'nearest_05', label: 'Nearest $0.05' },
-                        { value: 'nearest_25', label: 'Nearest $0.25' },
-                        { value: 'nearest_1', label: 'Nearest $1.00' }
-                      ]}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* ---------- LIVE WORKED EXAMPLE ---------- */}
@@ -839,8 +1157,13 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
               Worked Example
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              25 km · 2 stops · 2 Tonne · $42.50 transport · $18.00 accessorials
+              25 km · 45 min · 2 stops · 2 Tonne · 2 × 30 kg · 2 flights of stairs · 25 min wait
             </p>
+            {preview.rateCard && (
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {preview.rateCard.name} · {preview.method?.replace(/_/g, ' ').toLowerCase()}
+              </p>
+            )}
 
             <div className="text-3xl font-bold mt-3">
               ${preview.total.toFixed(2)}
@@ -849,24 +1172,24 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
               </span>
             </div>
 
+            {preview.errors.length > 0 && (
+              <div className="mt-3 rounded-lg bg-rose-500/15 text-rose-200 px-3 py-2 text-[11px]">
+                {preview.errors.map((e) => (
+                  <div key={e.code}>{e.message}</div>
+                ))}
+              </div>
+            )}
+
             <div className="mt-4 space-y-1.5 text-[11px] border-t border-white/10 pt-3">
-              <div className="flex justify-between text-slate-300">
-                <span>Transport</span>
-                <span className="font-mono">${preview.transport.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Accessorials</span>
-                <span className="font-mono">${preview.accessorials.toFixed(2)}</span>
-              </div>
               {preview.lines.map((line) => (
                 <div key={line.key} className="flex justify-between text-slate-300">
                   <span className="truncate pr-2">{line.label}</span>
-                  <span className="font-mono">${line.amount.toFixed(2)}</span>
+                  <span className="font-mono">{line.amount < 0 ? '−' : ''}${Math.abs(line.amount).toFixed(2)}</span>
                 </div>
               ))}
               <div className="flex justify-between text-white font-semibold pt-1.5 border-t border-white/10">
                 <span>Subtotal</span>
-                <span className="font-mono">${preview.netSubtotal.toFixed(2)}</span>
+                <span className="font-mono">${preview.subtotal.toFixed(2)}</span>
               </div>
               {preview.taxLines.map((line) => (
                 <div key={line.key} className="flex justify-between text-slate-300">
@@ -880,40 +1203,46 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
               <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400 mb-2">
                 Cost & Margin
               </div>
-              <div className="space-y-1.5 text-[11px]">
-                {preview.costLines.map((line) => (
-                  <div key={line.key} className="flex justify-between text-slate-300">
-                    <span className="truncate pr-2">{line.label}</span>
-                    <span className="font-mono">${line.amount.toFixed(2)}</span>
+              {preview.cost ? (
+                <>
+                  <div className="space-y-1.5 text-[11px]">
+                    {preview.cost.costLines.map((line) => (
+                      <div key={line.key} className="flex justify-between text-slate-300">
+                        <span className="truncate pr-2">{line.label}</span>
+                        <span className="font-mono">${line.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-slate-200 font-semibold pt-1.5 border-t border-white/10">
+                      <span>Estimated cost</span>
+                      <span className="font-mono">${preview.cost.estimatedCost.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-200 font-semibold">
+                      <span>Gross profit</span>
+                      <span className="font-mono">${preview.cost.grossProfit.toFixed(2)}</span>
+                    </div>
                   </div>
-                ))}
-                <div className="flex justify-between text-slate-200 font-semibold pt-1.5 border-t border-white/10">
-                  <span>Estimated cost</span>
-                  <span className="font-mono">${preview.estimatedCost.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-slate-200 font-semibold">
-                  <span>Gross profit</span>
-                  <span className="font-mono">${preview.grossProfit.toFixed(2)}</span>
-                </div>
-              </div>
 
-              <div
-                className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold ${
-                  preview.meetsTargetMargin
-                    ? 'bg-emerald-500/15 text-emerald-300'
-                    : 'bg-rose-500/15 text-rose-300'
-                }`}
-              >
-                {preview.meetsTargetMargin ? (
-                  <Check className="w-3.5 h-3.5 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                )}
-                <span>
-                  {preview.grossMarginPercent.toFixed(1)}% margin — target{' '}
-                  {config.operatingCost.targetGrossMarginPercent}%
-                </span>
-              </div>
+                  <div
+                    className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold ${
+                      preview.cost.meetsTargetMargin
+                        ? 'bg-emerald-500/15 text-emerald-300'
+                        : 'bg-rose-500/15 text-rose-300'
+                    }`}
+                  >
+                    {preview.cost.meetsTargetMargin ? (
+                      <Check className="w-3.5 h-3.5 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span>
+                      {preview.cost.grossMarginPercent.toFixed(1)}% margin — target{' '}
+                      {config.operatingCost.targetGrossMarginPercent}%
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[11px] text-slate-400">Cost needs a priced distance.</p>
+              )}
             </div>
           </aside>
         </div>

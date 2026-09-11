@@ -1,6 +1,6 @@
-import { BillingConfig, TaxRate } from '../types/billing';
+import { BillingConfig, TaxRate, TaxProfileConfig } from '../types/billing';
 
-export const BILLING_STORAGE_KEY = 'dispatra_billing_v1';
+export const BILLING_STORAGE_KEY = 'dispatra_billing_v2';
 
 /**
  * Defaults are set for a Metro Vancouver operator:
@@ -25,18 +25,45 @@ export const INITIAL_TAXES: TaxRate[] = [
   }
 ];
 
+export const INITIAL_TAX_PROFILES: TaxProfileConfig[] = [
+  {
+    id: 'taxp_bc_standard',
+    name: 'BC Standard',
+    description: 'GST on all charges; PST available but off for freight.',
+    taxes: INITIAL_TAXES
+  },
+  {
+    id: 'taxp_alberta',
+    name: 'Alberta (GST only)',
+    description: 'No provincial sales tax.',
+    taxes: [INITIAL_TAXES[0]]
+  }
+];
+
 export const INITIAL_BILLING_CONFIG: BillingConfig = {
+  general: {
+    distanceUnit: 'km',
+    weightUnit: 'kg',
+    dimensionUnit: 'cm',
+    dimensionalPricingEnabled: true,
+    dimensionalDivisor: 5000,
+    defaultWaitFreeMinutes: 15,
+    defaultWaitIncrementMinutes: 5,
+    defaultIncludedStops: 2,
+    defaultExtraStopRate: 10
+  },
   invoicing: {
     currency: 'CAD',
+    defaultTaxProfileId: 'taxp_bc_standard',
     taxRegistrationNumber: '',
     pricesIncludeTax: false,
     defaultPaymentTerms: 'NET30',
     quoteValidityDays: 14,
     latePaymentFeePercent: 1.5
   },
-  taxes: INITIAL_TAXES,
+  taxProfiles: INITIAL_TAX_PROFILES,
   serviceCharge: {
-    enabled: true,
+    enabled: false,
     label: 'Service Fee',
     mode: 'percentage',
     percent: 5,
@@ -48,7 +75,7 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
     enabled: true,
     label: 'Fuel Surcharge',
     mode: 'fixed_percent',
-    percent: 11.5,
+    percent: 8,
     basis: 'transport_only',
     taxable: true,
     baselineFuelPrice: 1.55,
@@ -73,7 +100,10 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
     minimumChargePerJob: 24,
     minimumBillableKm: 0,
     distanceRoundingKm: 0.5,
-    moneyRounding: 'nearest_05'
+    moneyRounding: 'none'
+  },
+  dispatch: {
+    maxActiveOrdersPerDriver: 3
   }
 };
 
@@ -84,8 +114,12 @@ const withDefaults = (stored: Partial<BillingConfig> | null): BillingConfig => {
   const base = clone(INITIAL_BILLING_CONFIG);
   if (!stored) return base;
   return {
+    general: { ...base.general, ...(stored.general || {}) },
     invoicing: { ...base.invoicing, ...(stored.invoicing || {}) },
-    taxes: Array.isArray(stored.taxes) && stored.taxes.length ? stored.taxes : base.taxes,
+    taxProfiles:
+      Array.isArray(stored.taxProfiles) && stored.taxProfiles.length
+        ? stored.taxProfiles
+        : base.taxProfiles,
     serviceCharge: { ...base.serviceCharge, ...(stored.serviceCharge || {}) },
     fuelSurcharge: { ...base.fuelSurcharge, ...(stored.fuelSurcharge || {}) },
     operatingCost: {
@@ -96,7 +130,8 @@ const withDefaults = (stored: Partial<BillingConfig> | null): BillingConfig => {
         ...((stored.operatingCost && stored.operatingCost.costPerKmByVehicleId) || {})
       }
     },
-    rules: { ...base.rules, ...(stored.rules || {}) }
+    rules: { ...base.rules, ...(stored.rules || {}) },
+    dispatch: { ...base.dispatch, ...(stored.dispatch || {}) }
   };
 };
 

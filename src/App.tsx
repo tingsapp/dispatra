@@ -18,16 +18,18 @@ import { DriversPage } from './pages/DriversPage';
 import { VehiclesPage } from './pages/VehiclesPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { BillingSettingsPage } from './pages/BillingSettingsPage';
+import { RateCardsPage } from './pages/RateCardsPage';
 import {
   INITIAL_DRIVERS,
   INITIAL_JOBS,
   INITIAL_NEEDS_ATTENTION
 } from './data/mockData';
 import { Driver, Job, NeedsAttentionItem, MapLayerConfig, ModalDialogState } from './types';
-import { Sparkles, RefreshCw } from 'lucide-react';
+import { Sparkles, RefreshCw, Menu } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('monitor');
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
   const [jobs, setJobs] = useState<Job[]>(INITIAL_JOBS);
   const [needsAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
@@ -35,6 +37,7 @@ export default function App() {
   // Active Jobs & Driver counts
   const [activeJobsCount, setActiveJobsCount] = useState<number>(47);
   const [availableDriversCount, setAvailableDriversCount] = useState<number>(5);
+  const [dispatchMode, setDispatchMode] = useState<'AUTO' | 'MANUAL'>('MANUAL');
 
   // Full closable modal dialog state
   const [modalDialog, setModalDialog] = useState<ModalDialogState>({ isOpen: false, type: null });
@@ -391,6 +394,8 @@ export default function App() {
       {/* LEFT NAVIGATION SIDEBAR */}
       <Sidebar
         activeTab={activeTab}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen((prev) => !prev)}
         setActiveTab={setActiveTab}
         showAccountPopover={showAccountPopover}
         setShowAccountPopover={setShowAccountPopover}
@@ -398,12 +403,34 @@ export default function App() {
         onOpenPricingServices={handleOpenPricingServices}
         onOpenPricingSimulator={handleOpenPricingSimulator}
         onOpenBillingSettings={handleOpenBillingSettings}
+        dispatchMode={dispatchMode}
+        onDispatchModeChange={(mode) => {
+          setDispatchMode(mode);
+          showToast(`Dispatch mode set to ${mode === 'AUTO' ? 'Auto' : 'Manual'}`);
+        }}
         onOpenProfile={handleOpenProfile}
         onOpenHelp={handleOpenHelp}
       />
 
       {/* MAIN VIEWPORT / MAP STAGE OR DEDICATED SETTINGS / SIMULATOR / PROFILE / HELP PAGE */}
-      <main className="relative flex-1 h-full w-full overflow-hidden">
+      <main
+        className={`relative flex-1 h-full w-full overflow-hidden ${!sidebarOpen ? 'menu-hidden' : ''}`}
+      >
+        {/* Menu button — visible whenever the sidebar is hidden. Floats over the map; sits in the page header elsewhere. */}
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+          title="Open menu"
+          className={`absolute z-40 flex items-center justify-center text-slate-700 transition-all duration-300 ease-in-out ${
+            activeTab === 'monitor'
+              ? 'top-5 left-3 w-10 h-10 rounded-xl bg-white border border-slate-200/90 shadow-md shadow-slate-900/5 hover:bg-slate-50'
+              : 'top-3.5 left-4 w-9 h-9 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          } ${sidebarOpen ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-100 translate-x-0'}`}
+        >
+          <Menu className="w-4.5 h-4.5" />
+        </button>
+
         {activeTab === 'services-accessorials' || activeTab === 'pricing-services' ? (
           <PricingServicesPage
             onBackToMonitor={() => setActiveTab('monitor')}
@@ -414,6 +441,12 @@ export default function App() {
           <PricingSimulatorPage
             onBackToMonitor={() => setActiveTab('monitor')}
             onNavigateToServices={() => setActiveTab('services-accessorials')}
+            onNotification={showToast}
+          />
+        ) : activeTab === 'rate-cards' ? (
+          <RateCardsPage
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onOpenSimulator={() => setActiveTab('pricing-simulator')}
             onNotification={showToast}
           />
         ) : activeTab === 'billing-settings' ? (
@@ -492,6 +525,7 @@ export default function App() {
 
         {/* TOP METRICS (Active Jobs, Available Drivers, Needs Attention) */}
         <TopMetrics
+          offsetForMenu={!sidebarOpen}
           drivers={drivers}
           jobs={jobs}
           activeJobsCount={activeJobsCount}

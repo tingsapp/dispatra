@@ -1,3 +1,5 @@
+import { Discount } from '../types/pricing';
+
 export interface Customer {
   id: string;
   code: string;
@@ -10,11 +12,35 @@ export interface Customer {
   accountType: 'Enterprise' | 'Scheduled Contract' | 'Express / On-Demand' | 'Standard Freight';
   status: 'Active' | 'Preferred' | 'On Hold';
   defaultRequirements: string[];
+  /** Invoices are emailed here; falls back to `email`. */
+  billingEmail: string;
+  // ---- Pricing relationship (see types/pricing.ts) ----
+  /** Customer-specific Rate Card. `null` = inherit from group / organization. */
+  rateCardId: string | null;
+  customerGroupId: string | null;
+  /** Negotiated discount at customer level; beats card and group discounts. */
+  discount: Discount;
+  /** `null` = organization default tax profile. */
+  taxProfileId: string | null;
+  taxExempt: boolean;
   totalShipments: number;
   activeJobsCount: number;
   notes?: string;
   createdAt: string;
 }
+
+/** Defaults merged over stored records so older saves pick up new fields. */
+export const EMPTY_PRICING_RELATIONSHIP: Pick<
+  Customer,
+  'billingEmail' | 'rateCardId' | 'customerGroupId' | 'discount' | 'taxProfileId' | 'taxExempt'
+> = {
+  billingEmail: '',
+  rateCardId: null,
+  customerGroupId: null,
+  discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+  taxProfileId: null,
+  taxExempt: false
+};
 
 export const DEFAULT_CUSTOMERS: Customer[] = [
   {
@@ -29,6 +55,12 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     accountType: 'Enterprise',
     status: 'Preferred',
     defaultRequirements: ['Reefer / Cold Chain', 'Liftgate Required', 'Dock Access'],
+    billingEmail: 'ap@pacificfresh.ca',
+    rateCardId: 'rc_pacific_fresh',
+    customerGroupId: null,
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    taxProfileId: null,
+    taxExempt: false,
     totalShipments: 148,
     activeJobsCount: 2,
     notes: 'Standing refrigerated route Mon-Fri 06:00. High-priority perishables.',
@@ -46,6 +78,12 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     accountType: 'Scheduled Contract',
     status: 'Active',
     defaultRequirements: ['Temperature Controlled', 'Signature Required', 'Inside Delivery'],
+    billingEmail: '',
+    rateCardId: 'rc_nordic_direct',
+    customerGroupId: 'grp_medical',
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    taxProfileId: null,
+    taxExempt: false,
     totalShipments: 89,
     activeJobsCount: 1,
     notes: 'Security check required at loading bay before access.',
@@ -63,6 +101,12 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     accountType: 'Enterprise',
     status: 'Preferred',
     defaultRequirements: ['Liftgate Required', 'Pallet Jack', 'Appointment Needed'],
+    billingEmail: '',
+    rateCardId: null,
+    customerGroupId: 'grp_preferred_retail',
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    taxProfileId: null,
+    taxExempt: false,
     totalShipments: 312,
     activeJobsCount: 3,
     notes: 'Receiving hours strict: 07:30 - 15:30. Bay 4-7.',
@@ -80,6 +124,12 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     accountType: 'Scheduled Contract',
     status: 'Active',
     defaultRequirements: ['Heavy Cargo (5T)', 'Reefer / Cold Chain', 'Dock Access'],
+    billingEmail: '',
+    rateCardId: null,
+    customerGroupId: null,
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    taxProfileId: null,
+    taxExempt: false,
     totalShipments: 204,
     activeJobsCount: 1,
     notes: 'Origin pickup point for southern distributor routes.',
@@ -97,6 +147,12 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     accountType: 'Standard Freight',
     status: 'Active',
     defaultRequirements: ['Flatbed / Heavy Lift', 'Jobsite Access', 'Tailgate Assist'],
+    billingEmail: '',
+    rateCardId: null,
+    customerGroupId: null,
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    taxProfileId: null,
+    taxExempt: false,
     totalShipments: 67,
     activeJobsCount: 0,
     notes: 'Requires PPE for drivers on active building lots.',
@@ -114,6 +170,12 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     accountType: 'Express / On-Demand',
     status: 'Active',
     defaultRequirements: ['Dock Access', 'High Value Proof-of-Delivery'],
+    billingEmail: '',
+    rateCardId: null,
+    customerGroupId: null,
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    taxProfileId: null,
+    taxExempt: false,
     totalShipments: 43,
     activeJobsCount: 1,
     notes: 'Port pass or government ID required at security gate.',
@@ -131,6 +193,12 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     accountType: 'Scheduled Contract',
     status: 'Preferred',
     defaultRequirements: ['Medical Courier', 'Chain of Custody', 'Strict Temperature'],
+    billingEmail: '',
+    rateCardId: null,
+    customerGroupId: 'grp_medical',
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    taxProfileId: null,
+    taxExempt: true,
     totalShipments: 122,
     activeJobsCount: 0,
     notes: 'Direct handover to lab technician on 9th floor.',
@@ -148,6 +216,12 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     accountType: 'Standard Freight',
     status: 'On Hold',
     defaultRequirements: ['Liftgate Required', 'Commercial Loading Bay'],
+    billingEmail: '',
+    rateCardId: null,
+    customerGroupId: null,
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    taxProfileId: null,
+    taxExempt: false,
     totalShipments: 28,
     activeJobsCount: 0,
     notes: 'Credit audit pending. Cash on delivery or prepay required.',
@@ -155,7 +229,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
   }
 ];
 
-export const CUSTOMERS_STORAGE_KEY = 'dispatra_customers_v1';
+export const CUSTOMERS_STORAGE_KEY = 'dispatra_customers_v2';
 
 export function loadCustomers(): Customer[] {
   try {
@@ -163,7 +237,7 @@ export function loadCustomers(): Customer[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return parsed.map((c: Partial<Customer>) => ({ ...EMPTY_PRICING_RELATIONSHIP, ...c }) as Customer);
       }
     }
   } catch (err) {

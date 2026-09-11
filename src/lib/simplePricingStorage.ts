@@ -1,46 +1,50 @@
 import { SimplePricingConfig, DeliveryService, VehicleType, AccessorialItem } from '../types/simplePricing';
 
-export const SIMPLE_PRICING_STORAGE_KEY = 'dispatra_simple_pricing_v3';
+export const SIMPLE_PRICING_STORAGE_KEY = 'dispatra_simple_pricing_v4';
 
 export const INITIAL_SERVICES: DeliveryService[] = [
   {
     id: 'srv_same_day',
+    code: 'SAME_DAY',
     name: 'Same-Day Standard',
     description: 'Standard scheduled delivery completed by 5:00 PM across metro area.',
-    basePrice: 20.0,
-    includedKm: 5,
-    perKmPrice: 1.5,
+    defaultMultiplier: 1.0,
     estimatedTime: 'Same-Day (by 5 PM)',
+    bookingCutoffTime: '14:00',
+    exclusiveVehicle: false,
     active: true
   },
   {
     id: 'srv_rush',
+    code: 'RUSH_2H',
     name: 'Rush Expedited (2-Hour)',
     description: 'Priority expedited pickup and delivery within 2 hours of booking.',
-    basePrice: 35.0,
-    includedKm: 5,
-    perKmPrice: 2.0,
+    defaultMultiplier: 1.3,
     estimatedTime: 'Under 2 Hours',
+    bookingCutoffTime: '16:00',
+    exclusiveVehicle: false,
     active: true
   },
   {
     id: 'srv_direct',
+    code: 'DIRECT',
     name: 'Direct Hotshot',
     description: 'Immediate non-stop exclusive vehicle with zero intermediate stops.',
-    basePrice: 50.0,
-    includedKm: 5,
-    perKmPrice: 2.5,
+    defaultMultiplier: 1.5,
     estimatedTime: 'Immediate Direct',
+    bookingCutoffTime: '17:00',
+    exclusiveVehicle: true,
     active: true
   },
   {
     id: 'srv_economy',
+    code: 'NEXT_DAY',
     name: 'Scheduled Economy',
     description: 'Cost-efficient next-day consolidated delivery for non-urgent shipments.',
-    basePrice: 15.0,
-    includedKm: 5,
-    perKmPrice: 1.25,
+    defaultMultiplier: 0.9,
     estimatedTime: 'Next-Day Flexible',
+    bookingCutoffTime: '17:00',
+    exclusiveVehicle: false,
     active: true
   }
 ];
@@ -54,6 +58,7 @@ export const INITIAL_VEHICLES: VehicleType[] = [
     cargoBedFeet: 10,
     cargoVolumeCbm: 12,
     baseSurcharge: 0,
+    fuelEligible: true,
     hasLiftgate: false,
     requiresCommercialLicense: false,
     description: 'Standard courier cargo van for parcel batches and up to 2 standard skids.',
@@ -67,6 +72,7 @@ export const INITIAL_VEHICLES: VehicleType[] = [
     cargoBedFeet: 16,
     cargoVolumeCbm: 22,
     baseSurcharge: 25.0,
+    fuelEligible: true,
     hasLiftgate: false,
     requiresCommercialLicense: false,
     description: 'Enclosed 16ft box truck ideal for residential furniture and medium palletized goods.',
@@ -80,6 +86,7 @@ export const INITIAL_VEHICLES: VehicleType[] = [
     cargoBedFeet: 20,
     cargoVolumeCbm: 34,
     baseSurcharge: 50.0,
+    fuelEligible: true,
     hasLiftgate: true,
     requiresCommercialLicense: true,
     description: 'Commercial straight truck with hydraulic tail-lift for up to 8 commercial skids.',
@@ -93,6 +100,7 @@ export const INITIAL_VEHICLES: VehicleType[] = [
     cargoBedFeet: 26,
     cargoVolumeCbm: 48,
     baseSurcharge: 90.0,
+    fuelEligible: true,
     hasLiftgate: true,
     requiresCommercialLicense: true,
     description: 'Heavy distribution freight truck with power liftgate for full LTL shipments.',
@@ -100,61 +108,143 @@ export const INITIAL_VEHICLES: VehicleType[] = [
   }
 ];
 
+const accessorial = (
+  partial: Pick<AccessorialItem, 'id' | 'code' | 'name' | 'description' | 'calculationType' | 'rate' | 'unitLabel'> &
+    Partial<AccessorialItem>
+): AccessorialItem => ({
+  freeAllowance: null,
+  incrementMinutes: null,
+  minimumCharge: null,
+  maximumCharge: null,
+  appliesAt: 'ORDER',
+  fuelEligible: false,
+  taxable: true,
+  autoRule: 'NONE',
+  active: true,
+  ...partial
+});
+
 export const INITIAL_ACCESSORIALS: AccessorialItem[] = [
-  {
+  accessorial({
     id: 'acc_stairs',
+    code: 'STAIRS',
     name: 'Stair Carry',
     description: 'Manual carry per flight of stairs navigated at pickup or delivery site.',
-    price: 5.0,
-    pricingType: 'per_unit',
+    calculationType: 'PER_UNIT',
+    rate: 5.0,
     unitLabel: 'per flight',
-    active: true
-  },
-  {
-    id: 'acc_crew',
-    name: 'Two-Person Crew',
-    description: 'Driver plus assistant helper for heavy, bulky, or awkward pieces.',
-    price: 40.0,
-    pricingType: 'flat',
-    unitLabel: 'flat fee',
-    active: true
-  },
-  {
+    freeAllowance: 0
+  }),
+  accessorial({
+    id: 'acc_wait_time',
+    code: 'WAIT',
+    name: 'Waiting Time',
+    description: 'Site wait beyond the organization free allowance, billed in increments.',
+    calculationType: 'PER_MINUTE',
+    rate: 0.75,
+    unitLabel: 'per minute',
+    appliesAt: 'PER_STOP'
+  }),
+  accessorial({
+    id: 'acc_helper',
+    code: 'HELPER',
+    name: 'Additional Helper',
+    description: 'Second crew member for heavy, bulky, or awkward pieces.',
+    calculationType: 'PER_HOUR',
+    rate: 35.0,
+    unitLabel: 'per hour',
+    minimumCharge: 35
+  }),
+  accessorial({
     id: 'acc_liftgate',
+    code: 'LIFTGATE',
     name: 'Power Liftgate',
     description: 'Hydraulic tailgate required for palletized freight without a loading dock.',
-    price: 25.0,
-    pricingType: 'flat',
+    calculationType: 'FLAT',
+    rate: 25.0,
     unitLabel: 'flat fee',
-    active: true
-  },
-  {
+    fuelEligible: true
+  }),
+  accessorial({
+    id: 'acc_elevator',
+    code: 'ELEVATOR',
+    name: 'Elevator',
+    description: 'Elevator reservation or freight-elevator handling at a stop.',
+    calculationType: 'FLAT',
+    rate: 10.0,
+    unitLabel: 'flat fee',
+    appliesAt: 'PER_STOP'
+  }),
+  accessorial({
     id: 'acc_inside',
-    name: 'Inside Room of Choice',
-    description: 'Carry items beyond threshold into specific office room or apartment suite.',
-    price: 20.0,
-    pricingType: 'flat',
+    code: 'INSIDE',
+    name: 'Inside / Residential Delivery',
+    description: 'Carry beyond the threshold into a residence, office, or suite.',
+    calculationType: 'FLAT',
+    rate: 20.0,
     unitLabel: 'flat fee',
-    active: true
-  },
-  {
-    id: 'acc_wait_time',
-    name: 'Wait Time / Detention',
-    description: 'Site wait time billed per minute after 15-minute free loading allowance.',
-    price: 1.0,
-    pricingType: 'per_unit',
-    unitLabel: 'per minute',
-    active: true
-  },
-  {
+    appliesAt: 'PER_STOP',
+    autoRule: 'RESIDENTIAL_STOP'
+  }),
+  accessorial({
+    id: 'acc_after_hours',
+    code: 'AFTER_HOURS',
+    name: 'After-Hours Service',
+    description: 'Pickup or delivery outside 08:00–18:00. Added automatically.',
+    calculationType: 'FLAT',
+    rate: 30.0,
+    unitLabel: 'flat fee',
+    autoRule: 'AFTER_HOURS'
+  }),
+  accessorial({
+    id: 'acc_weekend',
+    code: 'WEEKEND',
+    name: 'Weekend Service',
+    description: 'Saturday or Sunday service. Added automatically.',
+    calculationType: 'PERCENT_OF_FREIGHT',
+    rate: 20,
+    unitLabel: '% of freight',
+    autoRule: 'WEEKEND'
+  }),
+  accessorial({
+    id: 'acc_heavy_item',
+    code: 'HEAVY_ITEM',
+    name: 'Heavy Item Handling',
+    description: 'Per item over 70 kg requiring special handling.',
+    calculationType: 'PER_UNIT',
+    rate: 15.0,
+    unitLabel: 'per item'
+  }),
+  accessorial({
     id: 'acc_fragile',
+    code: 'FRAGILE',
     name: 'Fragile Blanket Wrap',
     description: 'Padded furniture blankets, protective corner guards, and tie-down strap security.',
-    price: 15.0,
-    pricingType: 'flat',
-    unitLabel: 'flat fee',
-    active: true
-  }
+    calculationType: 'FLAT',
+    rate: 15.0,
+    unitLabel: 'flat fee'
+  }),
+  accessorial({
+    id: 'acc_insurance',
+    code: 'INSURANCE',
+    name: 'Declared Value Insurance',
+    description: 'Cargo insurance charged as a percentage of declared value.',
+    calculationType: 'PERCENT_OF_DECLARED_VALUE',
+    rate: 1.5,
+    unitLabel: '% of declared value',
+    minimumCharge: 5,
+    taxable: false
+  }),
+  accessorial({
+    id: 'acc_parking',
+    code: 'PARKING',
+    name: 'Parking / Toll Pass-through',
+    description: 'Actual parking or toll cost incurred, passed through at cost.',
+    calculationType: 'PER_UNIT',
+    rate: 1.0,
+    unitLabel: 'per dollar',
+    taxable: false
+  })
 ];
 
 export function loadSimplePricingConfig(): SimplePricingConfig {

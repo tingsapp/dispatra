@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, DollarSign, Clock, Navigation } from 'lucide-react';
+import { X, Clock } from 'lucide-react';
 import { DeliveryService } from '../../types/simplePricing';
 
 interface ServiceModalProps {
@@ -9,6 +9,10 @@ interface ServiceModalProps {
   initialService?: DeliveryService | null;
 }
 
+const fieldClass =
+  'w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400';
+const labelClass = 'block text-xs font-medium text-slate-700 mb-1';
+
 export const ServiceModal: React.FC<ServiceModalProps> = ({
   isOpen,
   onClose,
@@ -16,29 +20,32 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   initialService
 }) => {
   const [name, setName] = useState('');
+  const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
-  const [basePrice, setBasePrice] = useState<number>(20);
-  const [includedKm, setIncludedKm] = useState<number>(5);
-  const [perKmPrice, setPerKmPrice] = useState<number>(1.5);
+  const [defaultMultiplier, setDefaultMultiplier] = useState<number>(1);
   const [estimatedTime, setEstimatedTime] = useState('');
+  const [bookingCutoffTime, setBookingCutoffTime] = useState('');
+  const [exclusiveVehicle, setExclusiveVehicle] = useState(false);
   const [active, setActive] = useState(true);
 
   useEffect(() => {
     if (initialService) {
       setName(initialService.name);
+      setCode(initialService.code);
       setDescription(initialService.description);
-      setBasePrice(initialService.basePrice);
-      setIncludedKm(initialService.includedKm);
-      setPerKmPrice(initialService.perKmPrice);
+      setDefaultMultiplier(initialService.defaultMultiplier);
       setEstimatedTime(initialService.estimatedTime || '');
+      setBookingCutoffTime(initialService.bookingCutoffTime || '');
+      setExclusiveVehicle(initialService.exclusiveVehicle);
       setActive(initialService.active);
     } else {
       setName('');
+      setCode('');
       setDescription('');
-      setBasePrice(25);
-      setIncludedKm(5);
-      setPerKmPrice(1.5);
+      setDefaultMultiplier(1);
       setEstimatedTime('Same-Day');
+      setBookingCutoffTime('14:00');
+      setExclusiveVehicle(false);
       setActive(true);
     }
   }, [initialService, isOpen]);
@@ -51,12 +58,13 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
 
     const service: DeliveryService = {
       id: initialService?.id || `srv_${Date.now()}`,
+      code: (code.trim() || name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_')).slice(0, 24),
       name: name.trim(),
       description: description.trim(),
-      basePrice: Math.max(0, Number(basePrice) || 0),
-      includedKm: Math.max(0, Number(includedKm) || 0),
-      perKmPrice: Math.max(0, Number(perKmPrice) || 0),
+      defaultMultiplier: Math.max(0, Number(defaultMultiplier) || 1),
       estimatedTime: estimatedTime.trim() || undefined,
+      bookingCutoffTime: bookingCutoffTime.trim() || undefined,
+      exclusiveVehicle,
       active
     };
 
@@ -73,7 +81,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               {initialService ? 'Edit Delivery Service' : 'Add New Delivery Service'}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Define the service speed, base fee, and distance rates.
+              Service speed and its default price multiplier. Base fees and km rates live on Rate Cards.
             </p>
           </div>
           <button
@@ -86,79 +94,68 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
-              Service Name <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Rush Delivery (2-Hour)"
-              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-            />
-          </div>
-
           <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <label className={labelClass}>
+                Service Name <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Rush Delivery (2-Hour)"
+                className={fieldClass}
+              />
+            </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                Base Fee ($) <span className="text-rose-500">*</span>
+              <label className={labelClass}>Code</label>
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="RUSH_2H"
+                className={`${fieldClass} font-mono`}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>
+                Default Multiplier <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">$</span>
+                <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">×</span>
                 <input
                   type="number"
-                  step="0.50"
+                  step="0.05"
                   min="0"
                   required
-                  value={basePrice}
-                  onChange={(e) => setBasePrice(parseFloat(e.target.value) || 0)}
-                  className="w-full text-sm pl-6 pr-2 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                  value={defaultMultiplier}
+                  onChange={(e) => setDefaultMultiplier(parseFloat(e.target.value) || 0)}
+                  className={`${fieldClass} pl-6`}
                 />
               </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Applied to freight. 1.00 = standard; Direct is typically highest. Rate Cards can override.
+              </p>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                Included Km
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={includedKm}
-                  onChange={(e) => setIncludedKm(parseFloat(e.target.value) || 0)}
-                  className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                />
-                <span className="absolute right-2.5 top-2.5 text-xs text-slate-400">km</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                Rate / Km ($) <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">$</span>
-                <input
-                  type="number"
-                  step="0.10"
-                  min="0"
-                  required
-                  value={perKmPrice}
-                  onChange={(e) => setPerKmPrice(parseFloat(e.target.value) || 0)}
-                  className="w-full text-sm pl-6 pr-2 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                />
-              </div>
+              <label className={labelClass}>Booking Cut-off</label>
+              <input
+                type="time"
+                value={bookingCutoffTime}
+                onChange={(e) => setBookingCutoffTime(e.target.value)}
+                className={fieldClass}
+              />
+              <p className="text-[11px] text-slate-500 mt-1">Latest booking time for same-day fulfilment.</p>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
-              Estimated Delivery Time
-            </label>
+            <label className={labelClass}>Delivery Promise</label>
             <div className="relative">
               <Clock className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
               <input
@@ -166,35 +163,47 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
                 value={estimatedTime}
                 onChange={(e) => setEstimatedTime(e.target.value)}
                 placeholder="e.g., Under 2 Hours, Same-Day by 5 PM"
-                className="w-full text-sm pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                className={`${fieldClass} pl-8`}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
-              Description
-            </label>
+            <label className={labelClass}>Description</label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief details about vehicle exclusivity or dispatch window..."
-              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 resize-none"
+              placeholder="Brief details about the dispatch window or promise..."
+              className={`${fieldClass} resize-none`}
             />
           </div>
 
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="checkbox"
-              id="serviceActive"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
-            />
-            <label htmlFor="serviceActive" className="text-xs font-medium text-slate-700 cursor-pointer">
-              Service is active and available for booking
-            </label>
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="serviceExclusive"
+                checked={exclusiveVehicle}
+                onChange={(e) => setExclusiveVehicle(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
+              />
+              <label htmlFor="serviceExclusive" className="text-xs font-medium text-slate-700 cursor-pointer">
+                Exclusive vehicle — no unrelated stops, batching disabled (Direct)
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="serviceActive"
+                checked={active}
+                onChange={(e) => setActive(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
+              />
+              <label htmlFor="serviceActive" className="text-xs font-medium text-slate-700 cursor-pointer">
+                Service is active and available for booking
+              </label>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">

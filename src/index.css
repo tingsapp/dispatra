@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* When the sidebar is hidden, page headers leave room for the menu button that
+   sits in their top-left corner (the Monitor map uses a floating button instead). */
+.menu-hidden > * > header {
+  padding-left: 3.75rem;
+  transition: padding-left 300ms ease-in-out;
+}
+
 /* Custom animated flow for active dispatch polylines */
 .animated-route-blue {
   stroke-dasharray: 8, 12;

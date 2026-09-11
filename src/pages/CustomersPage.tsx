@@ -20,7 +20,10 @@ import {
   Layers,
   Filter
 } from 'lucide-react';
-import { Customer, loadCustomers, saveCustomers } from '../lib/customerStorage';
+import { Customer, EMPTY_PRICING_RELATIONSHIP, loadCustomers, saveCustomers } from '../lib/customerStorage';
+import { loadPricingConfig } from '../lib/pricingStorage';
+import { loadBillingConfig } from '../lib/billingStorage';
+import { DiscountScope, DiscountType } from '../types/pricing';
 import { Select } from '../components/ui/Select';
 import { SearchInput } from '../components/ui/SearchInput';
 
@@ -36,6 +39,17 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   onSelectJob
 }) => {
   const [customers, setCustomers] = useState<Customer[]>(() => loadCustomers());
+  // Pricing lookups for the relationship section — read-only here, edited under Organization Settings.
+  const [pricing] = useState(() => loadPricingConfig());
+  const [billing] = useState(() => loadBillingConfig());
+  const customerCards = useMemo(
+    () => pricing.rateCards.filter((c) => c.scope === 'CUSTOMER' && c.status !== 'ARCHIVED'),
+    [pricing.rateCards]
+  );
+  const cardName = (id: string | null) => pricing.rateCards.find((c) => c.id === id)?.name ?? null;
+  const groupName = (id: string | null) => pricing.customerGroups.find((g) => g.id === id)?.name ?? null;
+  const taxProfileName = (id: string | null) =>
+    billing.taxProfiles.find((p) => p.id === (id ?? billing.invoicing.defaultTaxProfileId))?.name ?? 'Default';
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | Customer['status']>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
@@ -57,7 +71,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     accountType: 'Enterprise',
     status: 'Active',
     defaultRequirements: [],
-    notes: ''
+    notes: '',
+    ...EMPTY_PRICING_RELATIONSHIP
   });
 
   const availableRequirements = [
@@ -114,7 +129,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       accountType: 'Scheduled Contract',
       status: 'Active',
       defaultRequirements: ['Liftgate Required', 'Dock Access'],
-      notes: ''
+      notes: '',
+      ...EMPTY_PRICING_RELATIONSHIP
     });
     setIsModalOpen(true);
   };
@@ -161,6 +177,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         accountType: formData.accountType as any || 'Standard Freight',
         status: formData.status as any || 'Active',
         defaultRequirements: formData.defaultRequirements || [],
+        billingEmail: formData.billingEmail || '',
+        rateCardId: formData.rateCardId ?? null,
+        customerGroupId: formData.customerGroupId ?? null,
+        discount: formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount,
+        taxProfileId: formData.taxProfileId ?? null,
+        taxExempt: !!formData.taxExempt,
         totalShipments: 0,
         activeJobsCount: 0,
         notes: formData.notes || '',
@@ -399,6 +421,14 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                             {customer.accountType}
                           </span>
+                          {(cardName(customer.rateCardId) || groupName(customer.customerGroupId)) && (
+                            <span
+                              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                              title="Pricing relationship"
+                            >
+                              {cardName(customer.rateCardId) ?? groupName(customer.customerGroupId)}
+                            </span>
+                          )}
                           {customer.defaultRequirements.slice(0, 2).map((req) => (
                             <span
                               key={req}
@@ -563,6 +593,56 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     <div className="text-slate-500 text-[11px]">
                       {selectedCustomerForView.city}
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pricing relationship */}
+              <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
+                  Pricing Relationship
+                </h4>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span className="text-slate-400">Rate Card:</span>
+                    <span className="font-semibold text-slate-900">
+                      {cardName(selectedCustomerForView.rateCardId) ??
+                        (selectedCustomerForView.customerGroupId
+                          ? `Inherits from group`
+                          : 'Organization default')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span className="text-slate-400">Customer Group:</span>
+                    <span className="font-semibold text-slate-900">
+                      {groupName(selectedCustomerForView.customerGroupId) ?? '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span className="text-slate-400">Contract Discount:</span>
+                    <span className="font-semibold text-slate-900">
+                      {selectedCustomerForView.discount.type === 'NONE'
+                        ? 'None'
+                        : `${
+                            selectedCustomerForView.discount.type === 'PERCENT'
+                              ? `${selectedCustomerForView.discount.value}%`
+                              : `$${selectedCustomerForView.discount.value.toFixed(2)}`
+                          } ${selectedCustomerForView.discount.scope === 'TRANSPORT_ONLY' ? 'on transport' : 'on subtotal'}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span className="text-slate-400">Tax:</span>
+                    <span className="font-semibold text-slate-900">
+                      {selectedCustomerForView.taxExempt
+                        ? 'Tax exempt'
+                        : taxProfileName(selectedCustomerForView.taxProfileId)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span className="text-slate-400">Billing Email:</span>
+                    <span className="font-medium text-slate-900 truncate max-w-[60%]">
+                      {selectedCustomerForView.billingEmail || selectedCustomerForView.email}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -793,6 +873,136 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     ]}
                   />
                 </div>
+              </div>
+
+              {/* Pricing relationship */}
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 space-y-3">
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    Pricing Relationship
+                  </span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Resolution: customer card → group card → organization default. Leave blank to inherit.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Customer Rate Card</label>
+                    <Select
+                      aria-label="Customer rate card"
+                      className="w-full"
+                      value={formData.rateCardId ?? ''}
+                      onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })}
+                      options={[
+                        { value: '', label: 'Inherit (group / organization)' },
+                        ...customerCards.map((c) => ({ value: c.id, label: `${c.name} (${c.pricingMethod.replace(/_/g, ' ').toLowerCase()})` }))
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Customer Group</label>
+                    <Select
+                      aria-label="Customer group"
+                      className="w-full"
+                      value={formData.customerGroupId ?? ''}
+                      onValueChange={(v) => setFormData({ ...formData, customerGroupId: v || null })}
+                      options={[
+                        { value: '', label: 'No group' },
+                        ...pricing.customerGroups.map((g) => ({ value: g.id, label: g.name }))
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Contract Discount</label>
+                    <div className="flex gap-1.5">
+                      <Select
+                        aria-label="Discount type"
+                        className="w-28 shrink-0"
+                        value={formData.discount?.type ?? 'NONE'}
+                        onValueChange={(v) =>
+                          setFormData({
+                            ...formData,
+                            discount: { ...(formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount), type: v as DiscountType }
+                          })
+                        }
+                        options={[
+                          { value: 'NONE', label: 'None' },
+                          { value: 'PERCENT', label: 'Percent' },
+                          { value: 'FIXED', label: 'Fixed $' }
+                        ]}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        disabled={(formData.discount?.type ?? 'NONE') === 'NONE'}
+                        value={formData.discount?.value ?? 0}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            discount: {
+                              ...(formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount),
+                              value: Math.max(0, Number(e.target.value) || 0)
+                            }
+                          })
+                        }
+                        className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-400"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Discount Applies To</label>
+                    <Select
+                      aria-label="Discount scope"
+                      className="w-full"
+                      disabled={(formData.discount?.type ?? 'NONE') === 'NONE'}
+                      value={formData.discount?.scope ?? 'TRANSPORT_ONLY'}
+                      onValueChange={(v) =>
+                        setFormData({
+                          ...formData,
+                          discount: { ...(formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount), scope: v as DiscountScope }
+                        })
+                      }
+                      options={[
+                        { value: 'TRANSPORT_ONLY', label: 'Transport only' },
+                        { value: 'SUBTOTAL', label: 'Whole subtotal' }
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Tax Profile</label>
+                    <Select
+                      aria-label="Tax profile"
+                      className="w-full"
+                      disabled={!!formData.taxExempt}
+                      value={formData.taxProfileId ?? ''}
+                      onValueChange={(v) => setFormData({ ...formData, taxProfileId: v || null })}
+                      options={[
+                        { value: '', label: `Organization default (${taxProfileName(null)})` },
+                        ...billing.taxProfiles.map((p) => ({ value: p.id, label: p.name }))
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Billing Email</label>
+                    <input
+                      type="email"
+                      placeholder="Defaults to work email"
+                      value={formData.billingEmail || ''}
+                      onChange={(e) => setFormData({ ...formData, billingEmail: e.target.value })}
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.taxExempt}
+                    onChange={(e) => setFormData({ ...formData, taxExempt: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
+                  />
+                  Tax exempt — no tax lines on this customer's quotes and invoices
+                </label>
               </div>
 
               {/* Default Accessorial Requirements */}

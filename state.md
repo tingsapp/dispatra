@@ -1,78 +1,50 @@
-# Dispatra Web Client — implementation state
+# Dispatra Web Client Implementation State
 
-> Updated: **2026-09-08**. Source inspection and a subsequent street-map replacement are recorded below. This remains a static-data prototype; the map change does not implement backend dispatch.
+Last updated: **2026-09-11**
 
-Read [spec.md](spec.md) for target behavior and [AGENTS.md](AGENTS.md) for implementation instructions. Requirements and planned components below are not implementation-complete claims.
+Read [spec.md](spec.md) for target behavior and [AGENTS.md](AGENTS.md) for working rules. This file distinguishes observed prototype behavior from planned functionality.
 
-## Observed implementation
+## Current stage
 
-**Stage: interactive Monitor prototype backed by local mock data. Actual app directory: `client/`.**
+Interactive static-data prototype. The Monitor and several organization-management/pricing surfaces exist locally; no API integration is implemented.
 
-| Evidence | What exists | Limit |
-|---|---|---|
-| `src/App.tsx`, `src/data/mockData.ts`, `src/types.ts` | Local drivers/jobs/exceptions, counters, selected entities, on-demand overlays and simulated recommendation approval | Mutations only update React state; not backend dispatch, AI execution or durable assignment |
-| `src/components/TorontoMap.tsx` | MapLibre via `react-map-gl/maplibre`, source/layer rendering and markers, Vancouver centre despite legacy filename, simulated movement/telemetry | Not real driver GPS or production optimization; visible data does not establish route feasibility |
-| Map style references | OpenFreeMap Liberty street map using OpenStreetMap data; existing ArcGIS satellite mode retained with source attribution | No street-map key/account needed; production routing, provider compatibility and service guarantees remain separate decisions |
-| `Sidebar`, `TopMetrics`, `DateControl`, `MapControls`, `DriverPopover`, `JobDetailPopover`, `DetailModalDialog` | Monitor chrome, contextual interactions, and Organization Settings | Navigation changes local selected tab/toasts; dedicated CRUD/planning/report/settings pages are prototype views |
-| `PricingServicesPage`, `PricingSimulatorPage`, `SimpleSimulator`, `VehicleModal`, `ServiceModal`, `AccessorialModal`, `simplePricingStorage.ts` | Dynamic Services & Accessorials configuration (Delivery Services, Vehicle Types & Capacities 1-5 Tonnes, and Accessorial charges) and dedicated standalone Pricing Simulator page | Submenu in Organization Settings includes "Services & Accessorials" and "Pricing Simulator"; simulator operates on its own dedicated full page with instant quote calculations and cargo limit verification |
-| `CustomersPage`, `customerStorage.ts` | Customers Directory under Vehicles in main navigation | Shipper & recipient accounts management, SLA tiers, address & accessorial requirements, active dispatch volume, and add/edit customer workflows with local persistence |
-| `ProfilePage`, `HelpSupportPage`, `profileStorage.ts` | Dedicated clean Profile page (personal/hub details, dispatch/monitor preferences, security & sessions) and Help & Support page (status banner, operational guides, keyboard shortcuts, escalation ticket form) | Changeable logo support with drag-and-drop, direct file upload ("Upload logo"), Organization ID field and badge, reflected live in sidebar and persisted to local storage |
-| `package.json` | React 19, Vite 6, TypeScript ~5.8, Tailwind 4, Lucide, Motion, MapLibre and other prototype dependencies; build/dev/type-check scripts | React Router, TanStack Query and shadcn primitives are target architecture, not demonstrated installed/implemented here; no test script declared |
+## Fixed decisions
 
-No authenticated API client, generated contracts, live WebSocket/snapshot integration, persisted dispatch, CSV intake, real optimizer, public tracking endpoint/page or production AI behavior was established. Existing mock data and simulated telemetry must remain labelled prototype/demo when reused.
+React/TypeScript, shadcn/ui direction, `react-map-gl`/`maplibre-gl`, light Clean/Calm/Precise UI, Vancouver map center, FastAPI/PostgreSQL authority, Order/Route/RouteStop vocabulary, AUTO/MANUAL dispatch, centralized API-authoritative pricing, multiple pickups/drop-offs, automatic optimization, POD, and Invoice workflow are target contracts. Existing prototype behavior is not production evidence.
 
-## Street-map replacement — 2026-09-08
+## Implemented
 
-- Replaced CARTO Voyager with [OpenFreeMap Liberty](https://openfreemap.org/quick_start/), a free OpenStreetMap-based street map that requires no key/account. The MapLibre renderer, static datasets, route/traffic overlays, markers, animation, selection/popovers and map controls are unchanged.
-- Retained the existing satellite mode and added its imagery-source attribution; the free OpenFreeMap choice applies to the street basemap.
-- Verified in an isolated copy using the installed dependencies: `npm run lint` (TypeScript) passed; `npm run build` passed with a bundle-size warning; fetched the Liberty style successfully and validated it against the installed MapLibre style schema with zero errors.
-- Browser interaction/visual checks could not run because Codex's browser security-policy check was unavailable. No claim of visual verification or production integration is made.
+- `src/App.tsx` and `src/data/mockData.ts` provide local drivers/jobs/exceptions, Monitor counters, selected entities, on-demand overlays, and simulated recommendation interactions.
+- `src/components/TorontoMap.tsx` renders a MapLibre map through `react-map-gl/maplibre`, route/marker layers, and local simulated telemetry. The filename is legacy; the center is Vancouver.
+- Monitor chrome exists through Sidebar, TopMetrics, DateControl, MapControls, DriverPopover, JobDetailPopover, and DetailModalDialog.
+- Pricing module (static, localStorage-backed): `src/types/pricing.ts` (RateCard, Zone/ZoneRate, CustomerGroup, PricingOrderInput, ChargeLine, PricingSnapshot) and `src/lib/pricingEngine.ts` (`resolveRateCard`, `calculatePricing`, `estimateInternalCost`) implement the five pricing methods (Base + Distance, Fixed, Zone, Hourly, Imported), customer → group → org-service → org-default resolution with conflict/no-match/missing-distance Needs Attention errors, dimensional weight, time/load/piece/stop charges, service multiplier, vehicle surcharge, fuel-eligible base, accessorial calc types with allowances/increments/min/max/auto rules, contractual and one-off discounts, tax profiles with customer exemption, and an internal-cost/margin estimate. `RateCardsPage` (Rate Cards, Zones, Customer Groups), `PricingServicesPage` (Services with default multipliers, Vehicles with fuel eligibility, Accessorials), `BillingSettingsPage` (org defaults, tax profiles, fuel, operating cost), and `SimpleSimulator` all consume the engine; `SimpleSimulator` is the reference caller for the future Order form. `billingEngine.ts` holds only shared helpers.
+- `CustomersPage`/`customerStorage.ts` provide local customer directory CRUD-like flows. Profile, Help/Support, and local profile storage also exist.
+- `package.json` provides Vite dev/build and TypeScript lint scripts; declared React, TypeScript, MapLibre, `react-map-gl`, Lucide, Tailwind, and Motion dependencies are observed, not proof of production readiness.
 
-## Preserved design direction
+## Partially implemented
 
-- Full-height map, one compact left sidebar, no conventional Monitor header, white floating summary cards.
-- Main navigation Monitor/Jobs/Drivers/Vehicles/Reports; route planning through Jobs/Monitor surfaces, Settings through account flow.
-- Date upper-right, map controls lower-right with options opening left, active routes visible.
-- One selected-driver detail, on-demand children, at most one anchor arrow per overlay, no extra arrow on terminal recommendation.
-- Light/Inter/black primary/blue accent; target shadcn primitives, central tokens and accessible non-map alternatives.
+The static prototype has Monitor/settings/pricing/customer interactions. Pricing configuration and the pricing engine follow the spec's RateCard/Accessorial/PricingSnapshot/ChargeLine model, but there is no Order entity yet: `JobsPage` still uses the legacy `Job` mock and does not call `calculatePricing`, so snapshots are not persisted on anything. Dispatch, route, and Invoice models remain unnormalized. Mock assignment/recommendation actions update React state only.
 
-## Next implementation slices
+## Specified but not implemented
 
-1. **M0:** reconcile mock UI types with API-owned enums/commands and pin generated contract version; benchmark licensed map/routing combination with API.
-2. **M1:** introduce router/query/auth foundations and reusable shadcn/token primitives while preserving Monitor layout. Keep prototype actions clearly separate from server-confirmed operations.
-3. **M2:** connect one real job/route/driver journey and gap-safe snapshot/realtime; add pending/conflict/freshness states.
-4. **M3:** complete Jobs/intake and route proposal/review/publish with unplanned-job reasons, resource readiness and version checks.
-5. **M4–M6:** custody/attempt review, public projection, expiry-aware agent proposals, meaningful component/journey/accessibility/load checks and measured pilot release.
+Authenticated API client/OpenAPI generation; FastAPI integration; tenant authorization; Order model with persisted PricingSnapshot/ChargeLines; Customer/Dispatcher Order creation with multi-stop data calling the shared pricing engine; AUTO/MANUAL assignment simulation with max active orders and hard constraints; multi-order route optimization/load progression; full Routes, Drivers, Vehicles, Reports, Needs Attention, POD, billing/invoice and tracking workflows; server state/realtime/resync; durable tests; and complete static scenario coverage.
 
-## Technical choices still to settle
+## Known gaps / blockers
 
-- Versioned generated client/event consumption and session strategy with API.
-- Map display/data rights and supported traffic/satellite/routing capabilities; do not replace MapLibre solely because an old draft said Mapbox.
-- Test runner/critical journey setup, accessibility checks and real data envelope.
-- Which placeholder/prototype dependencies to retain when production features are built; no dependency changes were made in this task.
+No React Router, TanStack Query, shadcn component installation, API client, websocket, or test script is established in `package.json`; they remain target architecture. Map rendering is static/demo and does not prove production routing, GPS, traffic, or satellite capability. Existing filenames and legacy terminology must not define the domain. No runtime API or end-to-end checks were run for this documentation update.
 
-## Shared decisions carried forward
+## Immediate next priorities
 
-- BC, English, company-managed ordinary local delivery; one operating origin; individual delivery Jobs grouped into optimized Routes; no self-claim/offer/accept/reject flow.
-- FastAPI + PostgreSQL/PostGIS target; React web in `client/`; React Native driver; separate app doc sets and versioned API/event contracts.
-- Job `DRAFT | READY | ASSIGNED | IN_PROGRESS | COMPLETED | CANCELLED | FAILED`; Route `DRAFT | PUBLISHED | IN_PROGRESS | FINISHED | CANCELLED`; Assignment `ACTIVE | SUPERSEDED | CLOSED`; Exception `OPEN | ACKNOWLEDGED | RESOLVED`. API owns schemas; these are alignment notes, not another implementation.
-- Planning is separate from job lifecycle. Published revisions/assignment generations and operation IDs guard conflicts. Job driver derives from route assignment.
-- Actual loading, attempts, custody/return and physical handover are required. Route finish and successful delivery are distinct.
-- End Duty always stops local GPS immediately, including offline/active work. Routine GPS defaults to 90 days with scoped holds. Signature/name in person; photo only for permitted safe unattended delivery.
-- Durable backend workers/outbox and deterministic notification policies support bounded agent exception/explanation/summary workflows. Assisted is the proposed pilot default; explicit policy controls Automatic initial publication.
-- Preserve Clean/Calm/Precise light Inter black/blue design and on-demand Monitor overlays. No branch UI, custom fields builder, payment/invoicing/payroll/warehouse/compliance suite.
+1. Finish Organization Settings and pricing configuration using centralized static state.
+2. Finish Order create/edit/details with the shared static pricing engine.
+3. Finish Customer details required by Orders/pricing/billing.
+4. Finish Monitor AUTO/MANUAL behavior and pricing/dispatch Needs Attention.
+5. Finish multi-order Routes and optimized route presentation.
+6. Finish Driver/Vehicle operational screens.
+7. Finish Billing/Invoice preview and sent states.
+8. Exercise all required static end-to-end scenarios.
+9. Connect to FastAPI only after static domain behavior is stable.
 
-## Open pilot gates
+## Testing status
 
-1. Actual drivers/jobs/vehicles, units, service windows/durations and geography.
-2. Unattended permission, reattempt/return rules, route endpoint and escalation contact. Return-to-origin is a proposed default requiring validation.
-3. Workforce/data-flow privacy scope, justified GPS policy, POD/contact/audit retention, supported handsets and secure local recovery policy.
-4. Provider combination/licensing/benchmark, budget, support and recovery expectations. Current demo map data is not a production contract decision.
-
-These gates do not block ordinary foundation work. Proposed performance targets in the API spec are unmeasured and are not SLAs.
-
-## Verification and maintenance
-
-- The earlier requirements revision checked the nine documents only. The subsequent map change and its build/style validation are recorded above; backend/device/production workflows remain unverified.
-- Subsequent implementation updates must name the changed capability and actual command/device/test result. Mark failures and unrun checks explicitly; do not turn a spec checklist into completed status.
-- Milestones: M0 contracts/spikes → M1 foundations → M2 complete thin journey → M3 daily planning → M4 resilience → M5 bounded automation → M6 measured pilot release. None is complete across all apps on the evidence reviewed here.
+The client package declares `npm run lint` and `npm run build`; no command was run for this documentation-only task. No client test runner or end-to-end suite was found in the inspected package. Existing prototype validation must be extended with pricing, dispatch, route, settings, form, Needs Attention, and invoice scenarios.

@@ -18,6 +18,14 @@ export interface TaxRate {
   note?: string;
 }
 
+/** A named bundle of tax rates (e.g. "BC Standard", "Alberta"). */
+export interface TaxProfileConfig {
+  id: string;
+  name: string;
+  description: string;
+  taxes: TaxRate[];
+}
+
 export interface ServiceChargeSettings {
   enabled: boolean;
   /** Customer-facing label on the quote and invoice. */
@@ -66,8 +74,32 @@ export interface BillingRules {
   moneyRounding: 'none' | 'nearest_05' | 'nearest_25' | 'nearest_1';
 }
 
+/**
+ * Organization-wide defaults (Pricing → General). Every value here is a
+ * fallback: a Rate Card may override any of them for its own customers.
+ */
+export interface OrganizationDefaults {
+  distanceUnit: 'km' | 'mi';
+  weightUnit: 'kg' | 'lb';
+  dimensionUnit: 'cm' | 'in';
+  /** Charge on max(actual, dimensional) weight instead of actual weight only. */
+  dimensionalPricingEnabled: boolean;
+  /** Volumetric divisor (e.g. 5000 cm³/kg) used to derive dimensional weight. */
+  dimensionalDivisor: number;
+  /** Minutes of waiting included before wait-time charges start. */
+  defaultWaitFreeMinutes: number;
+  /** Billing increment for wait time beyond the free allowance. */
+  defaultWaitIncrementMinutes: number;
+  /** Stops included in every order (typically 1 pickup + 1 drop-off). */
+  defaultIncludedStops: number;
+  /** Charge per stop beyond the included count. */
+  defaultExtraStopRate: number;
+}
+
 export interface InvoicingSettings {
   currency: 'CAD' | 'USD';
+  /** Tax profile applied unless a customer overrides it. */
+  defaultTaxProfileId: string;
   taxRegistrationNumber: string;
   /** When true, quoted prices already contain tax and it is back-calculated. */
   pricesIncludeTax: boolean;
@@ -76,38 +108,18 @@ export interface InvoicingSettings {
   latePaymentFeePercent: number;
 }
 
+/** Assignment policy. Never read by the pricing engine — it does not change customer price. */
+export interface DispatchSettings {
+  maxActiveOrdersPerDriver: number;
+}
+
 export interface BillingConfig {
+  general: OrganizationDefaults;
+  dispatch: DispatchSettings;
   invoicing: InvoicingSettings;
-  taxes: TaxRate[];
+  taxProfiles: TaxProfileConfig[];
   serviceCharge: ServiceChargeSettings;
   fuelSurcharge: FuelSurchargeSettings;
   operatingCost: OperatingCostSettings;
   rules: BillingRules;
-}
-
-/** One line in a computed quote breakdown. */
-export interface QuoteLine {
-  key: string;
-  label: string;
-  detail?: string;
-  amount: number;
-}
-
-export interface QuoteBreakdown {
-  transport: number;
-  accessorials: number;
-  serviceCharge: number;
-  fuelSurcharge: number;
-  minimumAdjustment: number;
-  netSubtotal: number;
-  taxLines: QuoteLine[];
-  taxTotal: number;
-  total: number;
-  lines: QuoteLine[];
-  /** Cost side — only populated when the caller supplies distance/stops. */
-  estimatedCost: number;
-  costLines: QuoteLine[];
-  grossProfit: number;
-  grossMarginPercent: number;
-  meetsTargetMargin: boolean;
 }

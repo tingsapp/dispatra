@@ -13,13 +13,17 @@ import {
   LogOut,
   ChevronRight,
   Tag,
+  FileText,
   Calculator,
-  Receipt
+  Receipt,
+  PanelLeftClose
 } from 'lucide-react';
 import { loadUserProfile } from '../lib/profileStorage';
 
 interface SidebarProps {
   activeTab: string;
+  isOpen: boolean;
+  onToggle: () => void;
   setActiveTab: (tab: string) => void;
   showAccountPopover: boolean;
   setShowAccountPopover: React.Dispatch<React.SetStateAction<boolean>>;
@@ -27,12 +31,17 @@ interface SidebarProps {
   onOpenPricingServices?: () => void;
   onOpenPricingSimulator?: () => void;
   onOpenBillingSettings?: () => void;
+  onOpenRateCards?: () => void;
+  dispatchMode: 'AUTO' | 'MANUAL';
+  onDispatchModeChange: (mode: 'AUTO' | 'MANUAL') => void;
   onOpenProfile?: () => void;
   onOpenHelp?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
+  isOpen,
+  onToggle,
   setActiveTab,
   showAccountPopover,
   setShowAccountPopover,
@@ -40,6 +49,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenPricingServices,
   onOpenPricingSimulator,
   onOpenBillingSettings,
+  onOpenRateCards,
+  dispatchMode,
+  onDispatchModeChange,
   onOpenProfile,
   onOpenHelp
 }) => {
@@ -57,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { id: 'monitor', label: 'Monitor', icon: Monitor },
-    { id: 'jobs', label: 'Jobs', icon: ClipboardList },
+    { id: 'jobs', label: 'Orders', icon: ClipboardList },
     { id: 'drivers', label: 'Drivers', icon: Users },
     { id: 'vehicles', label: 'Vehicles', icon: Truck },
     { id: 'customers', label: 'Customers', icon: Building2 },
@@ -65,10 +77,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-56 h-screen bg-white border-r border-slate-200/80 flex flex-col justify-between z-30 select-none shrink-0 relative">
+    <div
+      className={`h-screen shrink-0 transition-[width] duration-300 ease-in-out z-30 ${
+        isOpen ? 'w-56' : 'w-0'
+      }`}
+    >
+    <aside
+      className={`w-56 h-screen bg-white border-r border-slate-200/80 flex flex-col justify-between select-none relative transition-transform duration-300 ease-in-out ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
       {/* Top brand */}
       <div>
-        <div className="h-16 flex items-center px-6 gap-3">
+        <div className="h-16 flex items-center pl-6 pr-3 gap-3">
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-sm shadow-blue-500/20">
             {/* Minimal Dispatra icon symbol */}
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -87,6 +108,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span className="font-semibold text-xl tracking-tight text-slate-900">
             Dispatra
           </span>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="ml-auto p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Hide menu"
+            aria-label="Hide menu"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Navigation list */}
@@ -110,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }`}
               >
                 <Icon
-                  className={`w-[18px] h-[18px] transition-colors ${
+                  className={`w-4.5 h-4.5 transition-colors ${
                     isActive ? 'text-blue-600 stroke-[2.2]' : 'text-slate-500'
                   }`}
                 />
@@ -126,10 +156,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Anchored Account Popover displayed to the TOP instead of bottom */}
         {showAccountPopover && (
           <div
-            className="absolute bottom-full mb-2.5 left-3 right-3 bg-white rounded-xl shadow-xl shadow-slate-900/10 border border-slate-200/90 py-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
+            className="absolute bottom-18 mb-2.5 left-3 right-3 bg-white rounded-xl shadow-xl shadow-slate-900/10 border border-slate-200/90 py-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
           >
             {/* Directional arrow pointing down directly to Sarah K. trigger */}
-            <div className="absolute -bottom-2 left-6 w-0 h-0 border-x-[6px] border-x-transparent border-t-[8px] border-t-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.06)] pointer-events-none" />
+            <div className="absolute -bottom-2 left-6 w-0 h-0 border-x-[6px] border-x-transparent border-t-8 border-t-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.06)] pointer-events-none" />
 
             {/* Popover Items */}
             <div className="space-y-0.5 px-1">
@@ -208,6 +238,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setActiveTab('rate-cards');
+                          onActionNotification('Navigating to Rate Cards & Zones');
+                          onOpenRateCards?.();
+                          setShowOrgSubmenu(false);
+                          setShowAccountPopover(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors text-left font-normal"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-normal text-slate-700">Rate Cards & Zones</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setActiveTab('billing-settings');
                           onActionNotification('Navigating to Billing, Tax & Cost');
                           if (onOpenBillingSettings) {
@@ -259,6 +305,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Tag className="w-3.5 h-3.5 text-slate-400" />
                         <span className="font-normal text-slate-700">Services & Accessorials</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab('rate-cards');
+                          onActionNotification('Navigating to Rate Cards & Zones');
+                          onOpenRateCards?.();
+                          setShowOrgSubmenu(false);
+                          setShowAccountPopover(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-md transition-colors text-left font-normal"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-normal text-slate-700">Rate Cards & Zones</span>
                       </button>
 
                       <button
@@ -374,7 +436,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="text-xs text-slate-500 truncate">{profile.role || 'Dispatcher'}</div>
           </div>
         </button>
+
+        <div className="mt-2 flex items-center justify-between px-2.5 py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Dispatch</span>
+            <span className={`text-[11px] font-semibold ${dispatchMode === 'AUTO' ? 'text-blue-700' : 'text-slate-700'}`}>
+              {dispatchMode === 'AUTO' ? 'Auto' : 'Manual'}
+            </span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={dispatchMode === 'AUTO'}
+            aria-label="Toggle automatic dispatch"
+            onClick={() => {
+              const nextMode = dispatchMode === 'AUTO' ? 'MANUAL' : 'AUTO';
+              onDispatchModeChange(nextMode);
+              onActionNotification(`Dispatch mode set to ${nextMode === 'AUTO' ? 'Auto' : 'Manual'}`);
+            }}
+            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+              dispatchMode === 'AUTO' ? 'bg-blue-600' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                dispatchMode === 'AUTO' ? 'translate-x-4' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
       </div>
     </aside>
+    </div>
   );
 };
