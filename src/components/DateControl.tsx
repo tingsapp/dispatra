@@ -128,7 +128,7 @@ export const DateControl: React.FC<DateControlProps> = ({
     onActionNotification('Marked all alerts as read');
   };
 
-  // Search filtered results
+  // Search filtered results updated.
   const filteredJobs = searchQuery.trim()
     ? jobs.filter(
         (j) =>
