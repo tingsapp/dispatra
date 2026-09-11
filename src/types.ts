@@ -1,3 +1,5 @@
+import { PricingOrderInput, PricingSnapshot } from './types/pricing';
+
 export interface Driver {
   id: string;
   name: string;
@@ -49,12 +51,20 @@ export interface Job {
   lat: number;
   lng: number;
   routeId?: string;
+  // ---- Commercial side (see types/pricing.ts) ----
+  customerId?: string | null;
+  serviceId?: string;
+  vehicleId?: string | null;
+  /** Order facts the price was calculated from. */
+  pricingInput?: PricingOrderInput;
+  /** Frozen result. Re-priced only by an explicit action; FINAL stage locks it. */
+  pricing?: PricingSnapshot;
 }
 
 export interface NeedsAttentionItem {
   id: string;
   jobNumber: string;
-  statusType: 'at_risk' | 'late_start' | 'no_driver' | 'gps_stale';
+  statusType: 'at_risk' | 'late_start' | 'no_driver' | 'gps_stale' | 'pricing';
   statusLabel: string;
   subtitle: string;
   pickupAddress: string;
@@ -84,8 +94,7 @@ export type ModalDialogType =
   | 'driver_detail'
   | 'all_jobs'
   | 'all_drivers'
-  | 'all_exceptions'
-  | 'pricing_services';
+  | 'all_exceptions';
 
 export interface ModalDialogState {
   isOpen: boolean;

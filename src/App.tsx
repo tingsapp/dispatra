@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
 import { TopMetrics } from './components/TopMetrics';
@@ -26,13 +26,20 @@ import {
 } from './data/mockData';
 import { Driver, Job, NeedsAttentionItem, MapLayerConfig, ModalDialogState } from './types';
 import { Sparkles, RefreshCw, Menu } from 'lucide-react';
+import { enrichJobsWithPricing, pricingAttentionItems } from './lib/orderPricing';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('monitor');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
-  const [jobs, setJobs] = useState<Job[]>(INITIAL_JOBS);
-  const [needsAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
+  // Every order carries a PricingSnapshot from the shared engine, including the static mocks.
+  const [jobs, setJobs] = useState<Job[]>(() => enrichJobsWithPricing(INITIAL_JOBS));
+  const [operationalAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
+  // Orders that could not be priced (no card, conflict, zone no-match, missing distance) join the list.
+  const needsAttentionItems = useMemo(
+    () => [...pricingAttentionItems(jobs), ...operationalAttentionItems],
+    [jobs, operationalAttentionItems]
+  );
 
   // Active Jobs & Driver counts
   const [activeJobsCount, setActiveJobsCount] = useState<number>(47);

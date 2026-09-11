@@ -23,11 +23,11 @@ React/TypeScript, shadcn/ui direction, `react-map-gl`/`maplibre-gl`, light Clean
 
 ## Partially implemented
 
-The static prototype has Monitor/settings/pricing/customer interactions. Pricing configuration and the pricing engine follow the spec's RateCard/Accessorial/PricingSnapshot/ChargeLine model, but there is no Order entity yet: `JobsPage` still uses the legacy `Job` mock and does not call `calculatePricing`, so snapshots are not persisted on anything. Dispatch, route, and Invoice models remain unnormalized. Mock assignment/recommendation actions update React state only.
+The static prototype has Monitor/settings/pricing/customer interactions. Orders (`JobsPage`, still typed as the legacy `Job`) now carry `pricingInput` + a frozen `pricing` PricingSnapshot: creation uses the shared `OrderPricingForm` + `calculatePricing`, details show the snapshot via `PriceBreakdown` with Re-price (estimate only) and Finalize (settles on actual minutes, locks), mock orders are enriched at load (`lib/orderPricing.ts`), and unpriced orders surface in Needs Attention. Job/Route/Invoice models remain unnormalized (no Order entity, no Invoice generation). Mock assignment/recommendation actions update React state only.
 
 ## Specified but not implemented
 
-Authenticated API client/OpenAPI generation; FastAPI integration; tenant authorization; Order model with persisted PricingSnapshot/ChargeLines; Customer/Dispatcher Order creation with multi-stop data calling the shared pricing engine; AUTO/MANUAL assignment simulation with max active orders and hard constraints; multi-order route optimization/load progression; full Routes, Drivers, Vehicles, Reports, Needs Attention, POD, billing/invoice and tracking workflows; server state/realtime/resync; durable tests; and complete static scenario coverage.
+Authenticated API client/OpenAPI generation; FastAPI integration; tenant authorization; a normalized Order/Route/RouteStop model (orders are still the legacy `Job` shape with pricing attached); customer-portal Order creation; AUTO/MANUAL assignment simulation with max active orders and hard constraints; multi-order route optimization/load progression; full Routes, Drivers, Vehicles, Reports, Needs Attention, POD, billing/invoice and tracking workflows; server state/realtime/resync; durable tests; and complete static scenario coverage.
 
 ## Known gaps / blockers
 

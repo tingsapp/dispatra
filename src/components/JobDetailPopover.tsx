@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Job, EligibleDriver } from '../types';
 import { ELIGIBLE_DRIVERS } from '../data/mockData';
+import { describePrice } from '../lib/orderPricing';
 
 interface JobDetailPopoverProps {
   job: Job;
@@ -198,7 +199,20 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               {/* Service Level */}
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Service Level</span>
-                <span className="font-semibold text-slate-800">{job.serviceLevel}</span>
+                <span className="font-semibold text-slate-800">{job.serviceLevel || job.jobType}</span>
+              </div>
+
+              {/* Customer price — from the frozen snapshot, never recomputed here */}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Customer Price</span>
+                {(() => {
+                  const price = describePrice(job);
+                  return (
+                    <span className={`font-semibold ${price.tone === 'warn' ? 'text-amber-700' : price.tone === 'muted' ? 'text-slate-400' : 'text-slate-900'}`}>
+                      {price.text}
+                    </span>
+                  );
+                })()}
               </div>
 
               {/* Route Waypoints */}

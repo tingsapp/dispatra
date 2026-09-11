@@ -24,8 +24,20 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Job, Driver } from '../types';
+import { PricingOrderInput } from '../types/pricing';
 import { Select } from '../components/ui/Select';
 import { SearchInput } from '../components/ui/SearchInput';
+import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
+import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
+import { calculatePricing } from '../lib/pricingEngine';
+import {
+  createDefaultOrderInput,
+  describePrice,
+  finalizeOrderPrice,
+  loadPricingContext,
+  priceOrder
+} from '../lib/orderPricing';
+import { formatDistance, formatWeight } from '../lib/units';
 
 interface JobsPageProps {
   jobs: Job[];
@@ -58,13 +70,26 @@ export function JobsPage({
   const [newJobNumber, setNewJobNumber] = useState(`#${Math.floor(480 + Math.random() * 40)}`);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('(604) 555-');
-  const [newPickupAddress, setNewPickupAddress] = useState('');
-  const [newDropoffAddress, setNewDropoffAddress] = useState('');
   const [newScheduledTime, setNewScheduledTime] = useState('01:00 PM – 03:00 PM');
-  const [newJobType, setNewJobType] = useState('Standard Delivery');
-  const [newCargoWeight, setNewCargoWeight] = useState('450 kg');
   const [newDriverId, setNewDriverId] = useState<string>('unassigned');
   const [newInstructions, setNewInstructions] = useState('');
+  // Pricing context is read fresh each time the modal opens so settings edits apply.
+  const [pricingCtx, setPricingCtx] = useState(() => loadPricingContext());
+  const [newOrderInput, setNewOrderInput] = useState<PricingOrderInput>(() => createDefaultOrderInput(pricingCtx));
+  const newOrderSnapshot = useMemo(() => calculatePricing(newOrderInput, pricingCtx), [newOrderInput, pricingCtx]);
+  const selectedCustomer = pricingCtx.customers.find((c) => c.id === newOrderInput.customerId);
+
+  const openCreateModal = () => {
+    const ctx = loadPricingContext();
+    setPricingCtx(ctx);
+    setNewOrderInput(createDefaultOrderInput(ctx));
+    setNewJobNumber(`#${Math.floor(480 + Math.random() * 40)}`);
+    setNewCustomerName('');
+    setNewCustomerPhone('(604) 555-');
+    setNewInstructions('');
+    setNewDriverId('unassigned');
+    setShowCreateModal(true);
+  };
 
   // Reassignment popover
   const [reassigningJobId, setReassigningJobId] = useState<string | null>(null);
@@ -100,7 +125,7 @@ export function JobsPage({
   const completedCount = jobs.filter((j) => j.status === 'completed').length;
 
   const handleExportCSV = () => {
-    const headers = ['Job Number', 'Status', 'Customer', 'Phone', 'Pickup', 'Dropoff', 'Scheduled', 'Driver', 'Type'];
+    const headers = ['Job Number', 'Status', 'Customer', 'Phone', 'Pickup', 'Dropoff', 'Scheduled', 'Driver', 'Service', 'Rate Card', 'Pricing', 'Total'];
     const rows = filteredJobs.map((j) => [
       j.jobNumber,
       j.statusLabel,
@@ -110,7 +135,10 @@ export function JobsPage({
       `"${j.dropoffAddress}"`,
       `"${j.scheduledTime}"`,
       j.assignedDriverId || 'Unassigned',
-      `"${j.jobType}"`
+      `"${j.jobType}"`,
+      `"${j.pricing?.rateCard?.name ?? ''}"`,
+      j.pricing ? `${j.pricing.status}${j.pricing.stage === 'FINAL' ? ' (final)' : ''}` : 'NOT_PRICED',
+      j.pricing?.status === 'PRICED' ? j.pricing.total.toFixed(2) : ''
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -143,12 +171,22 @@ export function JobsPage({
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCustomerName || !newPickupAddress || !newDropoffAddress) {
-      onNotification('Please fill in customer name, pickup and dropoff addresses');
+    const customerName = selectedCustomer?.name ?? newCustomerName.trim();
+    const pickups = newOrderInput.stops.filter((st) => st.type === 'PICKUP');
+    const drops = newOrderInput.stops.filter((st) => st.type === 'DROPOFF');
+    if (!customerName) {
+      onNotification('Choose a customer or enter a shipper name');
+      return;
+    }
+    if (!pickups.length || !drops.length || newOrderInput.stops.some((st) => !st.label?.trim())) {
+      onNotification('Every stop needs an address, with at least one pickup and one drop-off');
       return;
     }
 
     const assignedDriver = drivers.find((d) => d.id === newDriverId);
+    const service = pricingCtx.catalogue.services.find((sv) => sv.id === newOrderInput.serviceId);
+    const snapshot = priceOrder(newOrderInput, pricingCtx);
+    const totalKg = newOrderInput.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
 
     const newJob: Job = {
       id: `job-${Date.now()}`,
@@ -156,30 +194,61 @@ export function JobsPage({
       status: assignedDriver ? 'on_time' : 'no_driver',
       statusLabel: assignedDriver ? 'On Time' : 'No Driver',
       riskText: assignedDriver ? `Assigned to ${assignedDriver.name}` : 'Needs dispatch',
-      customerName: newCustomerName,
-      customerPhone: newCustomerPhone,
-      pickupAddress: newPickupAddress,
-      dropoffAddress: newDropoffAddress,
+      customerName,
+      customerPhone: selectedCustomer?.phone ?? newCustomerPhone,
+      customerEmail: selectedCustomer?.email,
+      pickupAddress: pickups[0].label!,
+      dropoffAddress: drops[drops.length - 1].label!,
       scheduledTime: newScheduledTime,
-      jobType: newJobType,
+      jobType: service?.name ?? 'Delivery',
+      serviceLevel: service?.name,
       assignedDriverId: assignedDriver ? assignedDriver.id : undefined,
       driverName: assignedDriver ? assignedDriver.name : undefined,
-      cargoWeight: newCargoWeight,
+      cargoWeight: formatWeight(totalKg, pricingCtx.billing.general),
+      palletCount: newOrderInput.packages.reduce((n, p) => n + p.quantity, 0),
       handlingInstructions: newInstructions || undefined,
-      stopsCount: 2,
+      stopsCount: newOrderInput.stops.length,
       lat: 49.2720 + (Math.random() - 0.5) * 0.04,
-      lng: -123.1100 + (Math.random() - 0.5) * 0.06
+      lng: -123.1100 + (Math.random() - 0.5) * 0.06,
+      customerId: newOrderInput.customerId,
+      serviceId: newOrderInput.serviceId,
+      vehicleId: newOrderInput.vehicleId,
+      pricingInput: newOrderInput,
+      pricing: snapshot
     };
 
     onCreateJob(newJob);
     setShowCreateModal(false);
-    // Reset form
-    setNewJobNumber(`#${Math.floor(480 + Math.random() * 40)}`);
-    setNewCustomerName('');
-    setNewPickupAddress('');
-    setNewDropoffAddress('');
-    setNewInstructions('');
-    onNotification(`Created and registered new Job ${newJob.jobNumber}`);
+    onNotification(
+      snapshot.status === 'PRICED'
+        ? `Created ${newJob.jobNumber} — quoted $${snapshot.total.toFixed(2)} ${snapshot.currency}`
+        : `Created ${newJob.jobNumber} — pricing needs attention`
+    );
+  };
+
+  /** Re-run the engine against current settings (estimate stage only). */
+  const handleReprice = (job: Job) => {
+    if (!job.pricingInput || job.pricing?.stage === 'FINAL') return;
+    const updated: Job = { ...job, pricing: priceOrder(job.pricingInput) };
+    onUpdateJob(updated);
+    setActiveJobDossier(updated);
+    onNotification(`${job.jobNumber} re-priced against current Rate Cards`);
+  };
+
+  /** Completion pricing: settle on actuals and lock the snapshot. */
+  const handleFinalize = (job: Job) => {
+    if (!job.pricingInput || job.pricing?.stage === 'FINAL') return;
+    const actual = window.prompt(
+      'Actual duration in minutes (leave blank to settle on the estimate):',
+      String(job.pricingInput.actualMinutes ?? job.pricingInput.estimatedMinutes ?? '')
+    );
+    if (actual === null) return;
+    const minutes = actual.trim() === '' ? null : Math.max(0, Number(actual) || 0);
+    const { input, snapshot } = finalizeOrderPrice(job.pricingInput, minutes);
+    const updated: Job = { ...job, pricingInput: input, pricing: snapshot };
+    onUpdateJob(updated);
+    setActiveJobDossier(updated);
+    onNotification(`${job.jobNumber} price finalized at $${snapshot.total.toFixed(2)} ${snapshot.currency}`);
   };
 
   return (
@@ -204,10 +273,10 @@ export function JobsPage({
             </div>
             <div>
               <h1 className="text-base font-semibold text-slate-900 leading-tight">
-                Jobs & Dispatches
+                Orders
               </h1>
               <p className="text-[11px] text-slate-500 leading-tight">
-                Live delivery manifests, route windows, cargo specs, and driver assignments
+                Live delivery manifests, customer pricing, route windows, and driver assignments
               </p>
             </div>
           </div>
@@ -224,11 +293,11 @@ export function JobsPage({
           </button>
           <button
             type="button"
-            onClick={() => setShowCreateModal(true)}
+            onClick={openCreateModal}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>New Job Dispatch</span>
+            <span>New Order</span>
           </button>
         </div>
       </header>
@@ -383,7 +452,7 @@ export function JobsPage({
                   <th className="py-3 px-4">Route Leg (Pickup → Delivery)</th>
                   <th className="py-3 px-4">Scheduled Window</th>
                   <th className="py-3 px-4">Assigned Driver</th>
-                  <th className="py-3 px-4">Service & Cargo</th>
+                  <th className="py-3 px-4">Service & Price</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -520,12 +589,25 @@ export function JobsPage({
                         )}
                       </td>
 
-                      {/* Service & Cargo */}
+                      {/* Service & Price */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="font-medium text-slate-800">{job.jobType}</span>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {job.cargoWeight || 'Standard Cargo'}
-                        </div>
+                        <span className="font-medium text-slate-800">{job.serviceLevel || job.jobType}</span>
+                        {(() => {
+                          const price = describePrice(job);
+                          return (
+                            <div
+                              className={`text-[11px] mt-0.5 font-semibold ${
+                                price.tone === 'ok' ? 'text-slate-900' : price.tone === 'warn' ? 'text-amber-700' : 'text-slate-400'
+                              }`}
+                            >
+                              {price.tone === 'warn' && <AlertTriangle className="w-3 h-3 inline mr-1 -mt-0.5" />}
+                              {price.text}
+                              {job.pricing?.rateCard && (
+                                <span className="text-slate-400 font-normal"> · {job.pricing.rateCard.name}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Actions */}
@@ -569,8 +651,13 @@ export function JobsPage({
               <div className="flex items-center gap-2.5">
                 <span className="text-base font-bold text-slate-900">{activeJobDossier.jobNumber}</span>
                 <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                  {activeJobDossier.jobType}
+                  {activeJobDossier.serviceLevel || activeJobDossier.jobType}
                 </span>
+                {activeJobDossier.pricing?.status === 'PRICED' && (
+                  <span className="text-xs font-bold text-slate-900">
+                    ${activeJobDossier.pricing.total.toFixed(2)} {activeJobDossier.pricing.currency}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => setActiveJobDossier(null)}
@@ -612,27 +699,36 @@ export function JobsPage({
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Route & Stops</div>
                 
                 <div className="space-y-3">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-[10px] flex-none mt-0.5">
-                      1
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-semibold text-emerald-700">PICKUP LOCATION</div>
-                      <div className="font-medium text-slate-800">{activeJobDossier.pickupAddress}</div>
-                    </div>
-                  </div>
-
-                  <div className="ml-2.5 border-l-2 border-dashed border-slate-200 h-4" />
-
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-[10px] flex-none mt-0.5">
-                      2
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-semibold text-blue-700">DELIVERY DESTINATION</div>
-                      <div className="font-medium text-slate-800">{activeJobDossier.dropoffAddress}</div>
-                    </div>
-                  </div>
+                  {(activeJobDossier.pricingInput?.stops ?? [
+                    { id: 'pu', type: 'PICKUP' as const, label: activeJobDossier.pickupAddress, zoneId: null, residential: false, waitMinutes: 0 },
+                    { id: 'do', type: 'DROPOFF' as const, label: activeJobDossier.dropoffAddress, zoneId: null, residential: false, waitMinutes: 0 }
+                  ]).map((stop, i, all) => (
+                    <React.Fragment key={stop.id}>
+                      <div className="flex items-start gap-2.5">
+                        <div
+                          className={`w-5 h-5 rounded-full font-bold flex items-center justify-center text-[10px] flex-none mt-0.5 ${
+                            stop.type === 'PICKUP' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                          }`}
+                        >
+                          {i + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <div className={`text-[10px] font-semibold ${stop.type === 'PICKUP' ? 'text-emerald-700' : 'text-blue-700'}`}>
+                            {stop.type === 'PICKUP' ? 'PICKUP' : 'DROP-OFF'}
+                            {stop.zoneId && (
+                              <span className="ml-1.5 text-slate-400 font-normal">
+                                {pricingCtx.pricing.zones.find((z) => z.id === stop.zoneId)?.name}
+                              </span>
+                            )}
+                            {stop.residential && <span className="ml-1.5 text-slate-400 font-normal">· residential</span>}
+                            {stop.waitMinutes > 0 && <span className="ml-1.5 text-slate-400 font-normal">· {stop.waitMinutes} min wait</span>}
+                          </div>
+                          <div className="font-medium text-slate-800">{stop.label || '—'}</div>
+                        </div>
+                      </div>
+                      {i < all.length - 1 && <div className="ml-2.5 border-l-2 border-dashed border-slate-200 h-3" />}
+                    </React.Fragment>
+                  ))}
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-slate-500">
@@ -666,14 +762,22 @@ export function JobsPage({
               {/* Cargo & Handling Specs */}
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cargo & Handling</div>
-                <div className="grid grid-cols-2 gap-2 text-slate-700">
+                <div className="grid grid-cols-3 gap-2 text-slate-700">
                   <div>
-                    <span className="text-slate-400 text-[10px]">Estimated Weight:</span>
-                    <div className="font-semibold">{activeJobDossier.cargoWeight || '350 kg'}</div>
+                    <span className="text-slate-400 text-[10px]">Actual Weight:</span>
+                    <div className="font-semibold">
+                      {activeJobDossier.pricing ? `${activeJobDossier.pricing.inputs.actualWeightKg} kg` : activeJobDossier.cargoWeight || '—'}
+                    </div>
                   </div>
                   <div>
-                    <span className="text-slate-400 text-[10px]">Pallet Count:</span>
-                    <div className="font-semibold">{activeJobDossier.palletCount || '1 standard skid'}</div>
+                    <span className="text-slate-400 text-[10px]">Chargeable Weight:</span>
+                    <div className="font-semibold">
+                      {activeJobDossier.pricing ? `${activeJobDossier.pricing.inputs.chargeableWeightKg} kg` : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px]">Pieces:</span>
+                    <div className="font-semibold">{activeJobDossier.pricing?.inputs.pieces ?? activeJobDossier.palletCount ?? '—'}</div>
                   </div>
                 </div>
                 {activeJobDossier.handlingInstructions && (
@@ -681,6 +785,51 @@ export function JobsPage({
                     <span className="text-slate-400 text-[10px] block">Special Instructions:</span>
                     {activeJobDossier.handlingInstructions}
                   </div>
+                )}
+              </div>
+
+              {/* Customer Price — frozen Pricing Snapshot */}
+              <div className="p-4 bg-white rounded-xl border border-slate-200/90">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer Price</div>
+                  {activeJobDossier.pricingInput && activeJobDossier.pricing?.stage !== 'FINAL' && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleReprice(activeJobDossier)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                        title="Re-run the engine against current Rate Cards"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Re-price
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFinalize(activeJobDossier)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
+                        title="Settle on actuals and lock the price"
+                      >
+                        <Check className="w-3 h-3" />
+                        Finalize
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {activeJobDossier.pricing ? (
+                  <PriceBreakdown
+                    snapshot={activeJobDossier.pricing}
+                    variant="inline"
+                    title={activeJobDossier.pricing.stage === 'FINAL' ? 'Final price' : 'Quoted estimate'}
+                  />
+                ) : (
+                  <p className="text-slate-500">This order predates the pricing model and has no snapshot.</p>
+                )}
+                {activeJobDossier.pricingInput?.routeKm != null && (
+                  <p className="text-[11px] text-slate-400 mt-3 pt-3 border-t border-slate-100">
+                    Priced on a {formatDistance(activeJobDossier.pricingInput.routeKm, pricingCtx.billing.general)} standalone route
+                    {activeJobDossier.pricingInput.estimatedMinutes != null ? ` · ${activeJobDossier.pricingInput.estimatedMinutes} min` : ''}.
+                    Operational route distance and driver assignment do not change it.
+                  </p>
                 )}
               </div>
             </div>
@@ -708,19 +857,22 @@ export function JobsPage({
         </div>
       )}
 
-      {/* CREATE NEW JOB MODAL */}
+      {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div
-            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
+            className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">New Job Dispatch</h3>
-                <p className="text-xs text-slate-500">Register a new customer pickup and delivery route</p>
+                <h3 className="text-sm font-bold text-slate-900">New Order</h3>
+                <p className="text-xs text-slate-500">
+                  Order facts on the left; the live estimate on the right comes from the same pricing engine as the simulator.
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowCreateModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
               >
@@ -728,135 +880,121 @@ export function JobsPage({
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Job Number</label>
-                  <input
-                    type="text"
-                    value={newJobNumber}
-                    onChange={(e) => setNewJobNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
+            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-5 bg-slate-50">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                <div className="lg:col-span-7 space-y-5 text-xs">
+                  {/* Order identity */}
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Order</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Order Number</label>
+                        <input
+                          type="text"
+                          value={newJobNumber}
+                          onChange={(e) => setNewJobNumber(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Scheduled Window</label>
+                        <input
+                          type="text"
+                          value={newScheduledTime}
+                          onChange={(e) => setNewScheduledTime(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                        />
+                      </div>
+                      {!selectedCustomer && (
+                        <>
+                          <div>
+                            <label className="block font-semibold text-slate-700 mb-1">Shipper Name (walk-in)</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Pacific Coast Fresh"
+                              value={newCustomerName}
+                              onChange={(e) => setNewCustomerName(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-semibold text-slate-700 mb-1">Contact Phone</label>
+                            <input
+                              type="tel"
+                              value={newCustomerPhone}
+                              onChange={(e) => setNewCustomerPhone(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                            />
+                          </div>
+                        </>
+                      )}
+                      {selectedCustomer && (
+                        <div className="col-span-2 text-[11px] text-slate-500">
+                          Contact: <span className="font-medium text-slate-800">{selectedCustomer.contactName}</span> · {selectedCustomer.phone}
+                          {selectedCustomer.rateCardId || selectedCustomer.customerGroupId ? ' · contract pricing applies' : ''}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <OrderPricingForm
+                    value={newOrderInput}
+                    onChange={setNewOrderInput}
+                    ctx={pricingCtx}
+                    snapshot={newOrderSnapshot}
+                    showStopAddresses
+                    showOverrides
+                    startIndex={1}
+                  />
+
+                  {/* Dispatch */}
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Dispatch</h4>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Assign Driver (Optional)</label>
+                      <Select
+                        aria-label="Assign driver"
+                        className="w-full"
+                        value={newDriverId}
+                        onValueChange={setNewDriverId}
+                        options={[
+                          { value: 'unassigned', label: '— Leave Unassigned (Staged for Dispatch) —' },
+                          ...drivers.map((d) => ({ value: d.id, label: `${d.name} (${d.id}) · ${d.statusLabel}` }))
+                        ]}
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">Driver choice never changes the customer price.</p>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Handling Instructions</label>
+                      <textarea
+                        rows={2}
+                        placeholder="e.g. Liftgate required, call receiver 10m before arrival."
+                        value={newInstructions}
+                        onChange={(e) => setNewInstructions(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-5 lg:sticky lg:top-0">
+                  <PriceBreakdown
+                    snapshot={newOrderSnapshot}
+                    targetMarginPercent={pricingCtx.billing.operatingCost.targetGrossMarginPercent}
+                    title="Live estimate"
                   />
                 </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Service Level</label>
-                  <Select
-                    aria-label="Service level"
-                    className="w-full"
-                    value={newJobType}
-                    onValueChange={setNewJobType}
-                    options={[
-                      { value: 'Standard Delivery', label: 'Same-Day Standard' },
-                      { value: 'Rush Expedited', label: 'Rush Expedited (2-Hour)' },
-                      { value: 'Direct Hotshot', label: 'Direct Hotshot' },
-                      { value: 'Scheduled Economy', label: 'Scheduled Economy' },
-                      { value: 'Medical Supplies', label: 'Medical Supplies (Cold Chain)' },
-                      { value: 'Priority Freight', label: 'Priority Freight (Heavy)' }
-                    ]}
-                  />
-                </div>
               </div>
+            </form>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Customer / Shipper Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Pacific Coast Fresh"
-                    value={newCustomerName}
-                    onChange={(e) => setNewCustomerName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Contact Phone</label>
-                  <input
-                    type="tel"
-                    value={newCustomerPhone}
-                    onChange={(e) => setNewCustomerPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Pickup Address</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 1055 W Georgia St, Vancouver, BC"
-                  value={newPickupAddress}
-                  onChange={(e) => setNewPickupAddress(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Delivery Destination</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 200 Water St, Gastown, Vancouver, BC"
-                  value={newDropoffAddress}
-                  onChange={(e) => setNewDropoffAddress(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Scheduled Window</label>
-                  <input
-                    type="text"
-                    value={newScheduledTime}
-                    onChange={(e) => setNewScheduledTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Cargo Weight / Specs</label>
-                  <input
-                    type="text"
-                    value={newCargoWeight}
-                    onChange={(e) => setNewCargoWeight(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Assign Driver (Optional)</label>
-                <Select
-                  aria-label="Assign driver"
-                  className="w-full"
-                  value={newDriverId}
-                  onValueChange={setNewDriverId}
-                  options={[
-                    { value: 'unassigned', label: '— Leave Unassigned (Staged for Dispatch) —' },
-                    ...drivers.map((d) => ({
-                      value: d.id,
-                      label: `${d.name} (${d.id}) · ${d.statusLabel}`
-                    }))
-                  ]}
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Handling Instructions</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Liftgate required, call receiver 10m before arrival."
-                  value={newInstructions}
-                  onChange={(e) => setNewInstructions(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-6 py-3 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
+              <span className="text-[11px] text-slate-500">
+                {newOrderSnapshot.status === 'PRICED'
+                  ? 'The estimate is frozen on the order as a Pricing Snapshot.'
+                  : 'The order can be created, but it will land in Needs Attention until it can be priced.'}
+              </span>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
@@ -865,13 +1003,14 @@ export function JobsPage({
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}
                   className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
                 >
-                  Create & Register Job
+                  Create Order
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

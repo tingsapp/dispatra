@@ -431,7 +431,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold text-slate-900 leading-snug truncate">
-              {profile.name || 'Sarah K.'}
+              {(profile.name || 'Sarah').trim().split(/\s+/)[0]}
             </div>
             <div className="text-xs text-slate-500 truncate">{profile.role || 'Dispatcher'}</div>
           </div>
