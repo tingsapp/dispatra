@@ -1,3 +1,7 @@
+import { useEntityDialog } from '../components/entities/useEntityDialog';
+import { CustomerFields, CustomerDetails } from '../components/entities/CustomerFields';
+import { validateCustomer } from '../domain/validation';
+import { Job } from '../types';
 import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
@@ -28,12 +32,14 @@ import { Select } from '../components/ui/Select';
 import { SearchInput } from '../components/ui/SearchInput';
 
 interface CustomersPageProps {
+  jobs?: Job[];
   onBackToMonitor: () => void;
   onNotification?: (msg: string) => void;
   onSelectJob?: (jobNumber: string) => void;
 }
 
 export const CustomersPage: React.FC<CustomersPageProps> = ({
+  jobs = [],
   onBackToMonitor,
   onNotification,
   onSelectJob
@@ -96,7 +102,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         c.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.email.toLowerCase().includes(searchQuery.toLowerCase());
+        c.email.toLowerCase().includes(searchQuery.toLowerCase()) || [...(c.tags ?? []), ...(c.addresses ?? []).map(a => a.address)].join(' ').toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
       const matchesType = typeFilter === 'ALL' || c.accountType === typeFilter;
@@ -105,15 +111,18 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     });
   }, [customers, searchQuery, statusFilter, typeFilter]);
 
+  const activeOrderCount = (id: string) => jobs.filter(j => j.customerId === id && j.status !== 'completed').length;
+  const persistCustomers = (next: Customer[]) => { try { saveCustomers(next); setCustomers(next); return true; } catch { onNotification?.('Customer changes could not be saved in this browser.'); return false; } };
+
   // Statistics
   const stats = useMemo(() => {
     const total = customers.length;
-    const activeWithJobs = customers.filter((c) => c.activeJobsCount > 0).length;
-    const totalActiveJobs = customers.reduce((sum, c) => sum + c.activeJobsCount, 0);
-    const preferred = customers.filter((c) => c.status === 'Preferred').length;
+    const activeWithJobs = customers.filter((c) => activeOrderCount(c.id) > 0).length;
+    const totalActiveJobs = customers.reduce((sum, c) => sum + activeOrderCount(c.id), 0);
+    const preferred = customers.filter((c) => c.tags?.includes('Preferred')).length;
     const onHold = customers.filter((c) => c.status === 'On Hold').length;
     return { total, activeWithJobs, totalActiveJobs, preferred, onHold };
-  }, [customers]);
+  }, [customers, jobs]);
 
   const handleOpenAddModal = () => {
     setEditingCustomer(null);
@@ -128,7 +137,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       city: 'Vancouver, BC',
       accountType: 'Scheduled Contract',
       status: 'Active',
-      defaultRequirements: ['Liftgate Required', 'Dock Access'],
+      defaultRequirements: [],
       notes: '',
       ...EMPTY_PRICING_RELATIONSHIP
     });
@@ -148,6 +157,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       return;
     }
 
+    const errors = validateCustomer(formData, customers, editingCustomer?.id);
+    if (errors.length) { onNotification?.(errors.join(" ")); return; }
     if (editingCustomer) {
       // Update
       const updated = customers.map((c) =>
@@ -155,24 +166,26 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           ? ({
               ...c,
               ...formData,
+              updatedAt: new Date().toISOString(),
               name: formData.name!.trim(),
               code: formData.code || c.code
             } as Customer)
           : c
       );
-      setCustomers(updated);
-      saveCustomers(updated);
+      if (!persistCustomers(updated)) return;
       onNotification?.(`Updated customer "${formData.name}".`);
     } else {
       // Add
       const newCustomer: Customer = {
+        ...formData,
+        updatedAt: new Date().toISOString(),
         id: `cust-${Date.now()}`,
         code: formData.code || `CUST-${Math.floor(1000 + Math.random() * 9000)}`,
         name: formData.name!.trim(),
-        contactName: formData.contactName || 'Dispatch Contact',
-        email: formData.email || 'info@client.ca',
-        phone: formData.phone || '+1 (604) 555-0100',
-        address: formData.address || 'Metro Vancouver Hub',
+        contactName: formData.contactName || '',
+        email: formData.email || '',
+        phone: formData.phone || '',
+        address: formData.address || '',
         city: formData.city || 'Vancouver, BC',
         accountType: formData.accountType as any || 'Standard Freight',
         status: formData.status as any || 'Active',
@@ -189,8 +202,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         createdAt: new Date().toISOString().split('T')[0]
       };
       const updated = [newCustomer, ...customers];
-      setCustomers(updated);
-      saveCustomers(updated);
+      if (!persistCustomers(updated)) return;
       onNotification?.(`Added customer account "${newCustomer.name}".`);
     }
 
@@ -200,8 +212,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const handleDeleteCustomer = (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete customer "${name}"?`)) {
       const updated = customers.filter((c) => c.id !== id);
-      setCustomers(updated);
-      saveCustomers(updated);
+      if (!persistCustomers(updated)) return;
       if (selectedCustomerForView?.id === id) {
         setSelectedCustomerForView(null);
       }
@@ -219,6 +230,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       }
     });
   };
+
+  useEntityDialog(!!selectedCustomerForView || isModalOpen, () => { setSelectedCustomerForView(null); setIsModalOpen(false); });
 
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
@@ -273,7 +286,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               <Building2 className="w-4 h-4 text-slate-400" />
             </div>
             <div className="mt-2 text-2xl font-bold text-slate-900">{stats.total}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Registered shippers & recipients</div>
+            <div className="mt-1 text-[11px] text-slate-500">Service-purchasing accounts</div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
@@ -284,19 +297,19 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             <div className="mt-2 text-2xl font-bold text-blue-600">
               {stats.activeWithJobs}{' '}
               <span className="text-xs font-medium text-slate-400">
-                ({stats.totalActiveJobs} active jobs)
+                ({stats.totalActiveJobs} active orders)
               </span>
             </div>
-            <div className="mt-1 text-[11px] text-slate-500">Live consignments on the road</div>
+            <div className="mt-1 text-[11px] text-slate-500">Orders linked to these accounts</div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
             <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Preferred / SLA</span>
+              <span>Preferred accounts</span>
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="mt-2 text-2xl font-bold text-emerald-600">{stats.preferred}</div>
-            <div className="mt-1 text-[11px] text-slate-500">High-priority contracted accounts</div>
+            <div className="mt-1 text-[11px] text-slate-500">Customers tagged Preferred</div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
@@ -340,8 +353,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               options={[
                 { value: 'ALL', label: 'All Statuses' },
                 { value: 'Active', label: 'Active' },
-                { value: 'Preferred', label: 'Preferred' },
-                { value: 'On Hold', label: 'On Hold' }
+                { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }
               ]}
             />
           </div>
@@ -357,7 +369,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <th className="py-3 px-4">Contact</th>
                   <th className="py-3 px-4">Address / Service Area</th>
                   <th className="py-3 px-4">Contract Tier & Accessorials</th>
-                  <th className="py-3 px-4 text-center">Active Jobs</th>
+                  <th className="py-3 px-4 text-center">Active Orders</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -445,12 +457,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                         </div>
                       </td>
 
-                      {/* Active Jobs */}
+                      {/* Active Orders */}
                       <td className="py-3.5 px-4 text-center">
-                        {customer.activeJobsCount > 0 ? (
+                        {activeOrderCount(customer.id) > 0 ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-                            {customer.activeJobsCount} active
+                            {activeOrderCount(customer.id)} active
                           </span>
                         ) : (
                           <span className="text-slate-400 text-[11px]">—</span>
@@ -504,7 +516,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
       {/* CUSTOMER DETAILS SLIDE-OVER DRAWER */}
       {selectedCustomerForView && (
-        <div
+        <div data-entity-dialog
           className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150"
           onClick={() => setSelectedCustomerForView(null)}
         >
@@ -555,6 +567,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 </span>
               </div>
 
+              <CustomerDetails customer={selectedCustomerForView} />
+              <div className="p-4 border rounded-xl text-xs space-y-2"><h4 className="font-semibold">Order history</h4>{jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-slate-500">No linked orders yet.</p>}{jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => <button key={j.id} className="block text-blue-700 text-left" onClick={() => onSelectJob?.(j.jobNumber)}>{j.jobNumber} · {j.statusLabel} · {j.invoicePreview ? 'Invoice preview available' : 'No invoice'}</button>)}</div>
               {/* Contact Information */}
               <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
                 <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
@@ -684,7 +698,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     Total Volume
                   </div>
                   <div className="text-lg font-bold text-slate-900 mt-0.5">
-                    {selectedCustomerForView.totalShipments} shipments
+                    {jobs.filter(j => j.customerId === selectedCustomerForView.id).length} orders
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
@@ -692,7 +706,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     Active On Road
                   </div>
                   <div className="text-lg font-bold text-blue-600 mt-0.5">
-                    {selectedCustomerForView.activeJobsCount} loads
+                    {jobs.filter(j => j.customerId === selectedCustomerForView.id && j.status !== 'completed').length} orders
                   </div>
                 </div>
               </div>
@@ -730,7 +744,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
       {/* ADD / EDIT CUSTOMER MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900">
@@ -746,6 +760,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             </div>
 
             <form onSubmit={handleSaveCustomer} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <CustomerFields value={formData} onChange={setFormData} />
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -868,8 +883,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     onValueChange={(v) => setFormData({ ...formData, status: v as any })}
                     options={[
                       { value: 'Active', label: 'Active' },
-                      { value: 'Preferred', label: 'Preferred' },
-                      { value: 'On Hold', label: 'On Hold' }
+                            { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }
                     ]}
                   />
                 </div>

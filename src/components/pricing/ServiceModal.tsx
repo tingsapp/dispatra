@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock } from 'lucide-react';
 import { DeliveryService } from '../../types/simplePricing';
+import { TimePicker } from '../ui/TimePicker';
 
 interface ServiceModalProps {
   isOpen: boolean;
@@ -145,11 +146,11 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
 
             <div>
               <label className={labelClass}>Booking Cut-off</label>
-              <input
-                type="time"
+              <TimePicker
+                aria-label="Booking cutoff"
                 value={bookingCutoffTime}
-                onChange={(e) => setBookingCutoffTime(e.target.value)}
-                className={fieldClass}
+                onValueChange={setBookingCutoffTime}
+                clearable
               />
               <p className="text-[11px] text-slate-500 mt-1">Latest booking time for same-day fulfilment.</p>
             </div>

@@ -1,3 +1,6 @@
+import { StopFields, ItemFields } from '../entities/StopItemFields';
+import { DateField, TextField, Choice } from '../entities/Fields';
+import { applyCustomerDefaults, removeOrderStop } from '../../domain/orderAdapters';
 import React from 'react';
 import { Plus, Minus, Trash2, Navigation, Truck, Package, MapPin, AlertTriangle, Building2, Clock, Layers } from 'lucide-react';
 import { OrderPriceAdjustment, PricingOrderInput, PricingPackageInput, PricingSnapshot, PricingStopInput } from '../../types/pricing';
@@ -12,6 +15,7 @@ import {
   toDisplayWeight
 } from '../../lib/units';
 import { Select } from '../ui/Select';
+import { DateTimePicker } from '../ui/DateTimePicker';
 
 /**
  * Order-facts editor for Order creation. It only
@@ -105,8 +109,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
               aria-label="Customer"
               className="w-full"
               value={value.customerId ?? ''}
-              onValueChange={(v) => patch({ customerId: v || null })}
-              options={[{ value: '', label: 'Walk-in — organization pricing' }, ...customers.map((c) => ({ value: c.id, label: c.name }))]}
+              onValueChange={(v) => onChange(applyCustomerDefaults(value, customers.find(c => c.id === v)))}
+              options={[{ value: '', label: 'Walk-in — organization pricing' }, ...customers.filter(c => c.status !== 'Inactive' && c.status !== 'On Hold').map((c) => ({ value: c.id, label: c.name }))]}
             />
           </div>
           <div>
@@ -141,6 +145,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
         )}
       </div>
 
+      <div className="grid sm:grid-cols-2 gap-3"><Choice label="Order source" value={value.source} options={['DISPATCHER','CUSTOMER_PORTAL','IMPORT']} onChange={source => patch({ source: source as PricingOrderInput['source'] })} /><TextField label="External order reference" value={value.externalReference ?? ''} onChange={externalReference => patch({ externalReference: externalReference || null })} /></div>
       {/* Stops */}
       <div className={sectionClass}>
         <div className="flex items-center justify-between mb-3">
@@ -196,7 +201,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
                 <button
                   type="button"
                   disabled={value.stops.length <= 2}
-                  onClick={() => patch({ stops: value.stops.filter((s) => s.id !== stop.id) })}
+                  onClick={() => onChange(removeOrderStop(value, stop.id))}
                   className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30"
                   title="Remove stop"
                 >
@@ -206,6 +211,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
               {stop.type === 'DROPOFF' && <fieldset className="text-xs text-slate-600"><legend className="font-medium mb-1">Supplying pickups (one charge per pickup → delivery movement)</legend>
                 {value.stops.filter(s => s.type === 'PICKUP').map(pickup => <label key={pickup.id} className="inline-flex gap-1 mr-3"><input type="checkbox" checked={(stop.pickupIds ?? []).includes(pickup.id)} onChange={e => updateStop(stop.id, { pickupIds: e.target.checked ? [...(stop.pickupIds ?? []), pickup.id] : (stop.pickupIds ?? []).filter(id => id !== pickup.id) })} />{pickup.label || `Pickup ${value.stops.indexOf(pickup) + 1}`}</label>)}
               </fieldset>}
+              <div className="flex gap-2"><button type="button" className={smallBtn} disabled={i === 0} aria-label={`Move stop ${i + 1} up`} onClick={() => { const stops = [...value.stops]; [stops[i - 1], stops[i]] = [stops[i], stops[i - 1]]; patch({ stops }); }}>Move up</button><button type="button" className={smallBtn} disabled={i === value.stops.length - 1} aria-label={`Move stop ${i + 1} down`} onClick={() => { const stops = [...value.stops]; [stops[i + 1], stops[i]] = [stops[i], stops[i + 1]]; patch({ stops }); }}>Move down</button></div>
+              <StopFields stop={stop} onChange={p => updateStop(stop.id, p)} addresses={customers.find(c => c.id === value.customerId)?.addresses ?? []} timeZone={billing.general.timeZone ?? 'America/Vancouver'} />
               {showStopAddresses && (
                 <input
                   type="text"
@@ -250,7 +257,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
             </div>
           </div>
           <div>
-            <label className={labelClass}>Estimated duration (cost / planning)</label>
+            <label className={labelClass}>Estimated duration</label>
             <div className="relative">
               <input
                 type="number"
@@ -265,20 +272,21 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
           </div>
           <div className="col-span-2">
             <label className={labelClass}>Service window starts</label>
-            <input
-              type="datetime-local"
+            <DateTimePicker
+              aria-label="Service window starts"
               value={value.scheduledAt ?? ''}
-              onChange={(e) => patch({ scheduledAt: e.target.value || null })}
-              className={fieldClass}
+              onValueChange={scheduledAt => patch({ scheduledAt: scheduledAt || null })}
+              timeZone={billing.general.timeZone ?? 'America/Vancouver'}
             />
           </div>
         </div>
+        <div className="mt-3"><DateField label="Service window ends" value={value.scheduledEndAt} onChange={scheduledEndAt => patch({ scheduledEndAt: scheduledEndAt || null })} timeZone={billing.general.timeZone ?? 'America/Vancouver'} /></div>
         <div className="grid sm:grid-cols-2 gap-3 mt-3 text-xs">
           <label>Duration includes<select className={fieldClass} value={value.durationBasis ?? ''} onChange={e => patch({ durationBasis: e.target.value as PricingOrderInput['durationBasis'] })}><option value="">Choose to complete cost estimate</option><option value="DRIVING_ONLY">Driving only — add handling and waiting</option><option value="TOTAL_SERVICE">Total service — already includes handling and waiting</option></select></label>
           {value.durationBasis === 'DRIVING_ONLY' && <label>Handling minutes (all stops)<input className={fieldClass} type="number" min="0" value={value.handlingMinutes ?? ''} placeholder="Use organization average per stop" onChange={e => patch({ handlingMinutes: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })} /></label>}
           {snapshot.method === 'HOURLY' && <label>Agreed-period billable minutes ({value.stage === 'FINAL' ? 'actual' : 'estimated'})<input className={fieldClass} type="number" min="0" value={(value.stage === 'FINAL' ? value.actualHourlyBillableMinutes : value.hourlyBillableMinutes) ?? ''} placeholder="Enter minutes for contract clock" onChange={e => patch(value.stage === 'FINAL' ? { actualHourlyBillableMinutes: e.target.value === '' ? null : Number(e.target.value) } : { hourlyBillableMinutes: e.target.value === '' ? null : Number(e.target.value) })} /></label>}
         </div>
-        <p className="mt-2 text-xs text-slate-500">Duration does not change Base + Distance, Fixed or Zone prices. Waiting is charged only by its rule, unless included in the hourly contract. Service windows use {billing.general.timeZone ?? 'America/Vancouver'}.</p>
+        <p className="mt-2 text-xs text-slate-500">Duration is for cost and planning; it does not change Base + Distance, Fixed or Zone prices. Waiting is charged only by its rule, unless included in the hourly contract. Service windows use {billing.general.timeZone ?? 'America/Vancouver'}.</p>
       </div>
 
       {/* Packages */}
@@ -288,7 +296,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
             <Package className="w-3.5 h-3.5 text-slate-700" />
             <span>{num()} Packages</span>
           </h4>
-          <button type="button" onClick={() => patch({ packages: [...value.packages, newPackage()] })} className={smallBtn}>
+          <button type="button" onClick={() => patch({ packages: [...value.packages, { ...newPackage(), pickupStopId: value.stops.filter(s => s.type === 'PICKUP').length === 1 ? value.stops.find(s => s.type === 'PICKUP')?.id : undefined, deliveryStopId: value.stops.filter(s => s.type === 'DROPOFF').length === 1 ? value.stops.find(s => s.type === 'DROPOFF')?.id : undefined }] })} className={smallBtn}>
             + Package
           </button>
         </div>
@@ -303,7 +311,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
             <span />
           </div>
           {value.packages.map((p) => (
-            <div key={p.id} className="grid grid-cols-[56px_1fr_1fr_1fr_1fr_1fr_auto] gap-2 items-center">
+            <div key={p.id}><ItemFields item={p} stops={value.stops} onChange={changes => updatePackage(p.id, changes)} /><div className="grid grid-cols-[56px_1fr_1fr_1fr_1fr_1fr_auto] gap-2 items-center">
               <input type="number" min={1} step={1} value={p.quantity} onChange={(e) => updatePackage(p.id, { quantity: Math.max(1, Math.round(Number(e.target.value) || 1)) })} className={fieldClass} aria-label="Quantity" />
               <input type="number" min={0} step={0.5} value={Number(toDisplayWeight(p.weightKg, units).toFixed(1))} onChange={(e) => updatePackage(p.id, { weightKg: fromDisplayWeight(Math.max(0, Number(e.target.value) || 0), units) })} className={fieldClass} aria-label="Weight per piece" />
               {(['lengthCm', 'widthCm', 'heightCm'] as const).map((k) => (
@@ -319,6 +327,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
+            </div>
             </div>
           ))}
         </div>
@@ -441,6 +450,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
               />
             </div>
           </div>
+          {value.rateCardOverrideId && <TextField label="Rate override reason" value={value.overrideReason} onChange={overrideReason => patch({ overrideReason })} required />}
           <div className="mt-3 pt-3 border-t border-slate-100">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-medium text-slate-600">Manual adjustments</span>

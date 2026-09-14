@@ -1,3 +1,4 @@
+import { normalizeOrderInput } from '../domain/orderAdapters';
 // Glue between Orders (the legacy `Job` mock) and the pricing engine.
 //
 // Pages call `priceOrder()` / `finalizeOrderPrice()`; they never compute a
@@ -32,7 +33,7 @@ export const createStop = (type: PricingStopInput['type'], partial: Partial<Pric
   ...partial
 });
 
-export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput => ({
+export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput => normalizeOrderInput({
   customerId: null,
   serviceId: ctx.catalogue.services.find((s) => s.active)?.id ?? ctx.catalogue.services[0]?.id ?? '',
   vehicleId: ctx.catalogue.vehicles.find((v) => v.active)?.id ?? null,

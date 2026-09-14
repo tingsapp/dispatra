@@ -6,7 +6,7 @@ Read [spec.md](spec.md) for target behavior and [AGENTS.md](AGENTS.md) for worki
 
 ## Current stage
 
-Interactive static-data prototype. The Monitor and several organization-management/pricing surfaces exist locally; no API integration is implemented.
+Mixed implementation: the company/customer account milestone uses the FastAPI/PostgreSQL API; the existing Monitor and operational/pricing surfaces remain a local-data prototype. Company/customer routes never mount the prototype or import its browser stores.
 
 ## Fixed decisions
 
@@ -36,11 +36,11 @@ The static prototype has Monitor/settings/pricing/customer interactions. Orders 
 
 ## Specified but not implemented
 
-Authenticated API client/OpenAPI generation; FastAPI integration; tenant authorization; a normalized Order/Route/RouteStop model (orders are still the legacy `Job` shape with pricing attached); customer-portal Order creation; automatic assignment/optimization and complete route hard constraints; multi-order route optimization/load progression; full Routes, Drivers, Vehicles, Reports, Needs Attention, POD, billing/invoice and tracking workflows; server state/realtime/resync; browser end-to-end tests; and complete operational scenario coverage.
+API integration and tenant authorization for the existing operational dispatcher modules; a normalized Order/Route/RouteStop model (orders are still the legacy `Job` shape with pricing attached); customer-portal Order creation; automatic assignment/optimization and complete route hard constraints; multi-order route optimization/load progression; full Routes, Drivers, Vehicles, Reports, Needs Attention, POD, billing/invoice and tracking workflows; server state/realtime/resync; browser end-to-end tests; and complete operational scenario coverage.
 
 ## Known gaps / blockers
 
-No React Router, TanStack Query, shadcn component installation, API client or websocket is established in `package.json`; they remain target architecture. Map rendering is static/demo and does not prove production routing, GPS, traffic, or satellite capability. Existing filenames and legacy terminology must not define the domain. No API runtime or browser end-to-end checks were run for this revision.
+The account portal now uses TanStack Query and an OpenAPI-generated typed transport. No operational websocket or general React Router integration is established; the small account route set is explicitly matched. Map rendering is static/demo and does not prove production routing, GPS, traffic, or satellite capability. Existing filenames and legacy terminology must not define the domain. No API runtime or browser end-to-end checks were run for this revision.
 
 ## Immediate next priorities
 
@@ -52,7 +52,7 @@ No React Router, TanStack Query, shadcn component installation, API client or we
 6. Finish Driver/Vehicle operational screens.
 7. Finish Billing/Invoice preview and sent states.
 8. Exercise all required static end-to-end scenarios.
-9. Connect to FastAPI only after static domain behavior is stable.
+9. Continue API integration after the company/customer account milestone, with explicit organization mapping and preservation of existing operational data.
 
 ## Testing status
 
@@ -77,3 +77,46 @@ Validation: 39 tests pass, including four new migration/recovery/rendering tests
 Removed the standalone Pricing Simulator page, its components, desktop/mobile navigation entries, and links from Rate Cards, Services and Billing settings. Order entry retains its live estimate and shared pricing engine. Removed simulator-only stage controls and updated help text and project documentation. Validation: all 39 pricing/rendering tests pass, TypeScript passes, and the production build succeeds in an isolated copy (existing bundle-size advisory remains).
 
 September 14 sidebar copy update: removed the automatic-assignment/route-feasibility prototype notice from the side menu at the user’s request. TypeScript and production build checks pass.
+
+September 14 organization-menu update: swapped Billing, Tax & Cost with Rate Cards & Zones in the desktop and mobile account submenus. Order is Services & Accessorials, Billing, Tax & Cost, then Rate Cards & Zones. TypeScript and production build checks pass.
+
+September 14 contract dropdown update: Admin / Dispatch Fee uses the same shared Select component and label styling as Dimensional Pricing. Inherit, apply and waive values retain their existing behavior. All 39 tests, TypeScript and production build checks pass.
+
+## September 14: Shared shadcn/ui date pickers
+
+Replaced native rate-card effective-date inputs and the Order service-window datetime input with the shared shadcn/ui Calendar + Radix Popover picker. Monitor now uses the same calendar with real month navigation and current Today/Tomorrow shortcuts instead of a fixed December 2024 grid. Monitor date selection remains local UI state. Date-only serialization avoids UTC conversion; service windows preserve organization wall time, including existing ISO instant values. Time controls use custom hour/minute dropdowns, including the service booking cutoff. Optional values can be cleared. Calendar popovers are portalled above drawers and support keyboard navigation, Escape/outside dismissal and focus return.
+
+Added shared Calendar, Button, Popover, DatePicker, DateTimePicker and TimePicker components, date-value helpers, dependency lockfile and upstream source notice. The new components use Dispatra’s existing slate/white styling. Seven interaction/date regression tests cover selection, month navigation, clearing, keyboard/focus, form submission protection, timezone/date roundtrips, service times, shortcuts and Monitor integration. All 46 tests, TypeScript and the production build pass in an isolated copy. The existing bundle-size advisory remains. Visual browser QA could not run because no connected browser was available.
+
+September 14 Route & Schedule layout fix: shortened the duration label to “Estimated duration” so its input aligns with adjacent fields. The cost/planning explanation remains in the section helper text. TypeScript and production build checks pass.
+
+## September 14: Orders, Drivers, Customers and Vehicles property fixes
+
+Implemented the frontend audit against the current Desktop client. Shared `domain/operations.ts` extends the existing local models; `Order` is now the commercial interface and `Job` its Monitor compatibility alias. Audit, branch-ready and future integration fields are typed but branch management remains hidden. No backend contract/runtime was generated or replaced.
+
+- Orders: create/edit/save, lifecycle display/filter separate from risk, searchable references/recipients/tags, CSV with all stops and safe escaping; stable stop reorder/removal, contact/window/service/access/POD/reference fields, item description/unit/handling and pickup/delivery relationships; booking/billing snapshots, payer selection, priority/type, commodity, requirements, communications and internal notes. Existing central pricing and frozen snapshots are preserved; manual card overrides require reasons. Locked/final/executing orders cannot be edited, and versions protect an open edit from stale local records. Monitor popover/details now show the full saved stop list rather than hard-coded two-stop details.
+- Drivers: create/edit, number/contact/licence, independent account/duty/work states, skills/areas, qualifications, shifts/availability periods, depot/start point, maximum minutes and notes. Browser persistence now survives reload. Connectivity is derived separately from GPS timestamps; missing timestamps are shown as unknown. Duty toggles no longer fabricate on-route progress. Driver-to-vehicle selection updates the fleet owner and prevents duplicate/in-use asset release.
+- Customers: saved locations/contacts, business/person/legal name, payment terms, default service/window/instructions, communication preferences, tags/reference and existing pricing relationship; linked order history/counts. Snapshot contacts remain historical; frozen invoice preview uses the selected payer's email/terms. Save failures are surfaced.
+- Vehicles: create/edit, normalized type, plate province/year, separate status/availability, volume and dimensions alongside payload/pallet constraints, equipment/areas/depot and unavailable period/reason. Removed decorative fuel/odometer/maintenance controls from these workflows; legacy data remains intact. Empty saved fleets stay empty.
+- Shared validation checks IDs, duplicates, numeric values, contacts, windows, movement dependencies, overrides and entered dispatch requirements. Single-order intermediate weight/volume/pallet load and upright item fit are checked. Multi-order route optimization remains unimplemented.
+
+Validation: TypeScript, production build and 64 tests pass (39 pricing, 7 date, 14 entity/domain/storage and 4 form interaction tests). Browser review covered Orders, new order layout, independent lifecycle/risk badges, driver editor layout and keyboard dismissal, vehicle capacity/editor layout, and customer saved-location/defaults layout. Legacy Preferred customers migrate to Active with a Preferred classification tag. Vite retains its existing large-bundle advisory. Saved data migration is tested with serialized fixtures; no customer browser storage was cleared.
+
+Limits: This remains a local-data frontend. Stop planned/actual timestamps, normalized address/coordinates, metadata and audit fields are model-ready; telemetry/execution providers supply them later. Temperature/qualification-expiry/branch management remain deferred. No real notifications, POD collection, authoritative invoices, API integration or combined-route feasibility is claimed. Unknown legacy values and ambiguous multi-stop allocations are left unset for review, rather than guessed.
+
+September 14 Order Details border fix: the Order Details box now uses the same light slate border as adjacent sections, and horizontal item dividers use the matching subtle slate separator color. TypeScript and production build checks pass.
+
+September 14 Order Details dismissal: clicking the backdrop closes the details drawer. Clicks within the drawer keep it open; existing close controls and Escape handling remain available. TypeScript, entity-form interaction tests and the production build pass.
+
+
+## September 14: Company/customer account milestone
+
+Added `/platform`, `/{company}/dispatch`, and `/{company}/customer` account surfaces, with optional `/login` and company `/settings` routes. Platform owners provision companies and initial dispatcher credentials. Dispatchers create customer records and access credentials, copy transient login details, and reset passwords. Customer login has no signup or forced password-change gate; customers complete contact name/email/phone/address and optionally change their password in Account settings.
+
+The account UI uses shadcn Button, shared accessible form controls, loading/error/empty states, TanStack Query, generated OpenAPI schema types and centralized transport. Authenticated responses are never persisted to browser storage. Profile updates use versions and stable retry keys; customer identity/role/company are server-controlled. Logout clears the account cache. Initial/reset credentials are only in component/mutation memory, with no persisted plaintext. The dispatcher list reads back profile changes made by the customer.
+
+The existing local dispatch prototype remains at `/` and `/prototype`. It is not mounted on authenticated tenant/customer routes. Its full customer editor and saved browser data are preserved. The new company dispatch route currently covers account management only; integrating the existing operational screens and full customer field set is future work. Customer order viewing/booking, tracking, POD/invoices and native driver changes are not part of this milestone.
+
+Added React type definitions and corrected the existing map attribution option/test event type that they exposed. Compatible Express/body-parser/qs dependency patches resolve the three reported npm advisories. The portal is split from the large map/prototype bundle.
+
+Verification: actual PostgreSQL API isolation/account tests and a real Chromium owner → dispatcher → customer journey. Desktop/mobile customer screenshots were reviewed. TypeScript, the existing 64 tests and production build pass; the existing large prototype-bundle advisory remains. The 16 API tests and deployment limitations are recorded in [milestone verification](../api/MILESTONE.md). No production deployment or external email sending occurred.

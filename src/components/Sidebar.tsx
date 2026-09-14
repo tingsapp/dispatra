@@ -235,22 +235,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setActiveTab('rate-cards');
-                          onActionNotification('Navigating to Rate Cards & Zones');
-                          onOpenRateCards?.();
-                          setShowOrgSubmenu(false);
-                          setShowAccountPopover(false);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors text-left font-normal"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-normal text-slate-700">Rate Cards & Zones</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
                           setActiveTab('billing-settings');
                           onActionNotification('Navigating to Billing, Tax & Cost');
                           if (onOpenBillingSettings) {
@@ -263,6 +247,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Receipt className="w-3.5 h-3.5 text-slate-400" />
                         <span className="font-normal text-slate-700">Billing, Tax & Cost</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab('rate-cards');
+                          onActionNotification('Navigating to Rate Cards & Zones');
+                          onOpenRateCards?.();
+                          setShowOrgSubmenu(false);
+                          setShowAccountPopover(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors text-left font-normal"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-normal text-slate-700">Rate Cards & Zones</span>
                       </button>
 
                     </div>
@@ -291,22 +291,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setActiveTab('rate-cards');
-                          onActionNotification('Navigating to Rate Cards & Zones');
-                          onOpenRateCards?.();
-                          setShowOrgSubmenu(false);
-                          setShowAccountPopover(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-md transition-colors text-left font-normal"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-normal text-slate-700">Rate Cards & Zones</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
                           setActiveTab('billing-settings');
                           onActionNotification('Navigating to Billing, Tax & Cost');
                           if (onOpenBillingSettings) {
@@ -319,6 +303,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Receipt className="w-3.5 h-3.5 text-slate-400" />
                         <span className="font-normal text-slate-700">Billing, Tax & Cost</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab('rate-cards');
+                          onActionNotification('Navigating to Rate Cards & Zones');
+                          onOpenRateCards?.();
+                          setShowOrgSubmenu(false);
+                          setShowAccountPopover(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-md transition-colors text-left font-normal"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-normal text-slate-700">Rate Cards & Zones</span>
                       </button>
 
                     </div>

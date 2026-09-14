@@ -1,4 +1,5 @@
-export interface VehicleAsset {
+import { VehicleOperations } from '../domain/operations';
+export interface VehicleAsset extends VehicleOperations {
   id: string;
   unitNumber: string;
   plateNumber: string;
@@ -218,24 +219,32 @@ export const INITIAL_VEHICLES_FLEET: VehicleAsset[] = [
 export const VEHICLES_STORAGE_KEY = 'dispatra_vehicles_fleet_v1';
 
 export function loadVehicles(): VehicleAsset[] {
+  if (typeof localStorage === 'undefined') return INITIAL_VEHICLES_FLEET.map(normalizeVehicle);
   try {
     const raw = localStorage.getItem(VEHICLES_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizeVehicle);
       }
     }
   } catch (err) {
     console.warn('Could not load vehicles from localStorage:', err);
   }
-  return INITIAL_VEHICLES_FLEET;
+  return INITIAL_VEHICLES_FLEET.map(normalizeVehicle);
 }
 
 export function saveVehicles(vehicles: VehicleAsset[]): void {
-  try {
-    localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(vehicles));
-  } catch (err) {
-    console.warn('Could not save vehicles to localStorage:', err);
-  }
+  localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(vehicles));
+}
+
+export function normalizeVehicle(v: VehicleAsset): VehicleAsset {
+  const types: Partial<Record<VehicleAsset['category'], string>> = { '1 Tonne Van': 'veh_1_ton', '2 Tonne Cube': 'veh_2_ton', '3 Tonne Box': 'veh_3_ton', '5 Tonne Freight': 'veh_5_ton' };
+  return { vehicleTypeId: types[v.category], recordStatus: 'ACTIVE', availability: v.status === 'in_service' ? 'IN_USE' : v.status === 'available' ? 'AVAILABLE' : 'UNAVAILABLE',
+    plateProvince: 'BC', equipment: [...(v.hasLiftgate ? ['Liftgate'] : []), ...(v.hasReefer ? ['Refrigeration'] : [])], serviceAreaIds: [], ...v };
+}
+export function syncVehicle(v: VehicleAsset): VehicleAsset {
+  return { ...v, status: v.availability === 'IN_USE' ? 'in_service' : v.availability === 'AVAILABLE' && v.recordStatus !== 'INACTIVE' ? 'available' : 'standby',
+    statusLabel: v.recordStatus === 'INACTIVE' ? 'Inactive' : v.availability === 'IN_USE' ? 'In use' : v.availability === 'AVAILABLE' ? 'Available' : 'Unavailable',
+    hasLiftgate: (v.equipment ?? []).some(e => e.toLowerCase() === 'liftgate'), hasReefer: (v.equipment ?? []).some(e => e.toLowerCase() === 'refrigeration'), updatedAt: new Date().toISOString() };
 }

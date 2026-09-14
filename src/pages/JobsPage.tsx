@@ -1,3 +1,9 @@
+import { useEntityDialog } from '../components/entities/useEntityDialog';
+import { csv } from '../domain/csv';
+import { OrderFields, OrderDetails } from '../components/entities/OrderFields';
+import { StopDetails } from '../components/entities/StopItemFields';
+import { validateOrderFacts, orderEditable, lifecycleLabel, orderLifecycle } from '../domain/validation';
+import { normalizeOrderInput, snapshotCustomer } from '../domain/orderAdapters';
 import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
@@ -61,6 +67,7 @@ export function JobsPage({
 }: JobsPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'on_time' | 'at_risk' | 'late_start' | 'no_driver' | 'completed'>('all');
+  const [lifecycleFilter, setLifecycleFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   
   // Selected job for detail drawer
@@ -70,10 +77,13 @@ export function JobsPage({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newJobNumber, setNewJobNumber] = useState(`#${Math.floor(480 + Math.random() * 40)}`);
   const [newCustomerName, setNewCustomerName] = useState('');
-  const [newCustomerPhone, setNewCustomerPhone] = useState('(604) 555-');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newScheduledTime, setNewScheduledTime] = useState('01:00 PM – 03:00 PM');
   const [newDriverId, setNewDriverId] = useState<string>('unassigned');
   const [newInstructions, setNewInstructions] = useState('');
+  const [orderFields, setOrderFields] = useState<Partial<Job>>({});
+  const [editingOrder, setEditingOrder] = useState<Job | null>(null);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
   // Pricing context is read fresh each time the modal opens so settings edits apply.
   const [pricingCtx, setPricingCtx] = useState(() => loadPricingContext());
   const [newOrderInput, setNewOrderInput] = useState<PricingOrderInput>(() => createDefaultOrderInput(pricingCtx));
@@ -82,14 +92,23 @@ export function JobsPage({
 
   const openCreateModal = () => {
     const ctx = loadPricingContext();
+    setEditingOrder(null); setOrderFields({}); setFormErrors([]);
     setPricingCtx(ctx);
     setNewOrderInput(createDefaultOrderInput(ctx));
     setNewJobNumber(`#${Math.floor(480 + Math.random() * 40)}`);
     setNewCustomerName('');
-    setNewCustomerPhone('(604) 555-');
+    setNewCustomerPhone('');
     setNewInstructions('');
     setNewDriverId('unassigned');
     setShowCreateModal(true);
+  };
+
+  const openEditOrder = (job: Job) => {
+    if (!orderEditable(job) || !job.pricingInput) return;
+    setPricingCtx(loadPricingContext()); setEditingOrder(job); setOrderFields({ ...job }); setFormErrors([]);
+    setNewOrderInput(normalizeOrderInput(structuredClone(job.pricingInput))); setNewJobNumber(job.jobNumber);
+    setNewCustomerName(job.customerName); setNewCustomerPhone(job.customerPhone); setNewInstructions(job.handlingInstructions ?? '');
+    setNewScheduledTime(job.scheduledTime); setNewDriverId(job.assignedDriverId ?? 'unassigned'); setActiveJobDossier(null); setShowCreateModal(true);
   };
 
   // Reassignment popover
@@ -106,59 +125,51 @@ export function JobsPage({
         job.pickupAddress.toLowerCase().includes(q) ||
         job.dropoffAddress.toLowerCase().includes(q) ||
         (job.driverName && job.driverName.toLowerCase().includes(q)) ||
-        (job.assignedDriverId && job.assignedDriverId.toLowerCase().includes(q));
+        (job.assignedDriverId && job.assignedDriverId.toLowerCase().includes(q)) || [job.referenceNumbers, ...(job.tags ?? []), ...(job.pricingInput?.stops.map(s => [s.label, s.contactName, s.contactPhone].join(' ')) ?? [])].join(' ').toLowerCase().includes(q);
 
       const matchesStatus =
-        statusFilter === 'all' || job.status === statusFilter;
+        statusFilter === 'all' || (statusFilter === 'at_risk' ? job.status === 'at_risk' || job.status === 'late_start' : statusFilter === 'no_driver' ? !job.assignedDriverId && job.status !== 'completed' : job.status === statusFilter);
 
       const matchesType =
-        typeFilter === 'all' || job.jobType.toLowerCase().includes(typeFilter.toLowerCase());
+        typeFilter === 'all' || job.serviceId === typeFilter;
 
-      return matchesSearch && matchesStatus && matchesType;
+      return matchesSearch && matchesStatus && matchesType && (lifecycleFilter === 'all' || orderLifecycle(job) === lifecycleFilter);
     });
-  }, [jobs, searchQuery, statusFilter, typeFilter]);
+  }, [jobs, searchQuery, statusFilter, typeFilter, lifecycleFilter]);
 
   // Metrics
   const totalCount = jobs.length;
   const onTimeCount = jobs.filter((j) => j.status === 'on_time').length;
   const atRiskCount = jobs.filter((j) => j.status === 'at_risk' || j.status === 'late_start').length;
-  const noDriverCount = jobs.filter((j) => j.status === 'no_driver' || !j.assignedDriverId).length;
+  const noDriverCount = jobs.filter(j => !j.assignedDriverId && j.status !== 'completed').length;
   const completedCount = jobs.filter((j) => j.status === 'completed').length;
 
   const handleExportCSV = () => {
-    const headers = ['Job Number', 'Status', 'Customer', 'Phone', 'Pickup', 'Dropoff', 'Scheduled', 'Driver', 'Service', 'Rate Card', 'Pricing', 'Total'];
-    const rows = filteredJobs.map((j) => [
-      j.jobNumber,
-      j.statusLabel,
-      `"${j.customerName}"`,
-      `"${j.customerPhone}"`,
-      `"${j.pickupAddress}"`,
-      `"${j.dropoffAddress}"`,
-      `"${j.scheduledTime}"`,
-      j.assignedDriverId || 'Unassigned',
-      `"${j.jobType}"`,
-      `"${j.pricing?.rateCard?.name ?? ''}"`,
-      j.pricing ? `${j.pricing.status}${j.pricing.stage === 'FINAL' ? ' (final)' : ''}` : 'NOT_PRICED',
-      j.pricing?.status === 'PRICED' ? j.pricing.total.toFixed(2) : ''
+    const content = csv([
+      ['Order number','Order status','Risk','Customer','Reference / PO','Priority','Stops in order','Scheduled','Driver','Service','Pricing status','Currency','Subtotal','Tax','Total'],
+      ...filteredJobs.map(j => [j.jobNumber,lifecycleLabel(j),j.status === 'at_risk' || j.status === 'late_start' ? j.statusLabel : '',j.customerName,j.referenceNumbers,j.priority ?? 'NORMAL',j.pricingInput?.stops.map((s,i) => `${i+1}. ${s.type}: ${s.label} (${s.contactName ?? ''})`).join(' | '),j.scheduledTime,j.assignedDriverId,j.serviceLevel,j.pricing?.status,j.pricing?.currency,j.pricing?.subtotal,j.pricing?.taxTotal,j.pricing?.total])
     ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const encodedUri = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `dispatra_jobs_manifest_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `dispatra_orders_manifest_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(encodedUri);
     onNotification(`Exported ${filteredJobs.length} jobs to CSV manifest`);
   };
 
   const handleReassignDriver = (job: Job, driverId: string) => {
+    if (!orderEditable(job)) { onNotification('This order is locked for operational or billing changes.'); return; }
     const driver = drivers.find((d) => d.id === driverId);
     if (driver) { const errors = validateAssignment(job, driver, jobs, loadPricingContext()); if (errors.length) { onNotification(errors.join(' ')); return; } }
     const updated: Job = {
       ...job,
       assignedDriverId: driverId === 'unassigned' ? undefined : driverId,
       driverName: driver ? driver.name : undefined,
+      lifecycleStatus: driverId === 'unassigned' ? 'READY_FOR_DISPATCH' : 'ASSIGNED',
+      version: (job.version ?? 1) + 1,
       status: driverId === 'unassigned' ? 'no_driver' : 'on_time',
       statusLabel: driverId === 'unassigned' ? 'No Driver' : 'On Time',
       riskText: driver ? `Assigned to ${driver.name} (${driver.id})` : 'Needs dispatch'
@@ -185,26 +196,42 @@ export function JobsPage({
       return;
     }
 
+    const normalizedNumber = newJobNumber.trim().startsWith('#') ? newJobNumber.trim() : `#${newJobNumber.trim()}`;
+    const factsErrors = validateOrderFacts(newOrderInput);
+    if (!newJobNumber.trim() || jobs.some(j => j.id !== editingOrder?.id && j.jobNumber.toLowerCase() === normalizedNumber.toLowerCase())) factsErrors.push('Enter a unique order number.');
+    if (selectedCustomer && ['Inactive','On Hold'].includes(selectedCustomer.status)) factsErrors.push('Choose an active customer.');
+    const latest = editingOrder && jobs.find(j => j.id === editingOrder.id);
+    if (editingOrder && (!latest || !orderEditable(latest) || (latest.version ?? 1) !== (editingOrder.version ?? 1))) factsErrors.push('Order changed while editing. Close and reopen it before saving.');
+    setFormErrors(factsErrors);
+    if (factsErrors.length) { onNotification(factsErrors.join(' ')); return; }
     const bookingErrors = validateBooking(newOrderInput, pricingCtx);
     if (bookingErrors.length) { onNotification(bookingErrors.join(' ')); return; }
     const assignedDriver = drivers.find((d) => d.id === newDriverId);
     const service = pricingCtx.catalogue.services.find((sv) => sv.id === newOrderInput.serviceId);
     const snapshot = priceOrder(newOrderInput, pricingCtx);
-    if (assignedDriver) { const errors = validateAssignment({ id: 'new', status: 'no_driver', pricing: snapshot, pricingInput: newOrderInput }, assignedDriver, jobs, pricingCtx); if (errors.length) { onNotification(errors.join(' ')); return; } }
+    if (assignedDriver) { const errors = validateAssignment({ ...orderFields, version: (editingOrder?.version ?? 0) + 1, id: editingOrder?.id ?? 'new', status: 'no_driver', pricing: snapshot, pricingInput: newOrderInput }, assignedDriver, jobs, pricingCtx); if (errors.length) { onNotification(errors.join(' ')); return; } }
     const totalKg = newOrderInput.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
 
     const newJob: Job = {
-      id: `job-${Date.now()}`,
-      jobNumber: newJobNumber.startsWith('#') ? newJobNumber : `#${newJobNumber}`,
+      ...editingOrder,
+      ...orderFields,
+      id: editingOrder?.id ?? crypto.randomUUID(),
+      lifecycleStatus: assignedDriver ? 'ASSIGNED' : snapshot.status === 'PRICED' ? 'READY_FOR_DISPATCH' : 'SUBMITTED',
+      version: (editingOrder?.version ?? 0) + 1,
+      createdAt: editingOrder?.createdAt ?? new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      customerSnapshot: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerSnapshot : snapshotCustomer(selectedCustomer) ?? { id: null, name: customerName, phone: newCustomerPhone, email: '', billingEmail: '' },
+      billingCustomerSnapshot: editingOrder && editingOrder.billingCustomerId === orderFields.billingCustomerId ? editingOrder.billingCustomerSnapshot : snapshotCustomer(pricingCtx.customers.find(c => c.id === orderFields.billingCustomerId)),
+      jobNumber: normalizedNumber,
       status: assignedDriver ? 'on_time' : 'no_driver',
       statusLabel: assignedDriver ? 'On Time' : 'No Driver',
       riskText: assignedDriver ? `Assigned to ${assignedDriver.name}` : 'Needs dispatch',
-      customerName,
-      customerPhone: selectedCustomer?.phone ?? newCustomerPhone,
-      customerEmail: selectedCustomer?.email,
+      customerName: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerName : customerName,
+      customerPhone: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerPhone : selectedCustomer?.phone ?? newCustomerPhone,
+      customerEmail: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerEmail : selectedCustomer?.email,
       pickupAddress: pickups[0].label!,
       dropoffAddress: drops[drops.length - 1].label!,
-      scheduledTime: newScheduledTime,
+      scheduledTime: [newOrderInput.scheduledAt, newOrderInput.scheduledEndAt].filter(Boolean).join(' – ') || 'Unscheduled',
       jobType: service?.name ?? 'Delivery',
       serviceLevel: service?.name,
       assignedDriverId: assignedDriver ? assignedDriver.id : undefined,
@@ -213,8 +240,8 @@ export function JobsPage({
       palletCount: newOrderInput.packages.reduce((n, p) => n + p.quantity, 0),
       handlingInstructions: newInstructions || undefined,
       stopsCount: newOrderInput.stops.length,
-      lat: 49.2720 + (Math.random() - 0.5) * 0.04,
-      lng: -123.1100 + (Math.random() - 0.5) * 0.06,
+      lat: editingOrder?.lat ?? 49.2827,
+      lng: editingOrder?.lng ?? -123.1207,
       customerId: newOrderInput.customerId,
       serviceId: newOrderInput.serviceId,
       vehicleId: newOrderInput.vehicleId,
@@ -222,19 +249,19 @@ export function JobsPage({
       pricing: snapshot
     };
 
-    onCreateJob(newJob);
+    if (editingOrder) onUpdateJob(newJob); else onCreateJob(newJob);
     setShowCreateModal(false);
     onNotification(
       snapshot.status === 'PRICED'
-        ? `Created ${newJob.jobNumber} — quoted $${snapshot.total.toFixed(2)} ${snapshot.currency}`
-        : `Created ${newJob.jobNumber} — pricing needs attention`
+        ? `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber} — quoted $${snapshot.total.toFixed(2)} ${snapshot.currency}`
+        : `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber} — pricing needs attention`
     );
   };
 
   /** Re-run the engine against current settings (estimate stage only). */
   const handleReprice = (job: Job) => {
-    if (!job.pricingInput || job.pricing?.stage === 'FINAL') return;
-    const updated: Job = { ...job, pricing: priceOrder(job.pricingInput) };
+    if (!job.pricingInput || !orderEditable(job)) return;
+    const updated: Job = { ...job, pricing: priceOrder(job.pricingInput), version: (job.version ?? 1) + 1 };
     onUpdateJob(updated);
     setActiveJobDossier(updated);
     onNotification(`${job.jobNumber} re-priced against current Rate Cards`);
@@ -256,6 +283,8 @@ export function JobsPage({
     setActiveJobDossier(updated);
     onNotification(`${job.jobNumber} price finalized at $${snapshot.total.toFixed(2)} ${snapshot.currency}`);
   };
+
+  useEntityDialog(!!activeJobDossier || showCreateModal, () => { setActiveJobDossier(null); setShowCreateModal(false); });
 
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
@@ -282,7 +311,7 @@ export function JobsPage({
                 Orders
               </h1>
               <p className="text-[11px] text-slate-500 leading-tight">
-                Live delivery manifests, customer pricing, route windows, and driver assignments
+                Order details, customer pricing, time windows and assignments
               </p>
             </div>
           </div>
@@ -314,11 +343,11 @@ export function JobsPage({
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
             <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Total Today's Jobs</span>
+              <span>Total Orders</span>
               <Package className="w-4 h-4 text-slate-400" />
             </div>
             <div className="mt-2 text-2xl font-bold text-slate-900">{totalCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">All dispatches scheduled today</div>
+            <div className="mt-1 text-[11px] text-slate-500">All saved orders</div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
@@ -363,7 +392,7 @@ export function JobsPage({
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search job #, customer, address, or driver..."
+            placeholder="Search orders, references, recipients or addresses..."
           />
 
           <div className="flex items-center gap-2">
@@ -411,6 +440,7 @@ export function JobsPage({
               </button>
             </div>
 
+            <Select aria-label="Filter by order status" value={lifecycleFilter} onValueChange={setLifecycleFilter} options={[{value:'all',label:'All order statuses'}, ...['DRAFT','SUBMITTED','PRICED','READY_FOR_DISPATCH','ASSIGNED','IN_EXECUTION','COMPLETED','BILLING_FINALIZATION','INVOICED','CANCELLED','FAILED','NEEDS_ATTENTION'].map(value => ({value,label:value.replaceAll('_',' ')}))]} />
             {/* Service Type Filter */}
             <Select
               aria-label="Filter by service level"
@@ -418,11 +448,7 @@ export function JobsPage({
               onValueChange={setTypeFilter}
               align="end"
               options={[
-                { value: 'all', label: 'All Service Levels' },
-                { value: 'Standard', label: 'Standard Delivery' },
-                { value: 'Priority', label: 'Priority Freight' },
-                { value: 'Medical', label: 'Medical Supplies' },
-                { value: 'Express', label: 'Express Courier' }
+                { value: 'all', label: 'All Service Levels' }, ...pricingCtx.catalogue.services.map(s => ({value:s.id,label:s.name}))
               ]}
             />
           </div>
@@ -433,7 +459,7 @@ export function JobsPage({
           {filteredJobs.length === 0 ? (
             <div className="p-12 text-center">
               <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <h3 className="text-sm font-semibold text-slate-800">No jobs match your filter</h3>
+              <h3 className="text-sm font-semibold text-slate-800">No orders match your filter</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                 Try adjusting your search criteria or switch status filter tabs.
               </p>
@@ -441,7 +467,7 @@ export function JobsPage({
                 onClick={() => {
                   setSearchQuery('');
                   setStatusFilter('all');
-                  setTypeFilter('all');
+                  setTypeFilter('all'); setLifecycleFilter('all');
                 }}
                 className="mt-4 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
               >
@@ -453,7 +479,7 @@ export function JobsPage({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide uppercase">
-                  <th className="py-3 px-4">Job / Status</th>
+                  <th className="py-3 px-4">Order / Status</th>
                   <th className="py-3 px-4">Customer</th>
                   <th className="py-3 px-4">Route Leg (Pickup → Delivery)</th>
                   <th className="py-3 px-4">Scheduled Window</th>
@@ -476,29 +502,8 @@ export function JobsPage({
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-slate-900">{job.jobNumber}</span>
-                          {job.status === 'at_risk' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                              <AlertTriangle className="w-3 h-3 text-rose-600" />
-                              At Risk
-                            </span>
-                          )}
-                          {job.status === 'late_start' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                              <AlertCircle className="w-3 h-3 text-amber-600" />
-                              Late Start
-                            </span>
-                          )}
-                          {job.status === 'no_driver' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-                              No Driver
-                            </span>
-                          )}
-                          {job.status === 'on_time' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              On Time
-                            </span>
-                          )}
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>
+                          {(job.status === 'at_risk' || job.status === 'late_start') && <span className="text-[11px] text-amber-700">{job.statusLabel}</span>}
                         </div>
                         {job.riskText && (
                           <div className="text-[11px] text-slate-500 mt-0.5 font-normal">
@@ -535,7 +540,7 @@ export function JobsPage({
                           {job.scheduledTime}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {job.stopsCount} stop{job.stopsCount > 1 ? 's' : ''} on manifest
+                          {job.pricingInput?.stops.length ?? job.stopsCount} stops on manifest
                         </div>
                       </td>
 
@@ -647,7 +652,13 @@ export function JobsPage({
 
       {/* JOB DOSSIER SLIDE-OVER DRAWER */}
       {activeJobDossier && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150">
+        <div
+          data-entity-dialog
+          className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setActiveJobDossier(null);
+          }}
+        >
           <div
             className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden animate-in slide-in-from-right duration-200"
             onClick={(e) => e.stopPropagation()}
@@ -700,6 +711,8 @@ export function JobsPage({
                 </div>
               </div>
 
+              <OrderDetails order={activeJobDossier} />
+              {orderEditable(activeJobDossier) && <button className="px-3 py-2 rounded-lg bg-slate-900 text-white" onClick={() => openEditOrder(activeJobDossier)}>Edit order</button>}
               {/* Routing Leg Details */}
               <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-3">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Route & Stops</div>
@@ -729,7 +742,7 @@ export function JobsPage({
                             {stop.residential && <span className="ml-1.5 text-slate-400 font-normal">· residential</span>}
                             {stop.waitMinutes > 0 && <span className="ml-1.5 text-slate-400 font-normal">· {stop.waitMinutes} min wait</span>}
                           </div>
-                          <div className="font-medium text-slate-800">{stop.label || '—'}</div>
+                          <div className="font-medium text-slate-800">{stop.label || '—'}</div><StopDetails stop={stop} />
                         </div>
                       </div>
                       {i < all.length - 1 && <div className="ml-2.5 border-l-2 border-dashed border-slate-200 h-3" />}
@@ -867,14 +880,14 @@ export function JobsPage({
 
       {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div
             className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">New Order</h3>
+                <h3 className="text-sm font-bold text-slate-900">{editingOrder ? 'Edit Order' : 'New Order'}</h3>
                 <p className="text-xs text-slate-500">
                   Enter the order details on the left to see its live price estimate on the right.
                 </p>
@@ -891,6 +904,8 @@ export function JobsPage({
             <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-5 bg-slate-50">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-7 space-y-5 text-xs">
+                  <OrderFields value={orderFields} onChange={v => { setOrderFields(v); setNewOrderInput({ ...newOrderInput, billingCustomerId: v.billingCustomerId }); }} customers={pricingCtx.customers} />
+                  {!!formErrors.length && <p role="alert" className="text-xs text-rose-700">{formErrors.join(" ")}</p>}
                   {/* Order identity */}
                   <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Order</h4>
@@ -905,15 +920,7 @@ export function JobsPage({
                           required
                         />
                       </div>
-                      <div>
-                        <label className="block font-semibold text-slate-700 mb-1">Scheduled Window</label>
-                        <input
-                          type="text"
-                          value={newScheduledTime}
-                          onChange={(e) => setNewScheduledTime(e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                        />
-                      </div>
+
                       {!selectedCustomer && (
                         <>
                           <div>
@@ -948,7 +955,7 @@ export function JobsPage({
 
                   <OrderPricingForm
                     value={newOrderInput}
-                    onChange={setNewOrderInput}
+                    onChange={v => { if (v.customerId !== newOrderInput.customerId) { const c = pricingCtx.customers.find(c => c.id === v.customerId); setOrderFields({ ...orderFields, notificationPreferences: c?.communicationPreferences }); setNewInstructions(c?.instructions ?? ''); } setNewOrderInput(v); }}
                     ctx={pricingCtx}
                     snapshot={newOrderSnapshot}
                     showStopAddresses
@@ -1015,7 +1022,7 @@ export function JobsPage({
                   onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}
                   className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
                 >
-                  Create Order
+                  {editingOrder ? 'Save Order' : 'Create Order'}
                 </button>
               </div>
             </div>

@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Calendar as CalendarIcon,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Search,
   Bell,
   X,
@@ -16,6 +12,8 @@ import {
   MapPin
 } from 'lucide-react';
 import { Driver, Job } from '../types';
+import { DatePicker } from './ui/DatePicker';
+import { formatDateValue } from '../lib/dateValues';
 
 interface DateControlProps {
   showCalendarPopover: boolean;
@@ -63,7 +61,7 @@ export const DateControl: React.FC<DateControlProps> = ({
   const isNotificationOpen = externalShowNotification !== undefined ? externalShowNotification : internalNotificationOpen;
   const setIsNotificationOpen = externalSetShowNotification || setInternalNotificationOpen;
 
-  const [selectedDay, setSelectedDay] = useState<number>(3);
+  const [selectedDate, setSelectedDate] = useState(() => formatDateValue(new Date()));
   const [searchQuery, setSearchQuery] = useState('');
   const [alerts, setAlerts] = useState<DispatchAlert[]>([
     {
@@ -93,8 +91,6 @@ export const DateControl: React.FC<DateControlProps> = ({
   ]);
 
   const unreadCount = alerts.filter((a) => a.unread).length;
-  const daysInDecember = 31;
-  const days = Array.from({ length: daysInDecember }, (_, i) => i + 1);
 
   const toggleSearch = () => {
     const next = !isSearchOpen;
@@ -111,15 +107,6 @@ export const DateControl: React.FC<DateControlProps> = ({
     if (next) {
       setIsSearchOpen(false);
       setShowCalendarPopover(false);
-    }
-  };
-
-  const toggleCalendar = () => {
-    const next = !showCalendarPopover;
-    setShowCalendarPopover(next);
-    if (next) {
-      setIsSearchOpen(false);
-      setIsNotificationOpen(false);
     }
   };
 
@@ -425,130 +412,26 @@ export const DateControl: React.FC<DateControlProps> = ({
       </div>
 
       {/* 3. DATE SELECTOR CONTROL & CALENDAR POPOVER */}
-      <div className="relative">
-        <button
-          onClick={toggleCalendar}
-          className={`h-11 px-4 bg-white rounded-xl shadow-sm shadow-slate-900/5 border flex items-center gap-2.5 transition-all text-left group ${
-            showCalendarPopover
-              ? 'border-blue-500 ring-2 ring-blue-100'
-              : 'border-slate-200/90 hover:border-slate-300'
-          }`}
-          title="Select dispatch date"
-        >
-          <CalendarIcon className="w-4 h-4 text-slate-500 group-hover:text-slate-800 transition-colors shrink-0" />
-          <span className="text-xs font-semibold text-slate-800 whitespace-nowrap">
-            Dec {selectedDay}, 2024
-          </span>
-          <ChevronDown
-            className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform ${
-              showCalendarPopover ? 'rotate-180 text-blue-600' : ''
-            }`}
-          />
-        </button>
-
-        {/* CALENDAR POPOVER */}
-        <AnimatePresence>
-          {showCalendarPopover && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute right-0 top-full mt-2.5 w-72 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-200/90 p-4 z-50"
-            >
-              {/* Directional arrow pointing up directly to date pill */}
-              <div className="absolute -top-2 right-6 w-0 h-0 border-x-[8px] border-x-transparent border-b-[8px] border-b-white drop-shadow-[0_-1px_1px_rgba(0,0,0,0.06)] pointer-events-none" />
-
-              {/* Month & Nav & Close Button */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-2.5">
-                <button
-                  onClick={() => onActionNotification('Previous month')}
-                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="font-semibold text-xs text-slate-900">
-                  December 2024
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => onActionNotification('Next month')}
-                    className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setShowCalendarPopover(false)}
-                    className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors ml-1"
-                    title="Close Calendar"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Day Names */}
-              <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400 mb-1">
-                <span>Su</span>
-                <span>Mo</span>
-                <span>Tu</span>
-                <span>We</span>
-                <span>Th</span>
-                <span>Fr</span>
-                <span>Sa</span>
-              </div>
-
-              {/* Days Grid */}
-              <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                {days.map((day) => {
-                  const isSelected = day === selectedDay;
-                  return (
-                    <button
-                      key={day}
-                      onClick={() => {
-                        setSelectedDay(day);
-                        setShowCalendarPopover(false);
-                        onActionNotification(`Filtered schedule for Dec ${day}, 2024`);
-                      }}
-                      className={`h-8 w-8 mx-auto rounded-full flex items-center justify-center font-medium transition-all ${
-                        isSelected
-                          ? 'bg-blue-600 text-white font-bold shadow-sm shadow-blue-500/30'
-                          : 'text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Shortcut links */}
-              <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <button
-                  onClick={() => {
-                    setSelectedDay(3);
-                    setShowCalendarPopover(false);
-                    onActionNotification('Set to Today (Dec 3)');
-                  }}
-                  className="font-semibold text-blue-600 hover:text-blue-700"
-                >
-                  Today
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedDay(4);
-                    setShowCalendarPopover(false);
-                    onActionNotification('Set to Tomorrow (Dec 4)');
-                  }}
-                  className="text-slate-500 hover:text-slate-800"
-                >
-                  Tomorrow
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <DatePicker
+        aria-label="Dispatch date"
+        value={selectedDate}
+        onValueChange={date => {
+          setSelectedDate(date);
+          onActionNotification(`Selected dispatch date ${date}`);
+        }}
+        open={showCalendarPopover}
+        onOpenChange={open => {
+          setShowCalendarPopover(open);
+          if (open) {
+            setIsSearchOpen(false);
+            setIsNotificationOpen(false);
+          }
+        }}
+        clearable={false}
+        showTomorrow
+        align="end"
+        className="h-11 w-auto rounded-xl px-4 shadow-sm shadow-slate-900/5"
+      />
     </div>
   );
 };

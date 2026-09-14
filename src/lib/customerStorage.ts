@@ -1,6 +1,7 @@
+import { CustomerOperations } from '../domain/operations';
 import { Discount } from '../types/pricing';
 
-export interface Customer {
+export interface Customer extends CustomerOperations {
   id: string;
   code: string;
   name: string;
@@ -10,7 +11,7 @@ export interface Customer {
   address: string;
   city: string;
   accountType: 'Enterprise' | 'Scheduled Contract' | 'Express / On-Demand' | 'Standard Freight';
-  status: 'Active' | 'Preferred' | 'On Hold';
+  status: 'Active' | 'Preferred' | 'On Hold' | 'Inactive';
   defaultRequirements: string[];
   /** Invoices are emailed here; falls back to `email`. */
   billingEmail: string;
@@ -238,19 +239,22 @@ export function loadCustomers(): Customer[] {
       const parsed = JSON.parse(raw);
       const records = Array.isArray(parsed) ? parsed : parsed.customers;
       if (Array.isArray(records)) {
-        return records.map((c: Partial<Customer>) => ({ ...EMPTY_PRICING_RELATIONSHIP, ...c, discount: Array.isArray(parsed) && c.discount?.type === 'NONE' ? { ...c.discount, type: 'INHERIT' } : c.discount ?? EMPTY_PRICING_RELATIONSHIP.discount }) as Customer);
+        return records.map((c: Partial<Customer>) => ({ ...EMPTY_PRICING_RELATIONSHIP, ...c, discount: Array.isArray(parsed) && c.discount?.type === 'NONE' ? { ...c.discount, type: 'INHERIT' } : c.discount ?? EMPTY_PRICING_RELATIONSHIP.discount }) as Customer).map(normalizeCustomer);
       }
     }
   } catch (err) {
     console.warn('Could not load customers from localStorage:', err);
   }
-  return DEFAULT_CUSTOMERS;
+  return DEFAULT_CUSTOMERS.map(normalizeCustomer);
 }
 
 export function saveCustomers(customers: Customer[]): void {
-  try {
-    localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 2, customers }));
-  } catch (err) {
-    console.warn('Could not save customers to localStorage:', err);
-  }
+  localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 2, customers }));
+}
+
+export function normalizeCustomer(c: Customer): Customer {
+  return { customerType: 'BUSINESS', legalName: c.name, currency: 'CAD', paymentTerms: 'INHERIT',
+    addresses: c.address ? [{ id: `${c.id}-primary`, type: 'PICKUP', label: 'Primary address', address: [c.address, c.city].filter(Boolean).join(', '), contactName: c.contactName, phone: c.phone }] : [],
+    communicationPreferences: { sms: false, email: true, tracking: true }, ...c, status: c.status === 'Preferred' ? 'Active' : c.status,
+    tags: [...new Set([...(c.tags ?? []), ...(c.status === 'Preferred' ? ['Preferred'] : [])])] };
 }

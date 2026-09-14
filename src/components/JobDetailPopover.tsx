@@ -1,3 +1,4 @@
+import { lifecycleLabel } from '../domain/validation';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -111,7 +112,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                 {job.jobNumber}
               </span>
               <span className="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200/60">
-                {job.statusLabel}
+                {lifecycleLabel(job)}
               </span>
             </div>
             <div className="flex items-center gap-1">
@@ -215,27 +216,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                 })()}
               </div>
 
-              {/* Route Waypoints */}
-              <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100 space-y-2">
-                <div className="flex items-start gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] uppercase font-bold text-slate-400">Pickup</div>
-                    <div className="font-medium text-slate-800 truncate">{job.pickupAddress}</div>
-                  </div>
-                </div>
-
-                <div className="border-l-2 border-dashed border-slate-200 ml-1 h-2" />
-
-                <div className="flex items-start gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-600 mt-1 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] uppercase font-bold text-slate-400">Delivery</div>
-                    <div className="font-medium text-slate-800 truncate">{job.dropoffAddress}</div>
-                  </div>
-                </div>
-              </div>
-
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2 max-h-48 overflow-y-auto">{job.pricingInput?.stops.map((stop, i) => <div key={stop.id} className="text-xs"><strong>{i + 1}. {stop.type}</strong><p>{stop.label}</p><p className="text-slate-500">{stop.contactName} {stop.contactPhone}</p></div>)}</div>
               {/* Assigned Driver Row */}
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Assigned Driver</span>

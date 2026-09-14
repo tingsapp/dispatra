@@ -1,3 +1,6 @@
+import { OrderDetails } from './entities/OrderFields';
+import { StopDetails } from './entities/StopItemFields';
+import { lifecycleLabel } from '../domain/validation';
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -246,7 +249,7 @@ const JobDetailView: React.FC<{
                     : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 }`}
               >
-                {job.statusLabel}
+                {lifecycleLabel(job)}
               </span>
               <span className="text-xs font-medium text-slate-500 hidden sm:inline">
                 • {job.jobType || 'Scheduled Dispatch'}
@@ -346,41 +349,8 @@ const JobDetailView: React.FC<{
         {/* Tab 1: Overview */}
         {activeTab === 'overview' && (
           <div className="space-y-4">
-            {/* Waypoint Sequence Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Pickup Card */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px]">
-                    Stop 1: Origin / Pickup
-                  </span>
-                </div>
-                <div className="font-semibold text-slate-900 text-sm mb-1">{job.pickupAddress}</div>
-                <div className="text-slate-500 text-[11px] space-y-0.5">
-                  <div>Scheduled Window: 09:30 AM – 10:30 AM</div>
-                  <div>Loading Bay: Dock 4 (Rear Entrance)</div>
-                  <div>Gate Code: #4829</div>
-                </div>
-              </div>
-
-              {/* Delivery Card */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                  <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px]">
-                    Stop 2: Destination / Delivery
-                  </span>
-                </div>
-                <div className="font-semibold text-slate-900 text-sm mb-1">{job.dropoffAddress}</div>
-                <div className="text-slate-500 text-[11px] space-y-0.5">
-                  <div>Estimated Arrival: 11:22 AM</div>
-                  <div>Contact on Arrival: Reception Desk (Level 2)</div>
-                  <div>Signature Required: Yes (Digital POD)</div>
-                </div>
-              </div>
-            </div>
-
+            <OrderDetails order={job} />
+            <div className="space-y-3">{job.pricingInput?.stops.map((stop, i) => <div key={stop.id} className="p-4 border rounded-xl"><h4 className="font-semibold text-xs">{i + 1}. {stop.type} · {stop.label}</h4><StopDetails stop={stop} /></div>)}</div>
             {/* Operational Specs Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
@@ -841,7 +811,7 @@ const AllJobsRosterView: React.FC<{
                       : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   }`}
                 >
-                  {j.statusLabel}
+                  {lifecycleLabel(j)}
                 </span>
                 <span className="text-slate-500 font-medium">• {j.customerName}</span>
               </div>

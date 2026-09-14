@@ -1,3 +1,4 @@
+import { loadDrivers, saveDrivers, bindDriverVehicle } from './lib/driverStorage';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
@@ -31,7 +32,8 @@ import { loadPricingContext, pricingAttentionItems, loadSavedOrders, saveOrders 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('monitor');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
-  const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
+  const [drivers, setDrivers] = useState<Driver[]>(() => loadDrivers(INITIAL_DRIVERS));
+  useEffect(() => { try { saveDrivers(drivers); } catch { showToast('Driver changes could not be saved in this browser.'); } }, [drivers]);
   // Every order carries a PricingSnapshot from the shared engine, including the static mocks.
   const [jobs, setJobs] = useState<Job[]>(() => loadSavedOrders(INITIAL_JOBS));
   useEffect(() => {
@@ -301,10 +303,12 @@ export default function App() {
   }, []);
 
   const handleUpdateDriver = useCallback((updatedDriver: Driver) => {
+    bindDriverVehicle(updatedDriver);
     setDrivers((prev) => prev.map((d) => (d.id === updatedDriver.id ? updatedDriver : d)));
   }, []);
 
   const handleCreateDriver = useCallback((newDriver: Driver) => {
+    bindDriverVehicle(newDriver);
     setDrivers((prev) => [newDriver, ...prev]);
     if (newDriver.status === 'available') {
       setAvailableDriversCount((prev) => prev + 1);
@@ -466,6 +470,7 @@ export default function App() {
           />
         ) : activeTab === 'customers' ? (
           <CustomersPage
+            jobs={jobs}
             onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
             onSelectJob={handleLocateJobOnMap}

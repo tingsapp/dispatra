@@ -1,3 +1,6 @@
+import { useEntityDialog } from '../components/entities/useEntityDialog';
+import { DriverEditor } from '../components/entities/DriverEditor';
+import { syncDriver, connectivity } from '../lib/driverStorage';
 import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
@@ -53,13 +56,6 @@ export function DriversPage({
 
   // Add Driver Modal
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newId, setNewId] = useState(`D${Math.floor(20 + Math.random() * 30)}`);
-  const [newPhone, setNewPhone] = useState('(604) 555-');
-  const [newVehicle, setNewVehicle] = useState('V14 (BC DISP 901)');
-  const [newLicenseClass, setNewLicenseClass] = useState('Class 5 Commercial Courier');
-  const [newStatus, setNewStatus] = useState<'available' | 'on_route'>('available');
-
   // Filtered drivers
   const filteredDrivers = useMemo(() => {
     return drivers.filter((driver) => {
@@ -70,7 +66,7 @@ export function DriversPage({
         driver.id.toLowerCase().includes(q) ||
         (driver.phone && driver.phone.toLowerCase().includes(q)) ||
         driver.vehicle.toLowerCase().includes(q) ||
-        driver.nextStop.toLowerCase().includes(q);
+        driver.nextStop.toLowerCase().includes(q) || [...(driver.skills ?? []), ...(driver.serviceAreaIds ?? []), driver.driverNumber ?? ''].join(' ').toLowerCase().includes(q);
 
       const matchesStatus =
         statusFilter === 'all' || driver.status === statusFilter;
@@ -86,50 +82,15 @@ export function DriversPage({
   const offlineCount = drivers.filter((d) => d.status === 'idle' || d.status === 'offline').length;
 
   const handleToggleDuty = (driver: Driver) => {
-    const nextStatus = driver.status === 'available' ? 'on_route' : 'available';
-    const nextLabel = nextStatus === 'available' ? 'Available' : 'On route';
-    const updated: Driver = {
-      ...driver,
-      status: nextStatus,
-      statusLabel: nextLabel,
-      lastUpdate: 'Just now'
-    };
-    onUpdateDriver(updated);
+    const updated = syncDriver({ ...driver, dutyStatus: driver.dutyStatus === 'ON_DUTY' ? 'OFF_DUTY' : 'ON_DUTY' });
+    try { onUpdateDriver(updated); } catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be saved.'); return; }
     if (activeDriverDrawer && activeDriverDrawer.id === driver.id) {
       setActiveDriverDrawer(updated);
     }
-    onNotification(`Updated ${driver.name} status to ${nextLabel}`);
+    onNotification(`Updated ${driver.name} status to ${updated.statusLabel}`);
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName) {
-      onNotification('Please enter driver name');
-      return;
-    }
-
-    const newDriver: Driver = {
-      id: newId,
-      name: newName,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      status: newStatus,
-      statusLabel: newStatus === 'available' ? 'Available' : 'On route',
-      vehicle: newVehicle,
-      nextStop: 'Staging Hub, Vancouver',
-      eta: newStatus === 'available' ? 'Available now' : '15 min',
-      distance: '3.0 km',
-      lastUpdate: 'Just now (Live)',
-      phone: newPhone,
-      lat: 49.2700 + (Math.random() - 0.5) * 0.03,
-      lng: -123.1150 + (Math.random() - 0.5) * 0.04
-    };
-
-    onCreateDriver(newDriver);
-    setShowAddModal(false);
-    setNewName('');
-    setNewId(`D${Math.floor(20 + Math.random() * 30)}`);
-    onNotification(`Added new driver ${newDriver.name} (${newDriver.id})`);
-  };
+  useEntityDialog(!!activeDriverDrawer || showAddModal, () => { setActiveDriverDrawer(null); setShowAddModal(false); });
 
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
@@ -156,21 +117,13 @@ export function DriversPage({
                 Fleet Drivers Directory
               </h1>
               <p className="text-[11px] text-slate-500 leading-tight">
-                Active driver roster, vehicle assignments, real-time GPS telemetry, and duty status
+                Driver profiles, skills, service areas, shifts and availability
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => onNotification('Broadcast alert sent to all active fleet drivers')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-          >
-            <Radio className="w-3.5 h-3.5 text-slate-500" />
-            <span>Fleet Broadcast</span>
-          </button>
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
@@ -201,7 +154,7 @@ export function DriversPage({
               <Truck className="w-4 h-4 text-blue-500" />
             </div>
             <div className="mt-2 text-2xl font-bold text-blue-600">{onRouteCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Currently running live consignments</div>
+            <div className="mt-1 text-[11px] text-slate-500">Assigned delivery work</div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
@@ -215,11 +168,11 @@ export function DriversPage({
 
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
             <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Fleet On-Time Rate</span>
+              <span>Off duty / on break</span>
               <Activity className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="mt-2 text-2xl font-bold text-slate-900">98.2%</div>
-            <div className="mt-1 text-[11px] text-slate-500">Rolling 30-day delivery performance</div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">{offlineCount}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Unavailable for new work</div>
           </div>
         </div>
 
@@ -360,6 +313,7 @@ export function DriversPage({
                         </span>
                       </div>
 
+                      <p className="text-xs text-slate-500 mt-2">{driver.skills?.join(', ') || 'No skills set'} · {driver.serviceAreaIds?.join(', ') || 'No service areas set'}</p>
                       {/* Current Job & Next Destination */}
                       <div className="mt-4 p-3 bg-slate-50 rounded-lg space-y-1.5 text-xs">
                         <div className="flex items-center justify-between text-slate-500">
@@ -374,7 +328,7 @@ export function DriversPage({
                         </div>
                         <div className="flex items-center justify-between text-slate-500 text-[11px] pt-1 border-t border-slate-200/60">
                           <span>ETA: <strong className="text-slate-800">{driver.eta}</strong></span>
-                          <span>GPS: <strong className="text-slate-600">{driver.lastUpdate}</strong></span>
+                          <span>GPS: <strong className="text-slate-600">{driver.locationCapturedAt || 'No GPS timestamp'}</strong></span>
                         </div>
                       </div>
                     </div>
@@ -398,7 +352,7 @@ export function DriversPage({
                         </button>
                         <button
                           onClick={() => handleToggleDuty(driver)}
-                          title="Toggle Available / On Route status"
+                          title="Toggle duty"
                           className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                         >
                           <Activity className="w-4 h-4" />
@@ -477,7 +431,7 @@ export function DriversPage({
                       </td>
 
                       <td className="py-3.5 px-4 whitespace-nowrap text-slate-500 text-[11px]">
-                        {driver.lastUpdate}
+                        {driver.locationCapturedAt || 'No GPS timestamp'}
                       </td>
 
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -501,7 +455,7 @@ export function DriversPage({
 
       {/* DRIVER PROFILE DRAWER */}
       {activeDriverDrawer && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150">
+        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden animate-in slide-in-from-right duration-200"
             onClick={(e) => e.stopPropagation()}
@@ -534,56 +488,8 @@ export function DriversPage({
 
             {/* Drawer Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
-              {/* Telemetry Status Card */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Live Telemetry</div>
-                <div className="grid grid-cols-2 gap-3 text-slate-700">
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Status:</span>
-                    <div className="font-semibold text-slate-900">{activeDriverDrawer.statusLabel}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">GPS Freshness:</span>
-                    <div className="font-semibold text-emerald-600">{activeDriverDrawer.lastUpdate}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Next ETA:</span>
-                    <div className="font-semibold text-slate-900">{activeDriverDrawer.eta}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Distance to Stop:</span>
-                    <div className="font-semibold text-slate-900">{activeDriverDrawer.distance}</div>
-                  </div>
-                </div>
-              </div>
+              <DriverEditor driver={activeDriverDrawer} drivers={drivers} onCancel={() => setActiveDriverDrawer(null)} onSave={d => { onUpdateDriver(d); setActiveDriverDrawer(null); onNotification('Driver saved'); }} />
 
-              {/* Vehicle Assignment */}
-              <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assigned Fleet Asset</div>
-                <div className="text-sm font-bold text-slate-900">{activeDriverDrawer.vehicle}</div>
-                <div className="text-slate-500 text-[11px]">
-                  Commercial Class 5 Cargo specification with GPS gateway & mobile telematics.
-                </div>
-              </div>
-
-              {/* Shift Performance */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Today's Shift Performance</div>
-                <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                  <div className="p-2 bg-white rounded-lg border border-slate-200">
-                    <div className="text-lg font-bold text-slate-900">6</div>
-                    <div className="text-[10px] text-slate-500">Completed Drops</div>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg border border-slate-200">
-                    <div className="text-lg font-bold text-emerald-600">100%</div>
-                    <div className="text-[10px] text-slate-500">On-Time Rate</div>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg border border-slate-200">
-                    <div className="text-lg font-bold text-slate-900">5.2h</div>
-                    <div className="text-[10px] text-slate-500">On Duty Time</div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Drawer Footer Actions */}
@@ -602,7 +508,7 @@ export function DriversPage({
                 onClick={() => handleToggleDuty(activeDriverDrawer)}
                 className="px-4 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
               >
-                Toggle Status
+                Toggle duty
               </button>
             </div>
           </div>
@@ -611,7 +517,7 @@ export function DriversPage({
 
       {/* ADD DRIVER MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
@@ -629,112 +535,7 @@ export function DriversPage({
               </button>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Driver Full Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Jordan Lee"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Callsign / ID</label>
-                  <input
-                    type="text"
-                    value={newId}
-                    onChange={(e) => setNewId(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Direct Phone</label>
-                  <input
-                    type="tel"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">License Class</label>
-                  <input
-                    type="text"
-                    value={newLicenseClass}
-                    onChange={(e) => setNewLicenseClass(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Assigned Vehicle</label>
-                <Select
-                  aria-label="Assigned vehicle"
-                  className="w-full"
-                  value={newVehicle}
-                  onValueChange={setNewVehicle}
-                  options={[
-                    { value: 'V14 (BC DISP 901)', label: 'V14 (BC DISP 901) · 1T Mercedes Sprinter' },
-                    { value: 'V12 (BC L2 ABC 123)', label: 'V12 (BC L2 ABC 123) · 2T Ford Cutaway' },
-                    { value: 'V08 (BC TRK 882)', label: 'V08 (BC TRK 882) · 3T Freightliner Reefer' },
-                    { value: 'V04 (BC FLT 319)', label: 'V04 (BC FLT 319) · 5T Hino Box Truck' },
-                    { value: 'V19 (BC VAN 442)', label: 'V19 (BC VAN 442) · 1T Electric E-Transit' }
-                  ]}
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Initial Status</label>
-                <div className="flex items-center gap-3 mt-1">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="status"
-                      checked={newStatus === 'available'}
-                      onChange={() => setNewStatus('available')}
-                      className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
-                    />
-                    <span>Available (Staged)</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="status"
-                      checked={newStatus === 'on_route'}
-                      onChange={() => setNewStatus('on_route')}
-                      className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
-                    />
-                    <span>On Route</span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
-                >
-                  Register Driver
-                </button>
-              </div>
-            </form>
+            <div className="overflow-y-auto p-5"><DriverEditor drivers={drivers} onCancel={() => setShowAddModal(false)} onSave={d => { onCreateDriver(d); setShowAddModal(false); onNotification('Driver created'); }} /></div>
           </div>
         </div>
       )}

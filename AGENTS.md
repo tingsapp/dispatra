@@ -1,13 +1,13 @@
 # Dispatra Web Client Agent Instructions
 
-Last updated: **2026-09-11**
+Last updated: **2026-09-14**
 
 Read `spec.md` and `state.md` before work. `spec.md` is normative; `state.md` is verified status.
 
 ## Fixed stack and priority
 
 - Use React, strict TypeScript, shadcn/ui, Inter, light theme, black primary actions, blue accent, and `react-map-gl`/`maplibre-gl`.
-- Current priority is completing the existing static-data client design and domain behavior before API integration.
+- Current priority is the user-approved authenticated company/customer access milestone. Existing dispatch operations remain a local prototype until their own API integration.
 - Static models and statuses MUST mirror the intended FastAPI OpenAPI contract. Do not invent a second domain.
 
 ## Authority and architecture
@@ -37,3 +37,7 @@ Never expose provider secrets or treat hidden controls as authorization. Preserv
 ## Testing and workflow
 
 Read relevant code and tests, make the smallest complete slice, add focused component/domain/integration tests, run the available TypeScript/lint/build checks for code changes, and update `state.md` only when implementation evidence changes. For documentation-only work, inspect links/diff and do not claim runtime behavior. Record static scenarios and API integration gaps accurately.
+
+## Company/customer access
+
+Use the generated OpenAPI contract in `src/portal/schema.d.ts`, centralized `src/portal/api.ts` transport and TanStack Query for authenticated pages. Never mount the local prototype or read its browser stores on a company/customer route. No public signup or forced initial password change. Customer writes are limited to allowed profile fields; tenant, role and customer identity come from the API session. Initial/reset credentials are transient and must not enter persisted browser state, logs or query keys. Keep company URLs separate from individual dispatchers. Regenerate contracts after API changes and exercise the account browser journey.

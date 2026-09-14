@@ -1,3 +1,6 @@
+import { useEntityDialog } from '../components/entities/useEntityDialog';
+import { VehicleEditor } from '../components/entities/VehicleEditor';
+import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   ArrowLeft,
@@ -50,20 +53,8 @@ export function VehiclesPage({
 
   // Register Vehicle Modal
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [newUnitNumber, setNewUnitNumber] = useState(`V${Math.floor(20 + Math.random() * 20)}`);
-  const [newPlateNumber, setNewPlateNumber] = useState('BC FLT ');
-  const [newVin, setNewVin] = useState('1FTBR1Y' + Math.random().toString(36).substring(2, 8).toUpperCase());
-  const [newCategory, setNewCategory] = useState<VehicleAsset['category']>('1 Tonne Van');
-  const [newMakeModel, setNewMakeModel] = useState('Ford Transit 350 High Roof');
-  const [newYear, setNewYear] = useState(2024);
-  const [newPayload, setNewPayload] = useState(1400);
-  const [newPallets, setNewPallets] = useState(2);
-  const [newHasLiftgate, setNewHasLiftgate] = useState(false);
-  const [newHasReefer, setNewHasReefer] = useState(false);
-  const [newFuelType, setNewFuelType] = useState<VehicleAsset['fuelType']>('Diesel');
-
   useEffect(() => {
-    saveVehicles(vehicles);
+    try { saveVehicles(vehicles); } catch { onNotification('Vehicle changes could not be saved in this browser.'); }
   }, [vehicles]);
 
   const filteredVehicles = useMemo(() => {
@@ -75,13 +66,13 @@ export function VehiclesPage({
         v.plateNumber.toLowerCase().includes(q) ||
         v.makeModel.toLowerCase().includes(q) ||
         v.category.toLowerCase().includes(q) ||
-        (v.currentDriverName && v.currentDriverName.toLowerCase().includes(q));
+        (v.currentDriverName && v.currentDriverName.toLowerCase().includes(q)) || [...(v.equipment ?? []), ...(v.serviceAreaIds ?? [])].join(' ').toLowerCase().includes(q);
 
       const matchesCategory =
-        categoryFilter === 'all' || v.category === categoryFilter;
+        categoryFilter === 'all' || v.vehicleTypeId === categoryFilter;
 
       const matchesStatus =
-        statusFilter === 'all' || v.status === statusFilter;
+        statusFilter === 'all' || v.availability === statusFilter || v.recordStatus === statusFilter;
 
       return matchesSearch && matchesCategory && matchesStatus;
     });
@@ -91,57 +82,14 @@ export function VehiclesPage({
   const totalVehicles = vehicles.length;
   const inServiceCount = vehicles.filter((v) => v.status === 'in_service').length;
   const availableCount = vehicles.filter((v) => v.status === 'available').length;
-  const maintenanceCount = vehicles.filter((v) => v.status === 'maintenance').length;
-  const standbyCount = vehicles.filter((v) => v.status === 'standby').length;
+  const maintenanceCount = vehicles.filter(v => v.availability === 'UNAVAILABLE').length;
+  const standbyCount = vehicles.filter(v => v.recordStatus === 'INACTIVE').length;
 
-  const handleToggleMaintenance = (vehicle: VehicleAsset) => {
-    const nextStatus = vehicle.status === 'maintenance' ? 'available' : 'maintenance';
-    const nextLabel = nextStatus === 'maintenance' ? 'In Maintenance / Shop' : 'Available / Staged';
-    const updated = vehicles.map((v) =>
-      v.id === vehicle.id ? { ...v, status: nextStatus as any, statusLabel: nextLabel } : v
-    );
-    setVehicles(updated);
-    if (activeVehicleDrawer && activeVehicleDrawer.id === vehicle.id) {
-      setActiveVehicleDrawer({ ...activeVehicleDrawer, status: nextStatus as any, statusLabel: nextLabel });
-    }
-    onNotification(`Updated vehicle ${vehicle.unitNumber} status to ${nextLabel}`);
+  const handleSaveVehicle = (vehicle: VehicleAsset) => {
+    const next = vehicles.some(v => v.id === vehicle.id) ? vehicles.map(v => v.id === vehicle.id ? vehicle : v) : [vehicle, ...vehicles];
+    setVehicles(next); setActiveVehicleDrawer(null); setShowRegisterModal(false); onNotification('Vehicle saved');
   };
-
-  const handleRegisterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUnitNumber || !newPlateNumber) {
-      onNotification('Please enter unit number and plate number');
-      return;
-    }
-
-    const newVehicle: VehicleAsset = {
-      id: `veh-${Date.now()}`,
-      unitNumber: newUnitNumber,
-      plateNumber: newPlateNumber,
-      vin: newVin,
-      category: newCategory,
-      makeModel: newMakeModel,
-      year: Number(newYear),
-      status: 'available',
-      statusLabel: 'Available / Staged',
-      fuelBatteryPercent: 100,
-      fuelType: newFuelType,
-      odometerKm: 12500,
-      payloadCapacityKg: Number(newPayload),
-      palletCapacity: Number(newPallets),
-      hasLiftgate: newHasLiftgate,
-      hasReefer: newHasReefer,
-      lastInspectionDate: new Date().toISOString().slice(0, 10),
-      nextServiceKm: 25000,
-      notes: 'Newly registered commercial asset added to Vancouver fleet roster.'
-    };
-
-    setVehicles([newVehicle, ...vehicles]);
-    setShowRegisterModal(false);
-    setNewUnitNumber(`V${Math.floor(20 + Math.random() * 20)}`);
-    setNewPlateNumber('BC FLT ');
-    onNotification(`Registered new vehicle asset ${newVehicle.unitNumber} (${newVehicle.plateNumber})`);
-  };
+  useEntityDialog(!!activeVehicleDrawer || showRegisterModal, () => { setActiveVehicleDrawer(null); setShowRegisterModal(false); });
 
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
@@ -168,21 +116,13 @@ export function VehiclesPage({
                 Vehicles & Fleet Assets
               </h1>
               <p className="text-[11px] text-slate-500 leading-tight">
-                Commercial vehicle inventory, tonnage classifications, liftgate & reefer equipment, and service inspections
+                Vehicle availability, cargo capacity, dimensions and equipment
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => onNotification('Fleet mechanical inspection report generated')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-          >
-            <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
-            <span>Inspection Log</span>
-          </button>
           <button
             type="button"
             onClick={() => setShowRegisterModal(true)}
@@ -227,20 +167,20 @@ export function VehiclesPage({
 
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
             <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Standby Reserve</span>
+              <span>Inactive records</span>
               <Layers className="w-4 h-4 text-slate-400" />
             </div>
             <div className="mt-2 text-2xl font-bold text-slate-900">{standbyCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Held back as spare capacity</div>
+            <div className="mt-1 text-[11px] text-slate-500">Inactive fleet records</div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
             <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Maintenance / Shop</span>
+              <span>Unavailable</span>
               <Wrench className="w-4 h-4 text-amber-500" />
             </div>
             <div className="mt-2 text-2xl font-bold text-amber-600">{maintenanceCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Out of service for repairs</div>
+            <div className="mt-1 text-[11px] text-slate-500">Temporarily unavailable for dispatch</div>
           </div>
         </div>
 
@@ -260,11 +200,7 @@ export function VehiclesPage({
               onValueChange={setStatusFilter}
               align="end"
               options={[
-                { value: 'all', label: 'All Operational Statuses' },
-                { value: 'in_service', label: 'In Service / En Route' },
-                { value: 'available', label: 'Available / Staged' },
-                { value: 'standby', label: 'Standby' },
-                { value: 'maintenance', label: 'In Maintenance' }
+                { value: 'all', label: 'All statuses' }, { value: 'AVAILABLE', label: 'Available' }, { value: 'IN_USE', label: 'In use' }, { value: 'UNAVAILABLE', label: 'Unavailable' }, { value: 'INACTIVE', label: 'Inactive' }
               ]}
             />
 
@@ -275,13 +211,7 @@ export function VehiclesPage({
               onValueChange={setCategoryFilter}
               align="end"
               options={[
-                { value: 'all', label: 'All Vehicle Categories' },
-                { value: '1 Tonne Van', label: '1 Tonne Van' },
-                { value: '2 Tonne Cube', label: '2 Tonne Cube' },
-                { value: '3 Tonne Box', label: '3 Tonne Box' },
-                { value: '5 Tonne Freight', label: '5 Tonne Freight' },
-                { value: 'Refrigerated Reefer', label: 'Refrigerated Reefer' },
-                { value: 'Flatbed', label: 'Flatbed' }
+                { value: 'all', label: 'All vehicle types' }, ...loadSimplePricingConfig().vehicles.map(v => ({ value: v.id, label: v.name }))
               ]}
             />
           </div>
@@ -346,20 +276,14 @@ export function VehiclesPage({
                               : 'bg-slate-100 text-slate-700 border-slate-300'
                           }`}
                         >
-                          {vehicle.status === 'in_service'
-                            ? 'In Service'
-                            : vehicle.status === 'available'
-                            ? 'Available'
-                            : vehicle.status === 'maintenance'
-                            ? 'In Shop'
-                            : 'Standby'}
+                          {vehicle.recordStatus === 'INACTIVE' ? 'Inactive' : vehicle.availability?.replaceAll('_', ' ') || vehicle.statusLabel}
                         </span>
                       </div>
 
                       {/* Equipment Capabilities & Tonnage */}
                       <div className="mt-3 flex flex-wrap items-center gap-1.5">
                         <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-50 text-blue-800 rounded">
-                          {vehicle.category}
+                          {loadSimplePricingConfig().vehicles.find(t => t.id === vehicle.vehicleTypeId)?.name || vehicle.category}
                         </span>
                         {vehicle.hasLiftgate && (
                           <span className="px-2 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 rounded flex items-center gap-1">
@@ -386,33 +310,7 @@ export function VehiclesPage({
                           </div>
                         </div>
 
-                        {/* Fuel / Battery Bar */}
-                        <div>
-                          <div className="flex items-center justify-between text-[11px] mb-1">
-                            <span className="text-slate-500 flex items-center gap-1">
-                              {vehicle.fuelType === 'Electric' ? (
-                                <BatteryCharging className="w-3 h-3 text-emerald-600" />
-                              ) : (
-                                <Fuel className="w-3 h-3 text-slate-500" />
-                              )}
-                              {vehicle.fuelType}
-                            </span>
-                            <span className="font-bold text-slate-800">{vehicle.fuelBatteryPercent}%</span>
-                          </div>
-                          <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${
-                                vehicle.fuelBatteryPercent > 50
-                                  ? 'bg-emerald-500'
-                                  : vehicle.fuelBatteryPercent > 25
-                                  ? 'bg-amber-500'
-                                  : 'bg-rose-500'
-                              }`}
-                              style={{ width: `${vehicle.fuelBatteryPercent}%` }}
-                            />
-                          </div>
-                        </div>
-
+                        <div className="text-xs text-slate-600">Cargo: {vehicle.cargoVolumeM3 == null ? 'volume not set' : `${vehicle.cargoVolumeM3} m³`}<br />Dimensions: {[vehicle.cargoLengthCm, vehicle.cargoWidthCm, vehicle.cargoHeightCm].every(v => v != null) ? `${vehicle.cargoLengthCm} × ${vehicle.cargoWidthCm} × ${vehicle.cargoHeightCm} cm` : 'Not set'}<br />Equipment: {vehicle.equipment?.join(', ') || 'None recorded'}</div>
                         {/* Assigned Driver & Location */}
                         <div className="pt-2 border-t border-slate-200 text-[11px]">
                           <div className="text-slate-500">
@@ -433,14 +331,14 @@ export function VehiclesPage({
                     {/* Footer Actions */}
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs" onClick={(e) => e.stopPropagation()}>
                       <span className="text-slate-400 text-[11px]">
-                        Odometer: <strong>{vehicle.odometerKm.toLocaleString()} km</strong>
+                        {vehicle.serviceAreaIds?.join(', ') || 'Service area not set'}
                       </span>
                       <button
-                        onClick={() => handleToggleMaintenance(vehicle)}
+                        onClick={() => setActiveVehicleDrawer(vehicle)}
                         className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
                       >
                         <Wrench className="w-3 h-3" />
-                        {vehicle.status === 'maintenance' ? 'Exit Shop' : 'Service'}
+                        Edit vehicle
                       </button>
                     </div>
                   </div>
@@ -453,7 +351,7 @@ export function VehiclesPage({
 
       {/* VEHICLE DOSSIER SLIDE-OVER DRAWER */}
       {activeVehicleDrawer && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150">
+        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden animate-in slide-in-from-right duration-200"
             onClick={(e) => e.stopPropagation()}
@@ -475,110 +373,14 @@ export function VehiclesPage({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
-              {/* Asset Overview */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Specifications</div>
-                <div className="text-sm font-bold text-slate-900">{activeVehicleDrawer.makeModel}</div>
-                <div className="grid grid-cols-2 gap-2 text-slate-700 pt-1">
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Model Year:</span>
-                    <div className="font-semibold">{activeVehicleDrawer.year}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">VIN:</span>
-                    <div className="font-mono text-[11px] font-semibold">{activeVehicleDrawer.vin}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Category Class:</span>
-                    <div className="font-semibold">{activeVehicleDrawer.category}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Fuel Engine:</span>
-                    <div className="font-semibold">{activeVehicleDrawer.fuelType}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cargo & Equipment Specs */}
-              <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cargo & Capacity Ratings</div>
-                <div className="grid grid-cols-2 gap-3 text-slate-700">
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Payload Limit:</span>
-                    <div className="text-sm font-bold text-slate-900">{activeVehicleDrawer.payloadCapacityKg.toLocaleString()} kg</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Pallet Deck Capacity:</span>
-                    <div className="text-sm font-bold text-slate-900">{activeVehicleDrawer.palletCapacity} standard skids</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Hydraulic Liftgate:</span>
-                    <div className="font-semibold">{activeVehicleDrawer.hasLiftgate ? 'Equipped (1000kg tuckunder)' : 'None'}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Temperature Control:</span>
-                    <div className="font-semibold">
-                      {activeVehicleDrawer.hasReefer
-                        ? `Reefer Unit (${activeVehicleDrawer.reeferTempC !== undefined ? `${activeVehicleDrawer.reeferTempC}°C` : 'Multi-zone'})`
-                        : 'Ambient / Dry Freight'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Service & Compliance */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Service & Compliance</div>
-                <div className="grid grid-cols-2 gap-2 text-slate-700">
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Odometer:</span>
-                    <div className="font-semibold">{activeVehicleDrawer.odometerKm.toLocaleString()} km</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Next Service Due:</span>
-                    <div className="font-semibold">{activeVehicleDrawer.nextServiceKm.toLocaleString()} km</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Last CVIP Inspection:</span>
-                    <div className="font-semibold">{activeVehicleDrawer.lastInspectionDate}</div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Current Driver:</span>
-                    <div className="font-semibold">{activeVehicleDrawer.currentDriverName || 'None'}</div>
-                  </div>
-                </div>
-                {activeVehicleDrawer.notes && (
-                  <div className="pt-2 border-t border-slate-200 text-slate-600 text-[11px]">
-                    <span className="text-slate-400 text-[10px] block">Fleet Notes:</span>
-                    {activeVehicleDrawer.notes}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-200 bg-white flex items-center gap-2">
-              <button
-                onClick={() => handleToggleMaintenance(activeVehicleDrawer)}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-              >
-                <Wrench className="w-3.5 h-3.5" />
-                {activeVehicleDrawer.status === 'maintenance' ? 'Complete Maintenance & Release' : 'Send to Maintenance Shop'}
-              </button>
-              <button
-                onClick={() => setActiveVehicleDrawer(null)}
-                className="px-4 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
+            <div className="flex-1 overflow-y-auto p-5"><VehicleEditor vehicle={activeVehicleDrawer} vehicles={vehicles} onCancel={() => setActiveVehicleDrawer(null)} onSave={handleSaveVehicle} /></div>
           </div>
         </div>
       )}
 
       {/* REGISTER VEHICLE MODAL */}
       {showRegisterModal && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
@@ -596,136 +398,7 @@ export function VehiclesPage({
               </button>
             </div>
 
-            <form onSubmit={handleRegisterSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Unit Number</label>
-                  <input
-                    type="text"
-                    value={newUnitNumber}
-                    onChange={(e) => setNewUnitNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">License Plate</label>
-                  <input
-                    type="text"
-                    value={newPlateNumber}
-                    onChange={(e) => setNewPlateNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 uppercase focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Vehicle Category</label>
-                  <Select
-                    aria-label="Vehicle category"
-                    className="w-full"
-                    value={newCategory}
-                    onValueChange={(v) => setNewCategory(v as any)}
-                    options={[
-                      { value: '1 Tonne Van', label: '1 Tonne Van (Sprinter/Transit)' },
-                      { value: '2 Tonne Cube', label: '2 Tonne Cube Cutaway' },
-                      { value: '3 Tonne Box', label: '3 Tonne Box Truck' },
-                      { value: '5 Tonne Freight', label: '5 Tonne Freight Box' },
-                      { value: 'Refrigerated Reefer', label: 'Refrigerated Reefer' },
-                      { value: 'Flatbed', label: 'Flatbed' }
-                    ]}
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Fuel Type</label>
-                  <Select
-                    aria-label="Fuel type"
-                    className="w-full"
-                    value={newFuelType}
-                    onValueChange={(v) => setNewFuelType(v as any)}
-                    options={[
-                      { value: 'Diesel', label: 'Diesel' },
-                      { value: 'Gasoline', label: 'Gasoline' },
-                      { value: 'Electric', label: 'Electric (EV)' },
-                      { value: 'Hybrid', label: 'Hybrid' }
-                    ]}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Make & Model</label>
-                <input
-                  type="text"
-                  value={newMakeModel}
-                  onChange={(e) => setNewMakeModel(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Payload Capacity (kg)</label>
-                  <input
-                    type="number"
-                    value={newPayload}
-                    onChange={(e) => setNewPayload(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Pallet Deck Capacity</label>
-                  <input
-                    type="number"
-                    value={newPallets}
-                    onChange={(e) => setNewPallets(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-6 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={newHasLiftgate}
-                    onChange={(e) => setNewHasLiftgate(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
-                  />
-                  <span>Equipped with Liftgate</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={newHasReefer}
-                    onChange={(e) => setNewHasReefer(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
-                  />
-                  <span>Reefer Temp Controlled</span>
-                </label>
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
-                >
-                  Register Vehicle
-                </button>
-              </div>
-            </form>
+            <div className="overflow-y-auto p-5"><VehicleEditor vehicles={vehicles} onCancel={() => setShowRegisterModal(false)} onSave={handleSaveVehicle} /></div>
           </div>
         </div>
       )}

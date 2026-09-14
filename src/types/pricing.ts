@@ -1,3 +1,4 @@
+import { StopOperations, ItemOperations } from '../domain/operations';
 // Commercial pricing model: Rate Cards, Zones, Customer Groups, and the
 // Order-side inputs/outputs of the pricing engine.
 //
@@ -160,7 +161,7 @@ export interface PricingConfig {
 // Order-side input
 // ---------------------------------------------------------------------------
 
-export interface PricingStopInput {
+export interface PricingStopInput extends StopOperations {
   id: string;
   type: 'PICKUP' | 'DROPOFF';
   label?: string;
@@ -173,7 +174,7 @@ export interface PricingStopInput {
   waitMinutes: number;
 }
 
-export interface PricingPackageInput {
+export interface PricingPackageInput extends ItemOperations {
   id: string;
   quantity: number;
   /** Per piece. Canonical units: kg and cm. */
@@ -197,6 +198,9 @@ export interface OrderPriceAdjustment {
 }
 
 export interface PricingOrderInput {
+  billingCustomerId?: string | null;
+  overrideReason?: string;
+  scheduledEndAt?: string | null;
   customerId: string | null;
   serviceId: string;
   vehicleId: string | null;

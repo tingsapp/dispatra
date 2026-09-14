@@ -1,6 +1,7 @@
+import { DriverOperations, OrderOperations } from './domain/operations';
 import { PricingOrderInput, PricingSnapshot } from './types/pricing';
 
-export interface Driver {
+export interface Driver extends DriverOperations {
   id: string;
   name: string;
   avatar: string;
@@ -26,7 +27,7 @@ export interface Driver {
   routeId?: string;
 }
 
-export interface Job {
+export interface Order extends OrderOperations {
   id: string;
   jobNumber: string;
   status: 'at_risk' | 'on_time' | 'late_start' | 'no_driver' | 'completed';
@@ -102,3 +103,6 @@ export interface ModalDialogState {
   type: ModalDialogType | null;
   data?: any;
 }
+
+/** Legacy Monitor adapter name; new commercial code uses Order. */
+export type Job = Order;

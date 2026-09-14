@@ -40,6 +40,7 @@ import { toDisplayDistance, fromDisplayDistance, toDisplayDistanceRate, fromDisp
 import { ContractRulesEditor } from '../components/pricing/ContractRulesEditor';
 import { ZoneMatrixEditor } from '../components/pricing/ZoneMatrixEditor';
 import { Select } from '../components/ui/Select';
+import { DatePicker } from '../components/ui/DatePicker';
 
 interface RateCardsPageProps {
   onBackToMonitor: () => void;
@@ -634,11 +635,11 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
 
                     <div>
                       <label className={labelClass}>Effective From</label>
-                      <input type="date" value={draft.effectiveFrom} onChange={(e) => patchDraft({ effectiveFrom: e.target.value })} className={fieldClass} />
+                      <DatePicker aria-label="Effective From" value={draft.effectiveFrom} onValueChange={effectiveFrom => patchDraft({ effectiveFrom })} />
                     </div>
                     <div>
                       <label className={labelClass}>Effective To</label>
-                      <input type="date" value={draft.effectiveTo ?? ''} onChange={(e) => patchDraft({ effectiveTo: e.target.value || null })} className={fieldClass} />
+                      <DatePicker aria-label="Effective To" placeholder="No end date" value={draft.effectiveTo ?? ''} onValueChange={effectiveTo => patchDraft({ effectiveTo: effectiveTo || null })} />
                       <p className={hintClass}>Blank = open-ended.</p>
                     </div>
                     <div>

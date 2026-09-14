@@ -88,6 +88,8 @@ All client roles use backend authorization. Never put provider secrets in browse
 
 ## 9. UI quality and testing
 
+All date selection uses the shared shadcn/ui Calendar + Popover picker, including Monitor, rate-card effective dates and Order service windows. Native date/datetime pickers are not used. Date-only values remain YYYY-MM-DD; service windows retain organization wall time with a separate 24-hour time control. Optional dates can be cleared.
+
 Use shadcn/ui primitives and Lucide icons. Prefer small cohesive components, shared status mappings, formatting, validation, and tokens. Use loading/empty/error states for every data surface. Use accessible labels, keyboard focus, non-color status cues, tooltips for unfamiliar icons, responsive popovers/sheets, and non-map alternatives. Avoid oversized TMS dashboards, neon/AI styling, excessive permanent panels/charts, nested cards, and giant components.
 
 Until API integration, test static pricing/scenarios, Rate Card resolution, Order forms/details, AUTO/MANUAL simulation, Needs Attention, route view, customer/driver/vehicle views, settings, and invoice preview. After integration, test generated-client contracts, optimistic/pending/conflict states, idempotency, tenant permissions, Monitor/resync, and route/order/invoice journeys.
@@ -102,6 +104,32 @@ Until API integration, test static pricing/scenarios, Rate Card resolution, Orde
 6. Finish Driver/Vehicle operational screens.
 7. Finish Billing/Invoice preview and sent states.
 8. Exercise complete static end-to-end scenarios.
-9. Only when static design/domain behavior is stable, connect to FastAPI using generated typed OpenAPI contracts and the approved server-state data layer.
+9. The user-approved company/customer account milestone in §12 begins API integration now. Connect operational modules incrementally using generated OpenAPI contracts, preserving their existing behavior and data.
 
 Do not redesign the existing client from scratch; extend and normalize it where it already satisfies these requirements.
+
+## 11. V1 entity property audit — September 14
+
+The frontend commercial type is `Order`; `Job` remains a compatibility alias for existing Monitor fields. `lifecycleStatus` uses §2's contract, while the legacy Monitor risk badges remain an independent projection. Branch/organization/audit/integration fields are represented without branch-management UI. Existing saved records remain readable; do not fabricate missing capacity, GPS timestamps, contacts, or multi-stop item allocations.
+
+Order create/edit must persist ordered stable-ID stops, per-stop recipient contacts/windows/service duration/access/instructions/POD requirements and reference, item handling units and explicit pickup/delivery links, references, priority/type, commodity, skills/equipment/service area, billing customer, internal notes and communications. Reorder/delete must retain IDs and reject broken precedence or item links. Source and external references remain separate. Pricing stays in PricingSnapshot, including currency, method, totals, overrides with reasons, imports and frozen calculation context. Customer and billing snapshots remain fixed unless the selected account changes during an allowed edit. Editing execution/completion/finalized orders is blocked. The UI shows saved windows and all stops in both Orders and Monitor detail views.
+
+Customer profiles remain lightweight: business/person identity, legal/display name, saved locations, contact/billing email, existing pricing relationship, payment terms, service/window/instruction defaults, communications, tags and external reference. Order history/counts use linked Orders. Payers may differ from ordering customers; invoice previews use the frozen payer's billing email and terms. English is V1's language, and monetary currency follows organization pricing.
+
+Driver account, duty and workload are independent. Duty changes do not invent route progress or GPS samples. Persist driver number, contact/licence, employment, skills/service areas, qualified vehicle types, shift bounds, maximum work minutes, availability periods, depot/start location, current vehicle, notes and reference. Derive connectivity from app timestamps (prototype display: online through 2 minutes, stale through 15, offline afterward; absent/invalid/future timestamps are unknown), separately from GPS capture and permission state. Vehicle ownership must be consistent with driver selection; do not release an in-use asset through a profile change.
+
+Vehicles expose record status, availability/reason/period, normalized catalogue type, number, plate/province, make/model/year, payload, volume, cargo dimensions, pallet capacity, equipment, service area, depot, reference, notes and current assignment. Maintenance, fuel and inspection modules are outside this V1 slice. Legacy values remain stored for compatibility.
+
+Local assignment validates entered driver/asset constraints and per-stop load progression for explicitly linked items. Unknown dimensions/capacity remain unknown; passing these checks is not proof of combined-route feasibility. API route optimization, combined-order constraints, live GPS, POD capture, communication delivery and authoritative invoicing remain future integrations.
+
+
+## 12. Company and customer access milestone
+
+
+The platform owner provisions dispatch companies. A permanent organization UUID owns company records; a unique company slug identifies /{company}/dispatch and /{company}/customer. /platform is the owner portal. One shared PostgreSQL database uses organization constraints, application authorization and row-level security. Dedicated databases are deferred.
+
+Dispatchers create customer records and login credentials; no public registration or invitation acceptance flow exists. First login does not force a password change. Customers may change their password voluntarily, and complete contact name, email, phone and address. Business identity, status and commercial settings remain dispatcher-controlled. Passwords are hashed; generated initial/reset credentials are shown only in the creating browser and must not be stored in browser persistence or API response logs.
+
+Milestone acceptance: owner creates company and first dispatcher; dispatcher creates customer access and copies login details; customer signs in, edits own profile, and optionally changes password. Changes persist in PostgreSQL. Cross-company/customer access, role escalation, replay conflicts and unauthorized profile fields are rejected. Password reset revokes old sessions.
+
+This milestone adds authenticated account pages alongside the existing local dispatch prototype. Orders/pricing/driver/vehicle integrations, subscriptions, email delivery and customer bookings remain later milestones. Existing browser-only customer records are not silently imported into an arbitrary company. Future migration must preserve their full commercial/default fields and require an explicit organization mapping.

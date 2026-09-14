@@ -2,6 +2,7 @@ import React from 'react';
 import { RateCard, Zone } from '../../types/pricing';
 import { DeliveryService } from '../../types/simplePricing';
 import { ZoneMatrixEditor } from './ZoneMatrixEditor';
+import { Select } from '../ui/Select';
 
 interface Props { card: RateCard; patch: (changes: Partial<RateCard>) => void; zones: Zone[]; services: DeliveryService[]; organizationMinimum: number }
 const field = 'w-full border border-slate-200 rounded-lg p-2 text-xs bg-white';
@@ -23,7 +24,20 @@ export const ContractRulesEditor = ({ card, patch, zones, services, organization
       </select>
     </label>}
     {finalImport ? <p>Fees, fuel, service multiplier, accessorials, discounts, minimums and rounding are bypassed. Enter tax treatment on the imported order.</p> : <div className="grid sm:grid-cols-2 gap-3">
-      <label>Admin / Dispatch Fee<select className={field} value={card.applyAdminFee == null ? 'INHERIT' : String(card.applyAdminFee)} onChange={e => patch({ applyAdminFee: e.target.value === 'INHERIT' ? null : e.target.value === 'true' })}><option value="INHERIT">Inherit organization enabled setting</option><option value="true">Apply organization fee</option><option value="false">Waive fee</option></select></label>
+      <div className="min-w-0">
+        <label className="block text-xs font-medium text-slate-700 mb-1.5">Admin / Dispatch Fee</label>
+        <Select
+          aria-label="Admin / Dispatch Fee"
+          className="w-full"
+          value={card.applyAdminFee == null ? 'INHERIT' : String(card.applyAdminFee)}
+          onValueChange={value => patch({ applyAdminFee: value === 'INHERIT' ? null : value === 'true' })}
+          options={[
+            { value: 'INHERIT', label: 'Inherit organization enabled setting' },
+            { value: 'true', label: 'Apply organization fee' },
+            { value: 'false', label: 'Waive fee' }
+          ]}
+        />
+      </div>
       <label>Minimum order subtotal (excluding tax)<input className={field} type="number" min="0" step="0.01" value={card.minimumOrderSubtotal ?? ''} placeholder={`Inherit ${organizationMinimum}`} onChange={e => patch({ minimumOrderSubtotal: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })} /><span className="text-slate-500">Blank inherits; 0 explicitly waives the minimum.</span></label>
       <label className="flex gap-2"><input type="checkbox" checked={card.applyContractDiscount ?? true} onChange={e => patch({ applyContractDiscount: e.target.checked })} />Apply resolved contract discount</label>
       <label className="flex gap-2"><input type="checkbox" checked={card.applyOrderMinimum ?? true} onChange={e => patch({ applyOrderMinimum: e.target.checked })} />Enforce minimum after discounts and adjustments</label>

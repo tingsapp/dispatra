@@ -1,3 +1,6 @@
+import { validateOperationalAssignment } from '../domain/assignment';
+import { loadVehicles } from './vehicleStorage';
+import { orderEditable } from '../domain/validation';
 import { Driver, Job } from '../types';
 import { PricingOrderInput, PricingSnapshot } from '../types/pricing';
 import { PricingContext } from './pricingEngine';
@@ -28,12 +31,13 @@ export const validateBooking = (order: PricingOrderInput, ctx: PricingContext, n
 };
 
 /** Shared by direct/manual assignment and the static recommendation action. */
-export const validateAssignment = (job: Pick<Job, 'id' | 'pricing' | 'pricingInput' | 'status' | 'assignedDriverId'>, driver: Driver, jobs: Job[], ctx: PricingContext, now = new Date()): string[] => {
-  if (job.assignedDriverId === driver.id) return [];
-  if (job.status === 'completed') return ['Completed orders cannot be reassigned.'];
+export const validateAssignment = (job: Pick<Job, 'id' | 'pricing' | 'pricingInput' | 'status' | 'assignedDriverId'> & Partial<Job>, driver: Driver, jobs: Job[], ctx: PricingContext, now = new Date()): string[] => {
+  if (job.status === 'completed' || job.lifecycleStatus && ['IN_EXECUTION','COMPLETED','BILLING_FINALIZATION','INVOICED','CANCELLED','FAILED'].includes(job.lifecycleStatus)) return ['Completed orders cannot be reassigned.'];
   if (job.pricing?.status !== 'PRICED' || !job.pricingInput) return ['Resolve pricing before assigning this order.'];
   if (job.pricing.stage !== 'FINAL' && job.pricing.quoteExpiresAt && Date.parse(job.pricing.quoteExpiresAt) < now.getTime()) return ['Quote has expired. Re-price explicitly before assigning.'];
   if (driver.status === 'offline') return ['Driver is offline.'];
+  const operationalErrors = validateOperationalAssignment(job, driver, loadVehicles(), ctx.billing.general.timeZone);
+  if (operationalErrors.length) return operationalErrors;
   const active = jobs.filter(j => j.id !== job.id && j.assignedDriverId === driver.id && j.status !== 'completed');
   if (active.length >= ctx.billing.dispatch.maxActiveOrdersPerDriver) return ['Driver has reached the maximum active orders.'];
   const exclusive = (serviceId?: string) => ctx.catalogue.services.find(s => s.id === serviceId)?.exclusiveVehicle;
@@ -58,8 +62,8 @@ export interface InvoicePreview {
 export const createInvoicePreview = (jobId: string, snapshot: PricingSnapshot, ctx: PricingContext, now = new Date()): InvoicePreview => {
   if (snapshot.status !== 'PRICED' || snapshot.stage !== 'FINAL') throw new Error('Invoice preview requires finalized pricing.');
   const frozen = snapshot.context ?? ctx;
-  const customer = frozen.customers.find(c => c.id === snapshot.orderFacts?.customerId);
-  const terms = frozen.billing.invoicing.defaultPaymentTerms;
+  const customer = frozen.customers.find(c => c.id === (snapshot.orderFacts?.billingCustomerId || snapshot.orderFacts?.customerId));
+  const terms = customer?.paymentTerms && customer.paymentTerms !== 'INHERIT' ? customer.paymentTerms : frozen.billing.invoicing.defaultPaymentTerms;
   const days = terms === 'COD' ? 0 : Number(terms.replace('NET', ''));
   return { id: `preview-${jobId}`, issuedAt: now.toISOString(), dueAt: new Date(now.getTime() + days * 86400000).toISOString(), billingEmail: customer?.billingEmail || customer?.email || '', taxRegistrationNumber: frozen.billing.invoicing.taxRegistrationNumber, currency: snapshot.currency, subtotal: snapshot.subtotal, tax: snapshot.taxTotal, total: snapshot.total, lines: structuredClone([...snapshot.lines, ...snapshot.taxLines]), status: 'PREVIEW' };
 };
