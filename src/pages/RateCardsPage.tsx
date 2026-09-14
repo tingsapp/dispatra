@@ -6,7 +6,6 @@ import {
   Copy,
   Check,
   RotateCcw,
-  Calculator,
   FileText,
   Map,
   Users,
@@ -37,11 +36,13 @@ import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
 import { loadBillingConfig } from '../lib/billingStorage';
 import { loadCustomers } from '../lib/customerStorage';
 import { resolveFuelPercent } from '../lib/billingEngine';
+import { toDisplayDistance, fromDisplayDistance, toDisplayDistanceRate, fromDisplayDistanceRate, toDisplayWeight, fromDisplayWeight, toDisplayWeightRate, fromDisplayWeightRate, toDisplayDivisor, fromDisplayDivisor } from '../lib/units';
+import { ContractRulesEditor } from '../components/pricing/ContractRulesEditor';
+import { ZoneMatrixEditor } from '../components/pricing/ZoneMatrixEditor';
 import { Select } from '../components/ui/Select';
 
 interface RateCardsPageProps {
   onBackToMonitor: () => void;
-  onOpenSimulator?: () => void;
   onNotification?: (msg: string) => void;
 }
 
@@ -107,6 +108,7 @@ const NumberField: React.FC<{
         step={step}
         min={0}
         value={value}
+        aria-label={label}
         disabled={disabled}
         onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
         className={`${fieldClass} ${prefix ? 'pl-7' : ''} ${suffix ? 'pr-12' : ''}`}
@@ -137,6 +139,7 @@ const InheritField: React.FC<{
         step={step}
         min={0}
         value={value ?? ''}
+        aria-label={label}
         placeholder={String(inherited)}
         onChange={(e) => onChange(e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0))}
         className={`${fieldClass} ${prefix ? 'pl-7' : ''} ${suffix ? 'pr-12' : ''} ${value === null ? 'italic' : ''}`}
@@ -159,19 +162,20 @@ const DiscountEditor: React.FC<{ value: Discount; onChange: (d: Discount) => voi
         value={value.type}
         onValueChange={(v) => onChange({ ...value, type: v as DiscountType })}
         options={[
-          { value: 'NONE', label: 'None' },
+          { value: 'INHERIT', label: 'Inherit' },
+          { value: 'NONE', label: 'No discount — stop inheritance' },
           { value: 'PERCENT', label: 'Percentage' },
           { value: 'FIXED', label: 'Fixed amount' }
         ]}
       />
     </div>
     <NumberField
-      label="Value"
+      label="Value (fixed amounts exclude tax)"
       value={value.value}
       onChange={(v) => onChange({ ...value, value: v })}
       prefix={value.type === 'FIXED' ? '$' : undefined}
       suffix={value.type === 'PERCENT' ? '%' : undefined}
-      disabled={value.type === 'NONE'}
+      disabled={value.type === 'NONE' || value.type === 'INHERIT'}
       step={0.5}
     />
     <div>
@@ -179,11 +183,11 @@ const DiscountEditor: React.FC<{ value: Discount; onChange: (d: Discount) => voi
       <Select
         aria-label="Discount scope"
         className="w-full"
-        disabled={value.type === 'NONE'}
+        disabled={value.type === 'NONE' || value.type === 'INHERIT'}
         value={value.scope}
         onValueChange={(v) => onChange({ ...value, scope: v as DiscountScope })}
         options={[
-          { value: 'TRANSPORT_ONLY', label: 'Transport only' },
+          { value: 'TRANSPORT_ONLY', label: 'Freight + service + minimum + vehicle (no fuel)' },
           { value: 'SUBTOTAL', label: 'Whole subtotal' }
         ]}
       />
@@ -191,7 +195,7 @@ const DiscountEditor: React.FC<{ value: Discount; onChange: (d: Discount) => voi
   </div>
 );
 
-export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, onOpenSimulator, onNotification }) => {
+export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, onNotification }) => {
   const [config, setConfig] = useState<PricingConfig>(() => loadPricingConfig());
   const [activeTab, setActiveTab] = useState<TabId>('cards');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(() => loadPricingConfig().rateCards[0]?.id ?? null);
@@ -261,6 +265,7 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
       onNotification?.('Choose the customer group this card belongs to.');
       return;
     }
+    if (draft.currency !== billing.invoicing.currency && draft.status === 'ACTIVE') { onNotification?.('Active cards must match the organization billing currency. Currency conversion is not supported.'); return; }
     const exists = config.rateCards.some((c) => c.id === draft.id);
     // Every save is a new version so historical PricingSnapshots stay pinned.
     const saved: RateCard = {
@@ -350,23 +355,6 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
       zoneRates: config.zoneRates.filter((r) => r.originZoneId !== id && r.destinationZoneId !== id)
     });
   };
-  const setZoneRate = (originZoneId: string, destinationZoneId: string, amount: number | null) => {
-    const existing = config.zoneRates.find(
-      (r) => r.originZoneId === originZoneId && r.destinationZoneId === destinationZoneId && !r.serviceId
-    );
-    let zoneRates: ZoneRate[];
-    if (amount === null) {
-      zoneRates = config.zoneRates.filter((r) => r !== existing);
-    } else if (existing) {
-      zoneRates = config.zoneRates.map((r) => (r === existing ? { ...r, amount } : r));
-    } else {
-      zoneRates = [...config.zoneRates, { id: `zr_${Date.now()}`, originZoneId, destinationZoneId, amount, serviceId: null }];
-    }
-    persist({ ...config, zoneRates });
-  };
-  const zoneRateFor = (o: string, d: string) =>
-    config.zoneRates.find((r) => r.originZoneId === o && r.destinationZoneId === d && !r.serviceId)?.amount ?? null;
-
   // ----------------------------------------------------------------- groups
   const addGroup = () => {
     const group: CustomerGroup = {
@@ -424,12 +412,6 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
         </div>
 
         <div className="flex items-center gap-3">
-          {onOpenSimulator && (
-            <button type="button" onClick={onOpenSimulator} className={secondaryBtn}>
-              <Calculator className="w-3.5 h-3.5 text-slate-500" />
-              <span>Open Pricing Simulator</span>
-            </button>
-          )}
           <button type="button" onClick={handleReset} className={secondaryBtn}>
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
             <span>Reset Defaults</span>
@@ -700,7 +682,7 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
 
                 {/* Pricing method */}
                 <div className={cardClass}>
-                  <h3 className="text-sm font-semibold text-slate-900">Pricing Method</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">Pricing Method</h3><p className="text-xs text-slate-500">Monetary rates follow the organization tax-inclusive/exclusive setting. Minimums and fixed discounts always exclude tax.</p>
                   <p className="text-xs text-slate-500 mt-0.5 mb-4">
                     How the freight amount is produced. Surcharges, accessorials, discounts, and tax wrap around it.
                   </p>
@@ -747,7 +729,7 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
                             { value: 'BASE_PLUS_DISTANCE', label: 'Fall back to base + distance' }
                           ]}
                         />
-                        <p className={hintClass}>Rates live under the Zones tab. Each drop-off is priced from the first pickup's zone.</p>
+                        <p className={hintClass}>Each delivery is priced from its explicitly linked supplying pickups. Choose organization or contract zone prices below.</p>
                       </div>
                     </div>
                   )}
@@ -758,7 +740,7 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
                     </p>
                   )}
 
-                  {draft.pricingMethod !== 'BASE_PLUS_DISTANCE' && (
+                  {draft.pricingMethod !== 'BASE_PLUS_DISTANCE' && !(draft.pricingMethod === 'IMPORTED' && draft.importedPriceMode === 'FINAL_TOTAL') && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200/80 mb-4">
                       {(
                         [
@@ -783,15 +765,13 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
                       )}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <NumberField label="Base Fee" value={draft.baseFee} onChange={(v) => patchDraft({ baseFee: v })} prefix="$" hint="Fixed starting amount before variable charges." />
-                        <NumberField label="Included Distance" value={draft.includedKm} onChange={(v) => patchDraft({ includedKm: v })} suffix="km" step={0.5} hint="Distance covered by the base fee. 0 charges every km." />
-                        <NumberField label="Distance Rate" value={draft.kmRate} onChange={(v) => patchDraft({ kmRate: v })} prefix="$" suffix="/ km" />
+                        <NumberField label="Included Distance" value={toDisplayDistance(draft.includedKm, billing.general)} onChange={(v) => patchDraft({ includedKm: fromDisplayDistance(v, billing.general) })} suffix={billing.general.distanceUnit} step={0.5} hint="Distance covered by the base fee. 0 charges every km." />
+                        <NumberField label="Distance Rate" value={toDisplayDistanceRate(draft.kmRate, billing.general)} onChange={(v) => patchDraft({ kmRate: fromDisplayDistanceRate(v, billing.general) })} prefix="$" suffix={`/ ${billing.general.distanceUnit}`} />
 
-                        <NumberField label="Included Minutes" value={draft.includedMinutes} onChange={(v) => patchDraft({ includedMinutes: v })} suffix="min" step={5} />
-                        <NumberField label="Minute Rate" value={draft.minuteRate} onChange={(v) => patchDraft({ minuteRate: v })} prefix="$" suffix="/ min" hint="0 disables time pricing." />
-                        <NumberField label="Minimum Freight" value={draft.minimumFreight} onChange={(v) => patchDraft({ minimumFreight: v })} prefix="$" hint="Floor before the service multiplier." />
+                        <NumberField label="Minimum Freight" value={draft.minimumFreight} onChange={(v) => patchDraft({ minimumFreight: v })} prefix="$" hint="Freight floor excluding tax, after the service multiplier." />
 
-                        <NumberField label="Included Weight" value={draft.includedWeightKg} onChange={(v) => patchDraft({ includedWeightKg: v })} suffix="kg" step={1} />
-                        <NumberField label="Weight Rate" value={draft.weightRatePerKg} onChange={(v) => patchDraft({ weightRatePerKg: v })} prefix="$" suffix="/ kg" hint="On chargeable weight = max(actual, dimensional)." />
+                        <NumberField label="Included Weight" value={toDisplayWeight(draft.includedWeightKg, billing.general)} onChange={(v) => patchDraft({ includedWeightKg: fromDisplayWeight(v, billing.general) })} suffix={billing.general.weightUnit} step={1} />
+                        <NumberField label="Weight Rate" value={toDisplayWeightRate(draft.weightRatePerKg, billing.general)} onChange={(v) => patchDraft({ weightRatePerKg: fromDisplayWeightRate(v, billing.general) })} prefix="$" suffix={`/ ${billing.general.weightUnit}`} hint="On chargeable weight = max(actual, dimensional)." />
                         <div />
 
                         <NumberField label="Included Pieces" value={draft.includedPieces} onChange={(v) => patchDraft({ includedPieces: v })} step={1} />
@@ -814,8 +794,8 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
                               <tr className="text-[11px] text-slate-500 border-b border-slate-200">
                                 <th className="text-left py-2 pr-3 font-medium">Service</th>
                                 <th className="text-left py-2 px-2 font-medium">Base Fee</th>
-                                <th className="text-left py-2 px-2 font-medium">Included km</th>
-                                <th className="text-left py-2 px-2 font-medium">Rate / km</th>
+                                <th className="text-left py-2 px-2 font-medium">Included {billing.general.distanceUnit}</th>
+                                <th className="text-left py-2 px-2 font-medium">Rate / {billing.general.distanceUnit}</th>
                                 <th className="text-left py-2 px-2 font-medium">Multiplier</th>
                               </tr>
                             </thead>
@@ -828,9 +808,9 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
                                       type="number"
                                       min={0}
                                       step={step}
-                                      value={o?.[key] ?? ''}
-                                      placeholder={String(placeholder)}
-                                      onChange={(e) => setServiceOverride(svc.id, key, e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0))}
+                                      value={o?.[key] == null ? '' : key === 'includedKm' ? toDisplayDistance(o[key]!, billing.general) : key === 'kmRate' ? toDisplayDistanceRate(o[key]!, billing.general) : o[key]!}
+                                      placeholder={String(key === 'includedKm' ? toDisplayDistance(placeholder, billing.general) : key === 'kmRate' ? toDisplayDistanceRate(placeholder, billing.general) : placeholder)}
+                                      onChange={(e) => setServiceOverride(svc.id, key, e.target.value === '' ? null : key === 'includedKm' ? fromDisplayDistance(Math.max(0, Number(e.target.value)), billing.general) : key === 'kmRate' ? fromDisplayDistanceRate(Math.max(0, Number(e.target.value)), billing.general) : Math.max(0, Number(e.target.value)))}
                                       className={`${fieldClass} py-1.5 ${o?.[key] == null ? 'italic text-slate-500' : 'font-medium'}`}
                                     />
                                   </td>
@@ -857,12 +837,13 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
                 </div>
 
                 {/* Inherited defaults */}
+                <ContractRulesEditor card={draft} patch={patchDraft} zones={config.zones} services={catalogue.services} organizationMinimum={billing.rules.minimumChargePerJob} />
                 <div className={cardClass}>
                   <h3 className="text-sm font-semibold text-slate-900">Organization Default Overrides</h3>
-                  <p className="text-xs text-slate-500 mt-0.5 mb-4">Blank inherits Billing, Tax & Cost → General. Zero is explicitly zero.</p>
+                  <p className="text-xs text-slate-500 mt-0.5 mb-4">Blank means Inherit from the relevant organization or accessorial setting. Zero is explicitly zero. Fuel defaults live under Company & Fuel Charges.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <InheritField label="Fuel Surcharge" value={draft.fuelPercent} inherited={orgFuel} inheritedFrom="organization" onChange={(v) => patchDraft({ fuelPercent: v })} suffix="%" step={0.1} />
-                    <InheritField label="Dimensional Divisor" value={draft.dimensionalDivisor} inherited={billing.general.dimensionalDivisor} inheritedFrom="organization" onChange={(v) => patchDraft({ dimensionalDivisor: v })} step={1} />
+                    <InheritField label={`Dimensional Divisor (${billing.general.dimensionUnit}³/${billing.general.weightUnit})`} value={draft.dimensionalDivisor == null ? null : toDisplayDivisor(draft.dimensionalDivisor, billing.general)} inherited={toDisplayDivisor(billing.general.dimensionalDivisor, billing.general)} inheritedFrom="organization" onChange={(v) => patchDraft({ dimensionalDivisor: v == null ? null : fromDisplayDivisor(v, billing.general) })} step={1} />
                     <div>
                       <label className={labelClass}>Dimensional Pricing</label>
                       <Select
@@ -877,8 +858,8 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
                         ]}
                       />
                     </div>
-                    <InheritField label="Wait-Free Allowance" value={draft.waitFreeMinutes} inherited={billing.general.defaultWaitFreeMinutes} inheritedFrom="organization" onChange={(v) => patchDraft({ waitFreeMinutes: v })} suffix="min" step={1} />
-                    <InheritField label="Wait Increment" value={draft.waitIncrementMinutes} inherited={billing.general.defaultWaitIncrementMinutes} inheritedFrom="organization" onChange={(v) => patchDraft({ waitIncrementMinutes: v })} suffix="min" step={1} />
+                    <InheritField label="Wait-Free Allowance" value={draft.waitFreeMinutes} inherited={catalogue.accessorials.find(a => a.active && a.autoRule === 'WAITING_RECORDED')?.freeAllowance ?? billing.general.defaultWaitFreeMinutes} inheritedFrom="accessorial, then organization" onChange={(v) => patchDraft({ waitFreeMinutes: v })} suffix="min" step={1} />
+                    <InheritField label="Wait Increment" value={draft.waitIncrementMinutes} inherited={catalogue.accessorials.find(a => a.active && a.autoRule === 'WAITING_RECORDED')?.incrementMinutes ?? billing.general.defaultWaitIncrementMinutes} inheritedFrom="accessorial, then organization" onChange={(v) => patchDraft({ waitIncrementMinutes: v })} suffix="min" step={1} />
                   </div>
                 </div>
 
@@ -997,49 +978,7 @@ export const RateCardsPage: React.FC<RateCardsPageProps> = ({ onBackToMonitor, o
               <p className="text-xs text-slate-500 mt-0.5 mb-4">
                 Origin (rows) → destination (columns). Blank means no rate; the Rate Card decides whether that flags the order or falls back.
               </p>
-              <div className="overflow-x-auto">
-                <table className="text-xs border-separate border-spacing-0">
-                  <thead>
-                    <tr>
-                      <th className="sticky left-0 bg-white text-left py-2 pr-3 text-[11px] font-medium text-slate-500">From \ To</th>
-                      {config.zones.map((z) => (
-                        <th key={z.id} className="py-2 px-1 text-[11px] font-medium text-slate-700 text-center min-w-[88px]">
-                          {z.code}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {config.zones.map((o) => (
-                      <tr key={o.id}>
-                        <td className="sticky left-0 bg-white py-1 pr-3 font-medium text-slate-900 whitespace-nowrap">
-                          {o.name} <span className="text-[10px] text-slate-400 font-mono">{o.code}</span>
-                        </td>
-                        {config.zones.map((d) => {
-                          const amount = zoneRateFor(o.id, d.id);
-                          return (
-                            <td key={d.id} className="py-1 px-1">
-                              <div className="relative">
-                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">$</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={1}
-                                  value={amount ?? ''}
-                                  placeholder="—"
-                                  onChange={(e) => setZoneRate(o.id, d.id, e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0))}
-                                  className={`${fieldClass} pl-5 pr-1 py-1.5 text-center ${amount === null ? 'bg-slate-50' : 'font-medium'}`}
-                                  aria-label={`${o.name} to ${d.name}`}
-                                />
-                              </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ZoneMatrixEditor rates={config.zoneRates} zones={config.zones} services={catalogue.services} onChange={zoneRates => persist({ ...config, zoneRates })} />
             </div>
           </div>
         )}

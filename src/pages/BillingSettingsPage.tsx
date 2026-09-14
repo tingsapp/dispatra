@@ -12,7 +12,6 @@ import {
   Trash2,
   TrendingUp,
   AlertTriangle,
-  Calculator,
   SlidersHorizontal,
   ArrowRight
 } from 'lucide-react';
@@ -24,11 +23,11 @@ import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
 import { loadPricingConfig } from '../lib/pricingStorage';
 import { loadCustomers } from '../lib/customerStorage';
 import { PricingOrderInput } from '../types/pricing';
+import { toDisplayDistance, fromDisplayDistance, toDisplayDivisor, fromDisplayDivisor, toDisplayDistanceRate, fromDisplayDistanceRate } from '../lib/units';
 import { Select } from '../components/ui/Select';
 
 interface BillingSettingsPageProps {
   onBackToMonitor: () => void;
-  onOpenSimulator?: () => void;
   onNotification?: (msg: string) => void;
 }
 
@@ -72,6 +71,7 @@ const NumberField: React.FC<{
         step={step}
         min={0}
         value={value}
+        aria-label={label}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
         className={`${fieldClass} ${prefix ? 'pl-7' : ''} ${suffix ? 'pr-10' : ''}`}
       />
@@ -87,7 +87,6 @@ const NumberField: React.FC<{
 
 export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
   onBackToMonitor,
-  onOpenSimulator,
   onNotification
 }) => {
   const [config, setConfig] = useState<BillingConfig>(() => loadBillingConfig());
@@ -136,6 +135,7 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
       routeKm: 25,
       estimatedMinutes: 45,
       actualMinutes: null,
+      durationBasis: 'DRIVING_ONLY',
       packages: [{ id: 'pk', quantity: 2, weightKg: 30, lengthCm: 60, widthCm: 50, heightCm: 50, declaredValue: 0 }],
       accessorials: [{ accessorialId: 'acc_stairs', quantity: 2 }],
       scheduledAt: null,
@@ -265,16 +265,6 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {onOpenSimulator && (
-            <button
-              type="button"
-              onClick={onOpenSimulator}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-            >
-              <Calculator className="w-3.5 h-3.5 text-slate-500" />
-              <span>Open Pricing Simulator</span>
-            </button>
-          )}
           <button
             type="button"
             onClick={handleReset}
@@ -349,7 +339,7 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                 </div>
 
                 <div className={cardClass}>
-                  <h2 className="text-sm font-semibold text-slate-900">Currency & Units</h2>
+                  <h2 className="text-sm font-semibold text-slate-900">Currency & Units</h2><p className="text-xs text-slate-500 mt-1">Currency changes require an explicit migration of monetary rates; this prototype does not convert currencies. Unit changes preserve km/kg/cm values.</p>
                   <p className="text-xs text-slate-500 mt-0.5 mb-4">
                     How distance, weight, and dimensions are captured and displayed across the organization.
                   </p>
@@ -359,9 +349,10 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                       <label className={labelClass}>Currency</label>
                       <Select
                         aria-label="Currency"
+                        disabled
                         className="w-full"
                         value={config.invoicing.currency}
-                        onValueChange={(v) => patch('invoicing', { currency: v as 'CAD' | 'USD' })}
+                        onValueChange={(v) => { if (v !== config.invoicing.currency) onNotification?.('Currency cannot relabel saved rates. Create compatible rate cards and migrate organization, accessorial and cost amounts explicitly before changing billing currency.'); }}
                         options={[
                           { value: 'CAD', label: 'CAD — Canadian Dollar' },
                           { value: 'USD', label: 'USD — US Dollar' }
@@ -417,22 +408,14 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <NumberField
-                      label="Default Fuel Surcharge"
-                      value={config.fuelSurcharge.percent}
-                      onChange={(v) => patch('fuelSurcharge', { percent: v })}
-                      suffix="%"
-                      step={0.1}
-                      hint="Basis, taxability, and fuel-index pegging are set under Company & Fuel Charges."
-                    />
                     <div>
                       <NumberField
                         label="Dimensional Divisor"
-                        value={config.general.dimensionalDivisor}
-                        onChange={(v) => patch('general', { dimensionalDivisor: v })}
+                        value={toDisplayDivisor(config.general.dimensionalDivisor, config.general)}
+                        onChange={(v) => patch('general', { dimensionalDivisor: fromDisplayDivisor(v, config.general) })}
                         suffix={`${config.general.dimensionUnit}³/${config.general.weightUnit}`}
                         step={1}
-                        hint="L × W × H ÷ divisor = dimensional weight. 5000 is the courier standard."
+                        hint="L × W × H ÷ divisor = dimensional weight. Use the divisor agreed for your rates; no universal default."
                       />
                       <label className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
                         <input
@@ -502,16 +485,16 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <NumberField
-                      label="Minimum Charge per Job"
+                      label="Minimum Order Subtotal"
                       value={config.rules.minimumChargePerJob}
                       onChange={(v) => patch('rules', { minimumChargePerJob: v })}
                       prefix="$"
-                      hint="Quotes below this are raised to the floor."
+                      hint="Excluding tax, after contract discounts and manual adjustments. Rate cards can override or waive this floor."
                     />
                     <NumberField
                       label="Minimum Billable Distance"
-                      value={config.rules.minimumBillableKm}
-                      onChange={(v) => patch('rules', { minimumBillableKm: v })}
+                      value={toDisplayDistance(config.rules.minimumBillableKm, config.general)}
+                      onChange={(v) => patch('rules', { minimumBillableKm: fromDisplayDistance(v, config.general) })}
                       suffix={config.general.distanceUnit}
                       step={0.5}
                     />
@@ -524,9 +507,9 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                         onValueChange={(v) => patch('rules', { distanceRoundingKm: Number(v) })}
                         options={[
                           { value: '0', label: 'No rounding' },
-                          { value: '0.1', label: 'Up to nearest 0.1 km' },
-                          { value: '0.5', label: 'Up to nearest 0.5 km' },
-                          { value: '1', label: 'Up to nearest 1 km' }
+                          { value: '0.1', label: `Up to ${toDisplayDistance(0.1, config.general).toFixed(4)} ${config.general.distanceUnit}` },
+                          { value: '0.5', label: `Up to ${toDisplayDistance(0.5, config.general).toFixed(4)} ${config.general.distanceUnit}` },
+                          { value: '1', label: `Up to ${toDisplayDistance(1, config.general).toFixed(4)} ${config.general.distanceUnit}` }
                         ]}
                       />
                     </div>
@@ -534,7 +517,8 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                 </div>
 
                 <div className={cardClass}>
-                  <h2 className="text-sm font-semibold text-slate-900">Dispatch</h2>
+                  <label className={labelClass}>Organization timezone<select className={fieldClass} value={config.general.timeZone ?? 'America/Vancouver'} onChange={e => patch('general', { timeZone: e.target.value })}>{['America/Vancouver', 'America/Edmonton', 'America/Winnipeg', 'America/Toronto', 'America/Halifax', 'America/St_Johns', 'UTC'].map(zone => <option key={zone} value={zone}>{zone}</option>)}</select></label>
+                  <h2 className="text-sm font-semibold text-slate-900">Dispatch</h2><p className="text-xs text-slate-500 mt-1">Assignment validation applies the active-order limit. Full route capacity, equipment and delivery-promise checks require the route workflow.</p>
                   <p className="text-xs text-slate-500 mt-0.5 mb-4">
                     Assignment policy. Applies to new eligible assignments only and never changes the customer price.
                   </p>
@@ -596,14 +580,15 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                       onChange={(v) => patch('invoicing', { quoteValidityDays: v })}
                       suffix="days"
                       step={1}
-                      hint="How long a generated quote stays honourable."
+                      hint="Saved quotes expire after this period. Expired unassigned quotes require repricing."
                     />
 
                     <NumberField
-                      label="Late Payment Fee"
+                      label="Late Payment Fee (configuration only)"
                       value={config.invoicing.latePaymentFeePercent}
                       onChange={(v) => patch('invoicing', { latePaymentFeePercent: v })}
-                      suffix="% / mo"
+                      suffix="%"
+                      hint="Configuration only. No late fee is assessed automatically until an assessment schedule and rule are defined."
                       step={0.1}
                     />
 
@@ -620,8 +605,7 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                           Quoted prices already include tax
                         </span>
                         <span className={hintClass}>
-                          When on, tax is back-calculated out of the price rather than added on top.
-                          Leave off for B2B freight, where prices are quoted before tax.
+                          When on, monetary freight and fixed-fee rates include tax and are normalized before calculation. Percentage charges apply to net bases. Minimums, fixed discounts and manual adjustments always exclude tax.
                         </span>
                       </label>
                     </div>
@@ -832,9 +816,9 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                 <div className={cardClass}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-slate-900">Company Service Charge</h2>
+                      <h2 className="text-sm font-semibold text-slate-900">Admin / Dispatch Fee</h2>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        A dispatch/admin fee added to every job on top of the service price.
+                        Optional customer fee. Rate cards can apply or waive it. Percentage bases exclude fuel, tax and this fee; this is revenue, not estimated profit.
                       </p>
                     </div>
                     <label className="flex items-center gap-2 text-xs font-medium text-slate-700 shrink-0">
@@ -897,10 +881,10 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                         value={config.serviceCharge.basis}
                         onValueChange={(v) => patch('serviceCharge', { basis: v as any })}
                         options={[
-                          { value: 'transport_only', label: 'Transport only (base fee + distance)' },
+                          { value: 'transport_only', label: 'Freight after multiplier/minimum + vehicle surcharge' },
                           {
                             value: 'transport_and_accessorials',
-                            label: 'Transport + accessorials'
+                            label: 'Freight + vehicle surcharge + accessorials'
                           }
                         ]}
                       />
@@ -967,20 +951,14 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                     </div>
 
                     {config.fuelSurcharge.mode === 'fixed_percent' ? (
-                      <div>
-                        <label className={labelClass}>Surcharge</label>
-                        <div className={`${fieldClass} flex items-center justify-between bg-slate-50 text-slate-600`}>
-                          <span>{config.fuelSurcharge.percent}%</span>
-                          <button
-                            type="button"
-                            onClick={() => setActiveTab('general')}
-                            className="text-[11px] font-medium text-blue-600 hover:underline"
-                          >
-                            Edit in General
-                          </button>
-                        </div>
-                        <p className={hintClass}>Uses the organization default fuel rate.</p>
-                      </div>
+                      <NumberField
+                        label="Default Fuel Surcharge"
+                        value={config.fuelSurcharge.percent}
+                        onChange={(v) => patch('fuelSurcharge', { percent: v })}
+                        suffix="%"
+                        step={0.1}
+                        hint="Organization default fuel rate. Rate Cards can override this percentage."
+                      />
                     ) : (
                       <>
                         <NumberField
@@ -1009,21 +987,10 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                       </>
                     )}
 
-                    <div className="sm:col-span-2">
-                      <label className={labelClass}>Calculated On</label>
-                      <Select
-                        aria-label="Fuel surcharge basis"
-                        className="w-full"
-                        value={config.fuelSurcharge.basis}
-                        onValueChange={(v) => patch('fuelSurcharge', { basis: v as any })}
-                        options={[
-                          { value: 'transport_only', label: 'Transport only (base fee + distance)' },
-                          {
-                            value: 'transport_and_accessorials',
-                            label: 'Transport + accessorials'
-                          }
-                        ]}
-                      />
+                    <div className="sm:col-span-2 text-xs text-slate-600 space-y-2">
+                      <p>Fuel applies to eligible freight and service adjustments, plus eligible vehicle surcharges and accessorials. Admin fees, tax and fuel itself are excluded. Calculated before contract discounts.</p>
+                      <p className="font-medium">Example eligible base: ${preview.inputs.fuelBase.toFixed(2)} × {preview.inputs.fuelPercent}%</p>
+                      <ul>{preview.lines.filter(l => l.fuelEligible).map(l => <li key={l.key}>{l.label}: ${l.amount.toFixed(2)}</li>)}</ul>
                     </div>
 
                     <label className="sm:col-span-2 flex items-center gap-2.5 text-xs text-slate-700">
@@ -1044,17 +1011,17 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
             {activeTab === 'costs' && (
               <>
                 <div className={cardClass}>
-                  <h2 className="text-sm font-semibold text-slate-900">Cost Per Kilometre</h2>
+                  <h2 className="text-sm font-semibold text-slate-900">Vehicle Running Cost</h2>
                   <p className="text-xs text-slate-500 mt-0.5 mb-4">
-                    What it costs you to run a kilometre — fuel, tyres, maintenance, depreciation.
+                    Vehicle running costs — fuel, tyres, maintenance, depreciation.
                     A 5-tonne truck costs multiples of a van, so set it per vehicle class.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <NumberField
-                      label="Default Cost / km"
-                      value={config.operatingCost.defaultCostPerKm}
-                      onChange={(v) => patch('operatingCost', { defaultCostPerKm: v })}
+                      label={`Default Cost / ${config.general.distanceUnit}`}
+                      value={toDisplayDistanceRate(config.operatingCost.defaultCostPerKm, config.general)}
+                      onChange={(v) => patch('operatingCost', { defaultCostPerKm: fromDisplayDistanceRate(v, config.general) })}
                       prefix="$"
                       hint="Used when a vehicle class has no specific rate."
                     />
@@ -1070,19 +1037,18 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                           key={vehicle.id}
                           label={vehicle.name}
                           value={
-                            config.operatingCost.costPerKmByVehicleId[vehicle.id] ??
-                            config.operatingCost.defaultCostPerKm
+                            toDisplayDistanceRate(config.operatingCost.costPerKmByVehicleId[vehicle.id] ?? config.operatingCost.defaultCostPerKm, config.general)
                           }
                           onChange={(v) =>
                             patch('operatingCost', {
                               costPerKmByVehicleId: {
                                 ...config.operatingCost.costPerKmByVehicleId,
-                                [vehicle.id]: v
+                                [vehicle.id]: fromDisplayDistanceRate(v, config.general)
                               }
                             })
                           }
                           prefix="$"
-                          suffix="/ km"
+                          suffix={`/ ${config.general.distanceUnit}`}
                         />
                       ))}
                     </div>
@@ -1104,7 +1070,7 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                       hint="Fully loaded — wage plus payroll burden."
                     />
                     <NumberField
-                      label="Average Time per Stop"
+                      label="Average Handling Minutes per Stop"
                       value={config.operatingCost.averageMinutesPerStop}
                       onChange={(v) => patch('operatingCost', { averageMinutesPerStop: v })}
                       suffix="min"
@@ -1115,7 +1081,7 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                       value={config.operatingCost.fixedCostPerStop}
                       onChange={(v) => patch('operatingCost', { fixedCostPerStop: v })}
                       prefix="$"
-                      hint="Paperwork, scanning, POD capture."
+                      hint="Additional non-labour handling expense. Do not include labour already counted by the hourly driver cost."
                     />
                     <NumberField
                       label="Overhead Allocation"
@@ -1123,7 +1089,7 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                       onChange={(v) => patch('operatingCost', { overheadPercent: v })}
                       suffix="%"
                       step={0.5}
-                      hint="Applied on top of direct cost."
+                      hint="Overhead allocated on direct costs; margin is an estimate, not accounting gross margin."
                     />
                   </div>
                 </div>
@@ -1134,11 +1100,11 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                     Margin Target
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5 mb-4">
-                    The simulator flags any quote that lands below this gross margin.
+                    Warns when a complete estimate is below target. Never changes the customer price. Incomplete estimates do not report reliable profit.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <NumberField
-                      label="Target Gross Margin"
+                      label="Target Estimated Margin"
                       value={config.operatingCost.targetGrossMarginPercent}
                       onChange={(v) => patch('operatingCost', { targetGrossMarginPercent: v })}
                       suffix="%"
@@ -1203,7 +1169,7 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
               <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400 mb-2">
                 Cost & Margin
               </div>
-              {preview.cost ? (
+              {preview.cost && preview.cost.complete !== false ? (
                 <>
                   <div className="space-y-1.5 text-[11px]">
                     {preview.cost.costLines.map((line) => (
@@ -1217,7 +1183,7 @@ export const BillingSettingsPage: React.FC<BillingSettingsPageProps> = ({
                       <span className="font-mono">${preview.cost.estimatedCost.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-slate-200 font-semibold">
-                      <span>Gross profit</span>
+                      <span>Estimated profit</span>
                       <span className="font-mono">${preview.cost.grossProfit.toFixed(2)}</span>
                     </div>
                   </div>

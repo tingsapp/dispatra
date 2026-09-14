@@ -42,3 +42,13 @@ export const formatDistanceRate = (perKm: number, u: Units): string =>
   `$${(u.distanceUnit === 'mi' ? perKm * KM_PER_MI : perKm).toFixed(2)}/${u.distanceUnit}`;
 export const formatWeightRate = (perKg: number, u: Units): string =>
   `$${(u.weightUnit === 'lb' ? perKg * KG_PER_LB : perKg).toFixed(2)}/${u.weightUnit}`;
+
+/** Divisor is stored in cm³/kg, including when the UI displays in³/lb. */
+export const toDisplayDivisor = (value: number, u: Units): number =>
+  value * (u.weightUnit === 'lb' ? KG_PER_LB : 1) / (u.dimensionUnit === 'in' ? CM_PER_IN ** 3 : 1);
+export const fromDisplayDivisor = (value: number, u: Units): number =>
+  value * (u.dimensionUnit === 'in' ? CM_PER_IN ** 3 : 1) / (u.weightUnit === 'lb' ? KG_PER_LB : 1);
+export const toDisplayDistanceRate = (value: number, u: Units): number => value * fromDisplayDistance(1, u);
+export const fromDisplayDistanceRate = (value: number, u: Units): number => value / fromDisplayDistance(1, u);
+export const toDisplayWeightRate = (value: number, u: Units): number => value * fromDisplayWeight(1, u);
+export const fromDisplayWeightRate = (value: number, u: Units): number => value / fromDisplayWeight(1, u);

@@ -43,7 +43,6 @@ export interface FuelSurchargeSettings {
   /** 'fixed_percent' uses `percent`; 'index_pegged' derives it from fuel price. */
   mode: 'fixed_percent' | 'index_pegged';
   percent: number;
-  basis: SurchargeBasis;
   taxable: boolean;
   /** Fuel price ($/L) at which the surcharge is zero. */
   baselineFuelPrice: number;
@@ -62,7 +61,7 @@ export interface OperatingCostSettings {
   fixedCostPerStop: number;
   /** Overhead allocated as a % of direct cost. */
   overheadPercent: number;
-  /** Quotes below this gross margin are flagged in the simulator. */
+  /** Quotes below this estimated margin are flagged in the Order price breakdown. */
   targetGrossMarginPercent: number;
 }
 
@@ -79,6 +78,7 @@ export interface BillingRules {
  * fallback: a Rate Card may override any of them for its own customers.
  */
 export interface OrganizationDefaults {
+  timeZone?: string;
   distanceUnit: 'km' | 'mi';
   weightUnit: 'kg' | 'lb';
   dimensionUnit: 'cm' | 'in';

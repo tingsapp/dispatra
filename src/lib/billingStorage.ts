@@ -42,6 +42,7 @@ export const INITIAL_TAX_PROFILES: TaxProfileConfig[] = [
 
 export const INITIAL_BILLING_CONFIG: BillingConfig = {
   general: {
+    timeZone: 'America/Vancouver',
     distanceUnit: 'km',
     weightUnit: 'kg',
     dimensionUnit: 'cm',
@@ -76,7 +77,6 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
     label: 'Fuel Surcharge',
     mode: 'fixed_percent',
     percent: 8,
-    basis: 'transport_only',
     taxable: true,
     baselineFuelPrice: 1.55,
     currentFuelPrice: 1.89,

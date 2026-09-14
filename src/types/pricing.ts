@@ -17,7 +17,7 @@ export type RateCardScope = 'ORGANIZATION' | 'CUSTOMER_GROUP' | 'CUSTOMER';
 
 export type RateCardStatus = 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
 
-export type DiscountType = 'NONE' | 'PERCENT' | 'FIXED';
+export type DiscountType = 'INHERIT' | 'NONE' | 'PERCENT' | 'FIXED';
 
 /** Which charges a contractual discount reduces. */
 export type DiscountScope = 'TRANSPORT_ONLY' | 'SUBTOTAL';
@@ -65,6 +65,7 @@ export interface RateCard {
   baseFee: number;
   includedKm: number;
   kmRate: number;
+  /** Historical compatibility only; ignored by pricing and retired from stored distance/zone cards. */
   includedMinutes: number;
   minuteRate: number;
   includedWeightKg: number;
@@ -74,7 +75,7 @@ export interface RateCard {
   /** `null` inherits the organization default. */
   includedStops: number | null;
   extraStopRate: number | null;
-  /** Floor applied to freight *before* the service multiplier. */
+  /** Freight floor excluding tax, applied after the service multiplier. */
   minimumFreight: number;
   serviceOverrides: Record<string, ServiceRateOverride>;
 
@@ -82,15 +83,28 @@ export interface RateCard {
   fixedAmount: number;
 
   // ---- HOURLY ------------------------------------------------------------
+  hourlyClockStart?: string;
+  hourlyClockStop?: string;
+  hourlyIncludesHandling?: boolean;
+  hourlyIncludesWaiting?: boolean;
+  hourlySettleActual?: boolean;
   hourlyRate: number;
   minimumBillableMinutes: number;
   billingIncrementMinutes: number;
 
   // ---- ZONE --------------------------------------------------------------
   /** What to do when no origin→destination rate exists. */
+  zoneMatrixMode?: 'INHERIT' | 'CONTRACT';
+  zoneRates?: ZoneRate[];
+  zoneFallbackToOrganization?: boolean;
   zoneNoMatchFallback: 'NEEDS_ATTENTION' | 'BASE_PLUS_DISTANCE';
 
   // ---- What still applies around a non-calculated freight amount ----------
+  applyAdminFee?: boolean | null;
+  applyContractDiscount?: boolean;
+  applyOrderMinimum?: boolean;
+  minimumOrderSubtotal?: number | null;
+  importedPriceMode?: 'FREIGHT' | 'FINAL_TOTAL';
   applyServiceMultiplier: boolean;
   applyVehicleSurcharge: boolean;
   applyFuelSurcharge: boolean;
@@ -151,6 +165,9 @@ export interface PricingStopInput {
   type: 'PICKUP' | 'DROPOFF';
   label?: string;
   zoneId: string | null;
+  /** One commercial movement per unique supplying pickup and delivery pair. */
+  pickupIds?: string[];
+  handlingMinutes?: number;
   residential: boolean;
   /** Actual or expected waiting at this stop. */
   waitMinutes: number;
@@ -189,6 +206,11 @@ export interface PricingOrderInput {
   estimatedMinutes: number | null;
   /** Settled duration for HOURLY at completion. */
   actualMinutes: number | null;
+  /** Explicit duration semantics prevent counting handling/waiting twice. */
+  durationBasis?: 'DRIVING_ONLY' | 'TOTAL_SERVICE';
+  handlingMinutes?: number | null;
+  hourlyBillableMinutes?: number | null;
+  actualHourlyBillableMinutes?: number | null;
   packages: PricingPackageInput[];
   accessorials: PricingAccessorialInput[];
   /** ISO datetime the service window starts — drives after-hours / weekend rules. */
@@ -196,6 +218,8 @@ export interface PricingOrderInput {
   /** Order source — customer portal bookings can carry a channel discount later. */
   source: 'DISPATCHER' | 'CUSTOMER_PORTAL' | 'IMPORT';
   importedPrice: number | null;
+  importedTaxTreatment?: 'INCLUDED' | 'EXEMPT' | 'SUPPLIED';
+  importedTaxAmount?: number | null;
   externalSource: string | null;
   externalReference: string | null;
   adjustments: OrderPriceAdjustment[];
@@ -237,6 +261,11 @@ export type PricingStatus = 'PRICED' | 'NEEDS_ATTENTION' | 'UNAVAILABLE';
 
 export interface PricingError {
   code:
+    | 'INVALID_CONFIGURATION'
+    | 'INVALID_ORDER'
+    | 'LEGACY_TIME_PRICING'
+    | 'MISSING_MOVEMENTS'
+    | 'MISSING_IMPORT_TAX'
     | 'NO_RATE_CARD'
     | 'RATE_CARD_CONFLICT'
     | 'MISSING_DISTANCE'
@@ -296,6 +325,10 @@ export interface ResolvedInputs {
 }
 
 export interface CostEstimate {
+  complete?: boolean;
+  basis?: string;
+  missingInputs?: string[];
+  revenueExcludingTax?: number;
   estimatedCost: number;
   costLines: ChargeLine[];
   grossProfit: number;
@@ -304,6 +337,12 @@ export interface CostEstimate {
 }
 
 export interface PricingSnapshot {
+  /** Frozen context allows completion to use quoted terms, not current settings. */
+  context?: import('../lib/pricingEngine').PricingContext;
+  orderFacts?: PricingOrderInput;
+  quoteExpiresAt?: string;
+  imported?: { source: string | null; reference: string | null; amount: number; mode: 'FREIGHT' | 'FINAL_TOTAL' };
+  roundingAdjustment?: number;
   engineVersion: string;
   pricedAt: string;
   stage: 'ESTIMATE' | 'FINAL';

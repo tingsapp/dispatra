@@ -2,7 +2,7 @@ import { CustomerGroup, Discount, PricingConfig, RateCard, Zone, ZoneRate } from
 
 export const PRICING_STORAGE_KEY = 'dispatra_pricing_v1';
 
-export const NO_DISCOUNT: Discount = { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' };
+export const NO_DISCOUNT: Discount = { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' };
 
 /** A blank card with every inheritable field set to "inherit". */
 export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard => ({
@@ -35,10 +35,23 @@ export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard
   minimumFreight: 35,
   serviceOverrides: {},
   fixedAmount: 55,
+  hourlyClockStart: 'Arrival at first pickup',
+  hourlyClockStop: 'Completion of final delivery',
+  hourlyIncludesHandling: true,
+  hourlyIncludesWaiting: true,
+  hourlySettleActual: true,
   hourlyRate: 85,
   minimumBillableMinutes: 120,
   billingIncrementMinutes: 30,
+  zoneMatrixMode: 'INHERIT',
+  zoneRates: [],
+  zoneFallbackToOrganization: false,
   zoneNoMatchFallback: 'NEEDS_ATTENTION',
+  applyAdminFee: null,
+  applyContractDiscount: true,
+  applyOrderMinimum: true,
+  minimumOrderSubtotal: null,
+  importedPriceMode: 'FREIGHT',
   applyServiceMultiplier: false,
   applyVehicleSurcharge: true,
   applyFuelSurcharge: true,
@@ -121,8 +134,8 @@ export const INITIAL_RATE_CARDS: RateCard[] = [
     baseFee: 20,
     includedKm: 5,
     kmRate: 1.5,
-    includedMinutes: 30,
-    minuteRate: 0.4,
+    includedMinutes: 0,
+    minuteRate: 0,
     includedWeightKg: 50,
     weightRatePerKg: 0.15,
     includedPieces: 5,
@@ -147,8 +160,8 @@ export const INITIAL_RATE_CARDS: RateCard[] = [
     baseFee: 28,
     includedKm: 8,
     kmRate: 1.6,
-    includedMinutes: 30,
-    minuteRate: 0.4,
+    includedMinutes: 0,
+    minuteRate: 0,
     includedWeightKg: 30,
     weightRatePerKg: 0.2,
     minimumFreight: 45,
@@ -204,7 +217,12 @@ export const INITIAL_RATE_CARDS: RateCard[] = [
     customerId: 'cust-4',
     effectiveFrom: '2026-01-01',
     pricingMethod: 'HOURLY',
-    hourlyRate: 85,
+    hourlyClockStart: 'Arrival at first pickup',
+  hourlyClockStop: 'Completion of final delivery',
+  hourlyIncludesHandling: true,
+  hourlyIncludesWaiting: true,
+  hourlySettleActual: true,
+  hourlyRate: 85,
     minimumBillableMinutes: 120,
     billingIncrementMinutes: 30,
     applyVehicleSurcharge: false,
@@ -235,22 +253,36 @@ export const INITIAL_PRICING_CONFIG: PricingConfig = {
   customerGroups: INITIAL_CUSTOMER_GROUPS
 };
 
-/** Fill any field a stored card lacks so newly added settings never arrive undefined. */
-const normaliseCard = (stored: Partial<RateCard>): RateCard => ({
-  ...createEmptyRateCard(),
-  ...stored,
-  serviceOverrides: stored.serviceOverrides || {},
-  vehicleSurchargeOverrides: stored.vehicleSurchargeOverrides || {},
-  accessorialRateOverrides: stored.accessorialRateOverrides || {},
-  discount: { ...NO_DISCOUNT, ...(stored.discount || {}) }
-});
+const hasRoutineTimeSettings = (card: Partial<RateCard>): boolean =>
+  ['BASE_PLUS_DISTANCE', 'ZONE'].includes(card.pricingMethod ?? 'BASE_PLUS_DISTANCE') &&
+  ((card.minuteRate ?? 0) !== 0 || (card.includedMinutes ?? 0) !== 0);
+
+/** Retire obsolete routine time rates; saved quote contexts remain untouched. */
+const normaliseCard = (stored: Partial<RateCard>): RateCard => {
+  const card = {
+    ...createEmptyRateCard(),
+    ...stored,
+    serviceOverrides: stored.serviceOverrides || {},
+    vehicleSurchargeOverrides: stored.vehicleSurchargeOverrides || {},
+    accessorialRateOverrides: stored.accessorialRateOverrides || {},
+    discount: { ...NO_DISCOUNT, ...(stored.discount || {}) }
+  };
+  return hasRoutineTimeSettings(card)
+    ? { ...card, minuteRate: 0, includedMinutes: 0, version: card.version + 1, updatedAt: new Date().toISOString() }
+    : card;
+};
 
 export const loadPricingConfig = (): PricingConfig => {
   try {
     const raw = localStorage.getItem(PRICING_STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<PricingConfig>;
-      return {
+      const parsed = JSON.parse(raw) as Partial<PricingConfig> & { schemaVersion?: number };
+      if (!parsed.schemaVersion) {
+        for (const entry of [...(parsed.rateCards ?? []), ...(parsed.customerGroups ?? [])]) {
+          if (entry.discount?.type === 'NONE') entry.discount.type = 'INHERIT';
+        }
+      }
+      const config: PricingConfig = {
         rateCards: Array.isArray(parsed.rateCards) ? parsed.rateCards.map(normaliseCard) : clone(INITIAL_RATE_CARDS),
         zones: Array.isArray(parsed.zones) ? parsed.zones : clone(INITIAL_ZONES),
         zoneRates: Array.isArray(parsed.zoneRates) ? parsed.zoneRates : clone(INITIAL_ZONE_RATES),
@@ -258,6 +290,10 @@ export const loadPricingConfig = (): PricingConfig => {
           ? parsed.customerGroups
           : clone(INITIAL_CUSTOMER_GROUPS)
       };
+      if ((parsed.schemaVersion ?? 0) < 3 || parsed.rateCards?.some(hasRoutineTimeSettings)) {
+        savePricingConfig(config);
+      }
+      return config;
     }
   } catch {
     // fall through to defaults
@@ -267,7 +303,7 @@ export const loadPricingConfig = (): PricingConfig => {
 
 export const savePricingConfig = (config: PricingConfig): void => {
   try {
-    localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(config));
+    localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify({ ...config, rateCards: config.rateCards.map(normaliseCard), schemaVersion: 3 }));
   } catch {
     // Storage unavailable — settings stay in memory.
   }

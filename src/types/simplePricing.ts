@@ -41,7 +41,7 @@ export type AccessorialCalcType =
   | 'PERCENT_OF_DECLARED_VALUE';
 
 /** Simple conditions that add the accessorial automatically. */
-export type AccessorialAutoRule = 'NONE' | 'AFTER_HOURS' | 'WEEKEND' | 'RESIDENTIAL_STOP';
+export type AccessorialAutoRule = 'NONE' | 'WAITING_RECORDED' | 'AFTER_HOURS' | 'WEEKEND' | 'RESIDENTIAL_STOP';
 
 export interface AccessorialItem {
   id: string;

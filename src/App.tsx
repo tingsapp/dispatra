@@ -9,7 +9,6 @@ import { JobDetailPopover } from './components/JobDetailPopover';
 import { MapControls } from './components/MapControls';
 import { DetailModalDialog } from './components/DetailModalDialog';
 import { PricingServicesPage } from './pages/PricingServicesPage';
-import { PricingSimulatorPage } from './pages/PricingSimulatorPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HelpSupportPage } from './pages/HelpSupportPage';
 import { CustomersPage } from './pages/CustomersPage';
@@ -26,14 +25,18 @@ import {
 } from './data/mockData';
 import { Driver, Job, NeedsAttentionItem, MapLayerConfig, ModalDialogState } from './types';
 import { Sparkles, RefreshCw, Menu } from 'lucide-react';
-import { enrichJobsWithPricing, pricingAttentionItems } from './lib/orderPricing';
+import { validateAssignment } from './lib/organizationWorkflows';
+import { loadPricingContext, pricingAttentionItems, loadSavedOrders, saveOrders } from './lib/orderPricing';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('monitor');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
   // Every order carries a PricingSnapshot from the shared engine, including the static mocks.
-  const [jobs, setJobs] = useState<Job[]>(() => enrichJobsWithPricing(INITIAL_JOBS));
+  const [jobs, setJobs] = useState<Job[]>(() => loadSavedOrders(INITIAL_JOBS));
+  useEffect(() => {
+    try { saveOrders(jobs); } catch { showToast('Order changes could not be saved in this browser. Keep this session open and free storage before reloading.'); }
+  }, [jobs]);
   const [operationalAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
   // Orders that could not be priced (no card, conflict, zone no-match, missing distance) join the list.
   const needsAttentionItems = useMemo(
@@ -320,12 +323,6 @@ export default function App() {
     setActiveTab('billing-settings');
   };
 
-  const handleOpenPricingSimulator = () => {
-    setShowAccountPopover(false);
-    setModalDialog({ isOpen: false, type: null });
-    setActiveTab('pricing-simulator');
-  };
-
   const handleOpenProfile = () => {
     setShowAccountPopover(false);
     setModalDialog({ isOpen: false, type: null });
@@ -343,6 +340,11 @@ export default function App() {
   };
 
   const handleApproveRecommendation = () => {
+    const target = jobs.find(j => j.jobNumber === '#461');
+    const driver = drivers.find(d => d.id === 'D09');
+    if (!target || !driver) return;
+    const errors = validateAssignment(target, driver, jobs, loadPricingContext());
+    if (errors.length) { showToast(errors.join(' ')); return; }
     // Reassign Job #461 to Maria Garcia (D09)
     setJobs((prev) =>
       prev.map((j) =>
@@ -408,7 +410,6 @@ export default function App() {
         setShowAccountPopover={setShowAccountPopover}
         onActionNotification={showToast}
         onOpenPricingServices={handleOpenPricingServices}
-        onOpenPricingSimulator={handleOpenPricingSimulator}
         onOpenBillingSettings={handleOpenBillingSettings}
         dispatchMode={dispatchMode}
         onDispatchModeChange={(mode) => {
@@ -419,7 +420,7 @@ export default function App() {
         onOpenHelp={handleOpenHelp}
       />
 
-      {/* MAIN VIEWPORT / MAP STAGE OR DEDICATED SETTINGS / SIMULATOR / PROFILE / HELP PAGE */}
+      {/* MAIN VIEWPORT / MAP STAGE OR DEDICATED SETTINGS / PROFILE / HELP PAGE */}
       <main
         className={`relative flex-1 h-full w-full overflow-hidden ${!sidebarOpen ? 'menu-hidden' : ''}`}
       >
@@ -441,25 +442,16 @@ export default function App() {
         {activeTab === 'services-accessorials' || activeTab === 'pricing-services' ? (
           <PricingServicesPage
             onBackToMonitor={() => setActiveTab('monitor')}
-            onOpenSimulator={() => setActiveTab('pricing-simulator')}
-            onNotification={showToast}
-          />
-        ) : activeTab === 'pricing-simulator' ? (
-          <PricingSimulatorPage
-            onBackToMonitor={() => setActiveTab('monitor')}
-            onNavigateToServices={() => setActiveTab('services-accessorials')}
             onNotification={showToast}
           />
         ) : activeTab === 'rate-cards' ? (
           <RateCardsPage
             onBackToMonitor={() => setActiveTab('monitor')}
-            onOpenSimulator={() => setActiveTab('pricing-simulator')}
             onNotification={showToast}
           />
         ) : activeTab === 'billing-settings' ? (
           <BillingSettingsPage
             onBackToMonitor={() => setActiveTab('monitor')}
-            onOpenSimulator={() => setActiveTab('pricing-simulator')}
             onNotification={showToast}
           />
         ) : activeTab === 'profile' ? (

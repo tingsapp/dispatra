@@ -8,7 +8,6 @@ import {
   RotateCcw,
   Truck,
   Layers,
-  Calculator,
   Clock,
   Weight,
   Package,
@@ -28,7 +27,6 @@ import { AccessorialModal, CALC_TYPE_OPTIONS } from '../components/pricing/Acces
 
 interface PricingServicesPageProps {
   onBackToMonitor: () => void;
-  onOpenSimulator?: () => void;
   onNotification?: (msg: string) => void;
 }
 
@@ -36,7 +34,6 @@ type ActiveTab = 'services' | 'vehicles' | 'accessorials';
 
 export const PricingServicesPage: React.FC<PricingServicesPageProps> = ({
   onBackToMonitor,
-  onOpenSimulator,
   onNotification
 }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('services');
@@ -193,17 +190,6 @@ export const PricingServicesPage: React.FC<PricingServicesPageProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {onOpenSimulator && (
-            <button
-              type="button"
-              onClick={onOpenSimulator}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-            >
-              <Calculator className="w-3.5 h-3.5 text-slate-500" />
-              <span>Open Pricing Simulator</span>
-            </button>
-          )}
-
           <button
             type="button"
             onClick={handleReset}

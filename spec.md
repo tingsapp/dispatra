@@ -1,7 +1,7 @@
 # Dispatra Web Client Specification
 
 > Normative React/TypeScript dispatcher and organization web application contract. `MUST`, `MUST NOT`, `SHOULD`, and `MAY` are intentional.
-> Last updated: 2026-09-11
+> Last updated: 2026-09-14
 
 ## 1. Purpose and authority
 
@@ -50,7 +50,9 @@ Expose a prominent switch labelled `Dispatch Manual [switch] Auto`; visually dis
 
 ## 5. Organization Settings and pricing
 
-Reach settings through Account menu -> Organization Settings. Use sections General, Pricing, Services, Vehicles, Customers/Groups, and Taxes; the Auto/Manual dispatch switch stays in the sidebar footer. Keep pricing manageable: General; Rate Cards; Zones; Accessorials; Discounts/Tax relationships; Price Simulator.
+The September 12 user-approved rules in [pricing-rules.md](pricing-rules.md) govern calculation order and explicit contract controls. Base + Distance never charges routine time; hourly contracts explicitly define their clock and inclusions. Minimum freight is applied after the service multiplier, and minimum order subtotal after discounts/manual adjustments, both excluding tax. Fuel uses eligible lines only. Discount inheritance is Customer → Rate Card → Group, where INHERIT continues and NONE stops. Zone prices may be contractual and use explicit pickup-to-delivery movements. Imported final agreed totals are preserved with explicit tax treatment. Margin is an estimate/warning, not a price adjustment. Existing quoted terms and finalized amounts remain frozen.
+
+Reach settings through Account menu -> Organization Settings. Use sections General, Pricing, Services, Vehicles, Customers/Groups, and Taxes; the Auto/Manual dispatch switch stays in the sidebar footer. Keep pricing manageable: General; Rate Cards; Zones; Accessorials; Discounts/Tax relationships.
 
 Dispatch policy is limited to `dispatch_mode` (sidebar switch), `max_active_orders_per_driver` (General tab), location stale threshold when exposed, and only required route/assignment policy fields. Do not expose dozens of AI weighting knobs.
 
@@ -58,9 +60,13 @@ Pricing settings support currency, distance/weight/dimension units, fuel default
 
 The API Rate Card precedence is explicit override/import, customer-specific, group, organization service-specific, then organization default, with most-specific combination within a level and conflict Needs Attention. The client MUST show resolved card, method, pricing status, ChargeLines, subtotal, tax, total, and `View calculation`. `null` inherits; numeric zero means explicitly zero.
 
-## 6. Price Simulator and Order workflows
+Within the customer and group levels, an eligible card explicitly selected on that profile takes precedence over other matching cards, regardless of their specificity or priority. Ineligible or missing selections fall back to eligible matches under the normal rules; customer-level matches still precede group selections, and an explicit Order override remains first. Tax-inclusive accessorial unit rates and per-stop limits retain precision until the completed charge is rounded. Manual per-minute accessorials expose an entered minute quantity in the Order form; only the `WAITING_RECORDED` rule is omitted from manual selection.
 
-The Price Simulator MUST call the same local pricing function used by Order creation. Inputs include Customer, Service, Vehicle, pickup/drop-off Stops, priced distance/duration, Packages, weight/dimensions/pieces, wait, and Accessorials. Output includes resolved Rate Card, method, individual ChargeLines, fuel base, discount, tax, total, and pricing errors. It MUST NOT become a separate calculation.
+Following the user's decision to remove routine time billing, browser-stored Base + Distance and Zone cards automatically retire obsolete minute rates and included minutes on load/save, with a single version increment. Historical fields do not block or alter new calculations. Existing unfinished estimates blocked by `LEGACY_TIME_PRICING` are retried on load using current settings; successful quotes, final snapshots, completed orders and invoice-bearing orders remain unchanged. Hourly contract rates and waiting accessorials retain their existing behaviour.
+
+## 6. Order pricing workflows
+
+The standalone Pricing Simulator page was removed at the user’s request. Order creation and pricing previews MUST use the centralized local pricing function. Inputs include Customer, Service, Vehicle, pickup/drop-off Stops, priced distance/duration, Packages, weight/dimensions/pieces, wait, and Accessorials. Output includes resolved Rate Card, method, individual ChargeLines, fuel base, discount, tax, total, and pricing errors. Pages MUST NOT duplicate the pricing calculation.
 
 Dispatcher-created and customer-created Orders share the domain model. Dispatcher Order creation collects source, Customer/contact, reference/PO, Service, schedule/window, one or more pickups/drop-offs, package/item quantity/weight/dimensions/declared value, required vehicle, accessorials, location/general instructions. Show live estimate, resolved card, status, breakdown, subtotal/tax/total, calculation details, and authorized override with reason. Do not make dispatcher choose every pricing constant.
 

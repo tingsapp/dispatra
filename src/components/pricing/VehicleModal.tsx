@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { loadBillingConfig } from '../../lib/billingStorage';
+import { toDisplayWeight, fromDisplayWeight } from '../../lib/units';
 import { X, Truck, DollarSign, Weight, Package, Ruler, ShieldAlert } from 'lucide-react';
 import { VehicleType } from '../../types/simplePricing';
 
@@ -15,6 +17,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   onSave,
   initialVehicle
 }) => {
+  const units = loadBillingConfig().general;
   const [name, setName] = useState('');
   const [payloadCapacityKg, setPayloadCapacityKg] = useState<number>(1000);
   const [palletCapacity, setPalletCapacity] = useState<number>(2);
@@ -59,6 +62,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     if (!name.trim()) return;
 
     const vehicle: VehicleType = {
+      cargoVolumeCbm: initialVehicle?.cargoVolumeCbm,
       id: initialVehicle?.id || `veh_${Date.now()}`,
       name: name.trim(),
       payloadCapacityKg: Math.max(100, Number(payloadCapacityKg) || 1000),
@@ -169,11 +173,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   step="100"
                   min="100"
                   required
-                  value={payloadCapacityKg}
-                  onChange={(e) => setPayloadCapacityKg(parseFloat(e.target.value) || 0)}
+                  value={toDisplayWeight(payloadCapacityKg, units)}
+                  onChange={(e) => setPayloadCapacityKg(fromDisplayWeight(parseFloat(e.target.value) || 0, units))}
                   className="w-full text-sm pl-3 pr-8 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
-                <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400 font-medium">kg</span>
+                <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400 font-medium">{units.weightUnit}</span>
               </div>
               <span className="text-[10px] text-slate-400 mt-0.5 block">
                 ≈ {(payloadCapacityKg / 1000).toFixed(1)} Tonnes

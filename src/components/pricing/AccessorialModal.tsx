@@ -20,7 +20,7 @@ const checkboxClass =
 export const CALC_TYPE_OPTIONS: { value: AccessorialCalcType; label: string; unit: string; hint: string }[] = [
   { value: 'FLAT', label: 'Flat fee', unit: 'flat fee', hint: 'One charge per order (or per stop).' },
   { value: 'PER_UNIT', label: 'Per unit / quantity', unit: 'per unit', hint: 'Quantity beyond the free allowance × rate.' },
-  { value: 'PER_MINUTE', label: 'Per minute (waiting)', unit: 'per minute', hint: 'Wait beyond the allowance, rounded up to the increment.' },
+  { value: 'PER_MINUTE', label: 'Per minute', unit: 'per minute', hint: 'Entered minutes beyond allowance, rounded to the increment. Waiting requires its explicit automatic rule.' },
   { value: 'PER_HOUR', label: 'Per hour (labour)', unit: 'per hour', hint: 'Hours × rate. Helpers, crews.' },
   { value: 'PERCENT_OF_FREIGHT', label: '% of freight', unit: '% of freight', hint: 'Percentage of the service freight amount.' },
   { value: 'PERCENT_OF_DECLARED_VALUE', label: '% of declared value', unit: '% of declared value', hint: 'Insurance on the declared cargo value.' }
@@ -28,6 +28,7 @@ export const CALC_TYPE_OPTIONS: { value: AccessorialCalcType; label: string; uni
 
 const AUTO_RULE_OPTIONS: { value: AccessorialAutoRule; label: string }[] = [
   { value: 'NONE', label: 'Manual — dispatcher adds it' },
+  { value: 'WAITING_RECORDED', label: 'Auto — Waiting recorded at stops' },
   { value: 'AFTER_HOURS', label: 'Auto — service outside 08:00–18:00' },
   { value: 'WEEKEND', label: 'Auto — Saturday or Sunday' },
   { value: 'RESIDENTIAL_STOP', label: 'Auto — any residential stop' }
@@ -55,6 +56,7 @@ const OptionalNumber: React.FC<{
         min={0}
         step={step}
         value={value ?? ''}
+        aria-label={label}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0))}
         className={`${fieldClass} ${prefix ? 'pl-6' : ''} ${suffix ? 'pr-12' : ''}`}
@@ -136,6 +138,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    if (autoRule === 'WAITING_RECORDED' && calculationType !== 'PER_MINUTE') { window.alert('Waiting recorded requires per-minute calculation.'); return; }
 
     onSave({
       id: initialAccessorial?.id || `acc_${Date.now()}`,
@@ -262,7 +265,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                 suffix={calculationType === 'PER_MINUTE' ? 'min' : 'units'}
                 hint={
                   calculationType === 'PER_MINUTE'
-                    ? 'Blank inherits the organization wait-free default.'
+                    ? 'For waiting: contract override → this default → organization default. Blank means Inherit; zero means no allowance.'
                     : 'Quantity included before charging starts.'
                 }
               />
@@ -273,7 +276,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                   onChange={setIncrementMinutes}
                   placeholder="Org default"
                   suffix="min"
-                  hint="Blank inherits the organization wait increment."
+                  hint="For waiting: contract override → this default → organization increment. Zero means no rounding."
                 />
               )}
             </div>
@@ -317,7 +320,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
               aria-label="Automatic rule"
               className="w-full"
               value={autoRule}
-              onValueChange={(v) => setAutoRule(v as AccessorialAutoRule)}
+              onValueChange={(v) => { setAutoRule(v as AccessorialAutoRule); if (v === 'WAITING_RECORDED') { setCalculationType('PER_MINUTE'); setUnitLabel('per minute'); setAppliesAt('PER_STOP'); } }}
               options={AUTO_RULE_OPTIONS}
             />
           </div>

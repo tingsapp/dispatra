@@ -138,6 +138,7 @@ export const INITIAL_ACCESSORIALS: AccessorialItem[] = [
   accessorial({
     id: 'acc_wait_time',
     code: 'WAIT',
+    autoRule: 'WAITING_RECORDED',
     name: 'Waiting Time',
     description: 'Site wait beyond the organization free allowance, billed in increments.',
     calculationType: 'PER_MINUTE',
@@ -256,7 +257,7 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
         return {
           services: parsed.services,
           vehicles: Array.isArray(parsed.vehicles) && parsed.vehicles.length > 0 ? parsed.vehicles : INITIAL_VEHICLES,
-          accessorials: parsed.accessorials
+          accessorials: parsed.accessorials.map((a: AccessorialItem) => a.code === 'WAIT' && a.autoRule === 'NONE' && !parsed.schemaVersion ? { ...a, autoRule: 'WAITING_RECORDED' } : a)
         };
       }
     }
@@ -273,7 +274,7 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
 
 export function saveSimplePricingConfig(config: SimplePricingConfig): void {
   try {
-    localStorage.setItem(SIMPLE_PRICING_STORAGE_KEY, JSON.stringify(config));
+    localStorage.setItem(SIMPLE_PRICING_STORAGE_KEY, JSON.stringify({ ...config, schemaVersion: 2 }));
   } catch (err) {
     console.error('Could not save pricing config:', err);
   }

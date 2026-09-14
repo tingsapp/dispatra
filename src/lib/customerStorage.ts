@@ -37,7 +37,7 @@ export const EMPTY_PRICING_RELATIONSHIP: Pick<
   billingEmail: '',
   rateCardId: null,
   customerGroupId: null,
-  discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+  discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
   taxProfileId: null,
   taxExempt: false
 };
@@ -58,7 +58,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     billingEmail: 'ap@pacificfresh.ca',
     rateCardId: 'rc_pacific_fresh',
     customerGroupId: null,
-    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 148,
@@ -81,7 +81,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     billingEmail: '',
     rateCardId: 'rc_nordic_direct',
     customerGroupId: 'grp_medical',
-    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 89,
@@ -104,7 +104,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     billingEmail: '',
     rateCardId: null,
     customerGroupId: 'grp_preferred_retail',
-    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 312,
@@ -127,7 +127,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     billingEmail: '',
     rateCardId: null,
     customerGroupId: null,
-    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 204,
@@ -150,7 +150,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     billingEmail: '',
     rateCardId: null,
     customerGroupId: null,
-    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 67,
@@ -173,7 +173,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     billingEmail: '',
     rateCardId: null,
     customerGroupId: null,
-    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 43,
@@ -196,7 +196,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     billingEmail: '',
     rateCardId: null,
     customerGroupId: 'grp_medical',
-    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: true,
     totalShipments: 122,
@@ -219,7 +219,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     billingEmail: '',
     rateCardId: null,
     customerGroupId: null,
-    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 28,
@@ -236,8 +236,9 @@ export function loadCustomers(): Customer[] {
     const raw = localStorage.getItem(CUSTOMERS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((c: Partial<Customer>) => ({ ...EMPTY_PRICING_RELATIONSHIP, ...c }) as Customer);
+      const records = Array.isArray(parsed) ? parsed : parsed.customers;
+      if (Array.isArray(records)) {
+        return records.map((c: Partial<Customer>) => ({ ...EMPTY_PRICING_RELATIONSHIP, ...c, discount: Array.isArray(parsed) && c.discount?.type === 'NONE' ? { ...c.discount, type: 'INHERIT' } : c.discount ?? EMPTY_PRICING_RELATIONSHIP.discount }) as Customer);
       }
     }
   } catch (err) {
@@ -248,7 +249,7 @@ export function loadCustomers(): Customer[] {
 
 export function saveCustomers(customers: Customer[]): void {
   try {
-    localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(customers));
+    localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 2, customers }));
   } catch (err) {
     console.warn('Could not save customers to localStorage:', err);
   }

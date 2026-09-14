@@ -29,6 +29,7 @@ import { Select } from '../components/ui/Select';
 import { SearchInput } from '../components/ui/SearchInput';
 import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
 import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
+import { validateBooking, validateAssignment, createInvoicePreview } from '../lib/organizationWorkflows';
 import { calculatePricing } from '../lib/pricingEngine';
 import {
   createDefaultOrderInput,
@@ -153,6 +154,7 @@ export function JobsPage({
 
   const handleReassignDriver = (job: Job, driverId: string) => {
     const driver = drivers.find((d) => d.id === driverId);
+    if (driver) { const errors = validateAssignment(job, driver, jobs, loadPricingContext()); if (errors.length) { onNotification(errors.join(' ')); return; } }
     const updated: Job = {
       ...job,
       assignedDriverId: driverId === 'unassigned' ? undefined : driverId,
@@ -183,9 +185,12 @@ export function JobsPage({
       return;
     }
 
+    const bookingErrors = validateBooking(newOrderInput, pricingCtx);
+    if (bookingErrors.length) { onNotification(bookingErrors.join(' ')); return; }
     const assignedDriver = drivers.find((d) => d.id === newDriverId);
     const service = pricingCtx.catalogue.services.find((sv) => sv.id === newOrderInput.serviceId);
     const snapshot = priceOrder(newOrderInput, pricingCtx);
+    if (assignedDriver) { const errors = validateAssignment({ id: 'new', status: 'no_driver', pricing: snapshot, pricingInput: newOrderInput }, assignedDriver, jobs, pricingCtx); if (errors.length) { onNotification(errors.join(' ')); return; } }
     const totalKg = newOrderInput.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
 
     const newJob: Job = {
@@ -238,14 +243,15 @@ export function JobsPage({
   /** Completion pricing: settle on actuals and lock the snapshot. */
   const handleFinalize = (job: Job) => {
     if (!job.pricingInput || job.pricing?.stage === 'FINAL') return;
-    const actual = window.prompt(
-      'Actual duration in minutes (leave blank to settle on the estimate):',
-      String(job.pricingInput.actualMinutes ?? job.pricingInput.estimatedMinutes ?? '')
-    );
+    const hourly = job.pricing?.method === 'HOURLY';
+    const actual = hourly ? window.prompt('Actual billable minutes for the agreed hourly clock (required when settling actuals):', String(job.pricingInput.actualHourlyBillableMinutes ?? '')) : '';
     if (actual === null) return;
-    const minutes = actual.trim() === '' ? null : Math.max(0, Number(actual) || 0);
-    const { input, snapshot } = finalizeOrderPrice(job.pricingInput, minutes);
-    const updated: Job = { ...job, pricingInput: input, pricing: snapshot };
+    const minutes = actual.trim() === '' ? null : Number(actual);
+    if (minutes != null && (!Number.isFinite(minutes) || minutes < 0)) { onNotification('Enter valid nonnegative minutes.'); return; }
+    const ctx = loadPricingContext();
+    const { input, snapshot } = finalizeOrderPrice(job.pricingInput, minutes, ctx, job.pricing);
+    if (snapshot.status !== 'PRICED') { onNotification(snapshot.errors.map(e => e.message).join(' ')); return; }
+    const updated: Job = { ...job, pricingInput: input, pricing: snapshot, invoicePreview: job.invoicePreview ?? createInvoicePreview(job.id, snapshot, ctx) };
     onUpdateJob(updated);
     setActiveJobDossier(updated);
     onNotification(`${job.jobNumber} price finalized at $${snapshot.total.toFixed(2)} ${snapshot.currency}`);
@@ -741,7 +747,7 @@ export function JobsPage({
               <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Driver Assignment</div>
-                  <span className="text-[11px] text-slate-400">Select to reassign</span>
+                  <span className="text-[11px] text-slate-400">Validates order limits and exclusive service; route feasibility is not yet connected.</span>
                 </div>
 
                 <Select
@@ -824,6 +830,8 @@ export function JobsPage({
                 ) : (
                   <p className="text-slate-500">This order predates the pricing model and has no snapshot.</p>
                 )}
+                {activeJobDossier.pricing?.quoteExpiresAt && activeJobDossier.pricing.stage !== 'FINAL' && <p className="text-xs text-slate-600">Quote expires: {new Date(activeJobDossier.pricing.quoteExpiresAt).toLocaleString()} {Date.now() > Date.parse(activeJobDossier.pricing.quoteExpiresAt) ? '— expired; re-price before accepting' : ''}</p>}
+                {activeJobDossier.invoicePreview && <div className="mt-3 p-3 border rounded-lg text-xs space-y-1"><h4 className="font-semibold">Invoice preview — local only, not sent</h4><p>Due: {new Date(activeJobDossier.invoicePreview.dueAt).toLocaleDateString()}</p><p>Billing email: {activeJobDossier.invoicePreview.billingEmail || 'Missing'}</p><p>Tax registration: {activeJobDossier.invoicePreview.taxRegistrationNumber || 'Not configured'}</p><p>Finalized total: {activeJobDossier.invoicePreview.total.toFixed(2)} {activeJobDossier.invoicePreview.currency}</p><p>Uses the finalized charge lines above. Invoice issuance and email sending are not connected.</p></div>}
                 {activeJobDossier.pricingInput?.routeKm != null && (
                   <p className="text-[11px] text-slate-400 mt-3 pt-3 border-t border-slate-100">
                     Priced on a {formatDistance(activeJobDossier.pricingInput.routeKm, pricingCtx.billing.general)} standalone route
@@ -868,7 +876,7 @@ export function JobsPage({
               <div>
                 <h3 className="text-sm font-bold text-slate-900">New Order</h3>
                 <p className="text-xs text-slate-500">
-                  Order facts on the left; the live estimate on the right comes from the same pricing engine as the simulator.
+                  Enter the order details on the left to see its live price estimate on the right.
                 </p>
               </div>
               <button

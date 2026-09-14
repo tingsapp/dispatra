@@ -43,6 +43,8 @@ export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput 
   routeKm: 15,
   estimatedMinutes: 40,
   actualMinutes: null,
+  durationBasis: 'DRIVING_ONLY',
+  handlingMinutes: null,
   packages: [
     { id: uid('pkg'), quantity: 1, weightKg: 10, lengthCm: 40, widthCm: 30, heightCm: 30, declaredValue: 0 }
   ],
@@ -61,20 +63,26 @@ export const priceOrder = (input: PricingOrderInput, ctx: PricingContext = loadP
   calculatePricing(input, ctx);
 
 /**
- * Completion pricing: settle on actual duration (falls back to the estimate)
- * and mark the snapshot FINAL. Callers must not re-price a FINAL order.
+ * Completion uses quoted terms. Only an hourly clock that permits actual
+ * settlement changes the customer amount; operational time remains separate.
  */
 export const finalizeOrderPrice = (
   input: PricingOrderInput,
   actualMinutes: number | null,
-  ctx: PricingContext = loadPricingContext()
+  ctx: PricingContext = loadPricingContext(),
+  quoted?: PricingSnapshot
 ): { input: PricingOrderInput; snapshot: PricingSnapshot } => {
-  const finalInput: PricingOrderInput = {
-    ...input,
-    stage: 'FINAL',
-    actualMinutes: actualMinutes ?? input.actualMinutes ?? input.estimatedMinutes
-  };
-  return { input: finalInput, snapshot: calculatePricing(finalInput, ctx) };
+  if (quoted?.stage === 'FINAL') return { input, snapshot: quoted };
+  const finalInput: PricingOrderInput = { ...input, stage: 'FINAL', actualHourlyBillableMinutes: actualMinutes }; // Billable-clock minutes are not driving minutes.
+  const frozenContext = quoted?.context ? { ...quoted.context, asOf: quoted.context.asOf ? new Date(quoted.context.asOf) : undefined } : ctx;
+  if (quoted?.method === 'HOURLY' && !quoted.context) {
+    return { input: finalInput, snapshot: { ...structuredClone(quoted), status: 'NEEDS_ATTENTION', errors: [{ code: 'INVALID_CONFIGURATION', message: 'This legacy quote has no frozen contract terms. Review and re-price it explicitly before hourly settlement.' }] } };
+  }
+  const card = frozenContext.pricing.rateCards.find(c => c.id === quoted?.rateCard?.id);
+  if (quoted?.status === 'PRICED' && (quoted.method !== 'HOURLY' || card?.hourlySettleActual === false)) {
+    return { input: finalInput, snapshot: { ...structuredClone(quoted), stage: 'FINAL', orderFacts: structuredClone(finalInput) } };
+  }
+  return { input: finalInput, snapshot: calculatePricing(finalInput, frozenContext) };
 };
 
 // ---------------------------------------------------------------------------
@@ -131,7 +139,7 @@ export const legacyJobToPricingInput = (job: Job, ctx: PricingContext): PricingO
     customerId: job.customerId ?? customer?.id ?? null,
     serviceId,
     vehicleId: job.vehicleId ?? (job.palletCount && job.palletCount > 2 ? 'veh_2_ton' : 'veh_1_ton'),
-    stops,
+    stops: stops.map(stop => stop.type === 'DROPOFF' ? { ...stop, pickupIds: [stops[0].id] } : stop),
     routeKm: Number(seeded(job.id, 6, 28).toFixed(1)),
     estimatedMinutes: Math.round(seeded(`${job.id}-min`, 25, 75)),
     packages: [
@@ -150,7 +158,11 @@ export const legacyJobToPricingInput = (job: Job, ctx: PricingContext): PricingO
 
 export const enrichJobsWithPricing = (jobs: Job[], ctx: PricingContext = loadPricingContext()): Job[] =>
   jobs.map((job) => {
-    if (job.pricing && job.pricingInput) return job;
+    const retryLegacyFailure = job.status !== 'completed' && !job.invoicePreview &&
+      job.pricing?.stage === 'ESTIMATE' && job.pricing.status !== 'PRICED' &&
+      job.pricingInput?.stage === 'ESTIMATE' &&
+      job.pricing.errors.some(error => error.code === 'LEGACY_TIME_PRICING');
+    if (job.pricing && job.pricingInput && !retryLegacyFailure) return job;
     const pricingInput = job.pricingInput ?? legacyJobToPricingInput(job, ctx);
     const service = ctx.catalogue.services.find((s) => s.id === pricingInput.serviceId);
     return {
@@ -188,4 +200,20 @@ export const describePrice = (job: Job): { text: string; tone: 'ok' | 'warn' | '
   if (!p) return { text: 'Not priced', tone: 'muted' };
   if (p.status !== 'PRICED') return { text: p.status === 'NEEDS_ATTENTION' ? 'Needs attention' : 'Unavailable', tone: 'warn' };
   return { text: `$${p.total.toFixed(2)} ${p.currency}${p.stage === 'FINAL' ? ' · final' : ''}`, tone: 'ok' };
+};
+
+const ORDER_STORAGE_KEY = 'dispatra_orders_v1';
+export const loadSavedOrders = (fallback: Job[]): Job[] => {
+  try {
+    const raw = localStorage.getItem(ORDER_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Retry only the retired migration blocker; successful/final prices stay frozen.
+      if (Array.isArray(parsed)) return enrichJobsWithPricing(parsed);
+    }
+  } catch { /* Existing mock data remains available when browser storage is unavailable. */ }
+  return enrichJobsWithPricing(fallback);
+};
+export const saveOrders = (jobs: Job[]): void => {
+  localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(jobs));
 };

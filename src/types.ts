@@ -59,6 +59,7 @@ export interface Job {
   pricingInput?: PricingOrderInput;
   /** Frozen result. Re-priced only by an explicit action; FINAL stage locks it. */
   pricing?: PricingSnapshot;
+  invoicePreview?: import('./lib/organizationWorkflows').InvoicePreview;
 }
 
 export interface NeedsAttentionItem {

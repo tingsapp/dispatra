@@ -14,7 +14,7 @@ import {
 import { Select } from '../ui/Select';
 
 /**
- * Order-facts editor shared by the Price Simulator and Order creation. It only
+ * Order-facts editor for Order creation. It only
  * edits a `PricingOrderInput`; the caller runs `calculatePricing` and passes the
  * snapshot back for the live readouts.
  */
@@ -61,7 +61,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
   const units = billing.general;
   const activeServices = catalogue.services.filter((s) => s.active);
   const activeVehicles = catalogue.vehicles.filter((v) => v.active);
-  const activeAccessorials = catalogue.accessorials.filter((a) => a.active && a.calculationType !== 'PER_MINUTE');
+  const activeAccessorials = catalogue.accessorials.filter((a) => a.active && a.autoRule !== 'WAITING_RECORDED');
 
   const patch = (changes: Partial<PricingOrderInput>) => onChange({ ...value, ...changes });
   const updateStop = (id: string, changes: Partial<PricingStopInput>) =>
@@ -203,6 +203,9 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
+              {stop.type === 'DROPOFF' && <fieldset className="text-xs text-slate-600"><legend className="font-medium mb-1">Supplying pickups (one charge per pickup → delivery movement)</legend>
+                {value.stops.filter(s => s.type === 'PICKUP').map(pickup => <label key={pickup.id} className="inline-flex gap-1 mr-3"><input type="checkbox" checked={(stop.pickupIds ?? []).includes(pickup.id)} onChange={e => updateStop(stop.id, { pickupIds: e.target.checked ? [...(stop.pickupIds ?? []), pickup.id] : (stop.pickupIds ?? []).filter(id => id !== pickup.id) })} />{pickup.label || `Pickup ${value.stops.indexOf(pickup) + 1}`}</label>)}
+              </fieldset>}
               {showStopAddresses && (
                 <input
                   type="text"
@@ -247,7 +250,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
             </div>
           </div>
           <div>
-            <label className={labelClass}>Estimated duration</label>
+            <label className={labelClass}>Estimated duration (cost / planning)</label>
             <div className="relative">
               <input
                 type="number"
@@ -270,36 +273,12 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
             />
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
-          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-[11px] font-medium">
-            {(['ESTIMATE', 'FINAL'] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => patch({ stage: s, actualMinutes: s === 'FINAL' ? value.actualMinutes ?? value.estimatedMinutes : null })}
-                className={`px-3 py-1.5 ${value.stage === s ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-              >
-                {s === 'ESTIMATE' ? 'Estimate at booking' : 'Final at completion'}
-              </button>
-            ))}
-          </div>
-          {value.stage === 'FINAL' && (
-            <div className="relative w-40">
-              <input
-                type="number"
-                min={0}
-                step={5}
-                value={value.actualMinutes ?? ''}
-                onChange={(e) => patch({ actualMinutes: Math.max(0, Number(e.target.value) || 0) })}
-                className={`${fieldClass} pr-20`}
-              />
-              <span className="absolute right-3 top-2.5 text-[10px] text-slate-400">actual min</span>
-            </div>
-          )}
-          <span className="text-[11px] text-slate-500">
-            {value.stage === 'FINAL' ? 'Hourly and time charges settle on actual duration.' : 'Hourly and time charges use the estimate.'}
-          </span>
+        <div className="grid sm:grid-cols-2 gap-3 mt-3 text-xs">
+          <label>Duration includes<select className={fieldClass} value={value.durationBasis ?? ''} onChange={e => patch({ durationBasis: e.target.value as PricingOrderInput['durationBasis'] })}><option value="">Choose to complete cost estimate</option><option value="DRIVING_ONLY">Driving only — add handling and waiting</option><option value="TOTAL_SERVICE">Total service — already includes handling and waiting</option></select></label>
+          {value.durationBasis === 'DRIVING_ONLY' && <label>Handling minutes (all stops)<input className={fieldClass} type="number" min="0" value={value.handlingMinutes ?? ''} placeholder="Use organization average per stop" onChange={e => patch({ handlingMinutes: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })} /></label>}
+          {snapshot.method === 'HOURLY' && <label>Agreed-period billable minutes ({value.stage === 'FINAL' ? 'actual' : 'estimated'})<input className={fieldClass} type="number" min="0" value={(value.stage === 'FINAL' ? value.actualHourlyBillableMinutes : value.hourlyBillableMinutes) ?? ''} placeholder="Enter minutes for contract clock" onChange={e => patch(value.stage === 'FINAL' ? { actualHourlyBillableMinutes: e.target.value === '' ? null : Number(e.target.value) } : { hourlyBillableMinutes: e.target.value === '' ? null : Number(e.target.value) })} /></label>}
         </div>
+        <p className="mt-2 text-xs text-slate-500">Duration does not change Base + Distance, Fixed or Zone prices. Waiting is charged only by its rule, unless included in the hourly contract. Service windows use {billing.general.timeZone ?? 'America/Vancouver'}.</p>
       </div>
 
       {/* Packages */}
@@ -377,7 +356,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
             {activeAccessorials.map((acc) => {
               const qty = qtyOf(acc.id);
               const on = qty > 0;
-              const quantityBased = acc.calculationType === 'PER_UNIT' || acc.calculationType === 'PER_HOUR' || acc.appliesAt === 'PER_STOP';
+              const quantityBased = acc.calculationType === 'PER_UNIT' || acc.calculationType === 'PER_MINUTE' || acc.calculationType === 'PER_HOUR' || acc.appliesAt === 'PER_STOP';
               const pct = acc.calculationType.startsWith('PERCENT');
               return (
                 <div key={acc.id} className={`flex items-center justify-between gap-2 p-2.5 rounded-lg border transition-all ${on ? 'border-slate-800 bg-slate-50/90' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
@@ -393,11 +372,14 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
                   </label>
                   {on && quantityBased && (
                     <div className="flex items-center gap-1 shrink-0">
-                      <button type="button" onClick={() => setQty(acc.id, Math.max(1, qty - 1))} className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
+                      <button type="button" aria-label={`Decrease ${acc.name} quantity`} onClick={() => setQty(acc.id, Math.max(1, qty - 1))} className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="text-xs font-bold text-slate-800 w-6 text-center">{qty}</span>
-                      <button type="button" onClick={() => setQty(acc.id, qty + 1)} className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
+                      {acc.calculationType === 'PER_MINUTE' ? <>
+                        <input type="number" min={0} step={1} aria-label={`${acc.name} minutes`} value={qty} onChange={(e) => setQty(acc.id, Math.max(0, Number(e.target.value) || 0))} className="w-16 text-xs text-center p-1 rounded border border-slate-200 bg-white" />
+                        <span className="text-[11px] text-slate-500">min</span>
+                      </> : <span className="text-xs font-bold text-slate-800 w-6 text-center">{qty}</span>}
+                      <button type="button" aria-label={`Increase ${acc.name} quantity`} onClick={() => setQty(acc.id, qty + 1)} className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
@@ -409,6 +391,13 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({
         )}
       </div>
 
+      {value.importedPrice != null && <div className={`${sectionClass} grid sm:grid-cols-2 gap-3 text-xs`}>
+        <label>External source<input className={fieldClass} value={value.externalSource ?? ''} onChange={e => patch({ externalSource: e.target.value || null })} /></label>
+        <label>External reference<input className={fieldClass} value={value.externalReference ?? ''} onChange={e => patch({ externalReference: e.target.value || null })} /></label>
+        <label>Final-total tax treatment<select className={fieldClass} value={value.importedTaxTreatment ?? ''} onChange={e => patch({ importedTaxTreatment: e.target.value as PricingOrderInput['importedTaxTreatment'] })}><option value="">Required for final agreed totals</option><option value="INCLUDED">Tax included — extract using customer tax profile</option><option value="SUPPLIED">Tax included — supplied amount</option><option value="EXEMPT">Tax exempt agreed total</option></select></label>
+        {value.importedTaxTreatment === 'SUPPLIED' && <label>Supplied included tax<input className={fieldClass} type="number" min="0" max={value.importedPrice} value={value.importedTaxAmount ?? ''} onChange={e => patch({ importedTaxAmount: e.target.value === '' ? null : Number(e.target.value) })} /></label>}
+        <p className="sm:col-span-2 text-slate-500">The rate card selects imported freight or final agreed total. Final totals remain unchanged; freight permits the selected contract modifiers.</p>
+      </div>}
       {/* Overrides & adjustments */}
       {showOverrides && (
         <div className={sectionClass}>

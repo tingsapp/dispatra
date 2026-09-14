@@ -5,12 +5,12 @@ import { PricingSnapshot } from '../../types/pricing';
 /**
  * Renders a PricingSnapshot exactly as the engine produced it: resolved card,
  * method, status, ChargeLines, tax, total, "View calculation", and the
- * internal margin (dispatcher-only). Used by the Simulator, Order creation,
+ * internal margin (dispatcher-only). Used by Order creation,
  * and Order details so every surface reads the same numbers.
  */
 interface PriceBreakdownProps {
   snapshot: PricingSnapshot;
-  /** `card` = white card with dark header (simulator). `inline` = flat block inside a drawer. */
+  /** `card` = white card with dark header (Order estimate). `inline` = flat block inside a drawer. */
   variant?: 'card' | 'inline';
   /** Hide the internal cost/margin block (e.g. customer-facing previews). */
   showMargin?: boolean;
@@ -109,13 +109,13 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
             <div key={l.key} className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <span className={`font-medium ${l.amount < 0 ? 'text-emerald-700' : 'text-slate-800'}`}>{l.label}</span>
-                {l.detail && <p className="text-[11px] text-slate-500 truncate">{l.detail}</p>}
+                {l.detail && <p className="text-[11px] text-slate-500 break-words">{l.detail}</p>}
               </div>
               <span className={`font-semibold whitespace-nowrap ${l.amount < 0 ? 'text-emerald-700' : 'text-slate-900'}`}>{fmt(l.amount)}</span>
             </div>
           ))}
           <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-            <span className="font-semibold text-slate-700">Subtotal</span>
+            <span className="font-semibold text-slate-700">Subtotal excluding tax</span>
             <span className="font-semibold text-slate-900">${snapshot.subtotal.toFixed(2)}</span>
           </div>
           {snapshot.taxExempt ? (
@@ -136,6 +136,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
         </div>
       )}
 
+      {!!snapshot.roundingAdjustment && <p className="text-xs text-slate-500">Final rounding: {fmt(snapshot.roundingAdjustment)}</p>}
       <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
         <span className="text-sm font-semibold text-slate-900">Total</span>
         <span className="text-base font-bold text-slate-900">
@@ -172,9 +173,10 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
               </ul>
             )}
           </div>
+          <p className="text-slate-500">Fuel uses eligible charge lines before contract discounts. Minimums and fixed discounts exclude tax.</p>
           <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 grid grid-cols-2 gap-x-3 gap-y-1 text-slate-600">
             <span>Billable distance</span><span className="text-right font-mono">{snapshot.inputs.billableKm} km</span>
-            <span>Minutes priced</span><span className="text-right font-mono">{snapshot.inputs.estimatedMinutes ?? '—'}</span>
+            <span>Duration (cost / hourly contract)</span><span className="text-right font-mono">{snapshot.inputs.estimatedMinutes ?? '—'}</span>
             <span>Chargeable weight</span><span className="text-right font-mono">{snapshot.inputs.chargeableWeightKg} kg</span>
             <span>Pieces / stops</span><span className="text-right font-mono">{snapshot.inputs.pieces} / {snapshot.inputs.stopCount}</span>
             <span>Service multiplier</span><span className="text-right font-mono">×{snapshot.inputs.serviceMultiplier.toFixed(2)}</span>
@@ -187,7 +189,8 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
         </div>
       )}
 
-      {showMargin && snapshot.cost && priced && (
+      {showMargin && snapshot.cost?.complete === false && priced && <p className="p-3 bg-amber-50 text-amber-900 rounded-lg text-xs">Incomplete cost estimate — missing {snapshot.cost.missingInputs?.join(', ')}. Profit and margin are unavailable.</p>}
+      {showMargin && snapshot.cost && snapshot.cost.complete !== false && priced && (
         <div className={`p-3 rounded-lg border text-[11px] space-y-1.5 ${snapshot.cost.meetsTargetMargin ? 'bg-emerald-50/70 border-emerald-200' : 'bg-rose-50/70 border-rose-200'}`}>
           <div className="flex items-center justify-between font-medium text-slate-700">
             <span className="flex items-center gap-1">
@@ -203,12 +206,13 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
             <span className="font-mono">${snapshot.cost.estimatedCost.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between text-slate-600">
-            <span>Gross profit</span>
+            <span>Estimated profit</span>
             <span className="font-mono">${snapshot.cost.grossProfit.toFixed(2)}</span>
           </div>
           {!snapshot.cost.meetsTargetMargin && targetMarginPercent != null && (
             <p className="text-rose-700 font-medium pt-1">Below the {targetMarginPercent}% target margin.</p>
           )}
+          <p className="text-slate-500">{snapshot.cost.basis}</p>
           <p className="text-slate-400 pt-1">Deadhead and driver choice affect this cost, never the customer price.</p>
         </div>
       )}

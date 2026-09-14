@@ -381,7 +381,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
                   options={[
                     { value: 'optimization', label: 'Route Optimizer / Proposal Anomaly' },
                     { value: 'telemetry', label: 'Driver App GPS / Telemetry Connectivity' },
-                    { value: 'pricing', label: 'Services, Accessorials & Simulator' },
+                    { value: 'pricing', label: 'Services, Accessorials & Pricing' },
                     { value: 'tracking', label: 'Customer Tracking Link' },
                     { value: 'account', label: 'Account & Dispatch Permissions' }
                   ]}

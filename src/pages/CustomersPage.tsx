@@ -621,8 +621,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <div className="flex items-center justify-between text-slate-600">
                     <span className="text-slate-400">Contract Discount:</span>
                     <span className="font-semibold text-slate-900">
-                      {selectedCustomerForView.discount.type === 'NONE'
-                        ? 'None'
+                      {['NONE', 'INHERIT'].includes(selectedCustomerForView.discount.type)
+                        ? (selectedCustomerForView.discount.type === 'INHERIT' ? 'Inherit' : 'No discount')
                         : `${
                             selectedCustomerForView.discount.type === 'PERCENT'
                               ? `${selectedCustomerForView.discount.value}%`
@@ -926,7 +926,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                           })
                         }
                         options={[
-                          { value: 'NONE', label: 'None' },
+                          { value: 'INHERIT', label: 'Inherit' },
+                          { value: 'NONE', label: 'No discount — block inheritance' },
                           { value: 'PERCENT', label: 'Percent' },
                           { value: 'FIXED', label: 'Fixed $' }
                         ]}
@@ -935,7 +936,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                         type="number"
                         min={0}
                         step={0.5}
-                        disabled={(formData.discount?.type ?? 'NONE') === 'NONE'}
+                        disabled={['NONE', 'INHERIT'].includes(formData.discount?.type ?? 'INHERIT')}
                         value={formData.discount?.value ?? 0}
                         onChange={(e) =>
                           setFormData({
@@ -955,7 +956,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     <Select
                       aria-label="Discount scope"
                       className="w-full"
-                      disabled={(formData.discount?.type ?? 'NONE') === 'NONE'}
+                      disabled={['NONE', 'INHERIT'].includes(formData.discount?.type ?? 'INHERIT')}
                       value={formData.discount?.scope ?? 'TRANSPORT_ONLY'}
                       onValueChange={(v) =>
                         setFormData({

@@ -93,6 +93,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
           </button>
         </div>
 
+        <p className="px-6 pt-3 text-xs text-slate-500">Booking cutoffs use the organization timezone for same-day bookings. Delivery promises are descriptive until route feasibility is connected. Exclusive service prevents sharing active work in assignment validation.</p>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">

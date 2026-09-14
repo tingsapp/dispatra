@@ -28,7 +28,7 @@ Read `spec.md` and `state.md` before work. `spec.md` is normative; `state.md` is
 
 Preserve the Monitor decisions: full-height Vancouver map, one compact sidebar, no permanent map header, floating white top-right search/notifications/date, bottom-right settings/zoom, hidden layer menu, active routes, contextual popovers, concise Needs Attention, and one account menu. Use shadcn primitives, accessible non-map alternatives, loading/empty/error states, and no permanent dense TMS dashboard.
 
-Expose a clear Manual/Auto switch and simulate both modes in static data. Settings must include the max-active-orders dispatch policy (General tab) and pricing subsections. The Price Simulator and Order form must call the same centralized local pricing function.
+Expose a clear Manual/Auto switch and simulate both modes in static data. Settings must include the max-active-orders dispatch policy (General tab) and pricing subsections. The Order form and pricing previews must call the centralized local pricing function. The standalone Pricing Simulator was removed at the user’s request; do not reintroduce its page or navigation.
 
 ## Security and quality
 
