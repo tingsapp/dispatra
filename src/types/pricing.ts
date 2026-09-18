@@ -1,5 +1,5 @@
 import { StopOperations, ItemOperations } from '../domain/operations';
-// Commercial pricing model: Rate Cards, Zones, Customer Groups, and the
+// Commercial pricing model: Rate Cards, Zones, and the
 // Order-side inputs/outputs of the pricing engine.
 //
 // Four kinds of value, four homes:
@@ -14,7 +14,7 @@ import { StopOperations, ItemOperations } from '../domain/operations';
 
 export type PricingMethod = 'BASE_PLUS_DISTANCE' | 'FIXED' | 'ZONE' | 'HOURLY' | 'IMPORTED';
 
-export type RateCardScope = 'ORGANIZATION' | 'CUSTOMER_GROUP' | 'CUSTOMER';
+export type RateCardScope = 'ORGANIZATION' | 'ORDER' | 'CUSTOMER' | 'CUSTOMER_GROUP';
 
 export type RateCardStatus = 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
 
@@ -49,7 +49,8 @@ export interface RateCard {
   // ---- Scope & applicability -------------------------------------------
   scope: RateCardScope;
   customerId: string | null;
-  customerGroupId: string | null;
+  /** Legacy quote context only. */
+  customerGroupId?: string | null;
   /** Restrict to one service. `null` = all services. */
   serviceId: string | null;
   /** Restrict to one vehicle type. `null` = any vehicle. */
@@ -141,6 +142,7 @@ export interface ZoneRate {
   serviceId: string | null;
 }
 
+/** Retained only to read historical quote contexts during settlement. */
 export interface CustomerGroup {
   id: string;
   name: string;
@@ -154,6 +156,7 @@ export interface PricingConfig {
   rateCards: RateCard[];
   zones: Zone[];
   zoneRates: ZoneRate[];
+  /** Legacy quote context only; active configuration always has an empty list. */
   customerGroups: CustomerGroup[];
 }
 
@@ -198,7 +201,11 @@ export interface OrderPriceAdjustment {
 }
 
 export interface PricingOrderInput {
+  /** Absent on historical records, which retain legacy profile pricing. */
+  taxCalculation?: 'DESTINATION';
+  freightTaxTreatment?: 'STANDARD_DOMESTIC' | 'REVIEW';
   billingCustomerId?: string | null;
+  /** Legacy free-text reason from the removed override control; kept on historical orders only. */
   overrideReason?: string;
   scheduledEndAt?: string | null;
   customerId: string | null;
@@ -265,6 +272,7 @@ export type PricingStatus = 'PRICED' | 'NEEDS_ATTENTION' | 'UNAVAILABLE';
 
 export interface PricingError {
   code:
+    | 'TAX_REVIEW_REQUIRED'
     | 'INVALID_CONFIGURATION'
     | 'INVALID_ORDER'
     | 'LEGACY_TIME_PRICING'
@@ -337,10 +345,10 @@ export interface CostEstimate {
   costLines: ChargeLine[];
   grossProfit: number;
   grossMarginPercent: number;
-  meetsTargetMargin: boolean;
 }
 
 export interface PricingSnapshot {
+  taxDecision?: import('../lib/destinationTax').DestinationTaxDecision;
   /** Frozen context allows completion to use quoted terms, not current settings. */
   context?: import('../lib/pricingEngine').PricingContext;
   orderFacts?: PricingOrderInput;

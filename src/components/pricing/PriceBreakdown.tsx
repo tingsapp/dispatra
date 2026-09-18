@@ -14,7 +14,6 @@ interface PriceBreakdownProps {
   variant?: 'card' | 'inline';
   /** Hide the internal cost/margin block (e.g. customer-facing previews). */
   showMargin?: boolean;
-  targetMarginPercent?: number;
   headerAction?: React.ReactNode;
   title?: string;
 }
@@ -26,7 +25,6 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
   snapshot,
   variant = 'card',
   showMargin = true,
-  targetMarginPercent,
   headerAction,
   title
 }) => {
@@ -57,7 +55,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
 
       <div className="mt-3 flex items-baseline gap-2">
         <span className={`text-3xl font-bold tracking-tight ${dark ? '' : 'text-slate-900'}`}>{priced ? `$${snapshot.total.toFixed(2)}` : '—'}</span>
-        <span className={`text-xs font-medium ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{snapshot.currency}</span>
+        <span className={`text-xs font-medium ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{snapshot.currency || 'CAD'}</span>
         <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1 ${statusStyle}`}>
           {snapshot.stage === 'FINAL' && priced && <Lock className="w-3 h-3" />}
           {snapshot.stage === 'FINAL' && priced ? 'LOCKED' : snapshot.status.replace('_', ' ')}
@@ -81,6 +79,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
         </div>
       </div>
 
+      {snapshot.taxDecision && <p className={`mt-3 text-xs ${dark ? 'text-slate-300' : 'text-slate-600'}`}>{snapshot.taxDecision.description}</p>}
       {snapshot.errors.length > 0 && (
         <div className={`mt-3 rounded-lg px-3 py-2 text-[11px] space-y-1 ${dark ? 'bg-white/10' : 'bg-amber-50 border border-amber-200'}`}>
           {snapshot.errors.map((e) => (
@@ -102,7 +101,11 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
       <h5 className="text-xs font-semibold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2">Charge Lines</h5>
 
       {snapshot.lines.length === 0 ? (
-        <p className="text-xs text-slate-500">Nothing priced yet.</p>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-600">
+          {snapshot.status === 'NEEDS_ATTENTION' || !snapshot.rateCard
+            ? 'No live estimate yet. Complete the route and stop details for a valid customer to price this order.'
+            : 'Nothing priced yet.'}
+        </div>
       ) : (
         <div className="space-y-2 text-xs">
           {snapshot.lines.map((l) => (
@@ -140,7 +143,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
       <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
         <span className="text-sm font-semibold text-slate-900">Total</span>
         <span className="text-base font-bold text-slate-900">
-          ${snapshot.total.toFixed(2)} {snapshot.currency}
+          {priced ? `$${snapshot.total.toFixed(2)}` : '—'} {snapshot.currency || 'CAD'}
         </span>
       </div>
 
@@ -191,13 +194,13 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
 
       {showMargin && snapshot.cost?.complete === false && priced && <p className="p-3 bg-amber-50 text-amber-900 rounded-lg text-xs">Incomplete cost estimate — missing {snapshot.cost.missingInputs?.join(', ')}. Profit and margin are unavailable.</p>}
       {showMargin && snapshot.cost && snapshot.cost.complete !== false && priced && (
-        <div className={`p-3 rounded-lg border text-[11px] space-y-1.5 ${snapshot.cost.meetsTargetMargin ? 'bg-emerald-50/70 border-emerald-200' : 'bg-rose-50/70 border-rose-200'}`}>
+        <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 text-[11px] space-y-1.5">
           <div className="flex items-center justify-between font-medium text-slate-700">
             <span className="flex items-center gap-1">
               <TrendingUp className="w-3.5 h-3.5 text-slate-500" />
               Internal margin (not shown to customer)
             </span>
-            <span className={`font-bold ${snapshot.cost.meetsTargetMargin ? 'text-emerald-700' : 'text-rose-700'}`}>
+            <span className="font-bold text-slate-900">
               {snapshot.cost.grossMarginPercent.toFixed(1)}%
             </span>
           </div>
@@ -209,9 +212,6 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
             <span>Estimated profit</span>
             <span className="font-mono">${snapshot.cost.grossProfit.toFixed(2)}</span>
           </div>
-          {!snapshot.cost.meetsTargetMargin && targetMarginPercent != null && (
-            <p className="text-rose-700 font-medium pt-1">Below the {targetMarginPercent}% target margin.</p>
-          )}
           <p className="text-slate-500">{snapshot.cost.basis}</p>
           <p className="text-slate-400 pt-1">Deadhead and driver choice affect this cost, never the customer price.</p>
         </div>

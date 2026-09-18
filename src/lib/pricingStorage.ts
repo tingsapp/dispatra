@@ -1,19 +1,41 @@
-import { CustomerGroup, Discount, PricingConfig, RateCard, Zone, ZoneRate } from '../types/pricing';
+import { loadBillingConfig } from './billingStorage';
+import { Discount, PricingConfig, RateCard, Zone, ZoneRate } from '../types/pricing';
 
 export const PRICING_STORAGE_KEY = 'dispatra_pricing_v1';
+const PRICING_SCHEMA_VERSION = 7;
 
-export const NO_DISCOUNT: Discount = { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' };
+export const NO_DISCOUNT: Discount = { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' };
 
-/** A blank card with every inheritable field set to "inherit". */
+/**
+ * V1 keeps these contract terms in the background: every card carries these values and the
+ * editor does not show them. Stored cards are normalised to them on load.
+ */
+export const RATE_CARD_BACKGROUND_DEFAULTS = {
+  vehicleId: null, priority: 0, effectiveTo: null, notes: '',
+  includedPieces: 0, pieceRate: 0, includedStops: null, extraStopRate: null,
+  minimumFreight: 0, serviceOverrides: {},
+  applyAdminFee: null, applyContractDiscount: true, applyServiceMultiplier: true, applyVehicleSurcharge: true, applyFuelSurcharge: true, applyAccessorials: true,
+  fuelPercent: null, dimensionalPricingEnabled: null, dimensionalDivisor: null, waitFreeMinutes: null, waitIncrementMinutes: null,
+  vehicleSurchargeOverrides: {}, accessorialRateOverrides: {},
+  zoneFallbackToOrganization: false, zoneMatrixMode: 'CONTRACT' as const, zoneNoMatchFallback: 'NEEDS_ATTENTION' as const,
+  hourlyClockStart: 'Arrival at first pickup', hourlyClockStop: 'Completion of final delivery', hourlyIncludesHandling: true, hourlyIncludesWaiting: true, hourlySettleActual: true,
+} satisfies Partial<RateCard>;
+
+/** Background code for zones; not shown in the UI. */
+export const zoneCode = (name: string) => name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 6) || 'ZONE';
+
+/** Background code for cards saved without one. */
+export const rateCardCode = (name: string) => name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'CARD';
+
+/** A blank card with every inheritable field set to "inherit" and no background charges. */
 export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard => ({
   id: `rc_${Date.now()}`,
   name: 'New Rate Card',
   code: '',
-  status: 'DRAFT',
+  status: 'ACTIVE',
   version: 1,
-  scope: 'ORGANIZATION',
+  scope: 'ORDER',
   customerId: null,
-  customerGroupId: null,
   serviceId: null,
   vehicleId: null,
   priority: 0,
@@ -26,13 +48,13 @@ export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard
   kmRate: 1.4,
   includedMinutes: 0,
   minuteRate: 0,
-  includedWeightKg: 50,
-  weightRatePerKg: 0.15,
+  includedWeightKg: 0,
+  weightRatePerKg: 0,
   includedPieces: 0,
   pieceRate: 0,
   includedStops: null,
   extraStopRate: null,
-  minimumFreight: 35,
+  minimumFreight: 0,
   serviceOverrides: {},
   fixedAmount: 55,
   hourlyClockStart: 'Arrival at first pickup',
@@ -43,16 +65,16 @@ export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard
   hourlyRate: 85,
   minimumBillableMinutes: 120,
   billingIncrementMinutes: 30,
-  zoneMatrixMode: 'INHERIT',
+  zoneMatrixMode: 'CONTRACT',
   zoneRates: [],
   zoneFallbackToOrganization: false,
   zoneNoMatchFallback: 'NEEDS_ATTENTION',
   applyAdminFee: null,
   applyContractDiscount: true,
   applyOrderMinimum: true,
-  minimumOrderSubtotal: null,
+  minimumOrderSubtotal: 0,
   importedPriceMode: 'FREIGHT',
-  applyServiceMultiplier: false,
+  applyServiceMultiplier: true,
   applyVehicleSurcharge: true,
   applyFuelSurcharge: true,
   applyAccessorials: true,
@@ -86,7 +108,8 @@ const zr = (o: string, d: string, amount: number): ZoneRate => ({
   serviceId: null
 });
 
-export const INITIAL_ZONE_RATES: ZoneRate[] = [
+/** Demo prices for the Pacific Fresh zone card only; the organization's standard grid ships empty. */
+const PACIFIC_FRESH_ZONE_RATES: ZoneRate[] = [
   zr('van', 'van', 35),
   zr('van', 'bby', 45),
   zr('van', 'rmd', 50),
@@ -106,142 +129,14 @@ export const INITIAL_ZONE_RATES: ZoneRate[] = [
   zr('sry', 'bby', 60)
 ];
 
-export const INITIAL_CUSTOMER_GROUPS: CustomerGroup[] = [
-  {
-    id: 'grp_preferred_retail',
-    name: 'Preferred Retailers',
-    description: 'High-volume retail accounts on the standard card with a group discount.',
-    rateCardId: null,
-    discount: { type: 'PERCENT', value: 8, scope: 'TRANSPORT_ONLY' }
-  },
-  {
-    id: 'grp_medical',
-    name: 'Medical & Pharma',
-    description: 'Cold-chain and clinical accounts priced on the medical card.',
-    rateCardId: 'rc_medical_group',
-    discount: { ...NO_DISCOUNT }
-  }
-];
-
+/** Demo cards use only the fields the V1 editor shows. Standard is the Default. */
 export const INITIAL_RATE_CARDS: RateCard[] = [
-  createEmptyRateCard({
-    id: 'rc_org_standard',
-    name: 'Standard',
-    code: 'STD',
-    status: 'ACTIVE',
-    scope: 'ORGANIZATION',
-    effectiveFrom: '2026-01-01',
-    baseFee: 20,
-    includedKm: 5,
-    kmRate: 1.5,
-    includedMinutes: 0,
-    minuteRate: 0,
-    includedWeightKg: 50,
-    weightRatePerKg: 0.15,
-    includedPieces: 5,
-    pieceRate: 1.5,
-    minimumFreight: 35,
-    // Each service keeps its own starting fee; the multiplier still applies.
-    serviceOverrides: {
-      srv_rush: { baseFee: 35, includedKm: null, kmRate: 2.0, multiplier: null },
-      srv_direct: { baseFee: 50, includedKm: null, kmRate: 2.5, multiplier: null },
-      srv_economy: { baseFee: 15, includedKm: null, kmRate: 1.25, multiplier: null }
-    },
-    notes: 'Organization default. Applies whenever no customer or group card matches.'
-  }),
-  createEmptyRateCard({
-    id: 'rc_medical_group',
-    name: 'Medical & Pharma Group',
-    code: 'MED',
-    status: 'ACTIVE',
-    scope: 'CUSTOMER_GROUP',
-    customerGroupId: 'grp_medical',
-    effectiveFrom: '2026-01-01',
-    baseFee: 28,
-    includedKm: 8,
-    kmRate: 1.6,
-    includedMinutes: 0,
-    minuteRate: 0,
-    includedWeightKg: 30,
-    weightRatePerKg: 0.2,
-    minimumFreight: 45,
-    fuelPercent: 6,
-    waitFreeMinutes: 20,
-    accessorialRateOverrides: { acc_fragile: 0 },
-    notes: 'Fragile wrap included. Longer free wait for clinical receiving.'
-  }),
-  createEmptyRateCard({
-    id: 'rc_pacific_fresh',
-    name: 'Pacific Fresh Contract',
-    code: 'PFL-2026',
-    status: 'ACTIVE',
-    scope: 'CUSTOMER',
-    customerId: 'cust-1',
-    effectiveFrom: '2026-01-01',
-    effectiveTo: '2026-12-31',
-    pricingMethod: 'ZONE',
-    zoneNoMatchFallback: 'BASE_PLUS_DISTANCE',
-    baseFee: 22,
-    includedKm: 5,
-    kmRate: 1.35,
-    minimumFreight: 40,
-    fuelPercent: 5,
-    applyServiceMultiplier: true,
-    vehicleSurchargeOverrides: { veh_2_ton: 0 },
-    serviceOverrides: { srv_same_day: { baseFee: null, includedKm: null, kmRate: null, multiplier: 1.05 } },
-    discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' },
-    notes: 'Zone matrix pricing. 2-Tonne surcharge waived. Falls back to base + distance outside the matrix.'
-  }),
-  createEmptyRateCard({
-    id: 'rc_nordic_direct',
-    name: 'Nordic Bio — Direct Fixed',
-    code: 'NBH-DIRECT',
-    status: 'ACTIVE',
-    scope: 'CUSTOMER',
-    customerId: 'cust-2',
-    serviceId: 'srv_direct',
-    priority: 10,
-    effectiveFrom: '2026-03-01',
-    pricingMethod: 'FIXED',
-    fixedAmount: 95,
-    applyServiceMultiplier: false,
-    applyVehicleSurcharge: false,
-    notes: 'Flat $95 per Direct run regardless of distance. Other services use the group card.'
-  }),
-  createEmptyRateCard({
-    id: 'rc_westcoast_hourly',
-    name: 'West Coast Cold — Dedicated Hourly',
-    code: 'WCCS-HOURLY',
-    status: 'ACTIVE',
-    scope: 'CUSTOMER',
-    customerId: 'cust-4',
-    effectiveFrom: '2026-01-01',
-    pricingMethod: 'HOURLY',
-    hourlyClockStart: 'Arrival at first pickup',
-  hourlyClockStop: 'Completion of final delivery',
-  hourlyIncludesHandling: true,
-  hourlyIncludesWaiting: true,
-  hourlySettleActual: true,
-  hourlyRate: 85,
-    minimumBillableMinutes: 120,
-    billingIncrementMinutes: 30,
-    applyVehicleSurcharge: false,
-    notes: 'Dedicated reefer route. Estimated at booking, settled on actual hours at completion.'
-  }),
-  createEmptyRateCard({
-    id: 'rc_org_2025',
-    name: 'Standard (2025)',
-    code: 'STD-2025',
-    status: 'ARCHIVED',
-    scope: 'ORGANIZATION',
-    effectiveFrom: '2025-01-01',
-    effectiveTo: '2025-12-31',
-    baseFee: 18,
-    includedKm: 5,
-    kmRate: 1.4,
-    minimumFreight: 30,
-    notes: 'Superseded by Standard on 2026-01-01. Kept for historical orders.'
-  })
+  createEmptyRateCard({ id: 'rc_org_standard', name: 'Standard', code: 'STD', scope: 'ORGANIZATION', effectiveFrom: '2026-01-01', baseFee: 20, includedKm: 5, kmRate: 1.5 }),
+  createEmptyRateCard({ id: 'rc_medical_group', name: 'Medical & Pharma', code: 'MED', effectiveFrom: '2026-01-01', baseFee: 28, includedKm: 8, kmRate: 1.6 }),
+  createEmptyRateCard({ id: 'rc_pacific_fresh', name: 'Pacific Fresh Contract', code: 'PFL-2026', effectiveFrom: '2026-01-01', pricingMethod: 'ZONE', zoneRates: PACIFIC_FRESH_ZONE_RATES.map(rate => ({ ...rate, id: `pfl_${rate.originZoneId}_${rate.destinationZoneId}` })), discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' } }),
+  createEmptyRateCard({ id: 'rc_nordic_direct', name: 'Nordic Bio — Direct Fixed', code: 'NBH-DIRECT', effectiveFrom: '2026-03-01', pricingMethod: 'FIXED', fixedAmount: 95 }),
+  createEmptyRateCard({ id: 'rc_westcoast_hourly', name: 'West Coast Cold — Dedicated Hourly', code: 'WCCS-HOURLY', effectiveFrom: '2026-01-01', pricingMethod: 'HOURLY', hourlyRate: 85, minimumBillableMinutes: 120, billingIncrementMinutes: 30 }),
+  createEmptyRateCard({ id: 'rc_org_2025', name: 'Standard (2025)', code: 'STD-2025', status: 'ARCHIVED', effectiveFrom: '2025-01-01', baseFee: 18, includedKm: 5, kmRate: 1.4 })
 ];
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
@@ -249,17 +144,33 @@ const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 export const INITIAL_PRICING_CONFIG: PricingConfig = {
   rateCards: INITIAL_RATE_CARDS,
   zones: INITIAL_ZONES,
-  zoneRates: INITIAL_ZONE_RATES,
-  customerGroups: INITIAL_CUSTOMER_GROUPS
+  zoneRates: [],
+  customerGroups: []
 };
 
 const hasRoutineTimeSettings = (card: Partial<RateCard>): boolean =>
   ['BASE_PLUS_DISTANCE', 'ZONE'].includes(card.pricingMethod ?? 'BASE_PLUS_DISTANCE') &&
   ((card.minuteRate ?? 0) !== 0 || (card.includedMinutes ?? 0) !== 0);
 
-/** Retire obsolete routine time rates; saved quote contexts remain untouched. */
-const normaliseCard = (stored: Partial<RateCard>): RateCard => {
-  const card = {
+/** One price per origin → destination; service-specific rows collapse onto their pair. */
+const normaliseZoneRates = (rates: ZoneRate[]): ZoneRate[] => {
+  const byPair = new Map<string, ZoneRate>();
+  for (const rate of rates) {
+    const key = `${rate.originZoneId}→${rate.destinationZoneId}`;
+    const current = byPair.get(key);
+    if (!current || (current.serviceId && !rate.serviceId)) byPair.set(key, rate);
+  }
+  return [...byPair.values()].map(rate => rate.serviceId ? { ...rate, serviceId: null } : rate);
+};
+
+/** V1 cards are flat: every card applies to every service, vehicle and customer, with no background contract terms. */
+const isSimple = (card: RateCard): boolean =>
+  card.status !== 'DRAFT' && card.scope !== 'CUSTOMER' && card.serviceId === null && card.customerId === null && card.currency === loadBillingConfig().invoicing.currency &&
+  (Object.keys(RATE_CARD_BACKGROUND_DEFAULTS) as (keyof typeof RATE_CARD_BACKGROUND_DEFAULTS)[]).every(key => JSON.stringify(card[key]) === JSON.stringify(RATE_CARD_BACKGROUND_DEFAULTS[key]));
+
+/** Retire obsolete routine time rates and background contract terms; saved quote contexts remain untouched. */
+const normaliseCard = (stored: Partial<RateCard>, standardZoneRates: ZoneRate[] = []): RateCard => {
+  const base: RateCard = {
     ...createEmptyRateCard(),
     ...stored,
     serviceOverrides: stored.serviceOverrides || {},
@@ -267,30 +178,58 @@ const normaliseCard = (stored: Partial<RateCard>): RateCard => {
     accessorialRateOverrides: stored.accessorialRateOverrides || {},
     discount: { ...NO_DISCOUNT, ...(stored.discount || {}) }
   };
-  return hasRoutineTimeSettings(card)
-    ? { ...card, minuteRate: 0, includedMinutes: 0, version: card.version + 1, updatedAt: new Date().toISOString() }
-    : card;
+  const card = { ...base };
+  // Every zone card owns its prices; cards that inherited the organization matrix take a copy of it.
+  if (card.pricingMethod === 'ZONE' && card.zoneMatrixMode !== 'CONTRACT') card.zoneRates = standardZoneRates.map(rate => ({ ...rate, id: `${card.id}_${rate.originZoneId}_${rate.destinationZoneId}` }));
+  // V1 discounts: None / Percentage / Fixed on freight only; legacy INHERIT and subtotal scopes collapse to that.
+  card.discount = { ...card.discount, type: card.discount.type === 'INHERIT' ? 'NONE' : card.discount.type, scope: 'TRANSPORT_ONLY' };
+  // Move inherited organization minimums onto cards; frozen quote contexts stay untouched.
+  if (stored.minimumOrderSubtotal == null) card.minimumOrderSubtotal = card.applyOrderMinimum === false ? 0 : loadBillingConfig().rules.minimumChargePerJob;
+  delete card.customerGroupId;
+  if (hasRoutineTimeSettings(card)) Object.assign(card, { minuteRate: 0, includedMinutes: 0 });
+  card.zoneRates = normaliseZoneRates(card.zoneRates ?? []);
+  if (!isSimple(card)) {
+    Object.assign(card, RATE_CARD_BACKGROUND_DEFAULTS, {
+      status: card.status === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE',
+      scope: card.scope === 'ORGANIZATION' ? 'ORGANIZATION' : 'ORDER',
+      serviceId: null, customerId: null, currency: loadBillingConfig().invoicing.currency
+    });
+  }
+  // One version bump per migration so historical PricingSnapshots stay pinned to the old version.
+  if (JSON.stringify(card) !== JSON.stringify(base)) Object.assign(card, { version: base.version + 1, updatedAt: new Date().toISOString() });
+  return card;
 };
+
+/** Exactly one active Default card: the first active organization card keeps the role; later ones become selectable cards. */
+const normaliseDefault = (cards: RateCard[]): RateCard[] => {
+  let found = false;
+  const next = cards.map(card => {
+    if (card.status !== 'ACTIVE' || card.scope !== 'ORGANIZATION') return card;
+    if (found) return { ...card, scope: 'ORDER' as const, version: card.version + 1, updatedAt: new Date().toISOString() };
+    found = true;
+    return card;
+  });
+  if (!found) {
+    const first = next.findIndex(card => card.status === 'ACTIVE');
+    if (first >= 0) next[first] = { ...next[first], scope: 'ORGANIZATION', version: next[first].version + 1, updatedAt: new Date().toISOString() };
+  }
+  return next;
+};
+
 
 export const loadPricingConfig = (): PricingConfig => {
   try {
     const raw = localStorage.getItem(PRICING_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PricingConfig> & { schemaVersion?: number };
-      if (!parsed.schemaVersion) {
-        for (const entry of [...(parsed.rateCards ?? []), ...(parsed.customerGroups ?? [])]) {
-          if (entry.discount?.type === 'NONE') entry.discount.type = 'INHERIT';
-        }
-      }
+      const zoneRates = normaliseZoneRates(Array.isArray(parsed.zoneRates) ? parsed.zoneRates : []);
       const config: PricingConfig = {
-        rateCards: Array.isArray(parsed.rateCards) ? parsed.rateCards.map(normaliseCard) : clone(INITIAL_RATE_CARDS),
         zones: Array.isArray(parsed.zones) ? parsed.zones : clone(INITIAL_ZONES),
-        zoneRates: Array.isArray(parsed.zoneRates) ? parsed.zoneRates : clone(INITIAL_ZONE_RATES),
-        customerGroups: Array.isArray(parsed.customerGroups)
-          ? parsed.customerGroups
-          : clone(INITIAL_CUSTOMER_GROUPS)
+        zoneRates,
+        rateCards: normaliseDefault(Array.isArray(parsed.rateCards) ? parsed.rateCards.map(card => normaliseCard(card, zoneRates)) : clone(INITIAL_RATE_CARDS)),
+        customerGroups: []
       };
-      if ((parsed.schemaVersion ?? 0) < 3 || parsed.rateCards?.some(hasRoutineTimeSettings)) {
+      if ((parsed.schemaVersion ?? 0) < PRICING_SCHEMA_VERSION || JSON.stringify(config.rateCards) !== JSON.stringify(parsed.rateCards) || parsed.customerGroups?.length) {
         savePricingConfig(config);
       }
       return config;
@@ -303,7 +242,7 @@ export const loadPricingConfig = (): PricingConfig => {
 
 export const savePricingConfig = (config: PricingConfig): void => {
   try {
-    localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify({ ...config, rateCards: config.rateCards.map(normaliseCard), schemaVersion: 3 }));
+    localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify({ ...config, customerGroups: [], rateCards: normaliseDefault(config.rateCards.map(card => normaliseCard(card, config.zoneRates))), zoneRates: normaliseZoneRates(config.zoneRates), schemaVersion: PRICING_SCHEMA_VERSION }));
   } catch {
     // Storage unavailable — settings stay in memory.
   }

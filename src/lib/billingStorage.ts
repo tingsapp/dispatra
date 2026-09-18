@@ -41,6 +41,8 @@ export const INITIAL_TAX_PROFILES: TaxProfileConfig[] = [
 ];
 
 export const INITIAL_BILLING_CONFIG: BillingConfig = {
+  destinationTaxRates: {},
+  company: { name: 'Dispatra Logistics', address: '', phone: '', email: '', logoDataUrl: '' },
   general: {
     timeZone: 'America/Vancouver',
     distanceUnit: 'km',
@@ -48,8 +50,6 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
     dimensionUnit: 'cm',
     dimensionalPricingEnabled: true,
     dimensionalDivisor: 5000,
-    defaultWaitFreeMinutes: 15,
-    defaultWaitIncrementMinutes: 5,
     defaultIncludedStops: 2,
     defaultExtraStopRate: 10
   },
@@ -64,7 +64,7 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
   },
   taxProfiles: INITIAL_TAX_PROFILES,
   serviceCharge: {
-    enabled: false,
+    enabled: true,
     label: 'Service Fee',
     mode: 'percentage',
     percent: 5,
@@ -92,18 +92,16 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
     },
     driverCostPerHour: 31.5,
     averageMinutesPerStop: 12,
-    fixedCostPerStop: 2.4,
-    overheadPercent: 14,
-    targetGrossMarginPercent: 35
+    fixedCostPerStop: 0,
+    overheadPercent: 14
   },
   rules: {
     minimumChargePerJob: 24,
-    minimumBillableKm: 0,
-    distanceRoundingKm: 0.5,
-    moneyRounding: 'none'
+    minimumBillableKm: 0
   },
   dispatch: {
-    maxActiveOrdersPerDriver: 3
+    maxActiveOrdersPerDriver: 3,
+    hubAddress: '1055 W Georgia St, Vancouver, BC'
   }
 };
 
@@ -114,23 +112,29 @@ const withDefaults = (stored: Partial<BillingConfig> | null): BillingConfig => {
   const base = clone(INITIAL_BILLING_CONFIG);
   if (!stored) return base;
   return {
+    destinationTaxRates: { ...base.destinationTaxRates, ...(stored.destinationTaxRates || {}) },
+    company: { ...base.company, ...(stored.company || {}) },
     general: { ...base.general, ...(stored.general || {}) },
     invoicing: { ...base.invoicing, ...(stored.invoicing || {}) },
     taxProfiles:
       Array.isArray(stored.taxProfiles) && stored.taxProfiles.length
         ? stored.taxProfiles
         : base.taxProfiles,
-    serviceCharge: { ...base.serviceCharge, ...(stored.serviceCharge || {}) },
-    fuelSurcharge: { ...base.fuelSurcharge, ...(stored.fuelSurcharge || {}) },
+    serviceCharge: { ...base.serviceCharge, ...(stored.serviceCharge || {}), label: base.serviceCharge.label, basis: 'transport_and_accessorials', mode: stored.serviceCharge?.mode === 'flat' ? 'flat' : 'percentage' },
+    fuelSurcharge: { ...base.fuelSurcharge, ...(stored.fuelSurcharge || {}), label: base.fuelSurcharge.label },
     operatingCost: {
       ...base.operatingCost,
-      ...(stored.operatingCost || {}),
-      costPerKmByVehicleId: {
-        ...base.operatingCost.costPerKmByVehicleId,
-        ...((stored.operatingCost && stored.operatingCost.costPerKmByVehicleId) || {})
-      }
+      ...Object.fromEntries(Object.entries(stored.operatingCost || {}).filter(([key]) => key !== 'targetGrossMarginPercent')),
+      // A vehicle type without an entry uses the default cost; seed values must not resurrect a cleared one.
+      costPerKmByVehicleId: stored.operatingCost?.costPerKmByVehicleId ?? base.operatingCost.costPerKmByVehicleId,
+      // V1 has no per-stop consumables line; driver time already covers handling.
+      fixedCostPerStop: 0
     },
-    rules: { ...base.rules, ...(stored.rules || {}) },
+    rules: {
+      minimumChargePerJob: stored.rules?.minimumChargePerJob ?? base.rules.minimumChargePerJob,
+      // Retired organization distance floor does not apply to new quotes.
+      minimumBillableKm: 0
+    },
     dispatch: { ...base.dispatch, ...(stored.dispatch || {}) }
   };
 };

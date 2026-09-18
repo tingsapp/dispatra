@@ -1,3 +1,5 @@
+import type { CanadianProvince } from '../lib/taxAddress';
+
 // Organization-wide billing, tax, and operating-cost settings.
 //
 // These are the modifiers that apply to EVERY quote, as opposed to
@@ -58,23 +60,21 @@ export interface OperatingCostSettings {
   costPerKmByVehicleId: Record<string, number>;
   driverCostPerHour: number;
   averageMinutesPerStop: number;
+  /** Legacy per-stop consumables; fixed at 0 in V1 and kept only for stored estimates. */
   fixedCostPerStop: number;
   /** Overhead allocated as a % of direct cost. */
   overheadPercent: number;
-  /** Quotes below this estimated margin are flagged in the Order price breakdown. */
-  targetGrossMarginPercent: number;
 }
 
 export interface BillingRules {
+  /** Legacy inheritance only: migrated onto active rate cards; retained for frozen quotes. */
   minimumChargePerJob: number;
+  /** Legacy frozen quote floor. Active organization settings always load 0. */
   minimumBillableKm: number;
-  /** Round distance up to this increment. 0 disables rounding. */
-  distanceRoundingKm: number;
-  moneyRounding: 'none' | 'nearest_05' | 'nearest_25' | 'nearest_1';
 }
 
 /**
- * Organization-wide defaults (Pricing → General). Every value here is a
+ * Organization-wide defaults (Pricing → Extras). Every value here is a
  * fallback: a Rate Card may override any of them for its own customers.
  */
 export interface OrganizationDefaults {
@@ -86,10 +86,6 @@ export interface OrganizationDefaults {
   dimensionalPricingEnabled: boolean;
   /** Volumetric divisor (e.g. 5000 cm³/kg) used to derive dimensional weight. */
   dimensionalDivisor: number;
-  /** Minutes of waiting included before wait-time charges start. */
-  defaultWaitFreeMinutes: number;
-  /** Billing increment for wait time beyond the free allowance. */
-  defaultWaitIncrementMinutes: number;
   /** Stops included in every order (typically 1 pickup + 1 drop-off). */
   defaultIncludedStops: number;
   /** Charge per stop beyond the included count. */
@@ -97,11 +93,13 @@ export interface OrganizationDefaults {
 }
 
 export interface InvoicingSettings {
+  /** Legacy stored value; new destination tax always applies regardless of registration. */
+  taxRegistrationStatus?: 'UNCONFIRMED' | 'REGISTERED' | 'NOT_REGISTERED';
   currency: 'CAD' | 'USD';
   /** Tax profile applied unless a customer overrides it. */
   defaultTaxProfileId: string;
   taxRegistrationNumber: string;
-  /** When true, quoted prices already contain tax and it is back-calculated. */
+  /** Legacy quote context only. New quotes always add tax to the subtotal. */
   pricesIncludeTax: boolean;
   defaultPaymentTerms: 'COD' | 'NET15' | 'NET30' | 'NET45';
   quoteValidityDays: number;
@@ -111,9 +109,24 @@ export interface InvoicingSettings {
 /** Assignment policy. Never read by the pricing engine — it does not change customer price. */
 export interface DispatchSettings {
   maxActiveOrdersPerDriver: number;
+  /** V1 runs one origin hub: the depot routes start from and return to. */
+  hubAddress: string;
+}
+
+/** Who the organization is, as shown on invoices and customer communication. */
+export interface CompanyDetails {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  /** Data URL of the invoice logo; empty means none. */
+  logoDataUrl: string;
 }
 
 export interface BillingConfig {
+  /** Saved province rate overrides; absent entries use the supplied defaults. */
+  destinationTaxRates: Partial<Record<CanadianProvince, number | null>>;
+  company: CompanyDetails;
   general: OrganizationDefaults;
   dispatch: DispatchSettings;
   invoicing: InvoicingSettings;

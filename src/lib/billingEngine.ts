@@ -5,28 +5,12 @@ import { BillingConfig } from '../types/billing';
 
 const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
-export const roundMoney = (amount: number, rule: BillingConfig['rules']['moneyRounding']): number => {
-  switch (rule) {
-    case 'nearest_05':
-      return round2(Math.round(amount * 20) / 20);
-    case 'nearest_25':
-      return round2(Math.round(amount * 4) / 4);
-    case 'nearest_1':
-      return round2(Math.round(amount));
-    default:
-      return round2(amount);
-  }
-};
+/** Monetary amounts are always rounded to the nearest cent. */
+export const roundMoney = (amount: number): number => round2(amount);
 
-/** Round distance up to the configured increment, then apply the billable floor. */
-export const applyDistanceRules = (distanceKm: number, config: BillingConfig): number => {
-  const { distanceRoundingKm, minimumBillableKm } = config.rules;
-  let km = distanceKm;
-  if (distanceRoundingKm > 0) {
-    km = Math.ceil(km / distanceRoundingKm) * distanceRoundingKm;
-  }
-  return round2(Math.max(km, minimumBillableKm));
-};
+/** Use hundredths of a kilometre and retain the configured billable floor. */
+export const applyDistanceRules = (distanceKm: number, config: BillingConfig): number =>
+  round2(Math.max(distanceKm, config.rules.minimumBillableKm));
 
 /** Effective fuel-surcharge percentage, resolving the index-pegged mode. */
 export const resolveFuelPercent = (config: BillingConfig): number => {

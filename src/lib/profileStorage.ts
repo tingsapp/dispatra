@@ -3,14 +3,9 @@ export interface UserProfile {
   email: string;
   phone: string;
   role: string;
-  organization: string;
-  hub: string;
-  organizationId: string;
   employeeId?: string;
-  timezone: string;
   avatarInitials: string;
   avatarUrl?: string;
-  orgLogoUrl?: string;
   defaultMapMode: 'map' | 'satellite';
   telemetryThresholdMinutes: number;
   enableSoundAlerts: boolean;
@@ -25,11 +20,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   email: 'support@tingsapp.com',
   phone: '+1 (604) 555-0192',
   role: 'Senior Dispatcher & Logistics Ops',
-  organization: 'Dispatra Logistics BC',
-  hub: 'Metro Vancouver Origin Hub (#01 - 1055 W Georgia St, Vancouver)',
-  organizationId: 'ORG-8842',
   employeeId: 'ORG-8842',
-  timezone: 'America/Vancouver (PT, UTC-7)',
   avatarInitials: 'SK',
   defaultMapMode: 'map',
   telemetryThresholdMinutes: 5,
@@ -47,8 +38,9 @@ export function loadUserProfile(): UserProfile {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      const organizationId = parsed.organizationId || parsed.employeeId || DEFAULT_USER_PROFILE.organizationId;
-      return { ...DEFAULT_USER_PROFILE, ...parsed, organizationId };
+      // Organization-level fields (name, hub, time zone, logo) moved to Organization Settings → Company; drop stale copies.
+      const { organization: _org, hub: _hub, organizationId: _orgId, timezone: _tz, orgLogoUrl: _logo, ...personal } = parsed;
+      return { ...DEFAULT_USER_PROFILE, ...personal };
     }
   } catch (err) {
     console.warn('Could not load profile from localStorage:', err);

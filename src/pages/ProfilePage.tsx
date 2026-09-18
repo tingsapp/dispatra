@@ -1,32 +1,28 @@
-import React, { useState, useRef } from 'react';
 import {
-  ArrowLeft,
-  User,
-  Mail,
-  Phone,
-  Building,
-  MapPin,
-  Shield,
-  Bell,
-  Sliders,
-  Check,
-  RotateCcw,
-  Key,
-  Laptop,
-  CheckCircle2,
-  Clock,
-  Navigation,
-  Camera,
-  Upload,
-  Image as ImageIcon,
-  Trash2,
-  Hash
+Building,
+Camera,
+Check,
+CheckCircle2,
+Clock,
+Hash,
+Image as ImageIcon,
+Laptop,
+Mail,
+MapPin,
+Phone,
+RotateCcw,
+Shield,
+Sliders,
+Trash2,
+User
 } from 'lucide-react';
+import React,{ useRef,useState } from 'react';
+import { PageHeader } from '../components/layout/PageHeader';
 import {
-  UserProfile,
-  loadUserProfile,
-  saveUserProfile,
-  resetUserProfile
+UserProfile,
+loadUserProfile,
+resetUserProfile,
+saveUserProfile
 } from '../lib/profileStorage';
 
 interface ProfilePageProps {
@@ -44,9 +40,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   // File upload refs & drag states
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
-  const orgLogoInputRef = useRef<HTMLInputElement | null>(null);
   const [isAvatarDragging, setIsAvatarDragging] = useState(false);
-  const [isOrgLogoDragging, setIsOrgLogoDragging] = useState(false);
 
   // Password fields state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -85,18 +79,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     if (avatarInputRef.current) avatarInputRef.current.value = '';
   };
 
-  const handleOrgLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processImageFile(file, (dataUrl) => {
-        setProfile((prev) => ({ ...prev, orgLogoUrl: dataUrl }));
-        setIsSaved(false);
-        onNotification?.('Organization & Hub logo updated. Click "Save Profile" to persist.');
-      });
-    }
-    if (orgLogoInputRef.current) orgLogoInputRef.current.value = '';
-  };
-
   const handleAvatarDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsAvatarDragging(false);
@@ -110,29 +92,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
-  const handleOrgLogoDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsOrgLogoDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processImageFile(file, (dataUrl) => {
-        setProfile((prev) => ({ ...prev, orgLogoUrl: dataUrl }));
-        setIsSaved(false);
-        onNotification?.('Organization & Hub logo updated via drag-and-drop');
-      });
-    }
-  };
-
   const handleRemoveAvatar = () => {
     setProfile((prev) => ({ ...prev, avatarUrl: undefined }));
     setIsSaved(false);
     onNotification?.('Removed custom logo. Reverted to default monogram.');
-  };
-
-  const handleRemoveOrgLogo = () => {
-    setProfile((prev) => ({ ...prev, orgLogoUrl: undefined }));
-    setIsSaved(false);
-    onNotification?.('Removed custom organization logo.');
   };
 
   const handleTextChange = (field: keyof UserProfile, val: any) => {
@@ -180,39 +143,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={onBackToMonitor}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-            title="Return to Monitor Map"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span>Back to Monitor</span>
-          </button>
-
-          <div className="h-4 w-px bg-slate-200" />
-
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
-              <User className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold text-slate-900 leading-tight flex items-center gap-2">
-                My Profile
-                <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full border border-slate-200">
-                  {profile.role}
-                </span>
-              </h1>
-              <p className="text-[11px] text-slate-500 leading-tight">
-                Manage your dispatcher credentials, operating hub, and monitor display preferences.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <PageHeader title="My Profile" description="Your account details, notification and display preferences." onBackToMonitor={onBackToMonitor} actions={<>
           <button
             type="button"
             onClick={handleReset}
@@ -239,11 +170,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <span>Save Profile</span>
             )}
           </button>
-        </div>
-      </header>
+      </>} />
 
       {/* SUB-NAVIGATION TABS */}
-      <div className="h-12 bg-white border-b border-slate-200/90 px-6 flex items-center gap-2 shrink-0 overflow-x-auto">
+      <div className="page-content h-12 bg-white flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveSection('details')}
@@ -285,7 +215,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       </div>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-y-auto p-6 space-y-6">
+      <main className="page-content flex-1 overflow-y-auto py-6 space-y-6">
         {/* SECTION 1: PERSONAL & HUB DETAILS */}
         {activeSection === 'details' && (
           <div className="space-y-6">
@@ -349,20 +279,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </div>
                   <p className="text-xs text-slate-500 flex items-center gap-2">
                     <span>{profile.role}</span>
-                    <span>•</span>
-                    <span>Organization ID: {profile.organizationId}</span>
                   </p>
 
                   <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => avatarInputRef.current?.click()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 rounded-md border border-slate-200/80 transition-colors"
-                    >
-                      <Upload className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Upload logo</span>
-                    </button>
-
                     {profile.avatarUrl && (
                       <button
                         type="button"
@@ -376,7 +295,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     )}
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Supports PNG, JPG, or SVG (max 3MB). Drag and drop or click to replace.
+                    Click or drop an image on the avatar to change it. PNG, JPG or SVG, max 3MB.
                   </p>
                 </div>
               </div>
@@ -385,7 +304,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             {/* Profile Form */}
             <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-5">
               <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-3">
-                Contact & Station Information
+                Contact Information
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -446,154 +365,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                    Organization
-                  </label>
-                  <div className="relative">
-                    <Building className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      value={profile.organization}
-                      onChange={(e) => handleTextChange('organization', e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                    Organization ID
-                  </label>
-                  <div className="relative">
-                    <Hash className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      value={profile.organizationId}
-                      onChange={(e) => handleTextChange('organizationId', e.target.value)}
-                      placeholder="e.g. ORG-8842"
-                      className="w-full pl-9 pr-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                    Timezone
-                  </label>
-                  <div className="relative">
-                    <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      disabled
-                      value={profile.timezone}
-                      className="w-full pl-9 pr-3 py-2 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                    Active Operating Origin / Dispatch Hub
-                  </label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      value={profile.hub}
-                      onChange={(e) => handleTextChange('hub', e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    V1 operates on a single active origin hub model per route. Pickup routes start from this central station.
-                  </p>
-                </div>
-
-                {/* Organization & Hub Brand Logo Uploader */}
-                <div className="sm:col-span-2 pt-4 border-t border-slate-100">
-                  <div className="mb-2">
-                    <label className="block text-xs font-semibold text-slate-900">
-                      Organization & Hub Logo
-                    </label>
-                    <p className="text-[11px] text-slate-500">
-                      Official station brand emblem displayed on reports, dispatch manifests, and customer tracking headers.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 p-4 bg-slate-50/70 rounded-xl border border-slate-200/80">
-                    {/* Logo Dropzone / Box */}
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDragEnter={() => setIsOrgLogoDragging(true)}
-                      onDragLeave={() => setIsOrgLogoDragging(false)}
-                      onDrop={handleOrgLogoDrop}
-                      onClick={() => orgLogoInputRef.current?.click()}
-                      className={`relative w-36 h-20 rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer transition-colors bg-white overflow-hidden shrink-0 group select-none ${
-                        isOrgLogoDragging
-                          ? 'border-slate-900 bg-slate-50 ring-4 ring-slate-900/10'
-                          : 'border-slate-300 hover:border-slate-400'
-                      }`}
-                      title="Click or drag and drop logo image"
-                    >
-                      {profile.orgLogoUrl ? (
-                        <img
-                          src={profile.orgLogoUrl}
-                          alt={profile.organization}
-                          className="w-full h-full object-contain p-1.5"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center text-slate-400 p-2 text-center">
-                          <ImageIcon className="w-6 h-6 text-slate-400 mb-1" />
-                          <span className="text-[10px] font-medium text-slate-600">Dispatra Hub</span>
-                        </div>
-                      )}
-
-                      {/* Hover Overlay */}
-                      <div className="absolute inset-0 bg-slate-900/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Camera className="w-4 h-4 mb-0.5 text-white" />
-                        <span className="text-[10px] font-medium">Change</span>
-                      </div>
-                    </div>
-
-                    <input
-                      ref={orgLogoInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleOrgLogoFileSelect}
-                      className="hidden"
-                    />
-
-                    <div className="space-y-2 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => orgLogoInputRef.current?.click()}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shadow-2xs"
-                        >
-                          <Upload className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Upload logo</span>
-                        </button>
-
-                        {profile.orgLogoUrl && (
-                          <button
-                            type="button"
-                            onClick={handleRemoveOrgLogo}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Remove</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <p className="text-[11px] text-slate-400">
-                        Supports SVG, PNG, or JPG (transparent background recommended, max 3MB).
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

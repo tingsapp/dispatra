@@ -2,7 +2,7 @@
 
 User-supplied requirements for the pricing revision. Implementation evidence and known limitations are recorded in [state.md](state.md).
 
-**Keep the overall structure. Simplify normal delivery pricing, fix the calculation errors, and make contract overrides explicit.** Time should support dispatch planning and cost estimates; customer time charges should apply only to waiting or an explicitly hourly contract.
+**Preserve calculation rules and make contract overrides explicit.** The September 18 interface decision supersedes the earlier navigation: four settings destinations (Company, Services & Dispatch, Pricing, Billing), a flat rate-card list with one Default card, one method per card, and a single flat rate-card form (name, rates, method terms, Minimum Charge, Discount). Every card applies to every service, vehicle and customer; dispatch attaches a card to each customer and the order pre-selects it. Contract overrides below remain calculation rules with V1 background values; they are not exposed in the rate-card editor and stored cards are normalised to them on load. Time should support dispatch planning and cost estimates; customer time charges should apply only to waiting or an explicitly hourly contract.
 
 The following is the final recommended specification. Business rules below are proposed defaults; they are not changes already made to the app.
 
@@ -18,9 +18,9 @@ Keep these organization-wide settings:
 - Dimensional pricing and divisor.
 - Included stops and extra-stop rate.
 - Default waiting allowance and billing increment.
-- Minimum order subtotal.
-- Minimum billable distance.
-- Money and distance rounding.
+
+
+Money is automatically rounded to the nearest cent and billable distance to 0.01 km. These are system rules, not editable organization preferences. Unit conversions retain their precision; waiting/hourly billing increments and minimums remain separate contract terms.
 
 **Fix unit conversion.** Store calculations consistently in kilometres, kilograms and centimetres. Convert values when displaying or accepting miles, pounds and inches. Changing units must preserve the underlying distance, weight or dimensional-weight calculation.
 
@@ -100,7 +100,6 @@ Every automatically generated accessorial should show why it was applied.
 Rename:
 
 - **Company Service Charge → Admin / Dispatch Fee**
-- **Target Gross Margin → Target Estimated Margin**
 - **Gross Profit → Estimated Profit**
 
 Keep the Admin / Dispatch Fee as a customer charge with:
@@ -115,9 +114,9 @@ Keep the Admin / Dispatch Fee as a customer charge with:
 
 The fee is revenue; it does not represent the company’s actual profit.
 
-Keep the margin target as a warning for existing pricing methods. Do not automatically increase a negotiated price to meet the target.
+Per the September 17 user decision, remove the margin target from settings, calculations and order displays. Estimated profit and margin remain informational, without target comparisons, warnings or target-based colours.
 
-If cost-based selling is needed later, add it as a separate rate-card method. Do not silently change the meaning of the margin target.
+If cost-based selling is needed later, add it as a separate rate-card method.
 
 ## 6. Fix internal costs and tax-inclusive margin
 
@@ -137,7 +136,6 @@ Internal cost settings should retain:
 - Average handling minutes per stop.
 - Fixed handling cost per stop.
 - Overhead percentage.
-- Target estimated margin.
 
 Respect zero vehicle-cost overrides.
 
@@ -182,7 +180,7 @@ Recommended default: apply the order minimum after contract discounts and permit
 
 Example: a $100 order minimum with a 20% discount still produces a $100 subtotal excluding tax.
 
-Allow a contract to explicitly override or waive the organization minimum. Do not make a discount implicitly waive it.
+Each rate card owns its Minimum Charge; 0 disables it. New cards start at 0, and existing inherited amounts migrate onto their cards. General has no minimum controls or active minimum-distance floor. Do not make a discount implicitly waive a card minimum.
 
 Discount controls should offer:
 
@@ -193,7 +191,7 @@ Discount controls should offer:
 
 Use this precedence:
 
-**Customer → rate card → customer group → no discount.**
+**Customer → rate card → no discount.**
 
 At each level, **Inherit** continues the search and **No discount** stops it. Apply one inherited contract discount; do not stack them automatically.
 
@@ -213,8 +211,7 @@ Each matrix entry should identify:
 
 - Origin zone.
 - Destination zone.
-- Optional service restriction.
-- Price.
+- Price. (Service pricing comes from the service multiplier, not per-service zone rows.)
 
 Expose service-specific entries in the editor if the engine supports them.
 
@@ -243,7 +240,7 @@ For imported freight, include controls for:
 - Fuel surcharge.
 - Admin / Dispatch Fee.
 - Contract discount.
-- Organization minimum.
+- Rate-card minimum charge.
 
 Any service-multiplier control shown for imported pricing must actually affect the calculation as documented.
 

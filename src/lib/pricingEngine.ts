@@ -1,3 +1,4 @@
+import { DestinationTaxDecision, resolveDestinationTax, taxDestinationKey } from './destinationTax';
 // Shared commercial pricing. Canonical units: km, kg, cm. Snapshots retain quoted terms.
 import { BillingConfig, ChargeGroup, TaxProfileConfig, TaxRate } from '../types/billing';
 import {
@@ -9,7 +10,6 @@ import {
 import {
   ChargeLine,
   CostEstimate,
-  CustomerGroup,
   Discount,
   PricingConfig,
   PricingError,
@@ -26,7 +26,7 @@ import { Customer } from './customerStorage';
 import { organizationTime } from './organizationWorkflows';
 import { applyDistanceRules, resolveFuelPercent, roundMoney } from './billingEngine';
 
-export const PRICING_ENGINE_VERSION = 'client-static-v2';
+export const PRICING_ENGINE_VERSION = 'client-static-v5-simple-cards';
 
 export interface PricingContext {
   billing: BillingConfig;
@@ -35,6 +35,7 @@ export interface PricingContext {
   customers: Customer[];
   /** Pricing date — defaults to now. Drives effective-date filtering. */
   asOf?: Date;
+  destinationTax?: DestinationTaxDecision;
 }
 
 const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -51,124 +52,35 @@ interface ResolutionResult {
   error: PricingError | null;
 }
 
-const isEffective = (card: RateCard, asOf: Date): boolean => {
-  const day = asOf.toISOString().slice(0, 10);
-  if (card.effectiveFrom && card.effectiveFrom > day) return false;
-  if (card.effectiveTo && card.effectiveTo < day) return false;
-  return true;
-};
+const explainIneligible = (card: RateCard): string | null => card.status === 'ACTIVE' ? null : 'Card is archived';
 
-/** Higher = more specific. Service + vehicle beats service, beats vehicle, beats neither. */
-const specificity = (card: RateCard): number =>
-  (card.serviceId ? 2 : 0) + (card.vehicleId ? 1 : 0);
-
-const explainIneligible = (card: RateCard, order: PricingOrderInput, asOf: Date): string | null => {
-  if (card.status !== 'ACTIVE') return `Card is ${card.status.toLowerCase()}`;
-  if (!isEffective(card, asOf)) return 'Outside effective dates';
-  if (card.serviceId && card.serviceId !== order.serviceId) return 'Different service';
-  if (card.vehicleId && card.vehicleId !== order.vehicleId) return 'Different vehicle';
-  return null;
-};
+/** The organization's Default card: the one card every order falls back to. */
+export const defaultRateCard = (cards: RateCard[]): RateCard | undefined =>
+  cards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
 
 /**
- * Precedence: explicit override → customer-specific → customer group →
- * organization service-specific → organization default. Within a level the
- * eligible card selected on the customer/group profile wins. Otherwise the
- * most specific service/vehicle combination wins; equal specificity and
- * priority is a conflict that needs attention.
+ * Precedence: card chosen on the order → card attached to the customer → Default.
+ * Every card applies to every service and vehicle; there are no priorities or conflicts.
  */
 export const resolveRateCard = (order: PricingOrderInput, ctx: PricingContext): ResolutionResult => {
-  const asOf = ctx.asOf ?? new Date();
   const candidates: RateCardCandidate[] = [];
   const customer = order.customerId ? ctx.customers.find((c) => c.id === order.customerId) : undefined;
-  const group: CustomerGroup | undefined = customer?.customerGroupId
-    ? ctx.pricing.customerGroups.find((g) => g.id === customer.customerGroupId)
-    : undefined;
-
-  if (order.rateCardOverrideId) {
-    const card = ctx.pricing.rateCards.find((c) => c.id === order.rateCardOverrideId);
-    if (card) {
-      const reason = explainIneligible(card, order, asOf);
-      candidates.push({ id: card.id, name: card.name, source: 'OVERRIDE', eligible: !reason, reason: reason ?? 'Explicit override' });
-      return { card: reason ? null : card, source: 'OVERRIDE', candidates, error: reason ? { code: 'INVALID_CONFIGURATION', message: reason } : null };
-    }
-    return { card: null, source: 'OVERRIDE', candidates, error: { code: 'NO_RATE_CARD', message: 'The selected override card no longer exists.' } };
+  if (order.rateCardOverrideId && !ctx.pricing.rateCards.some((c) => c.id === order.rateCardOverrideId)) {
+    return { card: null, source: 'OVERRIDE', candidates, error: { code: 'NO_RATE_CARD', message: 'The selected Rate Card no longer exists.' } };
   }
-
-  const levels: { source: RateCardSource; cards: RateCard[]; assignedCardId?: string | null }[] = [
-    {
-      source: 'CUSTOMER',
-      assignedCardId: customer?.rateCardId,
-      cards: customer
-        ? ctx.pricing.rateCards.filter(
-            (c) =>
-              c.scope === 'CUSTOMER' &&
-              (c.customerId === customer.id || c.id === customer.rateCardId)
-          )
-        : []
-    },
-    {
-      source: 'CUSTOMER_GROUP',
-      assignedCardId: group?.rateCardId,
-      cards: group
-        ? ctx.pricing.rateCards.filter(
-            (c) =>
-              c.scope === 'CUSTOMER_GROUP' &&
-              (c.customerGroupId === group.id || c.id === group.rateCardId)
-          )
-        : []
-    },
-    {
-      source: 'ORGANIZATION_SERVICE',
-      cards: ctx.pricing.rateCards.filter((c) => c.scope === 'ORGANIZATION' && c.serviceId)
-    },
-    {
-      source: 'ORGANIZATION_DEFAULT',
-      cards: ctx.pricing.rateCards.filter((c) => c.scope === 'ORGANIZATION' && !c.serviceId)
-    }
+  const levels: { source: RateCardSource; label: string; card: RateCard | undefined }[] = [
+    { source: 'OVERRIDE', label: 'Chosen on order', card: ctx.pricing.rateCards.find((c) => c.id === order.rateCardOverrideId) },
+    { source: 'CUSTOMER', label: 'Attached to customer', card: ctx.pricing.rateCards.find((c) => c.id === customer?.rateCardId) },
+    { source: 'ORGANIZATION_DEFAULT', label: 'Default', card: defaultRateCard(ctx.pricing.rateCards) }
   ];
-
-  for (const level of levels) {
-    const eligible: RateCard[] = [];
-    for (const card of level.cards) {
-      const why = explainIneligible(card, order, asOf);
-      candidates.push({
-        id: card.id,
-        name: card.name,
-        source: level.source,
-        eligible: !why,
-        reason: why ?? (card.id === level.assignedCardId ? 'Selected on customer / group profile' : 'Eligible')
-      });
-      if (!why) eligible.push(card);
-    }
-    if (!eligible.length) continue;
-
-    const assigned = eligible.find(card => card.id === level.assignedCardId);
-    if (assigned) return { card: assigned, source: level.source, candidates, error: null };
-
-    eligible.sort((a, b) => specificity(b) - specificity(a) || b.priority - a.priority);
-    const best = eligible[0];
-    const rival = eligible[1];
-    if (rival && specificity(rival) === specificity(best) && rival.priority === best.priority) {
-      return {
-        card: null,
-        source: level.source,
-        candidates,
-        error: {
-          code: 'RATE_CARD_CONFLICT',
-          message: `"${best.name}" and "${rival.name}" both apply at the same level and priority. Set a priority or narrow one card.`
-        }
-      };
-    }
-    return { card: best, source: level.source, candidates, error: null };
+  for (const { source, label, card } of levels) {
+    if (!card) continue;
+    const reason = explainIneligible(card);
+    candidates.push({ id: card.id, name: card.name, source, eligible: !reason, reason: reason ?? label });
+    if (!reason) return { card, source, candidates, error: null };
+    if (source === 'OVERRIDE') return { card: null, source, candidates, error: { code: 'INVALID_CONFIGURATION', message: reason } };
   }
-
-  return {
-    card: null,
-    source: null,
-    candidates,
-    error: { code: 'NO_RATE_CARD', message: 'No active Rate Card applies to this order. Create an organization default card.' }
-  };
+  return { card: null, source: null, candidates, error: { code: 'NO_RATE_CARD', message: 'No Rate Card applies to this order. Set a Default rate card.' } };
 };
 
 // ---------------------------------------------------------------------------
@@ -219,15 +131,10 @@ const isWeekend = (iso: string | null, zone: string): boolean => {
 const ceilToIncrement = (value: number, increment: number): number =>
   increment > 0 ? Math.ceil(value / increment) * increment : value;
 
-/** Contractual discount: customer-level beats card-level beats group-level. */
-const resolveDiscount = (customer: Customer | undefined, card: RateCard, group: CustomerGroup | undefined): Discount | null => {
-  for (const discount of [customer?.discount, card.discount, group?.discount]) {
-    if (!discount || discount.type === 'INHERIT') continue;
-    if (discount.type === 'NONE') return null;
-    return discount;
-  }
-  return null;
-};
+/** Contractual discount: customer-level beats card-level. */
+/** The rate card is the only source of a contract discount; legacy customer-level and INHERIT values are ignored. */
+const resolveDiscount = (card: RateCard): Discount | null =>
+  card.discount && (card.discount.type === 'PERCENT' || card.discount.type === 'FIXED') ? card.discount : null;
 
 const resolveTaxProfile = (customer: Customer | undefined, billing: BillingConfig): TaxProfileConfig | null => {
   const id = customer?.taxProfileId || billing.invoicing.defaultTaxProfileId;
@@ -287,8 +194,9 @@ export const estimateInternalCost = (input: CostInput, billing: BillingConfig, r
   const labour = round2((minutes / 60) * oc.driverCostPerHour);
   costLines.push(line({ key: 'cost_labour', group: 'FREIGHT', label: 'Driver labour', detail: `${minutes} min × ${money(oc.driverCostPerHour)}/hr`, amount: labour }));
 
+  // Legacy per-stop consumables; V1 pins it to 0 so the line only appears on frozen estimates that had one.
   const stopCost = round2(stops * oc.fixedCostPerStop);
-  costLines.push(line({ key: 'cost_stops', group: 'FREIGHT', label: 'Handling per stop', detail: `${stops} stops × ${money(oc.fixedCostPerStop)}`, amount: stopCost }));
+  if (stopCost > 0) costLines.push(line({ key: 'cost_stops', group: 'FREIGHT', label: 'Handling per stop', detail: `${stops} stops × ${money(oc.fixedCostPerStop)}`, amount: stopCost }));
 
   const direct = costLines.reduce((sum, l) => sum + l.amount, 0);
   const overhead = round2((direct * oc.overheadPercent) / 100);
@@ -307,8 +215,7 @@ export const estimateInternalCost = (input: CostInput, billing: BillingConfig, r
     estimatedCost,
     costLines,
     grossProfit,
-    grossMarginPercent,
-    meetsTargetMargin: missingInputs.length === 0 && revenue > 0 && grossMarginPercent >= oc.targetGrossMarginPercent
+    grossMarginPercent
   };
 };
 
@@ -324,15 +231,15 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   const inputs = emptyInputs();
 
   const customer = order.customerId ? ctx.customers.find((c) => c.id === order.customerId) : undefined;
-  const group = customer?.customerGroupId
-    ? ctx.pricing.customerGroups.find((g) => g.id === customer.customerGroupId)
-    : undefined;
   const service: DeliveryService | undefined = catalogue.services.find((s) => s.id === order.serviceId);
   const vehicle: VehicleType | undefined = order.vehicleId
     ? catalogue.vehicles.find((v) => v.id === order.vehicleId)
     : undefined;
-  const taxProfile = resolveTaxProfile(customer, billing);
-  const taxExempt = !!customer?.taxExempt;
+  const automaticTax = order.taxCalculation === 'DESTINATION';
+  const taxCustomer = order.billingCustomerId ? ctx.customers.find(c => c.id === order.billingCustomerId) : customer;
+  const taxDecision = automaticTax ? ctx.destinationTax ?? resolveDestinationTax(order, billing, taxCustomer, ctx.asOf ?? new Date()) : undefined;
+  const taxProfile = automaticTax ? taxDecision?.profile ?? null : resolveTaxProfile(customer, billing);
+  const taxExempt = !automaticTax && !!customer?.taxExempt;
   const ratesFor = (group: ChargeGroup, taxable = true): TaxRate[] =>
     taxExempt || !taxable ? [] : (taxProfile?.taxes ?? []).filter(t => t.active && t.ratePercent > 0 && t.appliesTo.includes(group));
   const netValue = (amount: number, group: ChargeGroup, taxable = true): number =>
@@ -344,7 +251,8 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   const resolutionMode = () => ctx.pricing.rateCards.find(c => c.id === order.rateCardOverrideId)?.importedPriceMode ?? resolvedImportMode;
   let resolvedImportMode: 'FREIGHT' | 'FINAL_TOTAL' = 'FREIGHT';
   const base = (status: PricingSnapshot['status'], extra: Partial<PricingSnapshot> = {}): PricingSnapshot => ({
-    context: structuredClone({ ...ctx, asOf: ctx.asOf ?? new Date() }),
+    context: structuredClone({ ...ctx, asOf: ctx.asOf ?? new Date(), ...(taxDecision ? { destinationTax: taxDecision } : {}) }),
+    taxDecision,
     orderFacts: structuredClone(order),
     quoteExpiresAt: new Date((ctx.asOf ?? new Date()).getTime() + billing.invoicing.quoteValidityDays * 86400000).toISOString(),
     imported: order.importedPrice != null ? { source: order.externalSource, reference: order.externalReference, amount: order.importedPrice, mode: resolutionMode() } : undefined,
@@ -388,7 +296,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   const resolution = resolveRateCard(order, ctx);
   if (!resolution.card) {
     if (resolution.error) errors.push(resolution.error);
-    return base(resolution.error?.code === 'RATE_CARD_CONFLICT' ? 'NEEDS_ATTENTION' : 'UNAVAILABLE', {
+    return base('UNAVAILABLE', {
       candidates: resolution.candidates
     });
   }
@@ -415,6 +323,10 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     return base('NEEDS_ATTENTION', { rateCard: resolved, candidates: resolution.candidates, method: card.pricingMethod });
   }
 
+  if (taxDecision && (taxDecision.error || taxDecision.destinationKey !== taxDestinationKey(order))) {
+    errors.push({ code: 'TAX_REVIEW_REQUIRED', message: taxDecision.error ?? 'Destinations changed from the saved quote. Re-price the order before settlement.' });
+    return base('NEEDS_ATTENTION', { rateCard: resolved, method: card.pricingMethod });
+  }
   if (!taxProfile && !taxExempt && !(card.importedPriceMode === 'FINAL_TOTAL' && ['SUPPLIED', 'EXEMPT'].includes(order.importedTaxTreatment ?? ''))) {
     errors.push({ code: 'INVALID_CONFIGURATION', message: 'The configured customer or organization tax profile is missing. Select a valid profile.' });
     return base('NEEDS_ATTENTION', { rateCard: resolved, method: card.pricingMethod });
@@ -434,8 +346,8 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   const dimEnabled = inherit(card.dimensionalPricingEnabled, billing.general.dimensionalPricingEnabled);
   const dimDivisor = inherit(card.dimensionalDivisor, billing.general.dimensionalDivisor);
   const waitingRule = catalogue.accessorials.find(a => a.active && a.autoRule === 'WAITING_RECORDED');
-  const waitFree = inherit(card.waitFreeMinutes, waitingRule?.freeAllowance ?? billing.general.defaultWaitFreeMinutes);
-  const waitIncrement = inherit(card.waitIncrementMinutes, waitingRule?.incrementMinutes ?? billing.general.defaultWaitIncrementMinutes);
+  const waitFree = inherit(card.waitFreeMinutes, waitingRule?.freeAllowance ?? 0);
+  const waitIncrement = inherit(card.waitIncrementMinutes, waitingRule?.incrementMinutes ?? 0);
   const fuelPercent = billing.fuelSurcharge.enabled
     ? inherit(card.fuelPercent, resolveFuelPercent(billing))
     : 0;
@@ -587,8 +499,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
         return candidates[0];
       };
       for (const { pickup, drop } of movements) {
-        let rate = card.zoneMatrixMode === 'CONTRACT' ? findRate(card.zoneRates ?? [], pickup!.zoneId!, drop.zoneId!) : findRate(ctx.pricing.zoneRates, pickup!.zoneId!, drop.zoneId!);
-        if (!rate && card.zoneMatrixMode === 'CONTRACT' && card.zoneFallbackToOrganization) rate = findRate(ctx.pricing.zoneRates, pickup!.zoneId!, drop.zoneId!);
+        const rate = findRate(card.zoneMatrixMode === 'CONTRACT' ? card.zoneRates ?? [] : ctx.pricing.zoneRates, pickup!.zoneId!, drop.zoneId!);
         if (!rate) { unmatched = true; break; }
         zoneLines.push(line({ key: `zone_${pickup!.id}_${drop.id}`, group: 'FREIGHT', label: 'Zone movement', detail: `${pickup!.label || pickup!.id} → ${drop.label || drop.id}; packages on this movement combined`, amount: round2(rate.amount), fuelEligible: true }));
       }
@@ -665,7 +576,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     const override = card.vehicleSurchargeOverrides[vehicle.id];
     vehicleSurcharge = netAmount(inherit(override, vehicle.baseSurcharge), 'transport');
     if (vehicleSurcharge > 0 || override !== undefined) {
-      lines.push(line({ key: 'vehicle', group: 'VEHICLE', label: 'Vehicle Surcharge', detail: override !== undefined ? `${vehicle.name} — card override` : vehicle.name, amount: vehicleSurcharge, fuelEligible: vehicle.fuelEligible }));
+      lines.push(line({ key: 'vehicle', group: 'VEHICLE', label: 'Vehicle Surcharge', detail: override !== undefined ? `${vehicle.name} (contract rate)` : vehicle.name, amount: vehicleSurcharge, fuelEligible: vehicle.fuelEligible }));
     }
   }
 
@@ -731,8 +642,8 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
           break;
         }
         case 'PER_MINUTE': {
-          const free = acc.autoRule === 'WAITING_RECORDED' ? card.waitFreeMinutes ?? acc.freeAllowance ?? billing.general.defaultWaitFreeMinutes : acc.freeAllowance ?? 0;
-          const increment = acc.autoRule === 'WAITING_RECORDED' ? card.waitIncrementMinutes ?? acc.incrementMinutes ?? billing.general.defaultWaitIncrementMinutes : acc.incrementMinutes ?? 0;
+          const free = acc.autoRule === 'WAITING_RECORDED' ? card.waitFreeMinutes ?? acc.freeAllowance ?? 0 : acc.freeAllowance ?? 0;
+          const increment = acc.autoRule === 'WAITING_RECORDED' ? card.waitIncrementMinutes ?? acc.incrementMinutes ?? 0 : acc.incrementMinutes ?? 0;
           const stopWaits = order.stops.map((s) => Math.max(0, s.waitMinutes)).filter((w) => w > 0);
           if (acc.autoRule === 'WAITING_RECORDED' && acc.appliesAt === 'PER_STOP' && stopWaits.length) {
             // Allowance is per stop: 10 + 30 min waits with 15 free bills 15, not 10.
@@ -779,7 +690,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
       if (amount <= 0 && override === undefined) continue;
 
       accessorialsTotal = round2(accessorialsTotal + amount);
-      lines.push(line({ key: `acc_${acc.id}`, group: 'ACCESSORIAL', label: acc.name, detail: [override !== undefined ? `${detail} (card rate)` : detail, reasons.get(id)].filter(Boolean).join(' · '), quantity: billableQty, unitRate: rate, amount, fuelEligible: acc.fuelEligible, taxable: acc.taxable }));
+      lines.push(line({ key: `acc_${acc.id}`, group: 'ACCESSORIAL', label: acc.name, detail: [override !== undefined ? `${detail} (contract rate)` : detail, reasons.get(id)].filter(Boolean).join(' · '), quantity: billableQty, unitRate: rate, amount, fuelEligible: acc.fuelEligible, taxable: acc.taxable }));
     }
   }
 
@@ -792,7 +703,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   inputs.fuelBase = fuelBase;
   if (applyFuel && fuelPercent > 0 && fuelBase > 0) {
     fuelSurcharge = round2((fuelBase * fuelPercent) / 100);
-    lines.push(line({ key: 'fuel', group: 'FUEL', label: billing.fuelSurcharge.label || 'Fuel Surcharge', detail: `${fuelPercent}% of ${money(fuelBase)}${card.fuelPercent != null ? ' (card rate)' : ''}`, amount: fuelSurcharge, taxable: billing.fuelSurcharge.taxable }));
+    lines.push(line({ key: 'fuel', group: 'FUEL', label: billing.fuelSurcharge.label || 'Fuel Surcharge', detail: `${fuelPercent}% of ${money(fuelBase)}${card.fuelPercent != null ? ' (contract rate)' : ''}`, amount: fuelSurcharge, taxable: billing.fuelSurcharge.taxable }));
   }
 
   // ---- 8. Contract-controlled Admin / Dispatch Fee -------------
@@ -809,7 +720,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
 
   // Contract discounts are net amounts; one resolved discount, never stacked.
   const beforeDiscount = round2(serviceFreight + vehicleSurcharge + fuelSurcharge + accessorialsTotal + companyCharge);
-  const discountRule = card.applyContractDiscount === false ? null : resolveDiscount(customer, card, group);
+  const discountRule = card.applyContractDiscount === false ? null : resolveDiscount(card);
   const discountGroups = discountRule?.scope === 'TRANSPORT_ONLY' ? ['FREIGHT', 'SERVICE', 'MINIMUM', 'VEHICLE'] : ['FREIGHT', 'SERVICE', 'MINIMUM', 'VEHICLE', 'FUEL', 'ACCESSORIAL', 'COMPANY_CHARGE'];
   const eligibleLines = lines.filter(l => discountGroups.includes(l.group));
   const discountBase = round2(eligibleLines.reduce((n, l) => n + l.amount, 0));
@@ -844,7 +755,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
       if (amount) taxLines.push(line({ key: `tax_${tax.id}`, group: 'TAX', label: `${tax.name} (${tax.ratePercent}%)`, detail: `on ${money(taxableBase)} excluding tax`, amount, taxable: false }));
     }
   }
-  const total = roundMoney(subtotal + taxTotal, billing.rules.moneyRounding);
+  const total = roundMoney(subtotal + taxTotal);
   if (errors.length) return base('NEEDS_ATTENTION', { rateCard: resolved, candidates: resolution.candidates, method: effectiveMethod });
   return base('PRICED', {
     rateCard: resolved, candidates: resolution.candidates, method: effectiveMethod,

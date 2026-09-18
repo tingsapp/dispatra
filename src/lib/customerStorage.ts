@@ -16,10 +16,11 @@ export interface Customer extends CustomerOperations {
   /** Invoices are emailed here; falls back to `email`. */
   billingEmail: string;
   // ---- Pricing relationship (see types/pricing.ts) ----
-  /** Customer-specific Rate Card. `null` = inherit from group / organization. */
+  /** Customer-specific Rate Card. `null` = inherit from organization. */
   rateCardId: string | null;
-  customerGroupId: string | null;
-  /** Negotiated discount at customer level; beats card and group discounts. */
+  /** Legacy quote context only; ignored for new pricing. */
+  customerGroupId?: string | null;
+  /** Legacy customer-level discount; V1 prices discounts from the attached rate card only. */
   discount: Discount;
   /** `null` = organization default tax profile. */
   taxProfileId: string | null;
@@ -33,11 +34,10 @@ export interface Customer extends CustomerOperations {
 /** Defaults merged over stored records so older saves pick up new fields. */
 export const EMPTY_PRICING_RELATIONSHIP: Pick<
   Customer,
-  'billingEmail' | 'rateCardId' | 'customerGroupId' | 'discount' | 'taxProfileId' | 'taxExempt'
+  'billingEmail' | 'rateCardId' | 'discount' | 'taxProfileId' | 'taxExempt'
 > = {
   billingEmail: '',
   rateCardId: null,
-  customerGroupId: null,
   discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
   taxProfileId: null,
   taxExempt: false
@@ -58,7 +58,6 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Reefer / Cold Chain', 'Liftgate Required', 'Dock Access'],
     billingEmail: 'ap@pacificfresh.ca',
     rateCardId: 'rc_pacific_fresh',
-    customerGroupId: null,
     discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
@@ -81,7 +80,6 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Temperature Controlled', 'Signature Required', 'Inside Delivery'],
     billingEmail: '',
     rateCardId: 'rc_nordic_direct',
-    customerGroupId: 'grp_medical',
     discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
@@ -104,7 +102,6 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Liftgate Required', 'Pallet Jack', 'Appointment Needed'],
     billingEmail: '',
     rateCardId: null,
-    customerGroupId: 'grp_preferred_retail',
     discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
@@ -127,7 +124,6 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Heavy Cargo (5T)', 'Reefer / Cold Chain', 'Dock Access'],
     billingEmail: '',
     rateCardId: null,
-    customerGroupId: null,
     discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
@@ -150,7 +146,6 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Flatbed / Heavy Lift', 'Jobsite Access', 'Tailgate Assist'],
     billingEmail: '',
     rateCardId: null,
-    customerGroupId: null,
     discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
@@ -173,7 +168,6 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Dock Access', 'High Value Proof-of-Delivery'],
     billingEmail: '',
     rateCardId: null,
-    customerGroupId: null,
     discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
@@ -196,7 +190,6 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Medical Courier', 'Chain of Custody', 'Strict Temperature'],
     billingEmail: '',
     rateCardId: null,
-    customerGroupId: 'grp_medical',
     discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: true,
@@ -219,7 +212,6 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Liftgate Required', 'Commercial Loading Bay'],
     billingEmail: '',
     rateCardId: null,
-    customerGroupId: null,
     discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
@@ -239,7 +231,8 @@ export function loadCustomers(): Customer[] {
       const parsed = JSON.parse(raw);
       const records = Array.isArray(parsed) ? parsed : parsed.customers;
       if (Array.isArray(records)) {
-        return records.map((c: Partial<Customer>) => ({ ...EMPTY_PRICING_RELATIONSHIP, ...c, discount: Array.isArray(parsed) && c.discount?.type === 'NONE' ? { ...c.discount, type: 'INHERIT' } : c.discount ?? EMPTY_PRICING_RELATIONSHIP.discount }) as Customer).map(normalizeCustomer);
+        // Customer-level discounts are retired; the attached rate card carries the contract discount.
+        return records.map((c: Partial<Customer>) => ({ ...EMPTY_PRICING_RELATIONSHIP, ...c, discount: EMPTY_PRICING_RELATIONSHIP.discount }) as Customer).map(normalizeCustomer);
       }
     }
   } catch (err) {
@@ -252,7 +245,8 @@ export function saveCustomers(customers: Customer[]): void {
   localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 2, customers }));
 }
 
-export function normalizeCustomer(c: Customer): Customer {
+export function normalizeCustomer(stored: Customer): Customer {
+  const { customerGroupId: _retiredGroup, ...c } = stored;
   return { customerType: 'BUSINESS', legalName: c.name, currency: 'CAD', paymentTerms: 'INHERIT',
     addresses: c.address ? [{ id: `${c.id}-primary`, type: 'PICKUP', label: 'Primary address', address: [c.address, c.city].filter(Boolean).join(', '), contactName: c.contactName, phone: c.phone }] : [],
     communicationPreferences: { sms: false, email: true, tracking: true }, ...c, status: c.status === 'Preferred' ? 'Active' : c.status,

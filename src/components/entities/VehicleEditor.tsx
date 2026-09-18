@@ -3,7 +3,7 @@ import { VehicleAsset, normalizeVehicle, syncVehicle } from '../../lib/vehicleSt
 import { loadSimplePricingConfig } from '../../lib/simplePricingStorage';
 import { validateVehicle } from '../../domain/validation';
 import { Button } from '../ui/button';
-import { Choice, TextField, NumberField, TagsField, DateField, OptionalFields, ReadFields } from './Fields';
+import { Choice, TextField, NumberField, TagsField, DateField, ReadFields } from './Fields';
 export function VehicleEditor({ vehicle, vehicles, onSave, onCancel }: { vehicle?: VehicleAsset; vehicles: VehicleAsset[]; onSave: (v: VehicleAsset) => void; onCancel: () => void }) {
   const [draft, setDraft] = useState<VehicleAsset>(() => normalizeVehicle(vehicle ?? { id: crypto.randomUUID(), unitNumber: '', plateNumber: '', vin: '', category: '1 Tonne Van', vehicleTypeId: '', makeModel: '', year: new Date().getFullYear(), status: 'available', statusLabel: 'Available', payloadCapacityKg: 0, palletCapacity: 0, hasLiftgate: false, hasReefer: false, fuelType: 'Diesel', fuelBatteryPercent: 0, odometerKm: 0, lastInspectionDate: '', nextServiceKm: 0, createdAt: new Date().toISOString() }));
   const [errors, setErrors] = useState<string[]>([]);
@@ -26,10 +26,9 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel }: { vehicle
       <NumberField label="Cargo height (cm)" value={draft.cargoHeightCm} onChange={cargoHeightCm => patch({ cargoHeightCm })} />
       <NumberField label="Pallet capacity" step="1" value={draft.palletCapacity} onChange={v => patch({ palletCapacity: v ?? 0 })} />
       <TagsField label="Equipment" value={draft.equipment} onChange={equipment => patch({ equipment })} />
-      <TagsField label="Service areas" value={draft.serviceAreaIds} onChange={serviceAreaIds => patch({ serviceAreaIds })} />
     </div>
+    <div className="text-xs text-slate-600 space-y-1"><label htmlFor="vehicle-description">Description</label><textarea id="vehicle-description" rows={2} value={draft.notes ?? ''} onChange={e => patch({ notes: e.target.value })} placeholder="Liftgate, reefer, tie-down rails, licence requirements…" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400" /></div>
     {draft.availability === 'UNAVAILABLE' && <div className="grid sm:grid-cols-2 gap-3"><TextField label="Unavailable reason" value={draft.unavailableReason} required onChange={unavailableReason => patch({ unavailableReason })} /><DateField label="Unavailable from" value={draft.unavailableFrom} onChange={unavailableFrom => patch({ unavailableFrom })} /><DateField label="Unavailable until" value={draft.unavailableUntil} onChange={unavailableUntil => patch({ unavailableUntil })} /></div>}
-    <OptionalFields title="Depot & notes"><TextField label="Home depot" value={draft.homeDepotId} onChange={homeDepotId => patch({ homeDepotId })} /><TextField label="External reference" value={draft.externalReference} onChange={externalReference => patch({ externalReference })} /><TextField label="Operational notes" value={draft.notes} onChange={notes => patch({ notes })} /></OptionalFields>
     {vehicle && <ReadFields values={{ 'Current driver': vehicle.currentDriverName, 'Current route': vehicle.currentRouteId, 'Last location': vehicle.currentLocation }} />}
     {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
     <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={onCancel}>Cancel</Button><Button type="submit">Save vehicle</Button></div>

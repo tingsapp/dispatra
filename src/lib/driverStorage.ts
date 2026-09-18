@@ -4,7 +4,9 @@ export const DRIVER_STORAGE_KEY = 'dispatra_drivers_v1';
 export function normalizeDriver(d: Driver): Driver {
   return { currentVehicleId: loadVehicles().find(v => v.currentDriverId === d.id)?.id ?? null, driverNumber: d.id, accountStatus: 'ACTIVE', dutyStatus: d.status === 'offline' ? 'OFF_DUTY' : 'ON_DUTY',
     workStatus: d.status === 'on_route' ? 'BUSY' : d.status === 'idle' ? 'ON_BREAK' : 'AVAILABLE',
-    skills: [], serviceAreaIds: [], vehicleTypeQualifications: [], availabilitySchedule: [], locationPermissionStatus: 'UNKNOWN', ...d };
+    skills: [], serviceAreaIds: [], vehicleTypeQualifications: [], availabilitySchedule: [], locationPermissionStatus: 'UNKNOWN', ...d,
+    // V1 knows two kinds of driver; legacy temporary records count as employees.
+    employmentType: d.employmentType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE' };
 }
 export function syncDriver(d: Driver): Driver {
   const status = d.accountStatus === 'INACTIVE' || d.dutyStatus === 'OFF_DUTY' ? 'offline' : d.workStatus === 'BUSY' ? 'on_route' : d.workStatus === 'ON_BREAK' ? 'idle' : 'available';

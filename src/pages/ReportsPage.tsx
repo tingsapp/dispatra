@@ -1,29 +1,18 @@
-import React, { useState, useMemo } from 'react';
 import {
-  ArrowLeft,
-  BarChart2,
-  Download,
-  Calendar,
-  Clock,
-  TrendingUp,
-  CheckCircle2,
-  AlertTriangle,
-  FileText,
-  Search,
-  Truck,
-  DollarSign,
-  Package,
-  Layers,
-  Printer,
-  ChevronDown
+AlertTriangle,
+CheckCircle2,
+Clock,
+Download,
+Printer
 } from 'lucide-react';
-import { Select } from '../components/ui/Select';
+import { useMemo,useState } from 'react';
+import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
+import { Select } from '../components/ui/Select';
 import {
-  AUDIT_LOG_ITEMS,
-  SEVEN_DAYS_PERFORMANCE,
-  HOURLY_VOLUMES,
-  AuditLogItem
+AUDIT_LOG_ITEMS,
+HOURLY_VOLUMES,
+SEVEN_DAYS_PERFORMANCE
 } from '../lib/reportStorage';
 
 interface ReportsPageProps {
@@ -103,35 +92,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
       {/* TOP BAR */}
-      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBackToMonitor}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-            title="Return to Monitor Map"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span>Back to Monitor</span>
-          </button>
-
-          <div className="h-4 w-px bg-slate-200" />
-
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
-              <BarChart2 className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold text-slate-900 leading-tight">
-                Operational Reports & SLA Analytics
-              </h1>
-              <p className="text-[11px] text-slate-500 leading-tight">
-                On-time compliance, hourly dispatch throughput, driver utilization, and billing audits
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <PageHeader title="Reports" description="Delivery performance, driver utilization and billing summaries." onBackToMonitor={onBackToMonitor} actions={<>
           {/* Date Range Selector */}
           <div className="inline-flex bg-slate-50 p-0.5 border border-slate-200 rounded-lg text-xs font-medium">
             <button
@@ -176,11 +137,10 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
           </button>
-        </div>
-      </header>
+      </>} />
 
       {/* BODY CONTENT */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-content flex-1 overflow-y-auto py-6">
         <div className="space-y-6">
           {/* TOP KPI PERFORMANCE TILES */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

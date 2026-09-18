@@ -1,35 +1,26 @@
-import { useEntityDialog } from '../components/entities/useEntityDialog';
-import { CustomerFields, CustomerDetails } from '../components/entities/CustomerFields';
-import { validateCustomer } from '../domain/validation';
-import { Job } from '../types';
-import React, { useState, useMemo } from 'react';
 import {
-  ArrowLeft,
-  Building2,
-  Search,
-  Plus,
-  Phone,
-  Mail,
-  MapPin,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  ExternalLink,
-  Edit2,
-  Trash2,
-  X,
-  Sparkles,
-  ShieldCheck,
-  Package,
-  Layers,
-  Filter
+AlertTriangle,
+Building2,
+Edit2,
+ExternalLink,
+Filter,
+MapPin,
+Package,
+Phone,
+Plus,
+Trash2,
+X
 } from 'lucide-react';
-import { Customer, EMPTY_PRICING_RELATIONSHIP, loadCustomers, saveCustomers } from '../lib/customerStorage';
-import { loadPricingConfig } from '../lib/pricingStorage';
-import { loadBillingConfig } from '../lib/billingStorage';
-import { DiscountScope, DiscountType } from '../types/pricing';
-import { Select } from '../components/ui/Select';
+import React,{ useMemo,useState } from 'react';
+import { useEntityDialog } from '../components/entities/useEntityDialog';
+import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
+import { Select } from '../components/ui/Select';
+import { validateCustomer } from '../domain/validation';
+import { confirmDialog } from '../components/ui/ConfirmDialog';
+import { Customer,EMPTY_PRICING_RELATIONSHIP,loadCustomers,saveCustomers } from '../lib/customerStorage';
+import { loadPricingConfig } from '../lib/pricingStorage';
+import { Job } from '../types';
 
 interface CustomersPageProps {
   jobs?: Job[];
@@ -47,18 +38,13 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [customers, setCustomers] = useState<Customer[]>(() => loadCustomers());
   // Pricing lookups for the relationship section — read-only here, edited under Organization Settings.
   const [pricing] = useState(() => loadPricingConfig());
-  const [billing] = useState(() => loadBillingConfig());
-  const customerCards = useMemo(
-    () => pricing.rateCards.filter((c) => c.scope === 'CUSTOMER' && c.status !== 'ARCHIVED'),
-    [pricing.rateCards]
-  );
-  const cardName = (id: string | null) => pricing.rateCards.find((c) => c.id === id)?.name ?? null;
-  const groupName = (id: string | null) => pricing.customerGroups.find((g) => g.id === id)?.name ?? null;
-  const taxProfileName = (id: string | null) =>
-    billing.taxProfiles.find((p) => p.id === (id ?? billing.invoicing.defaultTaxProfileId))?.name ?? 'Default';
+  const customerCards = useMemo(() => pricing.rateCards.filter((c) => c.status === 'ACTIVE'), [pricing.rateCards]);
+  const defaultCard = pricing.rateCards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
+  const defaultCardName = defaultCard?.name ?? 'Default';
+  // A deleted card no longer names the customer's pricing; the Default applies.
+  const cardName = (id: string | null) => customerCards.find((c) => c.id === id)?.name ?? null;
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | Customer['status']>('ALL');
-  const [typeFilter, setTypeFilter] = useState<string>('ALL');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -81,18 +67,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     ...EMPTY_PRICING_RELATIONSHIP
   });
 
-  const availableRequirements = [
-    'Reefer / Cold Chain',
-    'Liftgate Required',
-    'Dock Access',
-    'Inside Delivery',
-    'Signature Required',
-    'Pallet Jack',
-    'Temperature Controlled',
-    'High Value Proof-of-Delivery',
-    'Flatbed / Heavy Lift'
-  ];
-
   // Filtering
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
@@ -105,11 +79,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         c.email.toLowerCase().includes(searchQuery.toLowerCase()) || [...(c.tags ?? []), ...(c.addresses ?? []).map(a => a.address)].join(' ').toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
-      const matchesType = typeFilter === 'ALL' || c.accountType === typeFilter;
-
-      return matchesSearch && matchesStatus && matchesType;
+      return matchesSearch && matchesStatus;
     });
-  }, [customers, searchQuery, statusFilter, typeFilter]);
+  }, [customers, searchQuery, statusFilter]);
 
   const activeOrderCount = (id: string) => jobs.filter(j => j.customerId === id && j.status !== 'completed').length;
   const persistCustomers = (next: Customer[]) => { try { saveCustomers(next); setCustomers(next); return true; } catch { onNotification?.('Customer changes could not be saved in this browser.'); return false; } };
@@ -119,23 +91,21 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     const total = customers.length;
     const activeWithJobs = customers.filter((c) => activeOrderCount(c.id) > 0).length;
     const totalActiveJobs = customers.reduce((sum, c) => sum + activeOrderCount(c.id), 0);
-    const preferred = customers.filter((c) => c.tags?.includes('Preferred')).length;
     const onHold = customers.filter((c) => c.status === 'On Hold').length;
-    return { total, activeWithJobs, totalActiveJobs, preferred, onHold };
+    return { total, activeWithJobs, totalActiveJobs, onHold };
   }, [customers, jobs]);
 
   const handleOpenAddModal = () => {
     setEditingCustomer(null);
-    const nextNum = Math.floor(1000 + Math.random() * 9000);
     setFormData({
       name: '',
-      code: `CUST-${nextNum}`,
+      customerType: 'BUSINESS',
       contactName: '',
       email: '',
       phone: '',
       address: '',
       city: 'Vancouver, BC',
-      accountType: 'Scheduled Contract',
+      accountType: 'Standard Freight',
       status: 'Active',
       defaultRequirements: [],
       notes: '',
@@ -157,7 +127,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       return;
     }
 
-    const errors = validateCustomer(formData, customers, editingCustomer?.id);
+    // The account code is assigned in the background; the API will own it later.
+    const code = formData.code || editingCustomer?.code || `CUST-${Math.floor(1000 + Math.random() * 9000)}`;
+    const errors = validateCustomer({ ...formData, code }, customers, editingCustomer?.id);
     if (errors.length) { onNotification?.(errors.join(" ")); return; }
     if (editingCustomer) {
       // Update
@@ -168,7 +140,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               ...formData,
               updatedAt: new Date().toISOString(),
               name: formData.name!.trim(),
-              code: formData.code || c.code
+              code
             } as Customer)
           : c
       );
@@ -180,7 +152,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         ...formData,
         updatedAt: new Date().toISOString(),
         id: `cust-${Date.now()}`,
-        code: formData.code || `CUST-${Math.floor(1000 + Math.random() * 9000)}`,
+        code,
         name: formData.name!.trim(),
         contactName: formData.contactName || '',
         email: formData.email || '',
@@ -191,9 +163,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         status: formData.status as any || 'Active',
         defaultRequirements: formData.defaultRequirements || [],
         billingEmail: formData.billingEmail || '',
-        rateCardId: formData.rateCardId ?? null,
-        customerGroupId: formData.customerGroupId ?? null,
-        discount: formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount,
+        rateCardId: formData.rateCardId ?? defaultCard?.id ?? null,
+        discount: EMPTY_PRICING_RELATIONSHIP.discount,
         taxProfileId: formData.taxProfileId ?? null,
         taxExempt: !!formData.taxExempt,
         totalShipments: 0,
@@ -209,26 +180,15 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     setIsModalOpen(false);
   };
 
-  const handleDeleteCustomer = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete customer "${name}"?`)) {
-      const updated = customers.filter((c) => c.id !== id);
-      if (!persistCustomers(updated)) return;
-      if (selectedCustomerForView?.id === id) {
-        setSelectedCustomerForView(null);
-      }
-      onNotification?.(`Removed customer "${name}".`);
+  const handleDeleteCustomer = async (id: string, name: string) => {
+    const linked = jobs.filter(j => j.customerId === id).length;
+    if (!(await confirmDialog({ title: `Delete customer "${name}"?`, message: linked ? `${linked} order${linked === 1 ? '' : 's'} reference this customer; they keep their saved details but lose the link. This cannot be undone.` : 'This removes the customer account and its saved details. This cannot be undone.', confirmLabel: 'Delete customer', tone: 'danger' }))) return;
+    const updated = customers.filter((c) => c.id !== id);
+    if (!persistCustomers(updated)) return;
+    if (selectedCustomerForView?.id === id) {
+      setSelectedCustomerForView(null);
     }
-  };
-
-  const toggleRequirement = (req: string) => {
-    setFormData((prev) => {
-      const current = prev.defaultRequirements || [];
-      if (current.includes(req)) {
-        return { ...prev, defaultRequirements: current.filter((r) => r !== req) };
-      } else {
-        return { ...prev, defaultRequirements: [...current, req] };
-      }
-    });
+    onNotification?.(`Removed customer "${name}".`);
   };
 
   useEntityDialog(!!selectedCustomerForView || isModalOpen, () => { setSelectedCustomerForView(null); setIsModalOpen(false); });
@@ -236,35 +196,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBackToMonitor}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-            title="Return to Monitor Map"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span>Back to Monitor</span>
-          </button>
-
-          <div className="h-4 w-px bg-slate-200" />
-
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
-              <Building2 className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold text-slate-900 leading-tight">
-                Customers Directory
-              </h1>
-              <p className="text-[11px] text-slate-500 leading-tight">
-                Commercial shipper accounts, origin/delivery addresses, accessorial requirements & dispatch profiles
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <PageHeader title="Customers" description="Customer accounts, contacts and the rate card each one is priced on." onBackToMonitor={onBackToMonitor} actions={<>
           <button
             type="button"
             onClick={handleOpenAddModal}
@@ -273,11 +205,10 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             <Plus className="w-3.5 h-3.5" />
             <span>New Customer</span>
           </button>
-        </div>
-      </header>
+      </>} />
 
       {/* BODY CONTENT */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
         {/* STATS OVERVIEW CARDS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
@@ -305,15 +236,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
             <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Preferred accounts</span>
-              <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-emerald-600">{stats.preferred}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Customers tagged Preferred</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
               <span>On Hold</span>
               <AlertTriangle className="w-4 h-4 text-amber-500" />
             </div>
@@ -327,24 +249,11 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search customers by company, code, contact name, address, or email..."
+            placeholder="Search customers by name, contact, address, or email..."
           />
 
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <Select
-              aria-label="Filter by account type"
-              value={typeFilter}
-              onValueChange={setTypeFilter}
-              align="end"
-              options={[
-                { value: 'ALL', label: 'All Account Types' },
-                { value: 'Enterprise', label: 'Enterprise' },
-                { value: 'Scheduled Contract', label: 'Scheduled Contract' },
-                { value: 'Express / On-Demand', label: 'Express / On-Demand' },
-                { value: 'Standard Freight', label: 'Standard Freight' }
-              ]}
-            />
             <Select
               aria-label="Filter by status"
               value={statusFilter}
@@ -365,10 +274,10 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide uppercase">
-                  <th className="py-3 px-4">Customer / Code</th>
+                  <th className="py-3 px-4">Customer</th>
                   <th className="py-3 px-4">Contact</th>
-                  <th className="py-3 px-4">Address / Service Area</th>
-                  <th className="py-3 px-4">Contract Tier & Accessorials</th>
+                  <th className="py-3 px-4">Address</th>
+                  <th className="py-3 px-4">Rate Card</th>
                   <th className="py-3 px-4 text-center">Active Orders</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
@@ -400,8 +309,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                             <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
                               {customer.name}
                             </div>
-                            <div className="text-[11px] font-mono text-slate-400">
-                              {customer.code}
+                            <div className="text-[11px] text-slate-400">
+                              {customer.customerType === 'INDIVIDUAL' ? 'Individual' : 'Business'}
                             </div>
                           </div>
                         </div>
@@ -427,34 +336,11 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                         <div className="text-[11px] text-slate-400 pl-5">{customer.city}</div>
                       </td>
 
-                      {/* Tier & Accessorials */}
+                      {/* Rate card */}
                       <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                            {customer.accountType}
-                          </span>
-                          {(cardName(customer.rateCardId) || groupName(customer.customerGroupId)) && (
-                            <span
-                              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                              title="Pricing relationship"
-                            >
-                              {cardName(customer.rateCardId) ?? groupName(customer.customerGroupId)}
-                            </span>
-                          )}
-                          {customer.defaultRequirements.slice(0, 2).map((req) => (
-                            <span
-                              key={req}
-                              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200/60"
-                            >
-                              {req}
-                            </span>
-                          ))}
-                          {customer.defaultRequirements.length > 2 && (
-                            <span className="text-[10px] text-slate-400">
-                              +{customer.defaultRequirements.length - 2}
-                            </span>
-                          )}
-                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                          {cardName(customer.rateCardId) ?? `${defaultCardName} (Default)`}
+                        </span>
                       </td>
 
                       {/* Active Orders */}
@@ -563,11 +449,10 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   {selectedCustomerForView.status}
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                  {selectedCustomerForView.accountType}
+                  {selectedCustomerForView.customerType === 'INDIVIDUAL' ? 'Individual' : 'Business'}
                 </span>
               </div>
 
-              <CustomerDetails customer={selectedCustomerForView} />
               <div className="p-4 border rounded-xl text-xs space-y-2"><h4 className="font-semibold">Order history</h4>{jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-slate-500">No linked orders yet.</p>}{jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => <button key={j.id} className="block text-blue-700 text-left" onClick={() => onSelectJob?.(j.jobNumber)}>{j.jobNumber} · {j.statusLabel} · {j.invoicePreview ? 'Invoice preview available' : 'No invoice'}</button>)}</div>
               {/* Contact Information */}
               <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
@@ -620,62 +505,16 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <div className="flex items-center justify-between text-slate-600">
                     <span className="text-slate-400">Rate Card:</span>
                     <span className="font-semibold text-slate-900">
-                      {cardName(selectedCustomerForView.rateCardId) ??
-                        (selectedCustomerForView.customerGroupId
-                          ? `Inherits from group`
-                          : 'Organization default')}
+                      {cardName(selectedCustomerForView.rateCardId) ?? `Default (${defaultCardName})`}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Customer Group:</span>
-                    <span className="font-semibold text-slate-900">
-                      {groupName(selectedCustomerForView.customerGroupId) ?? '—'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Contract Discount:</span>
-                    <span className="font-semibold text-slate-900">
-                      {['NONE', 'INHERIT'].includes(selectedCustomerForView.discount.type)
-                        ? (selectedCustomerForView.discount.type === 'INHERIT' ? 'Inherit' : 'No discount')
-                        : `${
-                            selectedCustomerForView.discount.type === 'PERCENT'
-                              ? `${selectedCustomerForView.discount.value}%`
-                              : `$${selectedCustomerForView.discount.value.toFixed(2)}`
-                          } ${selectedCustomerForView.discount.scope === 'TRANSPORT_ONLY' ? 'on transport' : 'on subtotal'}`}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Tax:</span>
-                    <span className="font-semibold text-slate-900">
-                      {selectedCustomerForView.taxExempt
-                        ? 'Tax exempt'
-                        : taxProfileName(selectedCustomerForView.taxProfileId)}
-                    </span>
-                  </div>
+
                   <div className="flex items-center justify-between text-slate-600">
                     <span className="text-slate-400">Billing Email:</span>
                     <span className="font-medium text-slate-900 truncate max-w-[60%]">
                       {selectedCustomerForView.billingEmail || selectedCustomerForView.email}
                     </span>
                   </div>
-                </div>
-              </div>
-
-              {/* Default Accessorials & SLAs */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
-                  Required Accessorials & Protocol
-                </h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedCustomerForView.defaultRequirements.map((req) => (
-                    <span
-                      key={req}
-                      className="px-2.5 py-1 text-xs rounded-lg font-medium bg-blue-50 text-blue-700 border border-blue-200/80 flex items-center gap-1"
-                    >
-                      <CheckCircle2 className="w-3 h-3 text-blue-500" />
-                      {req}
-                    </span>
-                  ))}
                 </div>
               </div>
 
@@ -760,9 +599,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             </div>
 
             <form onSubmit={handleSaveCustomer} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              <CustomerFields value={formData} onChange={setFormData} />
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
+                <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">
                     Company / Customer Name *
                   </label>
@@ -777,21 +615,19 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Account / Code
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="CUST-1000"
-                    value={formData.code || ''}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 font-mono"
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Customer Type</label>
+                  <Select
+                    aria-label="Customer type"
+                    className="w-full"
+                    value={formData.customerType ?? 'BUSINESS'}
+                    onValueChange={(v) => setFormData({ ...formData, customerType: v as Customer['customerType'] })}
+                    options={[{ value: 'BUSINESS', label: 'Business' }, { value: 'INDIVIDUAL', label: 'Individual' }]}
                   />
                 </div>
 
-                <div>
+                <div className="col-span-2">
                   <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Primary Contact Name
+                    Contact Name
                   </label>
                   <input
                     type="text"
@@ -854,25 +690,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Account Tier
-                  </label>
-                  <Select
-                    aria-label="Account tier"
-                    className="w-full"
-                    value={formData.accountType || 'Enterprise'}
-                    onValueChange={(v) => setFormData({ ...formData, accountType: v as any })}
-                    options={[
-                      { value: 'Enterprise', label: 'Enterprise' },
-                      { value: 'Scheduled Contract', label: 'Scheduled Contract' },
-                      { value: 'Express / On-Demand', label: 'Express / On-Demand' },
-                      { value: 'Standard Freight', label: 'Standard Freight' }
-                    ]}
-                  />
-                </div>
-
-                <div>
+                {editingCustomer && <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">
                     Status
                   </label>
@@ -886,7 +704,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                             { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }
                     ]}
                   />
-                </div>
+                </div>}
               </div>
 
               {/* Pricing relationship */}
@@ -896,7 +714,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     Pricing Relationship
                   </span>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Resolution: customer card → group card → organization default. Leave blank to inherit.
+                    Sets this customer's prices. New orders start on it; dispatch can change it per order.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -905,150 +723,28 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     <Select
                       aria-label="Customer rate card"
                       className="w-full"
-                      value={formData.rateCardId ?? ''}
+                      value={formData.rateCardId ?? defaultCard?.id ?? ''}
                       onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })}
-                      options={[
-                        { value: '', label: 'Inherit (group / organization)' },
-                        ...customerCards.map((c) => ({ value: c.id, label: `${c.name} (${c.pricingMethod.replace(/_/g, ' ').toLowerCase()})` }))
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Customer Group</label>
-                    <Select
-                      aria-label="Customer group"
-                      className="w-full"
-                      value={formData.customerGroupId ?? ''}
-                      onValueChange={(v) => setFormData({ ...formData, customerGroupId: v || null })}
-                      options={[
-                        { value: '', label: 'No group' },
-                        ...pricing.customerGroups.map((g) => ({ value: g.id, label: g.name }))
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Contract Discount</label>
-                    <div className="flex gap-1.5">
-                      <Select
-                        aria-label="Discount type"
-                        className="w-28 shrink-0"
-                        value={formData.discount?.type ?? 'NONE'}
-                        onValueChange={(v) =>
-                          setFormData({
-                            ...formData,
-                            discount: { ...(formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount), type: v as DiscountType }
-                          })
-                        }
-                        options={[
-                          { value: 'INHERIT', label: 'Inherit' },
-                          { value: 'NONE', label: 'No discount — block inheritance' },
-                          { value: 'PERCENT', label: 'Percent' },
-                          { value: 'FIXED', label: 'Fixed $' }
-                        ]}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.5}
-                        disabled={['NONE', 'INHERIT'].includes(formData.discount?.type ?? 'INHERIT')}
-                        value={formData.discount?.value ?? 0}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            discount: {
-                              ...(formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount),
-                              value: Math.max(0, Number(e.target.value) || 0)
-                            }
-                          })
-                        }
-                        className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-400"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Discount Applies To</label>
-                    <Select
-                      aria-label="Discount scope"
-                      className="w-full"
-                      disabled={['NONE', 'INHERIT'].includes(formData.discount?.type ?? 'INHERIT')}
-                      value={formData.discount?.scope ?? 'TRANSPORT_ONLY'}
-                      onValueChange={(v) =>
-                        setFormData({
-                          ...formData,
-                          discount: { ...(formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount), scope: v as DiscountScope }
-                        })
-                      }
-                      options={[
-                        { value: 'TRANSPORT_ONLY', label: 'Transport only' },
-                        { value: 'SUBTOTAL', label: 'Whole subtotal' }
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Tax Profile</label>
-                    <Select
-                      aria-label="Tax profile"
-                      className="w-full"
-                      disabled={!!formData.taxExempt}
-                      value={formData.taxProfileId ?? ''}
-                      onValueChange={(v) => setFormData({ ...formData, taxProfileId: v || null })}
-                      options={[
-                        { value: '', label: `Organization default (${taxProfileName(null)})` },
-                        ...billing.taxProfiles.map((p) => ({ value: p.id, label: p.name }))
-                      ]}
+                      options={customerCards.map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))}
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">Billing Email</label>
                     <input
                       type="email"
-                      placeholder="Defaults to work email"
+                      placeholder="Defaults to the email above"
                       value={formData.billingEmail || ''}
                       onChange={(e) => setFormData({ ...formData, billingEmail: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                     />
+                    <p className="text-[11px] text-slate-500 mt-1">Where invoices and quotes are sent.</p>
                   </div>
-                </div>
-                <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!formData.taxExempt}
-                    onChange={(e) => setFormData({ ...formData, taxExempt: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer"
-                  />
-                  Tax exempt — no tax lines on this customer's quotes and invoices
-                </label>
-              </div>
-
-              {/* Default Accessorial Requirements */}
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-2">
-                  Default Accessorials / Requirements
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {availableRequirements.map((req) => {
-                    const isSelected = formData.defaultRequirements?.includes(req);
-                    return (
-                      <button
-                        type="button"
-                        key={req}
-                        onClick={() => toggleRequirement(req)}
-                        className={`px-2.5 py-1 text-xs rounded-md border transition-all ${
-                          isSelected
-                            ? 'bg-blue-600 text-white border-blue-600 font-medium'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {req}
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Dispatch & Receiving Instructions (Optional)
+                  Dispatch & Receiving Instructions
                 </label>
                 <textarea
                   rows={2}

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "node --import tsx tests/pricing.test.ts && node --import tsx tests/datePickers.test.ts && node --import tsx tests/entities.test.ts && node --import tsx tests/entityForms.test.ts",
+    "test": "node --import tsx tests/pricing.test.ts && node --import tsx tests/datePickers.test.ts && node --import tsx tests/entities.test.ts && node --import tsx tests/entityForms.test.ts && node --import tsx tests/settings.test.ts && node --import tsx tests/destinationTax.test.ts",
     "generate:api": "openapi-typescript ../api/openapi.json -o src/portal/schema.d.ts",
     "test:portal": "node tests/portal.e2e.mjs"
   },

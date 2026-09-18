@@ -30,7 +30,6 @@ export function validateOrderFacts(input: PricingOrderInput): string[] {
     if (pickup < 0 || drop <= pickup || !input.stops[drop].pickupIds?.includes(p.pickupStopId!)) errors.push(`Item ${i + 1}: link its pickup and later delivery, including the supplying pickup.`);
   });
   errors.push(...windowErrors(input.scheduledAt, input.scheduledEndAt, 'Service window'));
-  if (input.rateCardOverrideId && !input.overrideReason?.trim()) errors.push('Enter a reason for the rate card override.');
   if (input.adjustments.some(a => !a.reason.trim() || !Number.isFinite(a.amount))) errors.push('Every price adjustment needs a valid amount and reason.');
   return errors;
 }

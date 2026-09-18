@@ -1,22 +1,16 @@
-import React, { useState } from 'react';
 import {
-  ArrowLeft,
-  Search,
-  HelpCircle,
-  PhoneCall,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Send,
-  LifeBuoy,
-  FileText,
-  Keyboard,
-  Compass,
-  Truck,
-  ShieldCheck,
-  AlertTriangle,
-  RotateCcw
+CheckCircle2,
+ChevronDown,
+ChevronUp,
+FileText,
+HelpCircle,
+Keyboard,
+PhoneCall,
+Search,
+Send
 } from 'lucide-react';
+import React,{ useState } from 'react';
+import { PageHeader } from '../components/layout/PageHeader';
 import { Select } from '../components/ui/Select';
 
 interface HelpSupportPageProps {
@@ -128,39 +122,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={onBackToMonitor}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-            title="Return to Monitor Map"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span>Back to Monitor</span>
-          </button>
-
-          <div className="h-4 w-px bg-slate-200" />
-
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
-              <LifeBuoy className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold text-slate-900 leading-tight flex items-center gap-2">
-                Help & Support
-                <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full border border-slate-200">
-                  Operations Desk
-                </span>
-              </h1>
-              <p className="text-[11px] text-slate-500 leading-tight">
-                Standard operating procedures, troubleshooting guides, and urgent dispatch escalation.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <PageHeader title="Help & Support" description="Operational guides, troubleshooting and support." onBackToMonitor={onBackToMonitor} actions={<>
           <a
             href="tel:18005553477"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
@@ -168,11 +130,10 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
             <PhoneCall className="w-3.5 h-3.5 text-slate-500" />
             <span>Hotline: 1-800-555-DISP</span>
           </a>
-        </div>
-      </header>
+      </>} />
 
       {/* MAIN CONTAINER */}
-      <main className="flex-1 overflow-y-auto p-6 space-y-6">
+      <main className="page-content flex-1 overflow-y-auto py-6 space-y-6">
         {/* SYSTEM STATUS BANNER */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">

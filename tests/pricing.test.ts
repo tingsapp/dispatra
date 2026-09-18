@@ -1,24 +1,25 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calculatePricing, estimateInternalCost, PricingContext } from '../src/lib/pricingEngine';
+import { test } from 'node:test';
+import { applyDistanceRules, roundMoney } from '../src/lib/billingEngine';
 import { INITIAL_BILLING_CONFIG } from '../src/lib/billingStorage';
-import { createEmptyRateCard } from '../src/lib/pricingStorage';
-import { INITIAL_SERVICES, INITIAL_ACCESSORIALS, INITIAL_VEHICLES } from '../src/lib/simplePricingStorage';
-import { createDefaultOrderInput, finalizeOrderPrice, priceOrder } from '../src/lib/orderPricing';
-import { fromDisplayDistance, toDisplayDistance, fromDisplayWeight, toDisplayWeight, fromDisplayDimension, toDisplayDimension, fromDisplayDivisor, toDisplayDivisor } from '../src/lib/units';
 import { DEFAULT_CUSTOMERS } from '../src/lib/customerStorage';
-import { organizationTime, validateBooking, validateAssignment, createInvoicePreview } from '../src/lib/organizationWorkflows';
+import { createDefaultOrderInput, finalizeOrderPrice, priceOrder } from '../src/lib/orderPricing';
+import { createInvoicePreview, organizationTime, validateAssignment, validateBooking } from '../src/lib/organizationWorkflows';
+import { calculatePricing, estimateInternalCost, PricingContext } from '../src/lib/pricingEngine';
+import { createEmptyRateCard } from '../src/lib/pricingStorage';
+import { INITIAL_ACCESSORIALS, INITIAL_SERVICES, INITIAL_VEHICLES } from '../src/lib/simplePricingStorage';
+import { fromDisplayDimension, fromDisplayDistance, fromDisplayDivisor, fromDisplayWeight, toDisplayDimension, toDisplayDistance, toDisplayDivisor, toDisplayWeight } from '../src/lib/units';
 import type { Driver, Job } from '../src/types';
 import type { RateCard } from '../src/types/pricing';
 
 const setup = () => {
   const billing = structuredClone(INITIAL_BILLING_CONFIG);
-  billing.fuelSurcharge.enabled = false;
+  billing.fuelSurcharge.enabled = false; billing.serviceCharge.enabled = false; // Isolate freight rules; fee tests enable them explicitly.
   billing.rules.minimumChargePerJob = 0;
-  billing.rules.distanceRoundingKm = 0;
-  const card = createEmptyRateCard({ id: 'card', status: 'ACTIVE', effectiveFrom: '2020-01-01', pricingMethod: 'FIXED', fixedAmount: 100, minimumFreight: 0, applyVehicleSurcharge: false });
+  const card = createEmptyRateCard({ id: 'card', scope: 'ORGANIZATION', effectiveFrom: '2020-01-01', pricingMethod: 'FIXED', fixedAmount: 100, applyServiceMultiplier: false, applyVehicleSurcharge: false });
   const ctx: PricingContext = { billing, catalogue: { services: structuredClone(INITIAL_SERVICES), vehicles: structuredClone(INITIAL_VEHICLES), accessorials: structuredClone(INITIAL_ACCESSORIALS) }, pricing: { rateCards: [card], zones: [], zoneRates: [], customerGroups: [] }, customers: [], asOf: new Date('2026-09-12T12:00:00Z') };
   const order = createDefaultOrderInput(ctx);
+  order.taxCalculation = undefined; // Historical profile-pricing regressions.
   order.packages = []; order.routeKm = 10; order.estimatedMinutes = 30;
   return { billing, card, ctx, order };
 };
@@ -72,7 +73,7 @@ test('hourly waiting is not billed twice and actual settlement requires actual c
   s.order.actualHourlyBillableMinutes = 90; assert.equal(priced(s).freight, 90);
 });
 test('minimum order subtotal applies after discounts and manual adjustments; zero waiver works', () => {
-  const s = setup(); s.billing.rules.minimumChargePerJob = 100; s.card.discount = { type: 'PERCENT', value: 20, scope: 'SUBTOTAL' };
+  const s = setup(); s.card.minimumOrderSubtotal = 100; s.card.discount = { type: 'PERCENT', value: 20, scope: 'SUBTOTAL' };
   s.order.adjustments = [{ id: 'a', amount: -10, reason: 'Agreed credit', taxable: true }];
   const result = priced(s); assert.equal(result.subtotal, 100); assert.equal(result.discount, 20); assert.equal(result.minimumAdjustment, 30);
   s.card.minimumOrderSubtotal = 0; assert.equal(priced(s).subtotal, 70);
@@ -82,13 +83,14 @@ test('freight minimum is enforced after service multiplier', () => {
   s.ctx.catalogue.services[0].defaultMultiplier = 0.5;
   assert.equal(priced(s).serviceFreight, 90);
 });
-test('No discount stops inheritance; Inherit continues customer → card → group', () => {
-  const s = setup(); const customer = structuredClone(DEFAULT_CUSTOMERS[0]); customer.customerGroupId = 'g'; customer.discount = { type: 'NONE', value: 0, scope: 'SUBTOTAL' };
+test('the rate card is the only source of a contract discount; customer and group discounts are ignored', () => {
+  const s = setup(); const customer = structuredClone(DEFAULT_CUSTOMERS[0]); customer.customerGroupId = 'g'; customer.discount = { type: 'PERCENT', value: 50, scope: 'SUBTOTAL' };
   s.ctx.customers = [customer]; s.order.customerId = customer.id;
   s.ctx.pricing.customerGroups = [{ id: 'g', name: 'Group', description: '', rateCardId: null, discount: { type: 'PERCENT', value: 10, scope: 'SUBTOTAL' } }];
-  s.card.discount = { type: 'PERCENT', value: 20, scope: 'SUBTOTAL' };
-  assert.equal(priced(s).discount, 0); customer.discount.type = 'INHERIT'; assert.equal(priced(s).discount, 20);
-  s.card.discount.type = 'NONE'; assert.equal(priced(s).discount, 0); s.card.discount.type = 'INHERIT'; assert.equal(priced(s).discount, 10);
+  s.card.discount = { type: 'PERCENT', value: 20, scope: 'TRANSPORT_ONLY' };
+  assert.equal(priced(s).discount, 20);
+  s.card.discount.type = 'NONE'; assert.equal(priced(s).discount, 0); s.card.discount.type = 'INHERIT'; assert.equal(priced(s).discount, 0);
+  s.card.discount = { type: 'FIXED', value: 15, scope: 'TRANSPORT_ONLY' }; assert.equal(priced(s).discount, 15);
 });
 test('contract matrices differ and explicit movements price each supplying pickup once', () => {
   const s = setup(); s.card.pricingMethod = 'ZONE'; s.card.zoneMatrixMode = 'CONTRACT';
@@ -101,16 +103,18 @@ test('contract matrices differ and explicit movements price each supplying picku
   s.order.stops[1].pickupIds.push('pickup2', 'pickup2'); s.card.zoneRates.push({ id: 'cb', originZoneId: 'c', destinationZoneId: 'b', serviceId: null, amount: 25 });
   assert.equal(priced(s).freight, 65);
 });
-test('zone contract fallback and service-specific prices are explicit', () => {
+test('a pair missing from a card\'s own zone prices is no match; organization prices are never used silently', () => {
   const s = setup(); s.card.pricingMethod = 'ZONE'; s.card.zoneMatrixMode = 'CONTRACT';
   s.order.stops[0].zoneId = 'a'; s.order.stops[1].zoneId = 'b'; s.order.stops[1].pickupIds = [s.order.stops[0].id];
-  s.ctx.pricing.zoneRates = [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 40 }, { id: 'abs', originZoneId: 'a', destinationZoneId: 'b', serviceId: s.order.serviceId, amount: 55 }];
-  assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION'); s.card.zoneFallbackToOrganization = true; assert.equal(priced(s).freight, 55);
+  s.ctx.pricing.zoneRates = [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 40 }];
+  assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION'); s.card.zoneFallbackToOrganization = true; assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION');
+  s.card.zoneRates = [{ id: 'own', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 55 }]; assert.equal(priced(s).freight, 55);
+  s.card.zoneMatrixMode = 'INHERIT'; assert.equal(priced(s).freight, 40);
   s.order.stops[1].pickupIds = []; assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION');
 });
 test('imported final agreed total bypasses all modifiers and rounding', () => {
   const s = setup(); s.order.importedPrice = 101.23; s.order.source = 'IMPORT'; s.order.importedTaxTreatment = 'SUPPLIED'; s.order.importedTaxAmount = 5;
-  s.card.importedPriceMode = 'FINAL_TOTAL'; s.billing.serviceCharge.enabled = true; s.billing.fuelSurcharge.enabled = true; s.billing.rules.minimumChargePerJob = 500; s.billing.rules.moneyRounding = 'nearest_1';
+  s.card.importedPriceMode = 'FINAL_TOTAL'; s.billing.serviceCharge.enabled = true; s.billing.fuelSurcharge.enabled = true; s.billing.rules.minimumChargePerJob = 500;
   const result = priced(s); assert.equal(result.total, 101.23); assert.equal(result.subtotal, 96.23); assert.equal(result.companyCharge, 0); assert.equal(result.imported?.amount, 101.23);
 });
 test('imported freight honors admin, multiplier, discount and minimum switches', () => {
@@ -135,7 +139,7 @@ test('cost separates driving, handling and waiting, and flags incomplete inputs'
   assert.equal(driving.estimatedCost, total.estimatedCost);
   assert.equal(estimateInternalCost({ routeKm: null, stopCount: 2 }, s.billing, 100).complete, false);
   const zero = estimateInternalCost({ routeKm: 0, stopCount: 0, driveMinutes: 0, durationBasis: 'TOTAL_SERVICE' }, s.billing, 0);
-  assert.equal(zero.grossMarginPercent, 0); assert.equal(zero.meetsTargetMargin, false);
+  assert.equal(zero.grossMarginPercent, 0); assert.equal('meetsTargetMargin' in zero, false);
 });
 test('order wrapper and shared pricing engine return identical results', () => {
   const s = setup(); const a = calculatePricing(s.order, s.ctx); const b = priceOrder(s.order, s.ctx);
@@ -177,18 +181,21 @@ test('revised settings and shared order form render without a browser', async ()
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { BillingSettingsPage } = await import('../src/pages/BillingSettingsPage');
+  const { CompanySettingsPage } = await import('../src/pages/CompanySettingsPage');
   const { RateCardsPage } = await import('../src/pages/RateCardsPage');
   const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
   const { ContractRulesEditor } = await import('../src/components/pricing/ContractRulesEditor');
-  const noop = () => {};
-  const general = renderToStaticMarkup(React.createElement(BillingSettingsPage, { onBackToMonitor: noop }));
-  assert.match(general, /Minimum Order Subtotal/); assert.doesNotMatch(general, /Default Fuel Surcharge/);
+  const noop = () => { };
+  const billing = renderToStaticMarkup(React.createElement(BillingSettingsPage, { onBackToMonitor: noop }));
+  assert.match(billing, /Invoicing Basics/); assert.doesNotMatch(billing, /Currency &amp; Units|Default Fuel Surcharge|Maximum Active Orders per Driver|Minimum Order Subtotal/);
+  const company = renderToStaticMarkup(React.createElement(CompanySettingsPage, { onBackToMonitor: noop }));
+  assert.match(company, /Currency &amp; Units/); assert.doesNotMatch(company, /Vehicle Running Cost|Invoicing Basics|Default Fuel Surcharge/);
   const rates = renderToStaticMarkup(React.createElement(RateCardsPage, { onBackToMonitor: noop }));
-  assert.match(rates, /Contract rules/); assert.doesNotMatch(rates, /Minute Rate|Included Minutes/);
+  assert.match(rates, /Accessorials/); assert.match(rates, /Add rate card/); assert.doesNotMatch(rates, /Minute Rate|Included Minutes|Additional settings|Minimum Freight|Vehicle Restriction/);
   const s = setup(); const form = renderToStaticMarkup(React.createElement(OrderPricingForm, { value: s.order, onChange: noop, ctx: s.ctx, snapshot: priced(s) }));
-  assert.match(form, /Supplying pickups/); assert.match(form, /Driving only/);
+  assert.match(form, /Ready at/); assert.match(form, /Contact name/); assert.doesNotMatch(form, /Supplying pickups|Driving only|Freight tax treatment|Move stop|Pricing Adjustments|Rate Card override/);
   s.card.pricingMethod = 'IMPORTED'; s.card.importedPriceMode = 'FINAL_TOTAL';
-  const contract = renderToStaticMarkup(React.createElement(ContractRulesEditor, { card: s.card, patch: noop, zones: [], services: s.ctx.catalogue.services, organizationMinimum: 100 }));
+  const contract = renderToStaticMarkup(React.createElement(ContractRulesEditor, { card: s.card, patch: noop }));
   assert.match(contract, /preserve exactly/); assert.doesNotMatch(contract, /Apply resolved contract discount/);
 });
 
@@ -201,20 +208,20 @@ test('hourly billable actuals do not become driving actuals in the cost estimate
   assert.match(final.snapshot.cost?.basis ?? '', /^Estimated/);
 });
 
-test('legacy time rates retire on load and storage migration preserves explicit discount choices', async () => {
+test('legacy time rates retire on load and stored discounts normalise to None / Percentage / Fixed on freight', async () => {
   const { loadPricingConfig, savePricingConfig, PRICING_STORAGE_KEY } = await import('../src/lib/pricingStorage');
   const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   const data = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
   try {
-    const s = setup(); s.card.pricingMethod = 'BASE_PLUS_DISTANCE'; s.card.minuteRate = 0.4; s.card.discount.type = 'NONE';
+    const s = setup(); s.card.pricingMethod = 'BASE_PLUS_DISTANCE'; s.card.minuteRate = 0.4; s.card.discount = { type: 'INHERIT', value: 0, scope: 'SUBTOTAL' };
     data.set(PRICING_STORAGE_KEY, JSON.stringify(s.ctx.pricing));
-    const legacy = loadPricingConfig(); assert.equal(legacy.rateCards[0].minuteRate, 0); assert.equal(legacy.rateCards[0].discount.type, 'INHERIT');
-    legacy.rateCards[0].discount.type = 'NONE'; savePricingConfig(legacy); assert.equal(loadPricingConfig().rateCards[0].discount.type, 'NONE');
+    const legacy = loadPricingConfig(); assert.equal(legacy.rateCards[0].minuteRate, 0); assert.deepEqual(legacy.rateCards[0].discount, { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' });
+    legacy.rateCards[0].discount = { type: 'PERCENT', value: 10, scope: 'SUBTOTAL' }; savePricingConfig(legacy); assert.deepEqual(loadPricingConfig().rateCards[0].discount, { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' });
   } finally { if (original) Object.defineProperty(globalThis, 'localStorage', original); else Reflect.deleteProperty(globalThis, 'localStorage'); }
 });
 
-test('saved Base + Distance and Zone cards migrate once without resetting negotiated terms', async () => {
+test('saved Base + Distance and Zone cards migrate once to the flat form, keeping rates, discount and zone prices', async () => {
   const { loadPricingConfig, savePricingConfig, PRICING_STORAGE_KEY } = await import('../src/lib/pricingStorage');
   const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   const data = new Map<string, string>();
@@ -227,10 +234,11 @@ test('saved Base + Distance and Zone cards migrate once without resetting negoti
       data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, rateCards: [card, hourly], schemaVersion: 2 }));
       const loaded = loadPricingConfig(); const migrated = loaded.rateCards[0];
       assert.equal(migrated.minuteRate, 0); assert.equal(migrated.includedMinutes, 0); assert.equal(migrated.version, 8);
-      assert.deepEqual({ ...migrated, minuteRate: card.minuteRate, includedMinutes: card.includedMinutes, version: card.version, updatedAt: card.updatedAt }, card);
+      assert.equal(migrated.fuelPercent, null); assert.deepEqual(migrated.vehicleSurchargeOverrides, {}); assert.equal(migrated.applyServiceMultiplier, true);
+      assert.equal(migrated.baseFee, 83); assert.deepEqual(migrated.discount, { ...card.discount, scope: 'TRANSPORT_ONLY' }); assert.deepEqual(migrated.zoneRates, card.zoneRates); assert.equal(migrated.scope, 'ORGANIZATION');
       assert.deepEqual(loaded.rateCards[1], hourly);
       const saved = data.get(PRICING_STORAGE_KEY)!;
-      assert.equal(JSON.parse(saved).schemaVersion, 3); assert.equal(JSON.parse(saved).rateCards[0].minuteRate, 0);
+      assert.equal(JSON.parse(saved).schemaVersion, 7); assert.equal(JSON.parse(saved).rateCards[0].minuteRate, 0);
       assert.deepEqual(loadPricingConfig(), loaded); assert.equal(data.get(PRICING_STORAGE_KEY), saved);
       savePricingConfig({ ...loaded, rateCards: [card] });
       assert.equal(loadPricingConfig().rateCards[0].minuteRate, 0);
@@ -285,7 +293,7 @@ test('contract editor no longer asks users to migrate retired routine time prici
   const React = await import('react'); const { renderToStaticMarkup } = await import('react-dom/server');
   const { ContractRulesEditor } = await import('../src/components/pricing/ContractRulesEditor');
   const s = setup(); s.card.pricingMethod = 'BASE_PLUS_DISTANCE'; s.card.minuteRate = 0.5;
-  const markup = renderToStaticMarkup(React.createElement(ContractRulesEditor, { card: s.card, patch: () => {}, zones: [], services: s.ctx.catalogue.services, organizationMinimum: 0 }));
+  const markup = renderToStaticMarkup(React.createElement(ContractRulesEditor, { card: s.card, patch: () => { } }));
   assert.doesNotMatch(markup, /New quotes are blocked|Convert to hourly|legacy card charges/);
 });
 
@@ -337,45 +345,43 @@ const assignedCardSetup = (scope: 'CUSTOMER' | 'CUSTOMER_GROUP') => {
   const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), id: 'customer', customerGroupId: 'group', rateCardId: scope === 'CUSTOMER' ? 'selected' : null, taxExempt: false };
   s.ctx.customers = [customer]; s.order.customerId = customer.id;
   s.ctx.pricing.customerGroups = [{ id: 'group', name: 'Group', description: '', rateCardId: scope === 'CUSTOMER_GROUP' ? 'selected' : null, discount: { type: 'NONE', value: 0, scope: 'SUBTOTAL' } }];
-  Object.assign(s.card, { scope, customerId: scope === 'CUSTOMER' ? customer.id : null, customerGroupId: scope === 'CUSTOMER_GROUP' ? 'group' : null, priority: 100, serviceId: s.order.serviceId, vehicleId: s.order.vehicleId, fixedAmount: 200 });
-  const selected = createEmptyRateCard({ ...s.card, id: 'selected', serviceId: null, vehicleId: null, priority: 0, fixedAmount: 50 });
+  s.card.fixedAmount = 200;
+  const selected = createEmptyRateCard({ ...s.card, id: 'selected', scope: 'ORDER', fixedAmount: 50 });
   s.ctx.pricing.rateCards.push(selected);
   return { ...s, selected };
 };
 
-test('eligible assigned customer and group cards beat more specific or higher-priority matches', () => {
-  for (const scope of ['CUSTOMER', 'CUSTOMER_GROUP'] as const) {
-    const s = assignedCardSetup(scope);
-    const result = priced(s); assert.equal(result.rateCard?.id, 'selected'); assert.equal(result.freight, 50);
-    // Equal-priority alternatives also must not turn an explicit selection into a conflict.
-    s.card.serviceId = null; s.card.vehicleId = null; s.card.priority = 0;
-    assert.equal(priced(s).rateCard?.id, 'selected');
+test('the card attached to a customer applies whatever its service, vehicle or dates; deleted or missing cards fall back to the Default', () => {
+  const s = assignedCardSetup('CUSTOMER');
+  assert.equal(priced(s).rateCard?.id, s.selected.id); assert.equal(priced(s).freight, 50);
+  for (const changes of [{ effectiveTo: '2020-01-02' }, { effectiveFrom: '2099-01-01' }, { serviceId: 'other-service' }, { vehicleId: 'other-vehicle' }] as Partial<RateCard>[]) {
+    const t = assignedCardSetup('CUSTOMER'); Object.assign(t.selected, changes);
+    assert.equal(priced(t).rateCard?.id, t.selected.id, JSON.stringify(changes));
+  }
+  for (const changes of [{ status: 'ARCHIVED' }, { id: 'no-longer-selected' }] as Partial<RateCard>[]) {
+    const t = assignedCardSetup('CUSTOMER'); Object.assign(t.selected, changes);
+    assert.equal(priced(t).rateCard?.id, t.card.id, JSON.stringify(changes)); assert.equal(priced(t).freight, 200);
   }
 });
 
-test('ineligible or missing assigned cards fall back to eligible matching cards', () => {
-  const invalid: Partial<RateCard>[] = [{ status: 'ARCHIVED' }, { status: 'DRAFT' }, { effectiveTo: '2020-01-02' }, { effectiveFrom: '2099-01-01' }, { serviceId: 'other-service' }, { vehicleId: 'other-vehicle' }, { id: 'no-longer-selected' }];
-  for (const scope of ['CUSTOMER', 'CUSTOMER_GROUP'] as const) {
-    for (const changes of invalid) {
-      const s = assignedCardSetup(scope); Object.assign(s.selected, changes);
-      assert.equal(priced(s).rateCard?.id, s.card.id, JSON.stringify({ scope, changes }));
-    }
-  }
-});
-
-test('assigned cards retain explicit order override and customer-over-group precedence', () => {
+test('the card chosen on the order wins over the customer card; a deleted or missing choice is an error', () => {
   const s = assignedCardSetup('CUSTOMER_GROUP');
-  const customerCard = createEmptyRateCard({ ...s.card, id: 'customer-specific', scope: 'CUSTOMER', customerId: 'customer', customerGroupId: null, fixedAmount: 75 });
-  s.ctx.pricing.rateCards.push(customerCard);
+  const customerCard = createEmptyRateCard({ ...s.card, id: 'customer-specific', scope: 'ORDER', fixedAmount: 75 });
+  s.ctx.pricing.rateCards.push(customerCard); s.ctx.customers[0].rateCardId = customerCard.id;
   assert.equal(priced(s).rateCard?.id, customerCard.id);
   s.order.rateCardOverrideId = s.selected.id;
-  assert.equal(priced(s).rateCard?.id, s.selected.id);
+  assert.equal(priced(s).rateCard?.id, s.selected.id); assert.equal(priced(s).candidates.map(c => c.source).join(','), 'OVERRIDE');
+  s.selected.status = 'ARCHIVED';
+  assert.equal(calculatePricing(s.order, s.ctx).errors[0]?.code, 'INVALID_CONFIGURATION');
+  s.order.rateCardOverrideId = 'gone';
+  assert.equal(calculatePricing(s.order, s.ctx).errors[0]?.code, 'NO_RATE_CARD');
 });
 
-test('matching cards without an explicit selection still report equal-priority conflicts', () => {
+test('without an attached card the Default applies; without a Default pricing is unavailable', () => {
   const s = assignedCardSetup('CUSTOMER'); s.ctx.customers[0].rateCardId = null;
-  s.card.serviceId = null; s.card.vehicleId = null; s.card.priority = 0;
-  assert.equal(calculatePricing(s.order, s.ctx).errors[0]?.code, 'RATE_CARD_CONFLICT');
+  assert.equal(priced(s).rateCard?.id, s.card.id); assert.equal(priced(s).candidates[0].reason, 'Default');
+  s.card.scope = 'ORDER';
+  const result = calculatePricing(s.order, s.ctx); assert.equal(result.status, 'UNAVAILABLE'); assert.equal(result.errors[0]?.code, 'NO_RATE_CARD');
 });
 
 test('shared order form exposes manual minute quantities while waiting remains automatic', async () => {
@@ -388,7 +394,7 @@ test('shared order form exposes manual minute quantities while waiting remains a
   s.ctx.catalogue.accessorials = [wait, manual]; s.order.stops[0].waitMinutes = 30;
   s.order.accessorials = [{ accessorialId: manual.id, quantity: 12 }];
   const result = priced(s);
-  const markup = renderToStaticMarkup(React.createElement(OrderPricingForm, { value: s.order, onChange: () => {}, ctx: s.ctx, snapshot: result }));
+  const markup = renderToStaticMarkup(React.createElement(OrderPricingForm, { value: s.order, onChange: () => { }, ctx: s.ctx, snapshot: result }));
   assert.match(markup, /Special handling time/);
   assert.match(markup, /<input[^>]*aria-label="Special handling time minutes"[^>]*value="12"/);
   assert.doesNotMatch(markup, /Waiting Time/);
@@ -396,4 +402,82 @@ test('shared order form exposes manual minute quantities while waiting remains a
   assert.equal(result.lines.filter(l => l.key === `acc_${wait.id}`).length, 1);
   s.order.accessorials = [];
   assert.equal(priced(s).lines.some(l => l.key === 'acc_manual-minute'), false);
+});
+
+test('retired margin targets do not affect cost calculations or order displays', async () => {
+  const s = setup(); const before = priced(s);
+  Object.assign(s.billing.operatingCost, { targetGrossMarginPercent: 100 });
+  const after = priced(s);
+  assert.deepEqual(after.cost, before.cost); assert.equal(after.total, before.total);
+  const React = await import('react'); const { renderToStaticMarkup } = await import('react-dom/server');
+  const { PriceBreakdown } = await import('../src/components/pricing/PriceBreakdown');
+  Object.assign(after.cost!, { meetsTargetMargin: false }); // Previously saved snapshots remain readable.
+  for (const variant of ['card', 'inline'] as const) {
+    const html = renderToStaticMarkup(React.createElement(PriceBreakdown, { snapshot: after, variant }));
+    assert.match(html, /Estimated fulfilment cost/); assert.match(html, /Estimated profit/);
+    assert.doesNotMatch(html, /target margin|border-rose-200|bg-rose-50\/70/);
+  }
+});
+
+test('legacy group cards migrate to explicit order selection without becoming organization defaults', async () => {
+  const { loadPricingConfig, PRICING_STORAGE_KEY } = await import('../src/lib/pricingStorage');
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage'); const data = new Map<string, string>();
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
+  try {
+    const s = setup();
+    const groupCard = createEmptyRateCard({ ...s.card, id: 'old-group', scope: 'CUSTOMER_GROUP', customerGroupId: 'group', fixedAmount: 42, version: 7 });
+    data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, rateCards: [s.card, groupCard], customerGroups: [{ id: 'group', name: 'Old group', rateCardId: groupCard.id }], schemaVersion: 3 }));
+    const loaded = loadPricingConfig(); const migrated = loaded.rateCards[1];
+    assert.deepEqual(loaded.customerGroups, []); assert.equal(migrated.scope, 'ORDER'); assert.equal(migrated.customerGroupId, undefined); assert.equal(migrated.version, 8); assert.equal(migrated.fixedAmount, 42);
+    s.ctx.pricing = loaded;
+    assert.equal(priced(s).rateCard?.id, s.card.id);
+    s.order.rateCardOverrideId = migrated.id; assert.equal(priced(s).freight, 42);
+    assert.deepEqual(loadPricingConfig(), loaded);
+    assert.deepEqual(JSON.parse(data.get(PRICING_STORAGE_KEY)!).customerGroups, []);
+  } finally { if (original) Object.defineProperty(globalThis, 'localStorage', original); else Reflect.deleteProperty(globalThis, 'localStorage'); }
+});
+test('historical hourly group quotes settle their frozen discounts without reviving group pricing', () => {
+  const s = setup(); const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), customerGroupId: 'legacy', discount: { type: 'INHERIT' as const, value: 0, scope: 'SUBTOTAL' as const } };
+  s.ctx.customers = [customer]; s.order.customerId = customer.id;
+  const groupDiscount = { type: 'PERCENT' as const, value: 10, scope: 'SUBTOTAL' as const };
+  Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true, discount: groupDiscount }); s.order.hourlyBillableMinutes = 60;
+  const quote = JSON.parse(JSON.stringify(priced(s)));
+  quote.context.pricing.rateCards[0].scope = 'CUSTOMER_GROUP';
+  quote.context.pricing.rateCards[0].discount = { type: 'INHERIT', value: 0, scope: 'SUBTOTAL' };
+  quote.context.pricing.customerGroups = [{ id: 'legacy', name: 'Old group', description: '', rateCardId: s.card.id, discount: groupDiscount }];
+  quote.rateCard.scope = 'CUSTOMER_GROUP';
+  const unchanged = JSON.stringify(quote);
+  const settled = finalizeOrderPrice(s.order, 120, s.ctx, quote);
+  assert.equal(settled.snapshot.status, 'PRICED'); assert.equal(settled.snapshot.discount, 20); assert.equal(settled.snapshot.subtotal, 180);
+  assert.equal(JSON.stringify(quote), unchanged);
+  s.card.discount.type = 'INHERIT'; s.ctx.pricing.customerGroups = quote.context.pricing.customerGroups;
+  assert.equal(priced(s).discount, 0);
+});
+
+test('automatic precision uses cents and hundredths of a kilometre despite legacy rounding settings', () => {
+  const s = setup();
+  Object.assign(s.billing.rules, { moneyRounding: 'nearest_1', distanceRoundingKm: 1 });
+  assert.equal(roundMoney(12.345), 12.35);
+  assert.equal(applyDistanceRules(10.234, s.billing), 10.23);
+  assert.equal(applyDistanceRules(10.235, s.billing), 10.24);
+  s.card.fixedAmount = 12.34;
+  s.billing.taxProfiles.forEach(profile => { profile.taxes = []; });
+  const result = priced(s);
+  assert.equal(result.total, 12.34);
+  s.billing.rules.minimumBillableKm = 15;
+  assert.equal(applyDistanceRules(10.234, s.billing), 15);
+});
+
+test('zone cards that inherited the organization matrix take their own copy of it on load', async () => {
+  const { loadPricingConfig, PRICING_STORAGE_KEY } = await import('../src/lib/pricingStorage');
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage'); const data = new Map<string, string>();
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
+  try {
+    const s = setup();
+    const inherited = createEmptyRateCard({ ...s.card, id: 'inherited', scope: 'ORDER', pricingMethod: 'ZONE', zoneMatrixMode: 'INHERIT', zoneRates: [] });
+    data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, zoneRates: [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 40 }], rateCards: [s.card, inherited], schemaVersion: 6 }));
+    const loaded = loadPricingConfig(); const card = loaded.rateCards[1];
+    assert.equal(card.zoneMatrixMode, 'CONTRACT'); assert.deepEqual(card.zoneRates.map(r => [r.originZoneId, r.destinationZoneId, r.amount]), [['a', 'b', 40]]); assert.equal(card.version, inherited.version + 1);
+    assert.deepEqual(loadPricingConfig(), loaded);
+  } finally { if (original) Object.defineProperty(globalThis, 'localStorage', original); else Reflect.deleteProperty(globalThis, 'localStorage'); }
 });

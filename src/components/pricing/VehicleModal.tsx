@@ -1,28 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { loadBillingConfig } from '../../lib/billingStorage';
-import { toDisplayWeight, fromDisplayWeight } from '../../lib/units';
-import { X, Truck, DollarSign, Weight, Package, Ruler, ShieldAlert } from 'lucide-react';
+import { fromDisplayDistanceRate, fromDisplayWeight, toDisplayDistanceRate, toDisplayWeight } from '../../lib/units';
 import { VehicleType } from '../../types/simplePricing';
+import { useEntityDialog } from '../entities/useEntityDialog';
 
 interface VehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (vehicle: VehicleType) => void;
+  /** `costPerKm` is the internal running cost in km; null means the organization default. */
+  onSave: (vehicle: VehicleType, costPerKm: number | null) => void;
   initialVehicle?: VehicleType | null;
+  initialCostPerKm?: number | null;
 }
 
 export const VehicleModal: React.FC<VehicleModalProps> = ({
   isOpen,
   onClose,
   onSave,
-  initialVehicle
+  initialVehicle,
+  initialCostPerKm = null
 }) => {
   const units = loadBillingConfig().general;
+  useEntityDialog(isOpen, onClose);
   const [name, setName] = useState('');
   const [payloadCapacityKg, setPayloadCapacityKg] = useState<number>(1000);
   const [palletCapacity, setPalletCapacity] = useState<number>(2);
   const [cargoBedFeet, setCargoBedFeet] = useState<number>(12);
   const [baseSurcharge, setBaseSurcharge] = useState<number>(0);
+  const [costPerKm, setCostPerKm] = useState<string>('');
   const [fuelEligible, setFuelEligible] = useState(true);
   const [hasLiftgate, setHasLiftgate] = useState(false);
   const [requiresCommercialLicense, setRequiresCommercialLicense] = useState(false);
@@ -36,6 +42,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setPalletCapacity(initialVehicle.palletCapacity);
       setCargoBedFeet(initialVehicle.cargoBedFeet || 12);
       setBaseSurcharge(initialVehicle.baseSurcharge);
+      setCostPerKm(initialCostPerKm == null ? '' : String(toDisplayDistanceRate(initialCostPerKm, units)));
       setFuelEligible(initialVehicle.fuelEligible ?? true);
       setHasLiftgate(initialVehicle.hasLiftgate);
       setRequiresCommercialLicense(initialVehicle.requiresCommercialLicense);
@@ -47,6 +54,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setPalletCapacity(2);
       setCargoBedFeet(12);
       setBaseSurcharge(0);
+      setCostPerKm('');
       setFuelEligible(true);
       setHasLiftgate(false);
       setRequiresCommercialLicense(false);
@@ -76,7 +84,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       active
     };
 
-    onSave(vehicle);
+    onSave(vehicle, costPerKm.trim() === '' ? null : fromDisplayDistanceRate(Math.max(0, Number(costPerKm) || 0), units));
     onClose();
   };
 
@@ -93,7 +101,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div data-entity-dialog className="bg-white max-h-[90vh] overflow-y-auto rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
             <h3 className="text-base font-semibold text-slate-900">
@@ -152,7 +160,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             <label className="block text-xs font-medium text-slate-700 mb-1">
               Vehicle Name / Class <span className="text-rose-500">*</span>
             </label>
-            <input
+            <input aria-label="Vehicle type name"
               type="text"
               required
               value={name}
@@ -247,6 +255,28 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </p>
           </div>
 
+          <div>
+            <label htmlFor="vehicleCostPerKm" className="block text-xs font-medium text-slate-700 mb-1">
+              Running cost / {units.distanceUnit} (internal)
+            </label>
+            <div className="relative">
+              <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">$</span>
+              <input
+                id="vehicleCostPerKm"
+                type="number"
+                step="0.01"
+                min="0"
+                value={costPerKm}
+                onChange={(e) => setCostPerKm(e.target.value)}
+                placeholder="Organization default"
+                className="w-full text-sm pl-6 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Fuel, tyres, maintenance and depreciation for cost estimates only. Never changes the customer price; blank uses the default under Pricing → Vehicle & Labour Costs.
+            </p>
+          </div>
+
           {/* SUGGESTED LOGISTICS ATTRIBUTES */}
           <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 space-y-2.5">
             <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider block">
@@ -306,7 +336,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             <label className="block text-xs font-medium text-slate-700 mb-1">
               Description / Notes
             </label>
-            <textarea
+            <textarea aria-label="Description"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}

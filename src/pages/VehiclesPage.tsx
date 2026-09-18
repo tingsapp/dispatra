@@ -1,34 +1,22 @@
+import {
+CheckCircle2,
+Gauge,
+Layers,
+Plus,
+Truck,
+Wrench,
+X
+} from 'lucide-react';
+import { useEffect,useMemo,useState } from 'react';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { VehicleEditor } from '../components/entities/VehicleEditor';
-import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
-import React, { useState, useMemo, useEffect } from 'react';
-import {
-  ArrowLeft,
-  Truck,
-  Plus,
-  Search,
-  CheckCircle2,
-  AlertTriangle,
-  Wrench,
-  Fuel,
-  BatteryCharging,
-  ShieldAlert,
-  Snowflake,
-  ExternalLink,
-  ChevronRight,
-  X,
-  Layers,
-  Calendar,
-  Gauge,
-  User,
-  MapPin,
-  Check,
-  RotateCcw
-} from 'lucide-react';
-import { VehicleAsset, loadVehicles, saveVehicles } from '../lib/vehicleStorage';
-import { Driver } from '../types';
-import { Select } from '../components/ui/Select';
+import { VehicleTable } from '../components/entities/VehicleTable';
+import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
+import { Select } from '../components/ui/Select';
+import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
+import { VehicleAsset,loadVehicles,saveVehicles } from '../lib/vehicleStorage';
+import { Driver } from '../types';
 
 interface VehiclesPageProps {
   drivers: Driver[];
@@ -43,6 +31,7 @@ export function VehiclesPage({
   onNotification,
   onSelectDriver
 }: VehiclesPageProps) {
+  const vehicleTypes = useMemo(() => loadSimplePricingConfig().vehicles, []);
   const [vehicles, setVehicles] = useState<VehicleAsset[]>(loadVehicles);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -94,35 +83,7 @@ export function VehiclesPage({
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBackToMonitor}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-            title="Return to Monitor Map"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span>Back to Monitor</span>
-          </button>
-
-          <div className="h-4 w-px bg-slate-200" />
-
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
-              <Truck className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold text-slate-900 leading-tight">
-                Vehicles & Fleet Assets
-              </h1>
-              <p className="text-[11px] text-slate-500 leading-tight">
-                Vehicle availability, cargo capacity, dimensions and equipment
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <PageHeader title="Vehicles" description="Vehicle availability, cargo capacity, dimensions and equipment." onBackToMonitor={onBackToMonitor} actions={<>
           <button
             type="button"
             onClick={() => setShowRegisterModal(true)}
@@ -131,11 +92,10 @@ export function VehiclesPage({
             <Plus className="w-3.5 h-3.5" />
             <span>Register Vehicle</span>
           </button>
-        </div>
-      </header>
+      </>} />
 
       {/* BODY CONTENT */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
         {/* STATS OVERVIEW CARDS */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
@@ -238,113 +198,7 @@ export function VehiclesPage({
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredVehicles.map((vehicle) => {
-                const assignedDriver = drivers.find((d) => d.id === vehicle.currentDriverId);
-
-                return (
-                  <div
-                    key={vehicle.id}
-                    onClick={() => setActiveVehicleDrawer(vehicle)}
-                    className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-blue-300 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
-                  >
-                    <div>
-                      {/* Top Header */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-base font-bold text-slate-900 font-mono">
-                              {vehicle.unitNumber}
-                            </span>
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                              {vehicle.plateNumber}
-                            </span>
-                          </div>
-                          <div className="text-xs font-medium text-slate-700 mt-1">
-                            {vehicle.makeModel} ({vehicle.year})
-                          </div>
-                        </div>
-
-                        <span
-                          className={`px-2 py-0.5 text-[11px] font-semibold rounded-full border ${
-                            vehicle.status === 'in_service'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
-                              : vehicle.status === 'available'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : vehicle.status === 'maintenance'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-slate-100 text-slate-700 border-slate-300'
-                          }`}
-                        >
-                          {vehicle.recordStatus === 'INACTIVE' ? 'Inactive' : vehicle.availability?.replaceAll('_', ' ') || vehicle.statusLabel}
-                        </span>
-                      </div>
-
-                      {/* Equipment Capabilities & Tonnage */}
-                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                        <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-50 text-blue-800 rounded">
-                          {loadSimplePricingConfig().vehicles.find(t => t.id === vehicle.vehicleTypeId)?.name || vehicle.category}
-                        </span>
-                        {vehicle.hasLiftgate && (
-                          <span className="px-2 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 rounded flex items-center gap-1">
-                            <Layers className="w-3 h-3" /> Liftgate
-                          </span>
-                        )}
-                        {vehicle.hasReefer && (
-                          <span className="px-2 py-0.5 text-[10px] font-semibold bg-cyan-50 text-cyan-700 rounded flex items-center gap-1">
-                            <Snowflake className="w-3 h-3" /> Reefer {vehicle.reeferTempC !== undefined ? `(${vehicle.reeferTempC}°C)` : ''}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Capacity & Fuel specs */}
-                      <div className="mt-3 p-3 bg-slate-50 rounded-lg space-y-2 text-xs">
-                        <div className="grid grid-cols-2 gap-2 text-slate-600">
-                          <div>
-                            <span className="text-slate-400 text-[10px] block">Max Payload:</span>
-                            <span className="font-semibold text-slate-800">{vehicle.payloadCapacityKg.toLocaleString()} kg</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 text-[10px] block">Pallet Skids:</span>
-                            <span className="font-semibold text-slate-800">{vehicle.palletCapacity} standard skids</span>
-                          </div>
-                        </div>
-
-                        <div className="text-xs text-slate-600">Cargo: {vehicle.cargoVolumeM3 == null ? 'volume not set' : `${vehicle.cargoVolumeM3} m³`}<br />Dimensions: {[vehicle.cargoLengthCm, vehicle.cargoWidthCm, vehicle.cargoHeightCm].every(v => v != null) ? `${vehicle.cargoLengthCm} × ${vehicle.cargoWidthCm} × ${vehicle.cargoHeightCm} cm` : 'Not set'}<br />Equipment: {vehicle.equipment?.join(', ') || 'None recorded'}</div>
-                        {/* Assigned Driver & Location */}
-                        <div className="pt-2 border-t border-slate-200 text-[11px]">
-                          <div className="text-slate-500">
-                            Assigned Driver:{' '}
-                            <strong className="text-slate-800">
-                              {vehicle.currentDriverName || 'Unassigned / Yard'}
-                            </strong>
-                          </div>
-                          {vehicle.currentLocation && (
-                            <div className="text-slate-400 truncate mt-0.5">
-                              {vehicle.currentLocation}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer Actions */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-slate-400 text-[11px]">
-                        {vehicle.serviceAreaIds?.join(', ') || 'Service area not set'}
-                      </span>
-                      <button
-                        onClick={() => setActiveVehicleDrawer(vehicle)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
-                      >
-                        <Wrench className="w-3 h-3" />
-                        Edit vehicle
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <VehicleTable vehicles={filteredVehicles} drivers={drivers} vehicleTypes={vehicleTypes} onDetails={setActiveVehicleDrawer} />
           )}
         </div>
       </div>

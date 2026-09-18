@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X, Clock } from 'lucide-react';
+import { Clock, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { DeliveryService } from '../../types/simplePricing';
+import { useEntityDialog } from '../entities/useEntityDialog';
 import { TimePicker } from '../ui/TimePicker';
 
 interface ServiceModalProps {
@@ -20,10 +21,11 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   onSave,
   initialService
 }) => {
+  useEntityDialog(isOpen, onClose);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
-  const [defaultMultiplier, setDefaultMultiplier] = useState<number>(1);
+  const [multiplier, setMultiplier] = useState('1');
   const [estimatedTime, setEstimatedTime] = useState('');
   const [bookingCutoffTime, setBookingCutoffTime] = useState('');
   const [exclusiveVehicle, setExclusiveVehicle] = useState(false);
@@ -34,7 +36,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       setName(initialService.name);
       setCode(initialService.code);
       setDescription(initialService.description);
-      setDefaultMultiplier(initialService.defaultMultiplier);
+      setMultiplier(String(initialService.defaultMultiplier ?? 1));
       setEstimatedTime(initialService.estimatedTime || '');
       setBookingCutoffTime(initialService.bookingCutoffTime || '');
       setExclusiveVehicle(initialService.exclusiveVehicle);
@@ -43,7 +45,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       setName('');
       setCode('');
       setDescription('');
-      setDefaultMultiplier(1);
+      setMultiplier('1');
       setEstimatedTime('Same-Day');
       setBookingCutoffTime('14:00');
       setExclusiveVehicle(false);
@@ -55,14 +57,15 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const defaultMultiplier = Number(multiplier);
+    if (!name.trim() || !multiplier.trim() || !Number.isFinite(defaultMultiplier) || defaultMultiplier < 0) return;
 
     const service: DeliveryService = {
       id: initialService?.id || `srv_${Date.now()}`,
       code: (code.trim() || name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_')).slice(0, 24),
       name: name.trim(),
       description: description.trim(),
-      defaultMultiplier: Math.max(0, Number(defaultMultiplier) || 1),
+      defaultMultiplier,
       estimatedTime: estimatedTime.trim() || undefined,
       bookingCutoffTime: bookingCutoffTime.trim() || undefined,
       exclusiveVehicle,
@@ -75,14 +78,14 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div data-entity-dialog className="bg-white max-h-[90vh] overflow-y-auto rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
             <h3 className="text-base font-semibold text-slate-900">
               {initialService ? 'Edit Delivery Service' : 'Add New Delivery Service'}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Service speed and its default price multiplier. Base fees and km rates live on Rate Cards.
+              Delivery promise, booking requirements and default price multiplier.
             </p>
           </div>
           <button
@@ -101,7 +104,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               <label className={labelClass}>
                 Service Name <span className="text-rose-500">*</span>
               </label>
-              <input
+              <input aria-label="Service name"
                 type="text"
                 required
                 value={name}
@@ -112,7 +115,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
             </div>
             <div>
               <label className={labelClass}>Code</label>
-              <input
+              <input aria-label="Code"
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -123,27 +126,6 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>
-                Default Multiplier <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">×</span>
-                <input
-                  type="number"
-                  step="0.05"
-                  min="0"
-                  required
-                  value={defaultMultiplier}
-                  onChange={(e) => setDefaultMultiplier(parseFloat(e.target.value) || 0)}
-                  className={`${fieldClass} pl-6`}
-                />
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Applied to freight. 1.00 = standard; Direct is typically highest. Rate Cards can override.
-              </p>
-            </div>
-
             <div>
               <label className={labelClass}>Booking Cut-off</label>
               <TimePicker
@@ -157,10 +139,16 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
           </div>
 
           <div>
+            <label htmlFor="service-multiplier" className={labelClass}>Default price multiplier</label>
+            <input id="service-multiplier" type="number" min="0" step="any" required value={multiplier} onChange={event => setMultiplier(event.target.value)} className={fieldClass} />
+            <p className="text-[11px] text-slate-500 mt-1">1× keeps freight unchanged; 1.5× increases it by 50%. Applied to the freight of every rate card.</p>
+          </div>
+
+          <div>
             <label className={labelClass}>Delivery Promise</label>
             <div className="relative">
               <Clock className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
-              <input
+              <input aria-label="Delivery promise"
                 type="text"
                 value={estimatedTime}
                 onChange={(e) => setEstimatedTime(e.target.value)}
@@ -172,7 +160,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
 
           <div>
             <label className={labelClass}>Description</label>
-            <textarea
+            <textarea aria-label="Description"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}

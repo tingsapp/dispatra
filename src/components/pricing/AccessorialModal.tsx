@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { AccessorialAutoRule, AccessorialCalcType, AccessorialItem } from '../../types/simplePricing';
+import { useEntityDialog } from '../entities/useEntityDialog';
 import { Select } from '../ui/Select';
 
 interface AccessorialModalProps {
@@ -75,6 +76,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
   onSave,
   initialAccessorial
 }) => {
+  useEntityDialog(isOpen, onClose);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
@@ -165,7 +167,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div data-entity-dialog className="bg-white max-h-[90vh] overflow-y-auto rounded-xl shadow-xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
             <h3 className="text-base font-semibold text-slate-900">
@@ -185,28 +187,18 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 gap-3">
+            <div>
               <label className={labelClass}>
                 Name <span className="text-rose-500">*</span>
               </label>
-              <input
+              <input aria-label="Accessorial name"
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Stair Carry, Waiting Time, Elevator"
                 className={fieldClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Code</label>
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="STAIRS"
-                className={`${fieldClass} font-mono`}
               />
             </div>
           </div>
@@ -232,7 +224,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                 {!isPercent(calculationType) && (
                   <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">$</span>
                 )}
-                <input
+                <input aria-label="Accessorial rate"
                   type="number"
                   step="0.05"
                   min="0"
@@ -245,13 +237,13 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                   <span className="absolute right-2.5 top-2.5 text-xs text-slate-400">%</span>
                 )}
               </div>
-              <input
+              {calculationType === 'PER_UNIT' && <input aria-label="Unit label"
                 type="text"
                 value={unitLabel}
                 onChange={(e) => setUnitLabel(e.target.value)}
-                placeholder="unit label shown on quotes"
+                placeholder="e.g. per flight, per helper"
                 className={`${fieldClass} mt-1.5 text-xs`}
-              />
+              />}
             </div>
           </div>
 
@@ -261,11 +253,11 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                 label="Free allowance"
                 value={freeAllowance}
                 onChange={setFreeAllowance}
-                placeholder={calculationType === 'PER_MINUTE' ? 'Org default' : '0'}
+                placeholder="0"
                 suffix={calculationType === 'PER_MINUTE' ? 'min' : 'units'}
                 hint={
                   calculationType === 'PER_MINUTE'
-                    ? 'For waiting: contract override → this default → organization default. Blank means Inherit; zero means no allowance.'
+                    ? 'Minutes included at each stop before waiting is charged. Blank or zero means every minute is charged.'
                     : 'Quantity included before charging starts.'
                 }
               />
@@ -274,46 +266,27 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                   label="Billing increment"
                   value={incrementMinutes}
                   onChange={setIncrementMinutes}
-                  placeholder="Org default"
+                  placeholder="0"
                   suffix="min"
-                  hint="For waiting: contract override → this default → organization increment. Zero means no rounding."
+                  hint="Chargeable minutes round up to this block size. Blank or zero means no rounding."
                 />
               )}
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-3">
-            <OptionalNumber
-              label="Minimum charge"
-              value={minimumCharge}
-              onChange={setMinimumCharge}
-              placeholder="None"
-              prefix="$"
-              step={0.5}
+          <div>
+            <label className={labelClass}>Applies</label>
+            <Select
+              aria-label="Applies at"
+              className="w-full"
+              value={appliesAt}
+              onValueChange={(v) => setAppliesAt(v as 'ORDER' | 'PER_STOP')}
+              options={[
+                { value: 'ORDER', label: 'Once per order' },
+                { value: 'PER_STOP', label: 'Per stop' }
+              ]}
             />
-            <OptionalNumber
-              label="Maximum charge"
-              value={maximumCharge}
-              onChange={setMaximumCharge}
-              placeholder="No cap"
-              prefix="$"
-              step={0.5}
-            />
-            <div>
-              <label className={labelClass}>Applies</label>
-              <Select
-                aria-label="Applies at"
-                className="w-full"
-                value={appliesAt}
-                onValueChange={(v) => setAppliesAt(v as 'ORDER' | 'PER_STOP')}
-                options={[
-                  { value: 'ORDER', label: 'Once per order' },
-                  { value: 'PER_STOP', label: 'Per stop' }
-                ]}
-              />
-            </div>
           </div>
-
           <div>
             <label className={labelClass}>Automatic rule</label>
             <Select
@@ -327,7 +300,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
 
           <div>
             <label className={labelClass}>Description / conditions</label>
-            <textarea
+            <textarea aria-label="Description"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -351,6 +324,26 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
             </label>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <OptionalNumber
+              label="Minimum charge"
+              value={minimumCharge}
+              onChange={setMinimumCharge}
+              placeholder="None"
+              prefix="$"
+              step={0.5}
+              hint="Optional floor once the charge applies."
+            />
+            <OptionalNumber
+              label="Maximum charge"
+              value={maximumCharge}
+              onChange={setMaximumCharge}
+              placeholder="No cap"
+              prefix="$"
+              step={0.5}
+              hint="Optional cap per order."
+            />
+          </div>
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
             <button
               type="button"

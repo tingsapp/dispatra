@@ -140,11 +140,13 @@ export const INITIAL_ACCESSORIALS: AccessorialItem[] = [
     code: 'WAIT',
     autoRule: 'WAITING_RECORDED',
     name: 'Waiting Time',
-    description: 'Site wait beyond the organization free allowance, billed in increments.',
+    description: 'Site wait beyond the free allowance at each stop, billed in increments.',
     calculationType: 'PER_MINUTE',
     rate: 0.75,
     unitLabel: 'per minute',
-    appliesAt: 'PER_STOP'
+    appliesAt: 'PER_STOP',
+    freeAllowance: 15,
+    incrementMinutes: 5
   }),
   accessorial({
     id: 'acc_helper',
@@ -257,7 +259,12 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
         return {
           services: parsed.services,
           vehicles: Array.isArray(parsed.vehicles) && parsed.vehicles.length > 0 ? parsed.vehicles : INITIAL_VEHICLES,
-          accessorials: parsed.accessorials.map((a: AccessorialItem) => a.code === 'WAIT' && a.autoRule === 'NONE' && !parsed.schemaVersion ? { ...a, autoRule: 'WAITING_RECORDED' } : a)
+          accessorials: parsed.accessorials.map((a: AccessorialItem) => {
+            const item = a.code === 'WAIT' && a.autoRule === 'NONE' && !parsed.schemaVersion ? { ...a, autoRule: 'WAITING_RECORDED' as const } : a;
+            // The waiting rule owns its allowance and increment; older records inherited retired organization defaults (15 min free, 5 min steps).
+            return item.autoRule === 'WAITING_RECORDED' && (item.freeAllowance == null || item.incrementMinutes == null)
+              ? { ...item, freeAllowance: item.freeAllowance ?? 15, incrementMinutes: item.incrementMinutes ?? 5 } : item;
+          })
         };
       }
     }

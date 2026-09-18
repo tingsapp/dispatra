@@ -5,6 +5,7 @@ export interface SavedAddress { id: string; type: 'PICKUP' | 'DELIVERY' | 'BILLI
 export interface AvailabilityPeriod { id: string; start: string; end: string; available: boolean; notes?: string; }
 export interface DriverOperations extends AuditFields {
   driverNumber?: string; accountStatus?: 'ACTIVE' | 'INACTIVE'; dutyStatus?: 'ON_DUTY' | 'OFF_DUTY'; workStatus?: 'AVAILABLE' | 'BUSY' | 'ON_BREAK';
+  /** EMPLOYEE drives a company vehicle; CONTRACTOR is an owner-operator driving their own (still a Vehicles record). Never affects customer price. */
   employmentType?: 'EMPLOYEE' | 'CONTRACTOR' | 'TEMPORARY'; homeDepotId?: string; serviceAreaIds?: string[]; skills?: string[];
   vehicleTypeQualifications?: string[]; currentVehicleId?: string | null; shiftEnd?: string; maximumWorkMinutes?: number;
   preferredStartLocation?: string; availabilitySchedule?: AvailabilityPeriod[]; appLastSeenAt?: string | null; locationCapturedAt?: string | null;
@@ -31,6 +32,7 @@ export interface OrderOperations extends AuditFields {
   notificationPreferences?: Communications; version?: number; cancellationReason?: string; cancelledAt?: string; metadata?: Record<string, unknown>;
 }
 export interface StopOperations {
+  countryCode?: string; provinceCode?: string; postalCode?: string;
   contactName?: string; contactPhone?: string; contactEmail?: string; normalizedAddress?: string; latitude?: number | null; longitude?: number | null;
   windowStart?: string; windowEnd?: string; instructions?: string; accessRequirements?: string; referenceNumber?: string;
   podRequirement?: 'NONE' | 'PHOTO' | 'SIGNATURE' | 'PHOTO_AND_SIGNATURE'; stopStatus?: 'PENDING' | 'ARRIVED' | 'COMPLETED' | 'FAILED';

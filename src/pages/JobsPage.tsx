@@ -1,50 +1,42 @@
-import { useEntityDialog } from '../components/entities/useEntityDialog';
-import { csv } from '../domain/csv';
-import { OrderFields, OrderDetails } from '../components/entities/OrderFields';
-import { StopDetails } from '../components/entities/StopItemFields';
-import { validateOrderFacts, orderEditable, lifecycleLabel, orderLifecycle } from '../domain/validation';
-import { normalizeOrderInput, snapshotCustomer } from '../domain/orderAdapters';
-import React, { useState, useMemo } from 'react';
 import {
-  ArrowLeft,
-  Plus,
-  Download,
-  Search,
-  Filter,
-  MapPin,
-  Clock,
-  User,
-  AlertTriangle,
-  CheckCircle2,
-  AlertCircle,
-  Truck,
-  ExternalLink,
-  ChevronRight,
-  X,
-  Phone,
-  Package,
-  Layers,
-  Calendar,
-  MoreVertical,
-  Check,
-  RefreshCw
+AlertCircle,
+AlertTriangle,
+Check,
+CheckCircle2,
+ChevronRight,
+Clock,
+Download,
+MapPin,
+Package,
+Phone,
+Plus,
+RefreshCw,
+User,
+X
 } from 'lucide-react';
-import { Job, Driver } from '../types';
-import { PricingOrderInput } from '../types/pricing';
-import { Select } from '../components/ui/Select';
-import { SearchInput } from '../components/ui/SearchInput';
+import React,{ useMemo,useState } from 'react';
+import { OrderDetails } from '../components/entities/OrderFields';
+import { StopDetails } from '../components/entities/StopItemFields';
+import { useEntityDialog } from '../components/entities/useEntityDialog';
+import { PageHeader } from '../components/layout/PageHeader';
 import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
 import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
-import { validateBooking, validateAssignment, createInvoicePreview } from '../lib/organizationWorkflows';
-import { calculatePricing } from '../lib/pricingEngine';
+import { SearchInput } from '../components/ui/SearchInput';
+import { Select } from '../components/ui/Select';
+import { csv } from '../domain/csv';
+import { normalizeOrderInput,snapshotCustomer } from '../domain/orderAdapters';
+import { lifecycleLabel,orderEditable,orderLifecycle,validateOrderFacts } from '../domain/validation';
 import {
-  createDefaultOrderInput,
-  describePrice,
-  finalizeOrderPrice,
-  loadPricingContext,
-  priceOrder
+createDefaultOrderInput,
+describePrice,
+finalizeOrderPrice,
+loadPricingContext,
+priceOrder
 } from '../lib/orderPricing';
-import { formatDistance, formatWeight } from '../lib/units';
+import { createInvoicePreview,validateAssignment,validateBooking } from '../lib/organizationWorkflows';
+import { formatDistance,formatWeight } from '../lib/units';
+import { Driver,Job } from '../types';
+import { PricingOrderInput } from '../types/pricing';
 
 interface JobsPageProps {
   jobs: Job[];
@@ -56,6 +48,8 @@ interface JobsPageProps {
   onNotification: (message: string) => void;
 }
 
+/** Next order number: one past the highest existing #number. */
+const nextJobNumber = (jobs: Job[]) => `#${jobs.reduce((max, job) => Math.max(max, Number(job.jobNumber.replace(/\D/g, '')) || 0), 1000) + 1}`;
 export function JobsPage({
   jobs,
   drivers,
@@ -75,9 +69,6 @@ export function JobsPage({
   
   // Create Job Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newJobNumber, setNewJobNumber] = useState(`#${Math.floor(480 + Math.random() * 40)}`);
-  const [newCustomerName, setNewCustomerName] = useState('');
-  const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newScheduledTime, setNewScheduledTime] = useState('01:00 PM – 03:00 PM');
   const [newDriverId, setNewDriverId] = useState<string>('unassigned');
   const [newInstructions, setNewInstructions] = useState('');
@@ -87,7 +78,7 @@ export function JobsPage({
   // Pricing context is read fresh each time the modal opens so settings edits apply.
   const [pricingCtx, setPricingCtx] = useState(() => loadPricingContext());
   const [newOrderInput, setNewOrderInput] = useState<PricingOrderInput>(() => createDefaultOrderInput(pricingCtx));
-  const newOrderSnapshot = useMemo(() => calculatePricing(newOrderInput, pricingCtx), [newOrderInput, pricingCtx]);
+  const newOrderSnapshot = useMemo(() => priceOrder(newOrderInput, pricingCtx), [newOrderInput, pricingCtx]);
   const selectedCustomer = pricingCtx.customers.find((c) => c.id === newOrderInput.customerId);
 
   const openCreateModal = () => {
@@ -95,9 +86,6 @@ export function JobsPage({
     setEditingOrder(null); setOrderFields({}); setFormErrors([]);
     setPricingCtx(ctx);
     setNewOrderInput(createDefaultOrderInput(ctx));
-    setNewJobNumber(`#${Math.floor(480 + Math.random() * 40)}`);
-    setNewCustomerName('');
-    setNewCustomerPhone('');
     setNewInstructions('');
     setNewDriverId('unassigned');
     setShowCreateModal(true);
@@ -106,8 +94,8 @@ export function JobsPage({
   const openEditOrder = (job: Job) => {
     if (!orderEditable(job) || !job.pricingInput) return;
     setPricingCtx(loadPricingContext()); setEditingOrder(job); setOrderFields({ ...job }); setFormErrors([]);
-    setNewOrderInput(normalizeOrderInput(structuredClone(job.pricingInput))); setNewJobNumber(job.jobNumber);
-    setNewCustomerName(job.customerName); setNewCustomerPhone(job.customerPhone); setNewInstructions(job.handlingInstructions ?? '');
+    setNewOrderInput(normalizeOrderInput(structuredClone(job.pricingInput)));
+    setNewInstructions(job.handlingInstructions ?? '');
     setNewScheduledTime(job.scheduledTime); setNewDriverId(job.assignedDriverId ?? 'unassigned'); setActiveJobDossier(null); setShowCreateModal(true);
   };
 
@@ -184,11 +172,11 @@ export function JobsPage({
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const customerName = selectedCustomer?.name ?? newCustomerName.trim();
+    const customerName = selectedCustomer?.name ?? '';
     const pickups = newOrderInput.stops.filter((st) => st.type === 'PICKUP');
     const drops = newOrderInput.stops.filter((st) => st.type === 'DROPOFF');
-    if (!customerName) {
-      onNotification('Choose a customer or enter a shipper name');
+    if (!selectedCustomer) {
+      onNotification('Choose a customer. Walk-ins are added under Customers first.');
       return;
     }
     if (!pickups.length || !drops.length || newOrderInput.stops.some((st) => !st.label?.trim())) {
@@ -196,9 +184,11 @@ export function JobsPage({
       return;
     }
 
-    const normalizedNumber = newJobNumber.trim().startsWith('#') ? newJobNumber.trim() : `#${newJobNumber.trim()}`;
+    // Order numbers are assigned in the background; the API will own the sequence later.
+    const normalizedNumber = editingOrder?.jobNumber ?? nextJobNumber(jobs);
     const factsErrors = validateOrderFacts(newOrderInput);
-    if (!newJobNumber.trim() || jobs.some(j => j.id !== editingOrder?.id && j.jobNumber.toLowerCase() === normalizedNumber.toLowerCase())) factsErrors.push('Enter a unique order number.');
+    const zoneCard = pricingCtx.pricing.rateCards.find(c => c.id === selectedCustomer.rateCardId && c.status === 'ACTIVE') ?? pricingCtx.pricing.rateCards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
+    if (zoneCard?.pricingMethod === 'ZONE' && newOrderInput.stops.some(st => !st.zoneId)) factsErrors.push('Choose a zone for every stop — this customer is priced zone to zone.');
     if (selectedCustomer && ['Inactive','On Hold'].includes(selectedCustomer.status)) factsErrors.push('Choose an active customer.');
     const latest = editingOrder && jobs.find(j => j.id === editingOrder.id);
     if (editingOrder && (!latest || !orderEditable(latest) || (latest.version ?? 1) !== (editingOrder.version ?? 1))) factsErrors.push('Order changed while editing. Close and reopen it before saving.');
@@ -216,18 +206,18 @@ export function JobsPage({
       ...editingOrder,
       ...orderFields,
       id: editingOrder?.id ?? crypto.randomUUID(),
-      lifecycleStatus: assignedDriver ? 'ASSIGNED' : snapshot.status === 'PRICED' ? 'READY_FOR_DISPATCH' : 'SUBMITTED',
+      lifecycleStatus: assignedDriver ? 'ASSIGNED' : snapshot.status === 'PRICED' ? 'READY_FOR_DISPATCH' : snapshot.status === 'NEEDS_ATTENTION' ? 'NEEDS_ATTENTION' : 'SUBMITTED',
       version: (editingOrder?.version ?? 0) + 1,
       createdAt: editingOrder?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      customerSnapshot: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerSnapshot : snapshotCustomer(selectedCustomer) ?? { id: null, name: customerName, phone: newCustomerPhone, email: '', billingEmail: '' },
+      customerSnapshot: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerSnapshot : snapshotCustomer(selectedCustomer)!,
       billingCustomerSnapshot: editingOrder && editingOrder.billingCustomerId === orderFields.billingCustomerId ? editingOrder.billingCustomerSnapshot : snapshotCustomer(pricingCtx.customers.find(c => c.id === orderFields.billingCustomerId)),
       jobNumber: normalizedNumber,
       status: assignedDriver ? 'on_time' : 'no_driver',
       statusLabel: assignedDriver ? 'On Time' : 'No Driver',
       riskText: assignedDriver ? `Assigned to ${assignedDriver.name}` : 'Needs dispatch',
       customerName: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerName : customerName,
-      customerPhone: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerPhone : selectedCustomer?.phone ?? newCustomerPhone,
+      customerPhone: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerPhone : selectedCustomer.phone,
       customerEmail: editingOrder && editingOrder.customerId === newOrderInput.customerId ? editingOrder.customerEmail : selectedCustomer?.email,
       pickupAddress: pickups[0].label!,
       dropoffAddress: drops[drops.length - 1].label!,
@@ -289,35 +279,7 @@ export function JobsPage({
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <header className="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBackToMonitor}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
-            title="Return to Monitor Map"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span>Back to Monitor</span>
-          </button>
-
-          <div className="h-4 w-px bg-slate-200" />
-
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
-              <Package className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold text-slate-900 leading-tight">
-                Orders
-              </h1>
-              <p className="text-[11px] text-slate-500 leading-tight">
-                Order details, customer pricing, time windows and assignments
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <PageHeader title="Orders" description="Order details, customer pricing, time windows and assignments." onBackToMonitor={onBackToMonitor} actions={<>
           <button
             type="button"
             onClick={handleExportCSV}
@@ -334,11 +296,10 @@ export function JobsPage({
             <Plus className="w-3.5 h-3.5" />
             <span>New Order</span>
           </button>
-        </div>
-      </header>
+      </>} />
 
       {/* BODY CONTENT */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
         {/* STATS OVERVIEW CARDS */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
@@ -904,54 +865,7 @@ export function JobsPage({
             <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-5 bg-slate-50">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-7 space-y-5 text-xs">
-                  <OrderFields value={orderFields} onChange={v => { setOrderFields(v); setNewOrderInput({ ...newOrderInput, billingCustomerId: v.billingCustomerId }); }} customers={pricingCtx.customers} />
                   {!!formErrors.length && <p role="alert" className="text-xs text-rose-700">{formErrors.join(" ")}</p>}
-                  {/* Order identity */}
-                  <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Order</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block font-semibold text-slate-700 mb-1">Order Number</label>
-                        <input
-                          type="text"
-                          value={newJobNumber}
-                          onChange={(e) => setNewJobNumber(e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                          required
-                        />
-                      </div>
-
-                      {!selectedCustomer && (
-                        <>
-                          <div>
-                            <label className="block font-semibold text-slate-700 mb-1">Shipper Name (walk-in)</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. Pacific Coast Fresh"
-                              value={newCustomerName}
-                              onChange={(e) => setNewCustomerName(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                            />
-                          </div>
-                          <div>
-                            <label className="block font-semibold text-slate-700 mb-1">Contact Phone</label>
-                            <input
-                              type="tel"
-                              value={newCustomerPhone}
-                              onChange={(e) => setNewCustomerPhone(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                            />
-                          </div>
-                        </>
-                      )}
-                      {selectedCustomer && (
-                        <div className="col-span-2 text-[11px] text-slate-500">
-                          Contact: <span className="font-medium text-slate-800">{selectedCustomer.contactName}</span> · {selectedCustomer.phone}
-                          {selectedCustomer.rateCardId || selectedCustomer.customerGroupId ? ' · contract pricing applies' : ''}
-                        </div>
-                      )}
-                    </div>
-                  </div>
 
                   <OrderPricingForm
                     value={newOrderInput}
@@ -959,9 +873,13 @@ export function JobsPage({
                     ctx={pricingCtx}
                     snapshot={newOrderSnapshot}
                     showStopAddresses
-                    showOverrides
                     startIndex={1}
                   />
+
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs">
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Priority</label>
+                    <Select aria-label="Priority" className="w-full" value={orderFields.priority ?? 'NORMAL'} onValueChange={v => setOrderFields({ ...orderFields, priority: v as Job['priority'] })} options={[{ value: 'NORMAL', label: 'Normal' }, { value: 'HIGH', label: 'High' }, { value: 'URGENT', label: 'Urgent' }]} />
+                  </div>
 
                   {/* Dispatch */}
                   <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
@@ -996,7 +914,6 @@ export function JobsPage({
                 <div className="lg:col-span-5 lg:sticky lg:top-0">
                   <PriceBreakdown
                     snapshot={newOrderSnapshot}
-                    targetMarginPercent={pricingCtx.billing.operatingCost.targetGrossMarginPercent}
                     title="Live estimate"
                   />
                 </div>

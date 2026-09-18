@@ -11,7 +11,8 @@ import { createDefaultOrderInput, createStop, loadPricingContext, priceOrder, lo
 import { createInvoicePreview, validateAssignment } from '../src/lib/organizationWorkflows';
 const store = new Map<string,string>();
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (k:string) => store.get(k) ?? null, setItem: (k:string,v:string) => store.set(k,v), removeItem: (k:string) => store.delete(k), clear: () => store.clear() } });
-function facts() { const input = createDefaultOrderInput(loadPricingContext()); input.stops[0].label = 'Pickup A'; input.stops[1].label = 'Delivery A'; return input; }
+function facts() { const input = createDefaultOrderInput(loadPricingContext()); input.taxCalculation = undefined; // Historical entity fixtures.
+ input.stops[0].label = 'Pickup A'; input.stops[1].label = 'Delivery A'; return input; }
 function fleetVehicle() { return normalizeVehicle({ ...INITIAL_VEHICLES_FLEET[2], currentDriverId: undefined, availability:'AVAILABLE', payloadCapacityKg: 100, cargoVolumeM3: 5, cargoLengthCm: 200, cargoWidthCm: 120, cargoHeightCm: 150 }); }
 test('default order has valid stable movement links; removing a stop clears dangling item and movement links', () => {
   const input = facts(); assert.deepEqual(validateOrderFacts(input), []);
@@ -32,9 +33,9 @@ test('volume and cargo fit are independent of payload', () => {
   input.packages[0].heightCm = 100; input.packages[0].quantity = 10;
   assert.match(validateLoad(input,{...fleetVehicle(), cargoVolumeM3: 0.5}).join(' '), /volume/);
 });
-test('invalid contacts, reversed windows, missing override reasons and negative dimensions are rejected', () => {
+test('invalid contacts, reversed windows and negative dimensions are rejected; choosing a rate card needs no reason', () => {
   const input = facts(); input.stops[0].contactEmail='bad'; input.stops[0].windowStart='2026-09-14T12:00'; input.stops[0].windowEnd='2026-09-14T11:00'; input.packages[0].widthCm=-1; input.rateCardOverrideId='card';
-  const errors=validateOrderFacts(input).join(' '); assert.match(errors,/email/); assert.match(errors,/end must/); assert.match(errors,/nonnegative/); assert.match(errors,/override/);
+  const errors=validateOrderFacts(input).join(' '); assert.match(errors,/email/); assert.match(errors,/end must/); assert.match(errors,/nonnegative/); assert.doesNotMatch(errors,/override|reason/);
 });
 test('legacy link migration never guesses an ambiguous multi-stop allocation', () => {
   const input=facts(); delete input.packages[0].pickupStopId; delete input.packages[0].deliveryStopId;

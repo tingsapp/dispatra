@@ -34,6 +34,8 @@ export const createStop = (type: PricingStopInput['type'], partial: Partial<Pric
 });
 
 export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput => normalizeOrderInput({
+  taxCalculation: 'DESTINATION',
+  freightTaxTreatment: 'STANDARD_DOMESTIC',
   customerId: null,
   serviceId: ctx.catalogue.services.find((s) => s.active)?.id ?? ctx.catalogue.services[0]?.id ?? '',
   vehicleId: ctx.catalogue.vehicles.find((v) => v.active)?.id ?? null,
@@ -41,8 +43,9 @@ export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput 
     createStop('PICKUP', { zoneId: ctx.pricing.zones[0]?.id ?? null }),
     createStop('DROPOFF', { zoneId: ctx.pricing.zones[1]?.id ?? null })
   ],
-  routeKm: 15,
-  estimatedMinutes: 40,
+  // Filled by routing once addresses are entered; until then dispatch may enter the distance.
+  routeKm: null,
+  estimatedMinutes: null,
   actualMinutes: null,
   durationBasis: 'DRIVING_ONLY',
   handlingMinutes: null,
@@ -61,7 +64,10 @@ export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput 
 });
 
 export const priceOrder = (input: PricingOrderInput, ctx: PricingContext = loadPricingContext()): PricingSnapshot =>
-  calculatePricing(input, ctx);
+  calculatePricing(input, {
+    ...ctx,
+    billing: { ...ctx.billing, invoicing: { ...ctx.billing.invoicing, pricesIncludeTax: false } }
+  });
 
 /**
  * Completion uses quoted terms. Only an hourly clock that permits actual
@@ -75,7 +81,7 @@ export const finalizeOrderPrice = (
 ): { input: PricingOrderInput; snapshot: PricingSnapshot } => {
   if (quoted?.stage === 'FINAL') return { input, snapshot: quoted };
   const finalInput: PricingOrderInput = { ...input, stage: 'FINAL', actualHourlyBillableMinutes: actualMinutes }; // Billable-clock minutes are not driving minutes.
-  const frozenContext = quoted?.context ? { ...quoted.context, asOf: quoted.context.asOf ? new Date(quoted.context.asOf) : undefined } : ctx;
+  const frozenContext = quoted?.context ? { ...structuredClone(quoted.context), asOf: quoted.context.asOf ? new Date(quoted.context.asOf) : undefined } : ctx;
   if (quoted?.method === 'HOURLY' && !quoted.context) {
     return { input: finalInput, snapshot: { ...structuredClone(quoted), status: 'NEEDS_ATTENTION', errors: [{ code: 'INVALID_CONFIGURATION', message: 'This legacy quote has no frozen contract terms. Review and re-price it explicitly before hourly settlement.' }] } };
   }
@@ -83,7 +89,16 @@ export const finalizeOrderPrice = (
   if (quoted?.status === 'PRICED' && (quoted.method !== 'HOURLY' || card?.hourlySettleActual === false)) {
     return { input: finalInput, snapshot: { ...structuredClone(quoted), stage: 'FINAL', orderFacts: structuredClone(finalInput) } };
   }
-  return { input: finalInput, snapshot: calculatePricing(finalInput, frozenContext) };
+  // Historical hourly quotes may have inherited group terms. Preserve only their frozen terms.
+  if (quoted?.context && card) {
+    const customer = frozenContext.customers.find(item => item.id === input.customerId);
+    const legacyGroup = frozenContext.pricing.customerGroups?.find(item => item.id === customer?.customerGroupId);
+    if (legacyGroup && (!customer?.discount || customer.discount.type === 'INHERIT') && (!card.discount || card.discount.type === 'INHERIT')) {
+      card.discount = structuredClone(legacyGroup.discount);
+    }
+    if (card.scope === 'CUSTOMER_GROUP') finalInput.rateCardOverrideId = card.id;
+  }
+  return { input: finalInput, snapshot: quoted?.context ? calculatePricing(finalInput, frozenContext) : priceOrder(finalInput, ctx) };
 };
 
 // ---------------------------------------------------------------------------
@@ -137,6 +152,7 @@ export const legacyJobToPricingInput = (job: Job, ctx: PricingContext): PricingO
   const weightKg = parseKg(job.cargoWeight);
   return {
     ...base,
+    taxCalculation: undefined, // Existing mock records retain their historical profile calculation.
     customerId: job.customerId ?? customer?.id ?? null,
     serviceId,
     vehicleId: job.vehicleId ?? (job.palletCount && job.palletCount > 2 ? 'veh_2_ton' : 'veh_1_ton'),
@@ -173,7 +189,7 @@ export const enrichJobsWithPricing = (jobs: Job[], ctx: PricingContext = loadPri
       vehicleId: pricingInput.vehicleId,
       serviceLevel: job.serviceLevel ?? service?.name,
       pricingInput,
-      pricing: calculatePricing(pricingInput, ctx)
+      pricing: priceOrder(pricingInput, ctx)
     };
   });
 

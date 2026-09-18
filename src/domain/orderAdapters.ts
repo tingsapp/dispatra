@@ -12,6 +12,7 @@ export const snapshotCustomer = (c?: Customer): Order['customerSnapshot'] => c ?
 export function applyCustomerDefaults(input: PricingOrderInput, c?: Customer): PricingOrderInput {
   if (!c) return { ...input, customerId: null };
   return { ...input, customerId: c.id, serviceId: c.defaultServiceId || input.serviceId,
+    rateCardOverrideId: null,
     scheduledAt: input.scheduledAt && c.defaultWindowStart ? `${input.scheduledAt.slice(0,10)}T${c.defaultWindowStart}` : input.scheduledAt,
     scheduledEndAt: input.scheduledAt && c.defaultWindowEnd ? `${input.scheduledAt.slice(0,10)}T${c.defaultWindowEnd}` : input.scheduledEndAt,
     stops: input.stops.map(s => ({ ...s, instructions: s.instructions || c.instructions })) };

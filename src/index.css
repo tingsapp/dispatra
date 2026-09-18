@@ -1,10 +1,8 @@
 @import "tailwindcss";
 
-/* When the sidebar is hidden, page headers leave room for the menu button that
-   sits in their top-left corner (the Monitor map uses a floating button instead). */
-.menu-hidden > * > header {
-  padding-left: 3.75rem;
-  transition: padding-left 300ms ease-in-out;
+/* Cap page content at 80rem while keeping backgrounds and scrollbars full width. */
+@utility page-content {
+  padding-inline: max(1.5rem, calc((100% - 80rem) / 2));
 }
 
 /* Custom animated flow for active dispatch polylines */

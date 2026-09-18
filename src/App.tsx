@@ -1,37 +1,62 @@
-import { loadDrivers, saveDrivers, bindDriverVehicle } from './lib/driverStorage';
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Sidebar } from './components/Sidebar';
-import { TopMetrics } from './components/TopMetrics';
+import { Menu,RefreshCw,Sparkles } from 'lucide-react';
+import { AnimatePresence,motion } from 'motion/react';
+import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { DateControl } from './components/DateControl';
-import { TorontoMap, VANCOUVER_CENTER_LNG_LAT, MapController } from './components/TorontoMap';
+import { DetailModalDialog } from './components/DetailModalDialog';
 import { DriverPopover } from './components/DriverPopover';
 import { JobDetailPopover } from './components/JobDetailPopover';
 import { MapControls } from './components/MapControls';
-import { DetailModalDialog } from './components/DetailModalDialog';
+import { SettingsArea } from './components/settings/SettingsLayout';
+import { SETTINGS_NAVIGATION_EVENT } from './components/settings/useSettingsGuard';
+import { ConfirmDialogHost } from './components/ui/ConfirmDialog';
+import { Sidebar } from './components/Sidebar';
+import { TopMetrics } from './components/TopMetrics';
+import { MapController,TorontoMap,VANCOUVER_CENTER_LNG_LAT } from './components/TorontoMap';
+import {
+INITIAL_DRIVERS,
+INITIAL_JOBS,
+INITIAL_NEEDS_ATTENTION
+} from './data/mockData';
+import { bindDriverVehicle,loadDrivers,saveDrivers } from './lib/driverStorage';
+import { loadPricingContext,loadSavedOrders,pricingAttentionItems,saveOrders } from './lib/orderPricing';
+import { validateAssignment } from './lib/organizationWorkflows';
+import { BillingSettingsPage } from './pages/BillingSettingsPage';
+import { CompanySettingsPage } from './pages/CompanySettingsPage';
+import { CustomersPage } from './pages/CustomersPage';
+import { DriversPage } from './pages/DriversPage';
+import { HelpSupportPage } from './pages/HelpSupportPage';
+import { JobsPage } from './pages/JobsPage';
 import { PricingServicesPage } from './pages/PricingServicesPage';
 import { ProfilePage } from './pages/ProfilePage';
-import { HelpSupportPage } from './pages/HelpSupportPage';
-import { CustomersPage } from './pages/CustomersPage';
-import { JobsPage } from './pages/JobsPage';
-import { DriversPage } from './pages/DriversPage';
-import { VehiclesPage } from './pages/VehiclesPage';
-import { ReportsPage } from './pages/ReportsPage';
-import { BillingSettingsPage } from './pages/BillingSettingsPage';
 import { RateCardsPage } from './pages/RateCardsPage';
-import {
-  INITIAL_DRIVERS,
-  INITIAL_JOBS,
-  INITIAL_NEEDS_ATTENTION
-} from './data/mockData';
-import { Driver, Job, NeedsAttentionItem, MapLayerConfig, ModalDialogState } from './types';
-import { Sparkles, RefreshCw, Menu } from 'lucide-react';
-import { validateAssignment } from './lib/organizationWorkflows';
-import { loadPricingContext, pricingAttentionItems, loadSavedOrders, saveOrders } from './lib/orderPricing';
+import { ReportsPage } from './pages/ReportsPage';
+import { VehiclesPage } from './pages/VehiclesPage';
+import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from './types';
 
+/** Tab shown for each Organization Settings destination. */
+const SETTINGS_TABS: Record<SettingsArea, string> = { company: 'company-settings', services: 'services-accessorials', pricing: 'rate-cards', billing: 'billing-settings' };
+const settingsAreaForTab = (tab: string): SettingsArea | undefined => (Object.keys(SETTINGS_TABS) as SettingsArea[]).find(area => SETTINGS_TABS[area] === tab || (area === 'services' && tab === 'pricing-services'));
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('monitor');
+  const [activeTab, updateActiveTab] = useState<string>('monitor');
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const setActiveTab = useCallback((next: string) => {
+    if (next === activeTabRef.current) return;
+    const go = () => { activeTabRef.current = next; updateActiveTab(next); };
+    // A dirty settings page cancels the event and calls `proceed` itself once the user confirms.
+    if (!window.dispatchEvent(new CustomEvent(SETTINGS_NAVIGATION_EVENT, { cancelable: true, detail: { proceed: go } }))) return;
+    go();
+  }, []);
+  const navigateSettings = (area: SettingsArea) => setActiveTab(SETTINGS_TABS[area]);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  useEffect(() => {
+    if (activeTab === 'monitor') return;
+    const mobile = window.matchMedia('(max-width: 639px)');
+    const fitSettings = () => { if (mobile.matches) setSidebarOpen(false); };
+    fitSettings();
+    mobile.addEventListener('change', fitSettings);
+    return () => mobile.removeEventListener('change', fitSettings);
+  }, [activeTab]);
   const [drivers, setDrivers] = useState<Driver[]>(() => loadDrivers(INITIAL_DRIVERS));
   useEffect(() => { try { saveDrivers(drivers); } catch { showToast('Driver changes could not be saved in this browser.'); } }, [drivers]);
   // Every order carries a PricingSnapshot from the shared engine, including the static mocks.
@@ -315,18 +340,6 @@ export default function App() {
     }
   }, []);
 
-  const handleOpenPricingServices = () => {
-    setShowAccountPopover(false);
-    setModalDialog({ isOpen: false, type: null });
-    setActiveTab('services-accessorials');
-  };
-
-  const handleOpenBillingSettings = () => {
-    setShowAccountPopover(false);
-    setModalDialog({ isOpen: false, type: null });
-    setActiveTab('billing-settings');
-  };
-
   const handleOpenProfile = () => {
     setShowAccountPopover(false);
     setModalDialog({ isOpen: false, type: null });
@@ -354,12 +367,12 @@ export default function App() {
       prev.map((j) =>
         j.jobNumber === '#461'
           ? {
-              ...j,
-              status: 'on_time',
-              statusLabel: 'On Time',
-              riskText: 'ETA: On schedule (Maria D09)',
-              assignedDriverId: 'D09'
-            }
+            ...j,
+            status: 'on_time',
+            statusLabel: 'On Time',
+            riskText: 'ETA: On schedule (Maria D09)',
+            assignedDriverId: 'D09'
+          }
           : j
       )
     );
@@ -404,6 +417,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900">
+      <ConfirmDialogHost />
       {/* LEFT NAVIGATION SIDEBAR */}
       <Sidebar
         activeTab={activeTab}
@@ -413,8 +427,8 @@ export default function App() {
         showAccountPopover={showAccountPopover}
         setShowAccountPopover={setShowAccountPopover}
         onActionNotification={showToast}
-        onOpenPricingServices={handleOpenPricingServices}
-        onOpenBillingSettings={handleOpenBillingSettings}
+        activeSettingsArea={settingsAreaForTab(activeTab)}
+        onNavigateSettings={(area) => { setModalDialog({ isOpen: false, type: null }); navigateSettings(area); }}
         dispatchMode={dispatchMode}
         onDispatchModeChange={(mode) => {
           setDispatchMode(mode);
@@ -434,27 +448,35 @@ export default function App() {
           onClick={() => setSidebarOpen(true)}
           aria-label="Open menu"
           title="Open menu"
-          className={`absolute z-40 flex items-center justify-center text-slate-700 transition-all duration-300 ease-in-out ${
-            activeTab === 'monitor'
+          className={`absolute z-40 flex items-center justify-center text-slate-700 transition-all duration-300 ease-in-out ${activeTab === 'monitor'
               ? 'top-5 left-3 w-10 h-10 rounded-xl bg-white border border-slate-200/90 shadow-md shadow-slate-900/5 hover:bg-slate-50'
-              : 'top-3.5 left-4 w-9 h-9 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          } ${sidebarOpen ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-100 translate-x-0'}`}
+              : 'top-3 right-4 w-9 h-9 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+            } ${sidebarOpen ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-100 translate-x-0'}`}
         >
           <Menu className="w-4.5 h-4.5" />
         </button>
 
         {activeTab === 'services-accessorials' || activeTab === 'pricing-services' ? (
           <PricingServicesPage
+            onNavigateSettings={navigateSettings}
             onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
           />
         ) : activeTab === 'rate-cards' ? (
           <RateCardsPage
+            onNavigateSettings={navigateSettings}
+            onBackToMonitor={() => setActiveTab('monitor')}
+            onNotification={showToast}
+          />
+        ) : activeTab === 'company-settings' ? (
+          <CompanySettingsPage
+            onNavigateSettings={navigateSettings}
             onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
           />
         ) : activeTab === 'billing-settings' ? (
           <BillingSettingsPage
+            onNavigateSettings={navigateSettings}
             onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
           />
@@ -510,129 +532,129 @@ export default function App() {
         ) : (
           <>
             {/* MAPLIBRE GL / LEAFLET INTERACTIVE MAP CANVAS */}
-        <TorontoMap
-          mapRef={mapRef}
-          mapInstanceRef={mapRef}
-          drivers={drivers}
-          jobs={jobs}
-          selectedDriverId={selectedDriverId}
-          selectedJobId={selectedJobId}
-          layerConfig={layerConfig}
-          onSelectDriver={handleSelectDriver}
-          onSelectJob={handleSelectJob}
-          onMapClick={handleMapBackgroundClick}
-          onPositionsUpdate={handleMarkerPositionsUpdate}
-          onUpdatePositions={handleMarkerPositionsUpdate}
-          onDriverTelemetry={handleDriverTelemetryUpdate}
-          onDriverTelemetryUpdate={handleDriverTelemetryUpdate}
-        />
-
-        {/* TOP METRICS (Active Jobs, Available Drivers, Needs Attention) */}
-        <TopMetrics
-          offsetForMenu={!sidebarOpen}
-          drivers={drivers}
-          jobs={jobs}
-          activeJobsCount={activeJobsCount}
-          availableDriversCount={availableDriversCount}
-          needsAttentionCount={needsAttentionItems.length}
-          needsAttentionItems={needsAttentionItems}
-          showActiveJobsMenu={showActiveJobsMenu}
-          setShowActiveJobsMenu={setShowActiveJobsMenu}
-          showAvailableDriversMenu={showAvailableDriversMenu}
-          setShowAvailableDriversMenu={setShowAvailableDriversMenu}
-          showNeedsAttentionPopover={showNeedsAttentionPopover}
-          setShowNeedsAttentionPopover={setShowNeedsAttentionPopover}
-          onSelectJob={(num) => {
-            handleSelectJob(num);
-            setShowActiveJobsMenu(false);
-            setShowNeedsAttentionPopover(false);
-          }}
-          onSelectDriver={(id) => {
-            handleSelectDriver(id);
-            setShowAvailableDriversMenu(false);
-          }}
-          onActionNotification={showToast}
-          onOpenAllJobs={handleOpenAllJobs}
-          onOpenAllDrivers={handleOpenAllDrivers}
-          onOpenAllExceptions={handleOpenAllExceptions}
-        />
-
-        {/* COMPACT DATE CONTROL, NOTIFICATION & SEARCH ICONS */}
-        <DateControl
-          showCalendarPopover={showCalendarPopover}
-          setShowCalendarPopover={setShowCalendarPopover}
-          showSearchPopover={showSearchPopover}
-          setShowSearchPopover={setShowSearchPopover}
-          showNotificationPopover={showNotificationPopover}
-          setShowNotificationPopover={setShowNotificationPopover}
-          onSelectJob={(jobNum) => {
-            handleSelectJob(jobNum);
-            setShowSearchPopover(false);
-          }}
-          onSelectDriver={(driverId) => {
-            handleSelectDriver(driverId);
-            setShowSearchPopover(false);
-          }}
-          onActionNotification={showToast}
-          drivers={drivers}
-          jobs={jobs}
-        />
-
-        {/* DRIVER MARKER FLOW (D14 + Driver Actions Child) */}
-        <AnimatePresence>
-          {showDriverPopover && (
-            <DriverPopover
-              driver={activeDriver}
-              onClose={handleCloseDriverPopover}
-              showActions={showDriverActions}
-              setShowActions={setShowDriverActions}
-              onActionNotification={showToast}
-              onOpenFullProfile={() => handleOpenDriverProfile(activeDriver)}
-              position={markerPositions.driver ?? markerPositions.d14 ?? undefined}
+            <TorontoMap
+              mapRef={mapRef}
+              mapInstanceRef={mapRef}
+              drivers={drivers}
+              jobs={jobs}
+              selectedDriverId={selectedDriverId}
+              selectedJobId={selectedJobId}
+              layerConfig={layerConfig}
+              onSelectDriver={handleSelectDriver}
+              onSelectJob={handleSelectJob}
+              onMapClick={handleMapBackgroundClick}
+              onPositionsUpdate={handleMarkerPositionsUpdate}
+              onUpdatePositions={handleMarkerPositionsUpdate}
+              onDriverTelemetry={handleDriverTelemetryUpdate}
+              onDriverTelemetryUpdate={handleDriverTelemetryUpdate}
             />
-          )}
-        </AnimatePresence>
 
-        {/* JOB MARKER FLOW (Job #461 + Assign Driver + AI Recommendation Terminal Child) */}
-        <AnimatePresence>
-          {showJobDetail && (
-            <JobDetailPopover
-              job={activeJob}
-              onClose={handleCloseJobDetailPopover}
-              showAssignDriver={showAssignDriver}
-              setShowAssignDriver={setShowAssignDriver}
-              showAiRecommendation={showAiRecommendation}
-              setShowAiRecommendation={setShowAiRecommendation}
-              onApproveRecommendation={handleApproveRecommendation}
-              onKeepCurrent={handleKeepCurrent}
+            {/* TOP METRICS (Active Jobs, Available Drivers, Needs Attention) */}
+            <TopMetrics
+              offsetForMenu={!sidebarOpen}
+              drivers={drivers}
+              jobs={jobs}
+              activeJobsCount={activeJobsCount}
+              availableDriversCount={availableDriversCount}
+              needsAttentionCount={needsAttentionItems.length}
+              needsAttentionItems={needsAttentionItems}
+              showActiveJobsMenu={showActiveJobsMenu}
+              setShowActiveJobsMenu={setShowActiveJobsMenu}
+              showAvailableDriversMenu={showAvailableDriversMenu}
+              setShowAvailableDriversMenu={setShowAvailableDriversMenu}
+              showNeedsAttentionPopover={showNeedsAttentionPopover}
+              setShowNeedsAttentionPopover={setShowNeedsAttentionPopover}
+              onSelectJob={(num) => {
+                handleSelectJob(num);
+                setShowActiveJobsMenu(false);
+                setShowNeedsAttentionPopover(false);
+              }}
+              onSelectDriver={(id) => {
+                handleSelectDriver(id);
+                setShowAvailableDriversMenu(false);
+              }}
               onActionNotification={showToast}
-              onOpenFullDetails={() => handleOpenJobDossier(activeJob)}
+              onOpenAllJobs={handleOpenAllJobs}
               onOpenAllDrivers={handleOpenAllDrivers}
-              position={markerPositions.job ?? markerPositions.job461 ?? undefined}
+              onOpenAllExceptions={handleOpenAllExceptions}
             />
-          )}
-        </AnimatePresence>
 
-        {/* MAP CONTROLS & SETTINGS (BOTTOM-RIGHT) */}
-        <MapControls
-          layerConfig={layerConfig}
-          setLayerConfig={setLayerConfig}
-          showSettingsPopover={showMapSettings}
-          setShowSettingsPopover={setShowMapSettings}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onActionNotification={showToast}
-        />
+            {/* COMPACT DATE CONTROL, NOTIFICATION & SEARCH ICONS */}
+            <DateControl
+              showCalendarPopover={showCalendarPopover}
+              setShowCalendarPopover={setShowCalendarPopover}
+              showSearchPopover={showSearchPopover}
+              setShowSearchPopover={setShowSearchPopover}
+              showNotificationPopover={showNotificationPopover}
+              setShowNotificationPopover={setShowNotificationPopover}
+              onSelectJob={(jobNum) => {
+                handleSelectJob(jobNum);
+                setShowSearchPopover(false);
+              }}
+              onSelectDriver={(driverId) => {
+                handleSelectDriver(driverId);
+                setShowSearchPopover(false);
+              }}
+              onActionNotification={showToast}
+              drivers={drivers}
+              jobs={jobs}
+            />
 
-        {/* RE-CENTER MAP QUICK ACTION BUTTON */}
-        <button
-          onClick={handleResetSpecView}
-          className="absolute bottom-6 left-6 z-30 h-10 px-3.5 bg-white rounded-xl shadow-md shadow-slate-900/10 border border-slate-200/90 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"
-          title="Reset map camera to Vancouver overview"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
-          <span>Vancouver Overview</span>
-        </button>
+            {/* DRIVER MARKER FLOW (D14 + Driver Actions Child) */}
+            <AnimatePresence>
+              {showDriverPopover && (
+                <DriverPopover
+                  driver={activeDriver}
+                  onClose={handleCloseDriverPopover}
+                  showActions={showDriverActions}
+                  setShowActions={setShowDriverActions}
+                  onActionNotification={showToast}
+                  onOpenFullProfile={() => handleOpenDriverProfile(activeDriver)}
+                  position={markerPositions.driver ?? markerPositions.d14 ?? undefined}
+                />
+              )}
+            </AnimatePresence>
+
+            {/* JOB MARKER FLOW (Job #461 + Assign Driver + AI Recommendation Terminal Child) */}
+            <AnimatePresence>
+              {showJobDetail && (
+                <JobDetailPopover
+                  job={activeJob}
+                  onClose={handleCloseJobDetailPopover}
+                  showAssignDriver={showAssignDriver}
+                  setShowAssignDriver={setShowAssignDriver}
+                  showAiRecommendation={showAiRecommendation}
+                  setShowAiRecommendation={setShowAiRecommendation}
+                  onApproveRecommendation={handleApproveRecommendation}
+                  onKeepCurrent={handleKeepCurrent}
+                  onActionNotification={showToast}
+                  onOpenFullDetails={() => handleOpenJobDossier(activeJob)}
+                  onOpenAllDrivers={handleOpenAllDrivers}
+                  position={markerPositions.job ?? markerPositions.job461 ?? undefined}
+                />
+              )}
+            </AnimatePresence>
+
+            {/* MAP CONTROLS & SETTINGS (BOTTOM-RIGHT) */}
+            <MapControls
+              layerConfig={layerConfig}
+              setLayerConfig={setLayerConfig}
+              showSettingsPopover={showMapSettings}
+              setShowSettingsPopover={setShowMapSettings}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onActionNotification={showToast}
+            />
+
+            {/* RE-CENTER MAP QUICK ACTION BUTTON */}
+            <button
+              onClick={handleResetSpecView}
+              className="absolute bottom-6 left-6 z-30 h-10 px-3.5 bg-white rounded-xl shadow-md shadow-slate-900/10 border border-slate-200/90 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"
+              title="Reset map camera to Vancouver overview"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
+              <span>Vancouver Overview</span>
+            </button>
           </>
         )}
 
