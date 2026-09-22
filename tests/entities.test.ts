@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeOrderInput, removeOrderStop, snapshotCustomer, applyCustomerDefaults } from '../src/domain/orderAdapters';
-import { validateOrderFacts, validateDriver, validateVehicle, validateCustomer, orderEditable, orderLifecycle } from '../src/domain/validation';
+import { validateOrderFacts, validateDriver, validateVehicle, validateCustomer, orderEditable, orderLifecycle, orderAttention } from '../src/domain/validation';
 import { validateLoad, validateOperationalAssignment } from '../src/domain/assignment';
 import { loadDrivers, saveDrivers, normalizeDriver, syncDriver, connectivity } from '../src/lib/driverStorage';
 import { loadVehicles, saveVehicles, INITIAL_VEHICLES_FLEET, normalizeVehicle, syncVehicle } from '../src/lib/vehicleStorage';
@@ -70,12 +70,12 @@ test('assignment respects skills, duty, service area, fleet type, equipment and 
   const errors=validateOperationalAssignment(order,driver,[v]).join(' '); assert.match(errors,/on duty/); assert.match(errors,/skills/); assert.match(errors,/service area/); assert.match(errors,/shift/); assert.match(errors,/equipment/);
 });
 test('final, completed and executing orders cannot be edited; risk is independent of lifecycle', () => {
-  const order={...INITIAL_JOBS[0],status:'at_risk' as const,lifecycleStatus:'ASSIGNED' as const}; assert.equal(orderLifecycle(order),'ASSIGNED'); assert.equal(orderEditable({...order,lifecycleStatus:'IN_EXECUTION'}),false); assert.equal(orderEditable({...order,status:'completed',lifecycleStatus:'COMPLETED'}),false);
+  const order={...INITIAL_JOBS[0],status:'at_risk' as const,lifecycleStatus:'ASSIGNED' as const}; assert.equal(orderLifecycle(order),'ASSIGNED'); assert.equal(orderEditable({...order,lifecycleStatus:'IN_PROGRESS'}),false); assert.equal(orderLifecycle({...order,lifecycleStatus:'IN_EXECUTION' as any}),'IN_PROGRESS'); assert.equal(orderLifecycle({...order,lifecycleStatus:'READY_FOR_DISPATCH' as any}),'NEW'); assert.deepEqual(orderAttention(order).map(a=>a.flag),['AT_RISK']); assert.equal(orderEditable({...order,status:'completed',lifecycleStatus:'COMPLETED'}),false);
 });
 test('invoice payer and payment terms come from the frozen booking context', () => {
-  store.clear(); const ctx=loadPricingContext(); const buyer=normalizeCustomer(DEFAULT_CUSTOMERS[0]), payer=normalizeCustomer({...DEFAULT_CUSTOMERS[1],paymentTerms:'NET7',billingEmail:'payer@example.test'}); ctx.customers=[buyer,payer];
-  const input=facts(); input.customerId=buyer.id; input.billingCustomerId=payer.id; input.stage='FINAL'; const priced=priceOrder(input,ctx); assert.equal(priced.status,'PRICED');
-  payer.billingEmail='changed@example.test'; const invoice=createInvoicePreview('o',priced,ctx,new Date('2026-09-14T12:00:00Z')); assert.equal(invoice.billingEmail,'payer@example.test'); assert.equal(invoice.dueAt,'2026-09-21T12:00:00.000Z');
+  store.clear(); const ctx=loadPricingContext(); const buyer=normalizeCustomer({...DEFAULT_CUSTOMERS[0],rateCardId:null}), payer=normalizeCustomer({...DEFAULT_CUSTOMERS[1],paymentTerms:'NET7',billingEmail:'payer@example.test'}); ctx.customers=[buyer,payer];
+  const input=facts(); input.customerId=buyer.id; input.billingCustomerId=payer.id; input.stage='FINAL'; input.routeKm=12; const priced=priceOrder(input,ctx); assert.equal(priced.status,'PRICED');
+  payer.billingEmail='changed@example.test'; const invoice=createInvoicePreview('o',priced,ctx,new Date('2026-09-14T12:00:00Z')); assert.equal(invoice.billingEmail,payer.email); assert.equal(invoice.dueAt,'2026-09-21T12:00:00.000Z');
 });
 test('saved order operational fields and frozen amounts survive a roundtrip', () => {
   store.clear(); const input=facts(); const order={...INITIAL_JOBS[0],pricingInput:input,pricing:priceOrder(input),priority:'URGENT' as const,referenceNumbers:'PO-42',customerSnapshot:snapshotCustomer(DEFAULT_CUSTOMERS[0]),version:2}; saveOrders([order]); const loaded=loadSavedOrders([])[0]; assert.equal(loaded.referenceNumbers,'PO-42'); assert.deepEqual(loaded.pricing,JSON.parse(JSON.stringify(order.pricing))); assert.deepEqual(loaded.customerSnapshot,JSON.parse(JSON.stringify(order.customerSnapshot)));
@@ -83,4 +83,32 @@ test('saved order operational fields and frozen amounts survive a roundtrip', ()
 
 test('legacy Preferred customer status becomes an active account with a stable classification tag', () => {
   const c=normalizeCustomer({...DEFAULT_CUSTOMERS[0],status:'Preferred'}); assert.equal(c.status,'Active'); assert.deepEqual(c.tags,['Preferred']); assert.deepEqual(normalizeCustomer(c),c);
+});
+
+test('customer payment terms determine invoice due dates and stay frozen after later edits', () => {
+  for (const [terms, days] of [['COD', 0], ['NET15', 15], ['NET30', 30], ['NET45', 45], ['NET60', 60], ['INHERIT', 15]] as const) {
+    store.clear();
+    const ctx = loadPricingContext();
+    ctx.billing.invoicing.defaultPaymentTerms = 'NET15';
+    const customer = normalizeCustomer({ ...DEFAULT_CUSTOMERS[0], rateCardId: null, paymentTerms: terms });
+    ctx.customers = [customer];
+    const input = facts(); input.customerId = customer.id; input.stage = 'FINAL'; input.routeKm = 12;
+    const snapshot = priceOrder(input, ctx); assert.equal(snapshot.status, 'PRICED');
+    customer.paymentTerms = 'NET7'; ctx.billing.invoicing.defaultPaymentTerms = 'NET30';
+    const issued = new Date('2026-09-20T12:00:00Z');
+    const invoice = createInvoicePreview('terms', snapshot, ctx, issued);
+    assert.equal(invoice.dueAt, new Date(issued.getTime() + days * 86400000).toISOString(), terms);
+  }
+});
+
+
+test('driver limits validate whole positive counts and preserve legacy defaults on load', () => {
+  const driver = normalizeDriver(INITIAL_DRIVERS[0]);
+  assert.equal(driver.maxActiveOrders, undefined);
+  for (const maxActiveOrders of [0, -1, 1.5, Infinity, NaN]) {
+    assert.match(validateDriver({ ...driver, maxActiveOrders }, [driver])[0], /Maximum active orders/);
+  }
+  assert.deepEqual(validateDriver({ ...driver, maxActiveOrders: 1 }, [driver]), []);
+  saveDrivers([{ ...driver, maxActiveOrders: 8 }]);
+  assert.equal(loadDrivers([])[0].maxActiveOrders, 8);
 });

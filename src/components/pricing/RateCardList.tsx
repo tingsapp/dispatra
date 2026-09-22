@@ -1,6 +1,15 @@
-import { Plus } from 'lucide-react';
-import { RateCard } from '../../types/pricing';
-import { fieldClass, METHOD_LABELS, primaryBtn } from './RateCardFields';
+import { SearchInput } from '../ui/SearchInput';
+import { Clock3, FileInput, MapPin, Package, Plus, Route, type LucideIcon } from 'lucide-react';
+import { PricingMethod, RateCard } from '../../types/pricing';
+import { METHOD_LABELS, primaryBtn } from './RateCardFields';
+
+const METHOD_ICONS: Record<PricingMethod, LucideIcon> = {
+  BASE_PLUS_DISTANCE: Route,
+  FIXED: Package,
+  ZONE: MapPin,
+  HOURLY: Clock3,
+  IMPORTED: FileInput,
+};
 
 interface RateCardListProps {
   cards: RateCard[];
@@ -15,28 +24,33 @@ interface RateCardListProps {
 export function RateCardList({ cards, selectedId, search, onSearch, onAdd, onSelect, isDefault }: RateCardListProps) {
   return <aside aria-label="Rate cards" className="space-y-3 xl:sticky xl:top-0">
     <div className="flex items-center justify-between gap-2">
-      <h2 className="text-sm font-semibold text-slate-900">Rate cards</h2>
-      <button type="button" onClick={onAdd} className={primaryBtn}><Plus className="w-3.5 h-3.5" />Add rate card</button>
+      <h2 className="app-section-title text-slate-900">Rate cards</h2>
+      <button type="button" onClick={onAdd} className={primaryBtn}><Plus className="w-3.5 h-3.5" />Add card</button>
     </div>
-    <input aria-label="Search rate cards" placeholder="Search rate cards" value={search} onChange={event => onSearch(event.target.value)} className={fieldClass} />
-    <div className="space-y-2">
-      {cards.map(card => <button
-        key={card.id}
-        type="button"
-        aria-label={card.name}
-        aria-pressed={card.id === selectedId}
-        onClick={() => onSelect(card)}
-        className={`w-full text-left rounded-xl border p-3.5 transition-colors ${card.id === selectedId ? 'border-slate-900 bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-slate-400'}`}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="text-sm font-semibold text-slate-900 truncate">{card.name}</div>
-          {isDefault(card) && <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200/70">Default</span>}
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-white text-slate-600 border-slate-200">{METHOD_LABELS[card.pricingMethod]}</span>
-          <span className="text-[10px] text-slate-400 ml-auto">v{card.version}</span>
-        </div>
-      </button>)}
+    <SearchInput aria-label="Search rate cards" placeholder="Search rate cards" value={search} onChange={onSearch} />
+    <div className="space-y-1">
+      {cards.map(card => {
+        const MethodIcon = METHOD_ICONS[card.pricingMethod];
+        return <button
+          key={card.id}
+          type="button"
+          aria-label={card.name}
+          aria-pressed={card.id === selectedId}
+          onClick={() => onSelect(card)}
+          className="app-choice-row group flex w-full items-center gap-3 p-3 text-left"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-app-muted transition-colors group-hover:bg-app-hover">
+            <MethodIcon aria-hidden="true" className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2">
+              <span className="truncate text-sm text-slate-900" title={card.name}>{card.name}</span>
+              {isDefault(card) && <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">Default</span>}
+            </span>
+            <span className="mt-0.5 block text-xs text-slate-500">{METHOD_LABELS[card.pricingMethod]}</span>
+          </span>
+        </button>;
+      })}
       {!cards.length && <p className="text-xs text-slate-500 p-3">No rate cards match. Adjust your filters or add a card.</p>}
     </div>
   </aside>;

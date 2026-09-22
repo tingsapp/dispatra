@@ -1,8 +1,31 @@
 @import "tailwindcss";
+@import "./styles/theme.css";
+@import "./styles/controls.css";
 
-/* Cap page content at 80rem while keeping backgrounds and scrollbars full width. */
+/* Use the hand cursor consistently for enabled interactive controls. */
+@layer base {
+  :where(
+    a[href], button, summary, select, label[for],
+    input[type="button"], input[type="submit"], input[type="reset"],
+    input[type="checkbox"], input[type="radio"], input[type="range"],
+    input[type="color"], input[type="file"],
+    [role="button"], [role="link"], [role="tab"], [role="menuitem"],
+    [role="option"], [role="combobox"], [role="switch"],
+    [role="checkbox"], [role="radio"],
+    label:has(input[type="checkbox"]:enabled, input[type="radio"]:enabled)
+  ):not(:disabled):not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  :where(button, input, select, textarea):disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+/* Shared canvas width; reading pages opt into the narrower content token. */
 @utility page-content {
-  padding-inline: max(1.5rem, calc((100% - 80rem) / 2));
+  padding-inline: max(var(--app-page-gutter), calc((100% - var(--app-page-width)) / 2));
 }
 
 /* Custom animated flow for active dispatch polylines */

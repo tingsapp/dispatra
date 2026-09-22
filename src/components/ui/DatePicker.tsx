@@ -51,7 +51,7 @@ export function DatePicker({
           variant="outline"
           disabled={disabled}
           aria-label={`${label}: ${selected ? format(selected, 'PPP') : placeholder}`}
-          className={cn('h-9 w-full min-w-0 justify-start rounded-lg border-slate-200 px-3 text-xs font-medium text-slate-800', !selected && 'text-slate-500 font-normal', className)}
+          className={cn('app-field-trigger w-full min-w-0 justify-start px-3 font-normal text-slate-800', !selected && 'text-slate-500 font-normal', className)}
         >
           <CalendarIcon className="size-4 shrink-0 text-slate-500" />
           <span className="truncate">{selected ? format(selected, 'MMM d, yyyy') : placeholder}</span>
@@ -60,7 +60,7 @@ export function DatePicker({
       </PopoverTrigger>
       <PopoverContent align={align} className="w-auto max-w-[calc(100vw-1rem)] p-0" aria-label={`${label} calendar`}>
         <Calendar mode="single" selected={selected} defaultMonth={selected ?? today} today={today} onSelect={date => date && selectDate(date)} required autoFocus />
-        <div className="flex items-center gap-1 border-t border-slate-100 p-2">
+        <div className="flex items-center gap-1 p-2">
           <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => selectDate(today)}>Today</Button>
           {showTomorrow && <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => {
             const tomorrow = new Date(today);

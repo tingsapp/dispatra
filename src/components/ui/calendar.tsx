@@ -74,7 +74,7 @@ function Calendar({
           defaultClassNames.dropdowns
         ),
         dropdown_root: cn(
-          "relative rounded-md border border-slate-200 shadow-xs has-focus:border-slate-400 has-focus:ring-[3px] has-focus:ring-slate-400/50",
+          "relative rounded-md border border-slate-200 shadow-xs has-focus:border-slate-400",
           defaultClassNames.dropdown_root
         ),
         dropdown: cn(
@@ -208,7 +208,7 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        "flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-slate-400 group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-slate-400/50 data-[range-end=true]:rounded-md data-[range-end=true]:rounded-r-md data-[range-end=true]:bg-slate-900 data-[range-end=true]:text-white data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-slate-100 data-[range-middle=true]:text-slate-900 data-[range-start=true]:rounded-md data-[range-start=true]:rounded-l-md data-[range-start=true]:bg-slate-900 data-[range-start=true]:text-white data-[selected-single=true]:bg-slate-900 data-[selected-single=true]:text-white dark:hover:text-slate-900 [&>span]:text-xs [&>span]:opacity-70",
+        "flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 data-[range-end=true]:rounded-md data-[range-end=true]:rounded-r-md data-[range-end=true]:bg-slate-900 data-[range-end=true]:text-white data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-slate-100 data-[range-middle=true]:text-slate-900 data-[range-start=true]:rounded-md data-[range-start=true]:rounded-l-md data-[range-start=true]:bg-slate-900 data-[range-start=true]:text-white data-[selected-single=true]:bg-slate-900 data-[selected-single=true]:text-white dark:hover:text-slate-900 [&>span]:text-xs [&>span]:opacity-70",
         defaultClassNames.day,
         className
       )}

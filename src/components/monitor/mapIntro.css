@@ -1,0 +1,62 @@
+.map-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  overflow: hidden;
+  isolation: isolate;
+  background: #020610;
+  color: #f4f8ff;
+  opacity: 1;
+  transition: opacity var(--intro-reveal-duration) cubic-bezier(.22, 1, .36, 1);
+}
+.map-intro-reveal { opacity: 0; }
+.map-intro-stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 17% 21%, #b9cde8 80%, transparent),
+    radial-gradient(1px 1px at 73% 35%, #8b9fbf 80%, transparent),
+    radial-gradient(1px 1px at 44% 80%, #61799b 80%, transparent),
+    radial-gradient(1px 1px at 88% 71%, #bad7ef 80%, transparent);
+  background-size: 251px 227px, 331px 313px, 191px 277px, 379px 199px;
+  opacity: .65;
+}
+.map-intro-globe { position: absolute; inset: 0; }
+.map-intro-globe.maplibregl-map { background: transparent; }
+.map-intro-vignette { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, #02061065, transparent 24%, transparent 62%, #020610c9); }
+.map-intro-heading { position: absolute; top: clamp(28px, 5vh, 56px); left: clamp(24px, 5vw, 72px); }
+.map-intro-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .3em; color: #c0d4ed; }
+.map-intro-heading p { margin-top: 10px; font-size: clamp(18px, 2vw, 26px); font-weight: 400; letter-spacing: -.025em; }
+.map-intro-destination { position: absolute; left: clamp(24px, 5vw, 72px); bottom: clamp(88px, 12vh, 132px); transition: opacity 900ms ease, transform 900ms ease; }
+.map-intro-destination-loading { opacity: 0; transform: translateY(12px); }
+.map-intro-coordinate { font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: .13em; color: #a4bedc; }
+.map-intro-destination h2 { margin: 12px 0 4px; font-size: clamp(32px, 4.5vw, 60px); line-height: 1.1; letter-spacing: -.045em; font-weight: 400; }
+.map-intro-destination p { font-size: 14px; color: #b8cce1; }
+.map-intro-progress { width: 104px; height: 2px; margin-top: 22px; overflow: hidden; background: #ffffff20; border-radius: 2px; }
+.map-intro-progress span { display: block; width: 100%; height: 100%; transform: scaleX(0); transform-origin: left; background: #bcdcff; }
+.map-intro-progress-moving { animation: map-intro-progress var(--intro-flight-duration) cubic-bezier(.45, 0, .25, 1) forwards; }
+.map-intro-skip { position: absolute; display: flex; align-items: center; gap: 9px; right: clamp(24px, 4vw, 56px); bottom: 36px; padding: 11px 16px; font-size: 14px; color: #e7eff8; background: #ffffff0c; border: 1px solid #ffffff24; border-radius: 999px; transition: background 150ms; }
+.map-intro-skip:hover { background: #ffffff20; }
+.map-intro-skip:focus-visible { outline: 2px solid #d7e9ff; outline-offset: 4px; }
+.map-intro-attribution { position: absolute; left: clamp(24px, 5vw, 72px); bottom: 20px; font-size: 10px; color: #9baabc; }
+@keyframes map-intro-progress { to { transform: scaleX(1); } }
+@media (max-width: 639px) {
+  .map-intro-heading { top: 78px; }
+  .map-intro-destination { bottom: 125px; }
+  .map-intro-skip { bottom: 48px; }
+  .map-intro-attribution { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) { .map-intro { display: none; } }
+
+/* Arrival: markers stay hidden until their layer's turn, then drop/slide into place. Routes fade in through their paint transition. */
+[data-arrival] [data-arrival-item] { opacity: 0; }
+[data-arrival="stops"] [data-arrival-item="stop"],
+[data-arrival="drivers"] [data-arrival-item="stop"],
+[data-arrival="routes"] [data-arrival-item="stop"] { animation: monitor-arrive-drop 480ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--arrival-index, 0) * 90ms); }
+[data-arrival="drivers"] [data-arrival-item="driver"],
+[data-arrival="routes"] [data-arrival-item="driver"] { animation: monitor-arrive-slide 520ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--arrival-index, 0) * 110ms); }
+@keyframes monitor-arrive-drop { from { opacity: 0; transform: translateY(-14px) scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes monitor-arrive-slide { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+.monitor-brief { position: absolute; left: 50%; top: 84px; z-index: 30; display: flex; align-items: flex-start; gap: 16px; width: min(calc(100% - 32px), 36rem); padding: 16px 20px; transform: translateX(-50%); animation: monitor-brief-in 600ms cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes monitor-brief-in { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (max-width: 639px) { .monitor-brief { top: 72px; } }

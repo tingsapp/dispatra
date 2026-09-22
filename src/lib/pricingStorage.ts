@@ -2,7 +2,7 @@ import { loadBillingConfig } from './billingStorage';
 import { Discount, PricingConfig, RateCard, Zone, ZoneRate } from '../types/pricing';
 
 export const PRICING_STORAGE_KEY = 'dispatra_pricing_v1';
-const PRICING_SCHEMA_VERSION = 7;
+const PRICING_SCHEMA_VERSION = 11;
 
 export const NO_DISCOUNT: Discount = { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' };
 
@@ -12,10 +12,10 @@ export const NO_DISCOUNT: Discount = { type: 'NONE', value: 0, scope: 'TRANSPORT
  */
 export const RATE_CARD_BACKGROUND_DEFAULTS = {
   vehicleId: null, priority: 0, effectiveTo: null, notes: '',
-  includedPieces: 0, pieceRate: 0, includedStops: null, extraStopRate: null,
+  includedPieces: 0, pieceRate: 0, includedStops: null, extraStopRate: 0,
   minimumFreight: 0, serviceOverrides: {},
-  applyAdminFee: null, applyContractDiscount: true, applyServiceMultiplier: true, applyVehicleSurcharge: true, applyFuelSurcharge: true, applyAccessorials: true,
-  fuelPercent: null, dimensionalPricingEnabled: null, dimensionalDivisor: null, waitFreeMinutes: null, waitIncrementMinutes: null,
+  applyAdminFee: false, applyContractDiscount: true, applyServiceMultiplier: true, applyVehicleSurcharge: true, applyFuelSurcharge: true, applyAccessorials: true,
+  fuelPercent: null, waitFreeMinutes: null, waitIncrementMinutes: null,
   vehicleSurchargeOverrides: {}, accessorialRateOverrides: {},
   zoneFallbackToOrganization: false, zoneMatrixMode: 'CONTRACT' as const, zoneNoMatchFallback: 'NEEDS_ATTENTION' as const,
   hourlyClockStart: 'Arrival at first pickup', hourlyClockStop: 'Completion of final delivery', hourlyIncludesHandling: true, hourlyIncludesWaiting: true, hourlySettleActual: true,
@@ -53,7 +53,7 @@ export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard
   includedPieces: 0,
   pieceRate: 0,
   includedStops: null,
-  extraStopRate: null,
+  extraStopRate: 0,
   minimumFreight: 0,
   serviceOverrides: {},
   fixedAmount: 55,
@@ -69,7 +69,7 @@ export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard
   zoneRates: [],
   zoneFallbackToOrganization: false,
   zoneNoMatchFallback: 'NEEDS_ATTENTION',
-  applyAdminFee: null,
+  applyAdminFee: false,
   applyContractDiscount: true,
   applyOrderMinimum: true,
   minimumOrderSubtotal: 0,
@@ -79,8 +79,8 @@ export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard
   applyFuelSurcharge: true,
   applyAccessorials: true,
   fuelPercent: null,
-  dimensionalPricingEnabled: null,
-  dimensionalDivisor: null,
+  dimensionalPricingEnabled: true,
+  dimensionalDivisor: loadBillingConfig().general.dimensionalDivisor,
   waitFreeMinutes: null,
   waitIncrementMinutes: null,
   vehicleSurchargeOverrides: {},
@@ -91,7 +91,7 @@ export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard
   ...overrides
 });
 
-export const INITIAL_ZONES: Zone[] = [
+const LEGACY_PRESET_ZONES: Zone[] = [
   { id: 'zone_van', code: 'VAN', name: 'Vancouver', description: 'City of Vancouver & UBC' },
   { id: 'zone_bby', code: 'BBY', name: 'Burnaby / New West', description: 'Burnaby and New Westminster' },
   { id: 'zone_rmd', code: 'RMD', name: 'Richmond / YVR', description: 'Richmond incl. airport cargo' },
@@ -100,51 +100,50 @@ export const INITIAL_ZONES: Zone[] = [
   { id: 'zone_tri', code: 'TRI', name: 'Tri-Cities', description: 'Coquitlam, Port Coquitlam, Port Moody' }
 ];
 
-const zr = (o: string, d: string, amount: number): ZoneRate => ({
-  id: `zr_${o}_${d}`,
-  originZoneId: `zone_${o}`,
-  destinationZoneId: `zone_${d}`,
-  amount,
-  serviceId: null
-});
-
-/** Demo prices for the Pacific Fresh zone card only; the organization's standard grid ships empty. */
-const PACIFIC_FRESH_ZONE_RATES: ZoneRate[] = [
-  zr('van', 'van', 35),
-  zr('van', 'bby', 45),
-  zr('van', 'rmd', 50),
-  zr('van', 'sry', 70),
-  zr('van', 'nsh', 55),
-  zr('van', 'tri', 65),
-  zr('bby', 'van', 45),
-  zr('bby', 'bby', 35),
-  zr('bby', 'rmd', 55),
-  zr('bby', 'sry', 60),
-  zr('bby', 'tri', 45),
-  zr('rmd', 'van', 50),
-  zr('rmd', 'rmd', 35),
-  zr('rmd', 'sry', 55),
-  zr('sry', 'van', 70),
-  zr('sry', 'sry', 40),
-  zr('sry', 'bby', 60)
+/** Metro Vancouver starter zones; one verified example postal code each. Dispatch extends the lists. */
+export const INITIAL_ZONES: Zone[] = [
+  { id: 'zone_1', code: 'ZONE1', name: 'Zone 1', postalCodes: ['V5Y 1V4'] },
+  { id: 'zone_2', code: 'ZONE2', name: 'Zone 2', postalCodes: ['V5G 1M2'] },
+  { id: 'zone_3', code: 'ZONE3', name: 'Zone 3', postalCodes: ['V3T 1V8'] }
 ];
 
-/** Demo cards use only the fields the V1 editor shows. Standard is the Default. */
+/** Starter pickup → delivery prices (CAD) with one 500 kg band per movement. */
+const STARTER_ZONE_PRICES: Record<string, Record<string, number>> = {
+  zone_1: { zone_1: 30, zone_2: 45, zone_3: 65 },
+  zone_2: { zone_1: 45, zone_2: 30, zone_3: 50 },
+  zone_3: { zone_1: 65, zone_2: 50, zone_3: 35 }
+};
+export const STARTER_ZONE_MAX_WEIGHT_KG = 500;
+const starterZoneRates = (prefix: string): ZoneRate[] => Object.entries(STARTER_ZONE_PRICES).flatMap(([origin, row]) => Object.entries(row).map(([destination, amount]) => ({
+  id: `${prefix}${origin}_${destination}`, originZoneId: origin, destinationZoneId: destination, serviceId: null, amount,
+  weightBands: [{ id: `${prefix}${origin}_${destination}_band`, maxWeightKg: STARTER_ZONE_MAX_WEIGHT_KG, amount }]
+})));
+export const INITIAL_ZONE_RATES: ZoneRate[] = starterZoneRates('zr_');
+
+const PRESET_CARD_NAMES: Record<string, { previous: string; name: string }> = {
+  rc_org_standard: { previous: 'Standard', name: 'Distance based' },
+  rc_pacific_fresh: { previous: 'Pacific Fresh Contract', name: 'Zone to zone' },
+  rc_nordic_direct: { previous: 'Nordic Bio — Direct Fixed', name: 'Fixed per delivery' },
+  rc_westcoast_hourly: { previous: 'West Coast Cold — Dedicated Hourly', name: 'Hourly' },
+};
+
+/** Demo cards use only the fields the V1 editor shows. Distance based is the Default. */
 export const INITIAL_RATE_CARDS: RateCard[] = [
-  createEmptyRateCard({ id: 'rc_org_standard', name: 'Standard', code: 'STD', scope: 'ORGANIZATION', effectiveFrom: '2026-01-01', baseFee: 20, includedKm: 5, kmRate: 1.5 }),
-  createEmptyRateCard({ id: 'rc_medical_group', name: 'Medical & Pharma', code: 'MED', effectiveFrom: '2026-01-01', baseFee: 28, includedKm: 8, kmRate: 1.6 }),
-  createEmptyRateCard({ id: 'rc_pacific_fresh', name: 'Pacific Fresh Contract', code: 'PFL-2026', effectiveFrom: '2026-01-01', pricingMethod: 'ZONE', zoneRates: PACIFIC_FRESH_ZONE_RATES.map(rate => ({ ...rate, id: `pfl_${rate.originZoneId}_${rate.destinationZoneId}` })), discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' } }),
-  createEmptyRateCard({ id: 'rc_nordic_direct', name: 'Nordic Bio — Direct Fixed', code: 'NBH-DIRECT', effectiveFrom: '2026-03-01', pricingMethod: 'FIXED', fixedAmount: 95 }),
-  createEmptyRateCard({ id: 'rc_westcoast_hourly', name: 'West Coast Cold — Dedicated Hourly', code: 'WCCS-HOURLY', effectiveFrom: '2026-01-01', pricingMethod: 'HOURLY', hourlyRate: 85, minimumBillableMinutes: 120, billingIncrementMinutes: 30 }),
+  createEmptyRateCard({ id: 'rc_org_standard', name: 'Distance based', code: 'STD', scope: 'ORGANIZATION', effectiveFrom: '2026-01-01', baseFee: 20, includedKm: 5, kmRate: 1.5 }),
+  createEmptyRateCard({ id: 'rc_medical_group', name: 'Medical & Pharma', code: 'MED', status: 'ARCHIVED', effectiveFrom: '2026-01-01', baseFee: 28, includedKm: 8, kmRate: 1.6 }),
+  createEmptyRateCard({ id: 'rc_pacific_fresh', name: 'Zone to zone', code: 'PFL-2026', effectiveFrom: '2026-01-01', pricingMethod: 'ZONE', zoneRates: starterZoneRates('rc_pacific_fresh_') }),
+  createEmptyRateCard({ id: 'rc_nordic_direct', name: 'Fixed per delivery', code: 'NBH-DIRECT', effectiveFrom: '2026-03-01', pricingMethod: 'FIXED', fixedAmount: 95 }),
+  createEmptyRateCard({ id: 'rc_westcoast_hourly', name: 'Hourly', code: 'WCCS-HOURLY', effectiveFrom: '2026-01-01', pricingMethod: 'HOURLY', hourlyRate: 85, minimumBillableMinutes: 120, billingIncrementMinutes: 30 }),
   createEmptyRateCard({ id: 'rc_org_2025', name: 'Standard (2025)', code: 'STD-2025', status: 'ARCHIVED', effectiveFrom: '2025-01-01', baseFee: 18, includedKm: 5, kmRate: 1.4 })
 ];
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 
 export const INITIAL_PRICING_CONFIG: PricingConfig = {
+  discountSource: 'SHIPPER',
   rateCards: INITIAL_RATE_CARDS,
   zones: INITIAL_ZONES,
-  zoneRates: [],
+  zoneRates: INITIAL_ZONE_RATES,
   customerGroups: []
 };
 
@@ -179,6 +178,15 @@ const normaliseCard = (stored: Partial<RateCard>, standardZoneRates: ZoneRate[] 
     discount: { ...NO_DISCOUNT, ...(stored.discount || {}) }
   };
   const card = { ...base };
+  // Current cards always use the greater weight; archived cards and frozen contexts retain their terms.
+  const general = loadBillingConfig().general;
+  card.dimensionalPricingEnabled = card.status === 'ARCHIVED'
+    ? stored.dimensionalPricingEnabled ?? general.dimensionalPricingEnabled : true;
+  card.dimensionalDivisor = stored.dimensionalDivisor ?? general.dimensionalDivisor;
+  // Retired demo card: keep its record for history, but omit it from active lists and selectors.
+  if (card.id === 'rc_medical_group') card.status = 'ARCHIVED';
+  const preset = PRESET_CARD_NAMES[card.id];
+  if (preset && card.name === preset.previous) card.name = preset.name;
   // Every zone card owns its prices; cards that inherited the organization matrix take a copy of it.
   if (card.pricingMethod === 'ZONE' && card.zoneMatrixMode !== 'CONTRACT') card.zoneRates = standardZoneRates.map(rate => ({ ...rate, id: `${card.id}_${rate.originZoneId}_${rate.destinationZoneId}` }));
   // V1 discounts: None / Percentage / Fixed on freight only; legacy INHERIT and subtotal scopes collapse to that.
@@ -222,11 +230,42 @@ export const loadPricingConfig = (): PricingConfig => {
     const raw = localStorage.getItem(PRICING_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PricingConfig> & { schemaVersion?: number };
-      const zoneRates = normaliseZoneRates(Array.isArray(parsed.zoneRates) ? parsed.zoneRates : []);
+      // Retire untouched demo zones once; renamed/custom zones and historical contexts survive.
+      const storedZones = Array.isArray(parsed.zones) ? parsed.zones : [];
+      const retired = new Set((parsed.schemaVersion ?? 0) < 8 ? storedZones.filter(zone =>
+        !zone.postalCodes?.length && LEGACY_PRESET_ZONES.some(seed => seed.id === zone.id && seed.name === zone.name && seed.code === zone.code && seed.description === zone.description)
+      ).map(zone => zone.id) : []);
+      const keepRate = (rate: ZoneRate) => !retired.has(rate.originZoneId) && !retired.has(rate.destinationZoneId);
+      const zones: Zone[] = storedZones.filter(zone => !retired.has(zone.id)).map(zone => ({ ...zone, postalCodes: zone.postalCodes ?? [] }));
+      // Add the starter zones and prices once to configurations that lack them. An older zone that only shares a
+      // starter's name is replaced by the starter (user decision, September 21); other zones and prices are kept.
+      const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+      const seedStarter = (parsed.schemaVersion ?? 0) < 11 && INITIAL_ZONES.some(seed => !zones.some(zone => zone.id === seed.id) || zones.some(zone => zone.id !== seed.id && sameName(zone.name, seed.name)));
+      const replaced = new Set<string>();
+      if (seedStarter) for (const seed of INITIAL_ZONES) {
+        for (const zone of zones.filter(zone => zone.id !== seed.id && sameName(zone.name, seed.name))) { replaced.add(zone.id); zones.splice(zones.indexOf(zone), 1); }
+        if (!zones.some(zone => zone.id === seed.id)) zones.push(clone(seed));
+      }
+      const pairKey = (rate: ZoneRate) => `${rate.originZoneId}→${rate.destinationZoneId}`;
+      const withStarters = (rates: ZoneRate[], prefix: string) => {
+        const current = rates.filter(rate => !replaced.has(rate.originZoneId) && !replaced.has(rate.destinationZoneId));
+        const have = new Set(current.map(pairKey));
+        return [...current, ...starterZoneRates(prefix).filter(rate => !have.has(pairKey(rate)))];
+      };
+      const storedRates = Array.isArray(parsed.zoneRates) ? parsed.zoneRates.filter(keepRate) : [];
+      const zoneRates = normaliseZoneRates(seedStarter ? withStarters(storedRates, 'zr_') : storedRates);
       const config: PricingConfig = {
-        zones: Array.isArray(parsed.zones) ? parsed.zones : clone(INITIAL_ZONES),
+        discountSource: 'SHIPPER',
+        zones,
         zoneRates,
-        rateCards: normaliseDefault(Array.isArray(parsed.rateCards) ? parsed.rateCards.map(card => normaliseCard(card, zoneRates)) : clone(INITIAL_RATE_CARDS)),
+        rateCards: normaliseDefault(Array.isArray(parsed.rateCards) ? parsed.rateCards.map(card => {
+          const normalized = normaliseCard(card, zoneRates);
+          const rates = normalized.zoneRates ?? [];
+          if (seedStarter && normalized.status === 'ACTIVE' && normalized.pricingMethod === 'ZONE') return { ...normalized, zoneRates: withStarters(rates.filter(keepRate), `${normalized.id}_`), version: normalized.version + 1, updatedAt: new Date().toISOString() };
+          return normalized.status === 'ACTIVE' && rates.some(rate => !keepRate(rate))
+            ? { ...normalized, zoneRates: rates.filter(keepRate), version: normalized.version + 1, updatedAt: new Date().toISOString() }
+            : normalized;
+        }) : clone(INITIAL_RATE_CARDS)),
         customerGroups: []
       };
       if ((parsed.schemaVersion ?? 0) < PRICING_SCHEMA_VERSION || JSON.stringify(config.rateCards) !== JSON.stringify(parsed.rateCards) || parsed.customerGroups?.length) {
@@ -242,7 +281,7 @@ export const loadPricingConfig = (): PricingConfig => {
 
 export const savePricingConfig = (config: PricingConfig): void => {
   try {
-    localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify({ ...config, customerGroups: [], rateCards: normaliseDefault(config.rateCards.map(card => normaliseCard(card, config.zoneRates))), zoneRates: normaliseZoneRates(config.zoneRates), schemaVersion: PRICING_SCHEMA_VERSION }));
+    localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify({ ...config, discountSource: 'SHIPPER', customerGroups: [], rateCards: normaliseDefault(config.rateCards.map(card => normaliseCard(card, config.zoneRates))), zoneRates: normaliseZoneRates(config.zoneRates), schemaVersion: PRICING_SCHEMA_VERSION }));
   } catch {
     // Storage unavailable — settings stay in memory.
   }

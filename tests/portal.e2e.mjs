@@ -34,12 +34,12 @@ try {
   await page.getByRole('button',{name:'Done',exact:true}).click();
   await logout();
   await login(`/${slug}/dispatch`,'acme-admin',adminPassword);
-  await page.getByRole('button',{name:'Add customer'}).click();
-  await page.getByLabel('Customer name',{exact:true}).fill('ABC Trading');
-  await page.getByLabel('Customer number',{exact:true}).fill('CUST-001');
+  await page.getByRole('button',{name:'Add shipper'}).click();
+  await page.getByLabel('Shipper name',{exact:true}).fill('ABC Trading');
+  await page.getByLabel('Shipper number',{exact:true}).fill('CUST-001');
   await page.getByLabel('Login ID',{exact:true}).fill('abc-customer');
   const customerPassword = await page.getByLabel('Initial password',{exact:true}).inputValue();
-  await page.getByRole('button',{name:'Create customer',exact:true}).click();
+  await page.getByRole('button',{name:'Create shipper',exact:true}).click();
   await page.getByRole('heading',{name:'Login details ready'}).waitFor();
   await page.getByRole('button',{name:'Done',exact:true}).click();
   await logout();

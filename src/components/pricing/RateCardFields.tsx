@@ -1,23 +1,20 @@
 import React from 'react';
 import { Discount, DiscountType, PricingMethod } from '../../types/pricing';
 import { Select } from '../ui/Select';
-export const fieldClass =
-  'w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-400';
-export const labelClass = 'block text-xs font-medium text-slate-700 mb-1.5';
-export const hintClass = 'text-[11px] text-slate-500 mt-1';
-export const cardClass = 'bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs';
+export const fieldClass = 'app-input disabled:bg-slate-100 disabled:text-slate-400';
+export const labelClass = 'app-label';
+export const hintClass = 'text-xs text-slate-500 mt-1';
+export const cardClass = 'app-panel';
 export const checkboxClass =
-  'w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer';
-export const primaryBtn =
-  'flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors';
-export const secondaryBtn =
-  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs';
+  'app-checkbox';
+export const primaryBtn = 'app-action app-primary';
+export const secondaryBtn = 'app-action app-secondary';
 
 export const METHOD_LABELS: Record<PricingMethod, string> = {
-  BASE_PLUS_DISTANCE: 'Base + Distance',
+  BASE_PLUS_DISTANCE: 'Distance based',
   FIXED: 'Fixed per delivery',
   ZONE: 'Zone to zone',
-  HOURLY: 'Hourly / dedicated',
+  HOURLY: 'Hourly',
   IMPORTED: 'Imported price'
 };
 
@@ -28,7 +25,7 @@ export const NumberField: React.FC<{
   onChange: (v: number) => void;
   prefix?: string;
   suffix?: string;
-  step?: number;
+  step?: number | 'any';
   hint?: string;
   disabled?: boolean;
 }> = ({ label, value, onChange, prefix, suffix, step = 0.01, hint, disabled }) => (
@@ -52,7 +49,7 @@ export const NumberField: React.FC<{
   </div>
 );
 
-/** Numeric input where blank means "inherit"; shows the inherited value as placeholder. */
+/** Shipper discount controls, shared by creation and editing. */
 export const DiscountEditor: React.FC<{ value: Discount; onChange: (d: Discount) => void }> = ({ value, onChange }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div>
@@ -61,7 +58,7 @@ export const DiscountEditor: React.FC<{ value: Discount; onChange: (d: Discount)
         aria-label="Discount type"
         className="w-full"
         value={value.type === 'INHERIT' ? 'NONE' : value.type}
-        onValueChange={(v) => onChange({ ...value, type: v as DiscountType, scope: 'TRANSPORT_ONLY' })}
+        onValueChange={(v) => onChange({ ...value, type: v as DiscountType, value: v === 'NONE' ? 0 : v === 'PERCENT' ? Math.min(100, value.value) : value.value, scope: 'TRANSPORT_ONLY' })}
         options={[
           { value: 'NONE', label: 'No discount' },
           { value: 'PERCENT', label: 'Percentage' },
@@ -72,12 +69,12 @@ export const DiscountEditor: React.FC<{ value: Discount; onChange: (d: Discount)
     <NumberField
       label={value.type === 'FIXED' ? 'Amount (excludes tax)' : 'Percentage'}
       value={value.value}
-      onChange={(v) => onChange({ ...value, value: v })}
+      onChange={(v) => onChange({ ...value, value: value.type === 'PERCENT' ? Math.min(100, v) : v })}
       prefix={value.type === 'FIXED' ? '$' : undefined}
       suffix={value.type === 'PERCENT' ? '%' : undefined}
       disabled={value.type !== 'PERCENT' && value.type !== 'FIXED'}
       step={0.5}
-      hint="Taken off freight, service multiplier, minimum and vehicle surcharge. Fuel, Accessorials, service fee and tax are never discounted."
+      hint="Taken off freight, service charge, minimum and vehicle surcharge. Fuel, Accessorials, service fee and tax are never discounted."
     />
   </div>
 );

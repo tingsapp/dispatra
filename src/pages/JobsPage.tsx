@@ -1,8 +1,11 @@
+import { ListSummary } from '../components/layout/ListSummary';
+import { DriverAssignmentMenu } from '../components/entities/DriverAssignmentMenu';
+import { Button } from '../components/ui/button';
+import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
 import {
-AlertCircle,
+CircleCheck,
+UserRoundSearch,
 AlertTriangle,
-Check,
-CheckCircle2,
 ChevronRight,
 Clock,
 Download,
@@ -10,38 +13,53 @@ MapPin,
 Package,
 Phone,
 Plus,
-RefreshCw,
-User,
-X
+FileText,
+Building2,
+Tag
 } from 'lucide-react';
 import React,{ useMemo,useState } from 'react';
-import { OrderDetails } from '../components/entities/OrderFields';
-import { StopDetails } from '../components/entities/StopItemFields';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
 import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
+import { QuotationMenu } from '../components/pricing/QuotationMenu';
+import { buildQuotation } from '../lib/quotation';
+import { invoiceOrder, invoiceState } from '../lib/invoicing';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
 import { csv } from '../domain/csv';
-import { normalizeOrderInput,snapshotCustomer } from '../domain/orderAdapters';
-import { lifecycleLabel,orderEditable,orderLifecycle,validateOrderFacts } from '../domain/validation';
+import { applyDriverVehicle,normalizeOrderInput,snapshotCustomer } from '../domain/orderAdapters';
+import { loadVehicles } from '../lib/vehicleStorage';
+import { lifecycleLabel,orderAttention,orderEditable,orderLifecycle,validateOrderFacts } from '../domain/validation';
+import { ORDER_LIFECYCLES, ORDER_LIFECYCLE_LABELS } from '../domain/operations';
 import {
 createDefaultOrderInput,
 describePrice,
-finalizeOrderPrice,
 loadPricingContext,
 priceOrder
 } from '../lib/orderPricing';
-import { createInvoicePreview,validateAssignment,validateBooking } from '../lib/organizationWorkflows';
-import { formatDistance,formatWeight } from '../lib/units';
+import { validateAssignment,validateBooking } from '../lib/organizationWorkflows';
+import { formatDimension,formatWeight } from '../lib/units';
 import { Driver,Job } from '../types';
-import { PricingOrderInput } from '../types/pricing';
+import { PricingOrderInput, PricingStopInput } from '../types/pricing';
+import { PricingContext } from '../lib/pricingEngine';
+
+const priorityLabel = (p: Job['priority'] | undefined) => ({ NORMAL: 'Normal', HIGH: 'High', URGENT: 'Urgent' } as Record<string, string>)[p ?? 'NORMAL'] ?? 'Normal';
+const trimUnit = (s: string) => s.replace(/\s\S+$/, '');
+const formatWhen = (iso: string | undefined, timeZone: string) => iso ? new Date(iso).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short', timeZone }) : '';
+const dossierStops = (job: Job): PricingStopInput[] => job.pricingInput?.stops ?? [
+  { id: 'pu', type: 'PICKUP', label: job.pickupAddress, zoneId: null, residential: false, waitMinutes: 0 },
+  { id: 'do', type: 'DROPOFF', label: job.dropoffAddress, zoneId: null, residential: false, waitMinutes: 0 }
+];
+const dossierAccessorials = (job: Job, ctx: PricingContext) => (job.pricingInput?.accessorials ?? []).flatMap(a => { const item = ctx.catalogue.accessorials.find(c => c.id === a.accessorialId); return item ? [item] : []; });
+/** Read-only field styled like the form's label + value pairs. */
+function Detail({ label, value, hint, className = '' }: { label: string; value?: string | null; hint?: string | null; className?: string }) {
+  return <div className={className}><dt className="text-xs text-slate-500">{label}</dt><dd className="text-sm text-slate-900 break-words">{value?.trim() ? value : '—'}{hint && <span className="block text-xs text-slate-500">{hint}</span>}</dd></div>;
+}
 
 interface JobsPageProps {
   jobs: Job[];
   drivers: Driver[];
-  onBackToMonitor: () => void;
   onSelectJob: (jobNumber: string) => void;
   onUpdateJob: (updatedJob: Job) => void;
   onCreateJob: (newJob: Job) => void;
@@ -53,7 +71,6 @@ const nextJobNumber = (jobs: Job[]) => `#${jobs.reduce((max, job) => Math.max(ma
 export function JobsPage({
   jobs,
   drivers,
-  onBackToMonitor,
   onSelectJob,
   onUpdateJob,
   onCreateJob,
@@ -85,7 +102,7 @@ export function JobsPage({
     const ctx = loadPricingContext();
     setEditingOrder(null); setOrderFields({}); setFormErrors([]);
     setPricingCtx(ctx);
-    setNewOrderInput(createDefaultOrderInput(ctx));
+    setNewOrderInput(applyDriverVehicle(createDefaultOrderInput(ctx), undefined, []));
     setNewInstructions('');
     setNewDriverId('unassigned');
     setShowCreateModal(true);
@@ -94,7 +111,7 @@ export function JobsPage({
   const openEditOrder = (job: Job) => {
     if (!orderEditable(job) || !job.pricingInput) return;
     setPricingCtx(loadPricingContext()); setEditingOrder(job); setOrderFields({ ...job }); setFormErrors([]);
-    setNewOrderInput(normalizeOrderInput(structuredClone(job.pricingInput)));
+    setNewOrderInput(normalizeOrderInput({ ...structuredClone(job.pricingInput), taxCalculation: 'COMPANY' }));
     setNewInstructions(job.handlingInstructions ?? '');
     setNewScheduledTime(job.scheduledTime); setNewDriverId(job.assignedDriverId ?? 'unassigned'); setActiveJobDossier(null); setShowCreateModal(true);
   };
@@ -121,7 +138,7 @@ export function JobsPage({
       const matchesType =
         typeFilter === 'all' || job.serviceId === typeFilter;
 
-      return matchesSearch && matchesStatus && matchesType && (lifecycleFilter === 'all' || orderLifecycle(job) === lifecycleFilter);
+      return matchesSearch && matchesStatus && matchesType && (lifecycleFilter === 'all' || (lifecycleFilter === 'attention' ? orderAttention(job).length > 0 : orderLifecycle(job) === lifecycleFilter));
     });
   }, [jobs, searchQuery, statusFilter, typeFilter, lifecycleFilter]);
 
@@ -134,8 +151,8 @@ export function JobsPage({
 
   const handleExportCSV = () => {
     const content = csv([
-      ['Order number','Order status','Risk','Customer','Reference / PO','Priority','Stops in order','Scheduled','Driver','Service','Pricing status','Currency','Subtotal','Tax','Total'],
-      ...filteredJobs.map(j => [j.jobNumber,lifecycleLabel(j),j.status === 'at_risk' || j.status === 'late_start' ? j.statusLabel : '',j.customerName,j.referenceNumbers,j.priority ?? 'NORMAL',j.pricingInput?.stops.map((s,i) => `${i+1}. ${s.type}: ${s.label} (${s.contactName ?? ''})`).join(' | '),j.scheduledTime,j.assignedDriverId,j.serviceLevel,j.pricing?.status,j.pricing?.currency,j.pricing?.subtotal,j.pricing?.taxTotal,j.pricing?.total])
+      ['Order number','Order status','Risk','Shipper','Reference / PO','Priority','Stops in order','Scheduled','Driver','Service','Pricing status','Currency','Subtotal','Tax','Total'],
+      ...filteredJobs.map(j => [j.jobNumber,lifecycleLabel(j),orderAttention(j).map(a => a.label).join('; '),j.customerName,j.referenceNumbers,j.priority ?? 'NORMAL',j.pricingInput?.stops.map((s,i) => `${i+1}. ${s.type}: ${s.label} (${s.contactName ?? ''})`).join(' | '),j.scheduledTime,j.assignedDriverId,j.serviceLevel,j.pricing?.status,j.pricing?.currency,j.pricing?.subtotal,j.pricing?.taxTotal,j.pricing?.total])
     ]);
     const encodedUri = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
@@ -156,7 +173,7 @@ export function JobsPage({
       ...job,
       assignedDriverId: driverId === 'unassigned' ? undefined : driverId,
       driverName: driver ? driver.name : undefined,
-      lifecycleStatus: driverId === 'unassigned' ? 'READY_FOR_DISPATCH' : 'ASSIGNED',
+      lifecycleStatus: driverId === 'unassigned' ? 'NEW' : 'ASSIGNED',
       version: (job.version ?? 1) + 1,
       status: driverId === 'unassigned' ? 'no_driver' : 'on_time',
       statusLabel: driverId === 'unassigned' ? 'No Driver' : 'On Time',
@@ -176,7 +193,7 @@ export function JobsPage({
     const pickups = newOrderInput.stops.filter((st) => st.type === 'PICKUP');
     const drops = newOrderInput.stops.filter((st) => st.type === 'DROPOFF');
     if (!selectedCustomer) {
-      onNotification('Choose a customer. Walk-ins are added under Customers first.');
+      onNotification('Choose a shipper. Walk-ins are added under Shippers first.');
       return;
     }
     if (!pickups.length || !drops.length || newOrderInput.stops.some((st) => !st.label?.trim())) {
@@ -188,8 +205,8 @@ export function JobsPage({
     const normalizedNumber = editingOrder?.jobNumber ?? nextJobNumber(jobs);
     const factsErrors = validateOrderFacts(newOrderInput);
     const zoneCard = pricingCtx.pricing.rateCards.find(c => c.id === selectedCustomer.rateCardId && c.status === 'ACTIVE') ?? pricingCtx.pricing.rateCards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
-    if (zoneCard?.pricingMethod === 'ZONE' && newOrderInput.stops.some(st => !st.zoneId)) factsErrors.push('Choose a zone for every stop — this customer is priced zone to zone.');
-    if (selectedCustomer && ['Inactive','On Hold'].includes(selectedCustomer.status)) factsErrors.push('Choose an active customer.');
+    if (zoneCard?.pricingMethod === 'ZONE' && newOrderInput.stops.some(st => !st.zoneId)) factsErrors.push('Choose a zone for every stop — this shipper is priced zone to zone.');
+    if (selectedCustomer && ['Inactive','On Hold'].includes(selectedCustomer.status)) factsErrors.push('Choose an active shipper.');
     const latest = editingOrder && jobs.find(j => j.id === editingOrder.id);
     if (editingOrder && (!latest || !orderEditable(latest) || (latest.version ?? 1) !== (editingOrder.version ?? 1))) factsErrors.push('Order changed while editing. Close and reopen it before saving.');
     setFormErrors(factsErrors);
@@ -206,7 +223,7 @@ export function JobsPage({
       ...editingOrder,
       ...orderFields,
       id: editingOrder?.id ?? crypto.randomUUID(),
-      lifecycleStatus: assignedDriver ? 'ASSIGNED' : snapshot.status === 'PRICED' ? 'READY_FOR_DISPATCH' : snapshot.status === 'NEEDS_ATTENTION' ? 'NEEDS_ATTENTION' : 'SUBMITTED',
+      lifecycleStatus: assignedDriver ? 'ASSIGNED' : 'NEW',
       version: (editingOrder?.version ?? 0) + 1,
       createdAt: editingOrder?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -248,160 +265,90 @@ export function JobsPage({
     );
   };
 
-  /** Re-run the engine against current settings (estimate stage only). */
-  const handleReprice = (job: Job) => {
-    if (!job.pricingInput || !orderEditable(job)) return;
-    const updated: Job = { ...job, pricing: priceOrder(job.pricingInput), version: (job.version ?? 1) + 1 };
-    onUpdateJob(updated);
-    setActiveJobDossier(updated);
-    onNotification(`${job.jobNumber} re-priced against current Rate Cards`);
+  const handleInvoice = (job: Job) => {
+    try {
+      const updated = invoiceOrder(job, loadPricingContext());
+      onUpdateJob(updated);
+      if (activeJobDossier?.id === job.id) setActiveJobDossier(updated);
+      onNotification(`${job.jobNumber} invoiced — $${updated.pricing!.total.toFixed(2)} ${updated.pricing!.currency} to ${updated.invoicePreview?.billingEmail || 'the shipper'}`);
+    } catch (error) { onNotification(error instanceof Error ? error.message : 'The order could not be invoiced.'); }
   };
-
-  /** Completion pricing: settle on actuals and lock the snapshot. */
-  const handleFinalize = (job: Job) => {
-    if (!job.pricingInput || job.pricing?.stage === 'FINAL') return;
-    const hourly = job.pricing?.method === 'HOURLY';
-    const actual = hourly ? window.prompt('Actual billable minutes for the agreed hourly clock (required when settling actuals):', String(job.pricingInput.actualHourlyBillableMinutes ?? '')) : '';
-    if (actual === null) return;
-    const minutes = actual.trim() === '' ? null : Number(actual);
-    if (minutes != null && (!Number.isFinite(minutes) || minutes < 0)) { onNotification('Enter valid nonnegative minutes.'); return; }
-    const ctx = loadPricingContext();
-    const { input, snapshot } = finalizeOrderPrice(job.pricingInput, minutes, ctx, job.pricing);
-    if (snapshot.status !== 'PRICED') { onNotification(snapshot.errors.map(e => e.message).join(' ')); return; }
-    const updated: Job = { ...job, pricingInput: input, pricing: snapshot, invoicePreview: job.invoicePreview ?? createInvoicePreview(job.id, snapshot, ctx) };
-    onUpdateJob(updated);
-    setActiveJobDossier(updated);
-    onNotification(`${job.jobNumber} price finalized at $${snapshot.total.toFixed(2)} ${snapshot.currency}`);
-  };
-
   useEntityDialog(!!activeJobDossier || showCreateModal, () => { setActiveJobDossier(null); setShowCreateModal(false); });
 
   return (
-    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
+    <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <PageHeader title="Orders" description="Order details, customer pricing, time windows and assignments." onBackToMonitor={onBackToMonitor} actions={<>
+      <PageHeader title="Orders" description="Order details, shipper pricing, time windows and assignments." actions={<>
           <button
             type="button"
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            className="app-action app-secondary"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Export Manifest</span>
           </button>
-          <button
+          <Button
             type="button"
             onClick={openCreateModal}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
+            className="app-action app-primary flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Order</span>
-          </button>
+          </Button>
       </>} />
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
-        {/* STATS OVERVIEW CARDS */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Total Orders</span>
-              <Package className="w-4 h-4 text-slate-400" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-slate-900">{totalCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">All saved orders</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>On Schedule</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-emerald-600">{onTimeCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Running inside the delivery window</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>At Risk / Late</span>
-              <AlertTriangle className="w-4 h-4 text-rose-500" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-rose-600">{atRiskCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Needs dispatcher intervention</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Unassigned</span>
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-amber-600">{noDriverCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Awaiting a driver assignment</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Completed</span>
-              <Check className="w-4 h-4 text-slate-400" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-slate-900">{completedCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Delivered and closed out</div>
-          </div>
-        </div>
+        <ListSummary label="Orders summary" items={[
+          { label: 'Total', value: totalCount, icon: Package },
+          { label: 'On schedule', value: onTimeCount, icon: Clock },
+          { label: 'At risk / late', value: atRiskCount, icon: AlertTriangle },
+          { label: 'Unassigned', value: noDriverCount, icon: UserRoundSearch },
+          { label: 'Completed', value: completedCount, icon: CircleCheck },
+        ]} />
 
         {/* SEARCH & FILTERS BAR */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          <SearchInput
+        <div className="app-list-toolbar">
+          <SearchInput className="app-list-search"
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder="Search orders, references, recipients or addresses..."
           />
 
-          <div className="flex items-center gap-2">
+          <div className="app-list-filters">
             {/* Status Filter Buttons */}
-            <div className="inline-flex bg-slate-50 p-0.5 border border-slate-200 rounded-lg text-xs font-medium">
+            <div className="app-list-status">
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  statusFilter === 'all'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                aria-pressed={statusFilter === 'all'}
+                className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
               >
                 All ({jobs.length})
               </button>
               <button
                 onClick={() => setStatusFilter('on_time')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  statusFilter === 'on_time'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                aria-pressed={statusFilter === 'on_time'}
+                className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
               >
                 On Schedule
               </button>
               <button
                 onClick={() => setStatusFilter('at_risk')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  statusFilter === 'at_risk'
-                    ? 'bg-rose-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                aria-pressed={statusFilter === 'at_risk'}
+                className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
               >
                 At Risk
               </button>
               <button
                 onClick={() => setStatusFilter('no_driver')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  statusFilter === 'no_driver'
-                    ? 'bg-amber-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                aria-pressed={statusFilter === 'no_driver'}
+                className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
               >
                 Unassigned
               </button>
             </div>
 
-            <Select aria-label="Filter by order status" value={lifecycleFilter} onValueChange={setLifecycleFilter} options={[{value:'all',label:'All order statuses'}, ...['DRAFT','SUBMITTED','PRICED','READY_FOR_DISPATCH','ASSIGNED','IN_EXECUTION','COMPLETED','BILLING_FINALIZATION','INVOICED','CANCELLED','FAILED','NEEDS_ATTENTION'].map(value => ({value,label:value.replaceAll('_',' ')}))]} />
+            <Select aria-label="Filter by order status" value={lifecycleFilter} onValueChange={setLifecycleFilter} options={[{ value: 'all', label: 'All order statuses' }, ...ORDER_LIFECYCLES.map(value => ({ value, label: ORDER_LIFECYCLE_LABELS[value] })), { value: 'attention', label: 'Needs attention' }]} />
             {/* Service Type Filter */}
             <Select
               aria-label="Filter by service level"
@@ -416,11 +363,11 @@ export function JobsPage({
         </div>
 
         {/* JOBS TABLE */}
-        <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
+        <div className="app-table-shell bg-white overflow-hidden">
           {filteredJobs.length === 0 ? (
             <div className="p-12 text-center">
               <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <h3 className="text-sm font-semibold text-slate-800">No orders match your filter</h3>
+              <h3 className="app-section-title text-slate-800">No orders match your filter</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                 Try adjusting your search criteria or switch status filter tabs.
               </p>
@@ -430,18 +377,18 @@ export function JobsPage({
                   setStatusFilter('all');
                   setTypeFilter('all'); setLifecycleFilter('all');
                 }}
-                className="mt-4 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                className="mt-4 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
               >
                 Clear all filters
               </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table aria-label="Orders" className="app-table w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide uppercase">
+                <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-medium text-slate-600">
                   <th className="py-3 px-4">Order / Status</th>
-                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Shipper</th>
                   <th className="py-3 px-4">Route Leg (Pickup → Delivery)</th>
                   <th className="py-3 px-4">Scheduled Window</th>
                   <th className="py-3 px-4">Assigned Driver</th>
@@ -462,21 +409,21 @@ export function JobsPage({
                       {/* Job Number & Status Badge */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900">{job.jobNumber}</span>
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>
-                          {(job.status === 'at_risk' || job.status === 'late_start') && <span className="text-[11px] text-amber-700">{job.statusLabel}</span>}
+                          <span className="font-medium text-slate-900">{job.jobNumber}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>
+                          {orderAttention(job).map(a => <span key={a.flag} className="text-xs text-amber-700" title={a.detail}>{a.label}</span>)}
                         </div>
                         {job.riskText && (
-                          <div className="text-[11px] text-slate-500 mt-0.5 font-normal">
+                          <div className="text-xs text-slate-500 mt-0.5 font-normal">
                             {job.riskText}
                           </div>
                         )}
                       </td>
 
-                      {/* Customer */}
+                      {/* Shipper */}
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-800">{job.customerName}</div>
-                        <div className="text-slate-500 text-[11px] flex items-center gap-1 mt-0.5">
+                        <div className="font-medium text-slate-800">{job.customerName}</div>
+                        <div className="text-slate-500 text-xs flex items-center gap-1 mt-0.5">
                           <Phone className="w-3 h-3 text-slate-400" />
                           {job.customerPhone}
                         </div>
@@ -500,7 +447,7 @@ export function JobsPage({
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
                           {job.scheduledTime}
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
+                        <div className="text-xs text-slate-400 mt-0.5">
                           {job.pricingInput?.stops.length ?? job.stopsCount} stops on manifest
                         </div>
                       </td>
@@ -517,47 +464,19 @@ export function JobsPage({
                             <div>
                               <div className="font-medium text-slate-800 flex items-center gap-1">
                                 {assignedDriver.name}
-                                <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1 py-0.2 rounded">
+                                <span className="text-xs font-mono bg-slate-100 text-slate-600 px-1 py-0.2 rounded">
                                   {assignedDriver.id}
                                 </span>
                               </div>
-                              <div className="text-[10px] text-slate-400">
+                              <div className="text-xs text-slate-400">
                                 {assignedDriver.vehicle.split(' ')[0]} • {assignedDriver.eta}
                               </div>
                             </div>
                           </div>
                         ) : (
-                          <div className="relative inline-block">
-                            <button
-                              onClick={() => setReassigningJobId(reassigningJobId === job.id ? null : job.id)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors cursor-pointer"
-                            >
-                              <User className="w-3 h-3" />
-                              Assign Driver
-                            </button>
-
-                            {/* Dropdown for assignment */}
-                            {reassigningJobId === job.id && (
-                              <div className="absolute left-0 top-full mt-1 w-52 bg-white rounded-xl border border-slate-200/90 shadow-lg p-2 z-50">
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
-                                  Select Driver
-                                </div>
-                                {drivers.map((d) => (
-                                  <button
-                                    key={d.id}
-                                    onClick={() => handleReassignDriver(job, d.id)}
-                                    className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 text-xs text-slate-800 transition-colors"
-                                  >
-                                    <img src={d.avatar} alt={d.name} className="w-5 h-5 rounded-full object-cover" />
-                                    <div className="flex-1 truncate">
-                                      <div className="font-medium truncate">{d.name}</div>
-                                      <div className="text-[10px] text-slate-400">{d.id} • {d.statusLabel}</div>
-                                    </div>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          <DriverAssignmentMenu drivers={drivers} open={reassigningJobId === job.id}
+                            onOpenChange={open => setReassigningJobId(open ? job.id : null)}
+                            onSelect={driverId => handleReassignDriver(job, driverId)} />
                         )}
                       </td>
 
@@ -568,7 +487,7 @@ export function JobsPage({
                           const price = describePrice(job);
                           return (
                             <div
-                              className={`text-[11px] mt-0.5 font-semibold ${
+                              className={`text-xs mt-0.5 font-medium ${
                                 price.tone === 'ok' ? 'text-slate-900' : price.tone === 'warn' ? 'text-amber-700' : 'text-slate-400'
                               }`}
                             >
@@ -585,10 +504,11 @@ export function JobsPage({
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center gap-1">
+                          {invoiceState(job) === 'READY' && <Button type="button" size="xs" variant="outline" onClick={() => handleInvoice(job)}><FileText /> Invoice</Button>}
                           <button
                             onClick={() => onSelectJob(job.jobNumber)}
-                            title="Locate on Monitor Map"
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                            title="Locate on Monitor"
+                            className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
                           >
                             <MapPin className="w-4 h-4" />
                           </button>
@@ -611,263 +531,100 @@ export function JobsPage({
         </div>
       </div>
 
-      {/* JOB DOSSIER SLIDE-OVER DRAWER */}
+      {/* JOB DOSSIER DIALOG */}
       {activeJobDossier && (
-        <div
-          data-entity-dialog
-          className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setActiveJobDossier(null);
-          }}
-        >
-          <div
-            className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden animate-in slide-in-from-right duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drawer Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="text-base font-bold text-slate-900">{activeJobDossier.jobNumber}</span>
-                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                  {activeJobDossier.serviceLevel || activeJobDossier.jobType}
-                </span>
-                {activeJobDossier.pricing?.status === 'PRICED' && (
-                  <span className="text-xs font-bold text-slate-900">
-                    ${activeJobDossier.pricing.total.toFixed(2)} {activeJobDossier.pricing.currency}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => setActiveJobDossier(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <Dialog size="md" onClose={() => setActiveJobDossier(null)}>
+          <DialogHeader onClose={() => setActiveJobDossier(null)} title={<>
+            <span>{activeJobDossier.jobNumber}</span>
+            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">{activeJobDossier.serviceLevel || activeJobDossier.jobType}</span>
+            {activeJobDossier.pricing?.status === 'PRICED' && <span className="text-sm font-normal text-slate-600">${activeJobDossier.pricing.total.toFixed(2)} {activeJobDossier.pricing.currency}</span>}
+          </>} />
+          {/* One bordered section per New Order form section; inner groups are borderless grey */}
+          <DialogBody className="space-y-5">
+              <section className="rounded-xl border border-slate-200 p-5">
+                <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>Shipper & Service</span></h4>
+                <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
+                  <Detail label="Shipper" value={activeJobDossier.customerName} hint={activeJobDossier.customerPhone} />
+                  <Detail label="Service" value={activeJobDossier.serviceLevel || activeJobDossier.jobType} />
+                  <Detail label="Priority" value={priorityLabel(activeJobDossier.priority)} />
+                </dl>
+              </section>
 
-            {/* Drawer Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
-              {/* Status Alert Banner */}
-              {activeJobDossier.status === 'at_risk' && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2 text-rose-800">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 flex-none mt-0.5" />
-                  <div>
-                    <div className="font-semibold text-rose-900">Delivery Schedule At Risk</div>
-                    <div className="text-[11px] text-rose-700 mt-0.5">
-                      {activeJobDossier.riskText || 'Projected 22 min delay due to traffic and bridge delays.'}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Customer Info Card */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer & Contact</div>
-                <div className="text-sm font-bold text-slate-900">{activeJobDossier.customerName}</div>
-                <div className="flex items-center gap-2 text-slate-600">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  <a href={`tel:${activeJobDossier.customerPhone}`} className="hover:text-blue-600 font-medium">
-                    {activeJobDossier.customerPhone}
-                  </a>
-                </div>
-              </div>
-
-              <OrderDetails order={activeJobDossier} />
-              {orderEditable(activeJobDossier) && <button className="px-3 py-2 rounded-lg bg-slate-900 text-white" onClick={() => openEditOrder(activeJobDossier)}>Edit order</button>}
-              {/* Routing Leg Details */}
-              <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Route & Stops</div>
-                
+              <section className="rounded-xl border border-slate-200 p-5">
+                <h4 className="app-section-title flex items-center gap-1.5 mb-3"><MapPin className="w-3.5 h-3.5 text-slate-700" /><span>Stops</span></h4>
                 <div className="space-y-3">
-                  {(activeJobDossier.pricingInput?.stops ?? [
-                    { id: 'pu', type: 'PICKUP' as const, label: activeJobDossier.pickupAddress, zoneId: null, residential: false, waitMinutes: 0 },
-                    { id: 'do', type: 'DROPOFF' as const, label: activeJobDossier.dropoffAddress, zoneId: null, residential: false, waitMinutes: 0 }
-                  ]).map((stop, i, all) => (
-                    <React.Fragment key={stop.id}>
-                      <div className="flex items-start gap-2.5">
-                        <div
-                          className={`w-5 h-5 rounded-full font-bold flex items-center justify-center text-[10px] flex-none mt-0.5 ${
-                            stop.type === 'PICKUP' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
-                          }`}
-                        >
-                          {i + 1}
-                        </div>
-                        <div className="min-w-0">
-                          <div className={`text-[10px] font-semibold ${stop.type === 'PICKUP' ? 'text-emerald-700' : 'text-blue-700'}`}>
-                            {stop.type === 'PICKUP' ? 'PICKUP' : 'DROP-OFF'}
-                            {stop.zoneId && (
-                              <span className="ml-1.5 text-slate-400 font-normal">
-                                {pricingCtx.pricing.zones.find((z) => z.id === stop.zoneId)?.name}
-                              </span>
-                            )}
-                            {stop.residential && <span className="ml-1.5 text-slate-400 font-normal">· residential</span>}
-                            {stop.waitMinutes > 0 && <span className="ml-1.5 text-slate-400 font-normal">· {stop.waitMinutes} min wait</span>}
-                          </div>
-                          <div className="font-medium text-slate-800">{stop.label || '—'}</div><StopDetails stop={stop} />
-                        </div>
-                      </div>
-                      {i < all.length - 1 && <div className="ml-2.5 border-l-2 border-dashed border-slate-200 h-3" />}
-                    </React.Fragment>
-                  ))}
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-slate-500">
-                  <span>Scheduled Time Window</span>
-                  <span className="font-semibold text-slate-800">{activeJobDossier.scheduledTime}</span>
-                </div>
-              </div>
-
-              {/* Assigned Driver Section */}
-              <div className="p-4 bg-white rounded-xl border border-slate-200/90 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Driver Assignment</div>
-                  <span className="text-[11px] text-slate-400">Validates order limits and exclusive service; route feasibility is not yet connected.</span>
-                </div>
-
-                <Select
-                  aria-label="Reassign driver"
-                  className="w-full"
-                  value={activeJobDossier.assignedDriverId || 'unassigned'}
-                  onValueChange={(v) => handleReassignDriver(activeJobDossier, v)}
-                  options={[
-                    { value: 'unassigned', label: '— Unassigned (Needs Dispatch) —' },
-                    ...drivers.map((d) => ({
-                      value: d.id,
-                      label: `${d.name} (${d.id}) · ${d.statusLabel} (${d.vehicle.split(' ')[0]})`
-                    }))
-                  ]}
-                />
-              </div>
-
-              {/* Cargo & Handling Specs */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cargo & Handling</div>
-                <div className="grid grid-cols-3 gap-2 text-slate-700">
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Actual Weight:</span>
-                    <div className="font-semibold">
-                      {activeJobDossier.pricing ? `${activeJobDossier.pricing.inputs.actualWeightKg} kg` : activeJobDossier.cargoWeight || '—'}
+                  {dossierStops(activeJobDossier).map((stop, i) => <div key={stop.id} className="rounded-lg bg-slate-50 p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{i + 1} · {stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
+                      {stop.residential && <span className="text-xs text-slate-500">Residential</span>}
                     </div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Chargeable Weight:</span>
-                    <div className="font-semibold">
-                      {activeJobDossier.pricing ? `${activeJobDossier.pricing.inputs.chargeableWeightKg} kg` : '—'}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Pieces:</span>
-                    <div className="font-semibold">{activeJobDossier.pricing?.inputs.pieces ?? activeJobDossier.palletCount ?? '—'}</div>
-                  </div>
+                    <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
+                      <Detail label={stop.type === 'PICKUP' ? 'Pickup address' : 'Delivery address'} value={stop.label} className={stop.zoneId ? 'sm:col-span-2' : 'sm:col-span-3'} />
+                      {stop.zoneId && <Detail label="Zone" value={pricingCtx.pricing.zones.find(z => z.id === stop.zoneId)?.name ?? '—'} />}
+                      <Detail label="Contact name" value={stop.contactName} />
+                      <Detail label="Phone" value={stop.contactPhone} />
+                      <Detail label={stop.type === 'PICKUP' ? 'Ready at' : 'Deliver by'} value={formatWhen(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd, pricingCtx.billing.general.timeZone)} />
+                    </dl>
+                  </div>)}
                 </div>
-                {activeJobDossier.handlingInstructions && (
-                  <div className="pt-2 border-t border-slate-200 text-slate-600">
-                    <span className="text-slate-400 text-[10px] block">Special Instructions:</span>
-                    {activeJobDossier.handlingInstructions}
-                  </div>
-                )}
-              </div>
+              </section>
 
-              {/* Customer Price — frozen Pricing Snapshot */}
-              <div className="p-4 bg-white rounded-xl border border-slate-200/90">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer Price</div>
-                  {activeJobDossier.pricingInput && activeJobDossier.pricing?.stage !== 'FINAL' && (
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleReprice(activeJobDossier)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-                        title="Re-run the engine against current Rate Cards"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Re-price
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleFinalize(activeJobDossier)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors"
-                        title="Settle on actuals and lock the price"
-                      >
-                        <Check className="w-3 h-3" />
-                        Finalize
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {activeJobDossier.pricing ? (
-                  <PriceBreakdown
-                    snapshot={activeJobDossier.pricing}
-                    variant="inline"
-                    title={activeJobDossier.pricing.stage === 'FINAL' ? 'Final price' : 'Quoted estimate'}
+              <section className="rounded-xl border border-slate-200 p-5">
+                <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Package className="w-3.5 h-3.5 text-slate-700" /><span>Packages</span></h4>
+                {activeJobDossier.pricingInput?.packages.length ? <div className="rounded-lg bg-slate-50 p-4 overflow-x-auto"><table aria-label="Order packages" className="app-table app-table-plain w-full">
+                  <thead><tr><th scope="col" className="text-left">Qty</th><th scope="col" className="text-left">Weight ({pricingCtx.billing.general.weightUnit})</th><th scope="col" className="text-left">L × W × H ({pricingCtx.billing.general.dimensionUnit})</th><th scope="col" className="text-left">Fragile</th></tr></thead>
+                  <tbody>{activeJobDossier.pricingInput.packages.map(p => <tr key={p.id}><td>{p.quantity}</td><td>{trimUnit(formatWeight(p.weightKg, pricingCtx.billing.general))}</td><td>{[p.lengthCm, p.widthCm, p.heightCm].map(cm => trimUnit(formatDimension(cm, pricingCtx.billing.general))).join(' × ')}</td><td>{p.fragile ? 'Yes' : '—'}</td></tr>)}</tbody>
+                </table></div> : <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">{activeJobDossier.cargoWeight ? `Cargo ${activeJobDossier.cargoWeight}` : 'No package details recorded.'}</p>}
+              </section>
+
+              <section className="rounded-xl border border-slate-200 p-5">
+                <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Tag className="w-3.5 h-3.5 text-slate-700" /><span>Accessorials</span></h4>
+                {dossierAccessorials(activeJobDossier, pricingCtx).length ? <dl className="rounded-lg bg-slate-50 p-4 space-y-2">{dossierAccessorials(activeJobDossier, pricingCtx).map(a => <div key={a.id} className="flex items-center justify-between gap-3 text-sm"><dt className="text-slate-800">{a.name}</dt><dd className="text-slate-500 tabular-nums">${a.rate.toFixed(2)}</dd></div>)}</dl> : <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No extra charges added.</p>}
+              </section>
+
+              <section className="rounded-xl border border-slate-200 p-5 space-y-3">
+                <h4 className="app-section-title">Dispatch</h4>
+                <div>
+                  <label className="app-label">Assigned driver</label>
+                  <Select
+                    aria-label="Reassign driver"
+                    className="w-full"
+                    value={activeJobDossier.assignedDriverId || 'unassigned'}
+                    onValueChange={(v) => handleReassignDriver(activeJobDossier, v)}
+                    options={[
+                      { value: 'unassigned', label: '— Unassigned (Needs Dispatch) —' },
+                      ...drivers.map((d) => ({ value: d.id, label: `${d.name} (${d.id}) · ${d.statusLabel} (${d.vehicle.split(' ')[0]})` }))
+                    ]}
                   />
-                ) : (
-                  <p className="text-slate-500">This order predates the pricing model and has no snapshot.</p>
-                )}
-                {activeJobDossier.pricing?.quoteExpiresAt && activeJobDossier.pricing.stage !== 'FINAL' && <p className="text-xs text-slate-600">Quote expires: {new Date(activeJobDossier.pricing.quoteExpiresAt).toLocaleString()} {Date.now() > Date.parse(activeJobDossier.pricing.quoteExpiresAt) ? '— expired; re-price before accepting' : ''}</p>}
-                {activeJobDossier.invoicePreview && <div className="mt-3 p-3 border rounded-lg text-xs space-y-1"><h4 className="font-semibold">Invoice preview — local only, not sent</h4><p>Due: {new Date(activeJobDossier.invoicePreview.dueAt).toLocaleDateString()}</p><p>Billing email: {activeJobDossier.invoicePreview.billingEmail || 'Missing'}</p><p>Tax registration: {activeJobDossier.invoicePreview.taxRegistrationNumber || 'Not configured'}</p><p>Finalized total: {activeJobDossier.invoicePreview.total.toFixed(2)} {activeJobDossier.invoicePreview.currency}</p><p>Uses the finalized charge lines above. Invoice issuance and email sending are not connected.</p></div>}
-                {activeJobDossier.pricingInput?.routeKm != null && (
-                  <p className="text-[11px] text-slate-400 mt-3 pt-3 border-t border-slate-100">
-                    Priced on a {formatDistance(activeJobDossier.pricingInput.routeKm, pricingCtx.billing.general)} standalone route
-                    {activeJobDossier.pricingInput.estimatedMinutes != null ? ` · ${activeJobDossier.pricingInput.estimatedMinutes} min` : ''}.
-                    Operational route distance and driver assignment do not change it.
-                  </p>
-                )}
-              </div>
-            </div>
+                </div>
+                <dl><Detail label="Handling instructions" value={activeJobDossier.handlingInstructions} /></dl>
+              </section>
 
-            {/* Drawer Footer Actions */}
-            <div className="p-4 border-t border-slate-200 bg-white flex items-center gap-2">
-              <button
-                onClick={() => {
-                  onSelectJob(activeJobDossier.jobNumber);
-                  setActiveJobDossier(null);
-                }}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
-              >
-                <MapPin className="w-3.5 h-3.5" />
-                Locate on Monitor Map
-              </button>
-              <button
-                onClick={() => setActiveJobDossier(null)}
-                className="px-4 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+              <section className="rounded-xl border border-slate-200 p-5">
+                <h4 className="app-section-title mb-3">Price</h4>
+                {activeJobDossier.pricing
+                  ? <PriceBreakdown snapshot={activeJobDossier.pricing} variant="inline" title={activeJobDossier.pricing.stage === 'FINAL' ? 'Final price' : 'Quoted estimate'} />
+                  : <p className="text-sm text-slate-500">This order predates the pricing model and has no snapshot.</p>}
+              </section>
+          </DialogBody>
+          <DialogFooter>
+            {orderEditable(activeJobDossier) && <Button variant="outline" onClick={() => openEditOrder(activeJobDossier)}>Edit order</Button>}
+            <Button onClick={() => { onSelectJob(activeJobDossier.jobNumber); setActiveJobDossier(null); }}><MapPin /> Locate on Monitor</Button>
+          </DialogFooter>
+        </Dialog>
       )}
 
       {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (
-        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div
-            className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">{editingOrder ? 'Edit Order' : 'New Order'}</h3>
-                <p className="text-xs text-slate-500">
-                  Enter the order details on the left to see its live price estimate on the right.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-5 bg-slate-50">
+        <Dialog size="xl" onClose={() => setShowCreateModal(false)}>
+          <DialogHeader onClose={() => setShowCreateModal(false)} title={editingOrder ? 'Edit Order' : 'New Order'} description="Enter the order details on the left to see its live price estimate on the right." />
+            <form onSubmit={handleCreateSubmit} className="app-dialog-body bg-slate-50 pt-5">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-7 space-y-5 text-xs">
                   {!!formErrors.length && <p role="alert" className="text-xs text-rose-700">{formErrors.join(" ")}</p>}
 
                   <OrderPricingForm
+                    showVehicleSelection={!!editingOrder}
                     value={newOrderInput}
                     onChange={v => { if (v.customerId !== newOrderInput.customerId) { const c = pricingCtx.customers.find(c => c.id === v.customerId); setOrderFields({ ...orderFields, notificationPreferences: c?.communicationPreferences }); setNewInstructions(c?.instructions ?? ''); } setNewOrderInput(v); }}
                     ctx={pricingCtx}
@@ -876,36 +633,39 @@ export function JobsPage({
                     startIndex={1}
                   />
 
-                  <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs">
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Priority</label>
+                  <div className="app-panel">
+                    <label className="app-label">Priority</label>
                     <Select aria-label="Priority" className="w-full" value={orderFields.priority ?? 'NORMAL'} onValueChange={v => setOrderFields({ ...orderFields, priority: v as Job['priority'] })} options={[{ value: 'NORMAL', label: 'Normal' }, { value: 'HIGH', label: 'High' }, { value: 'URGENT', label: 'Urgent' }]} />
                   </div>
 
                   {/* Dispatch */}
-                  <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Dispatch</h4>
+                  <div className="app-panel space-y-3">
+                    <h4 className="app-section-title text-slate-500">Dispatch</h4>
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Assign Driver (Optional)</label>
+                      <label className="block font-medium text-slate-700 mb-1">Assign Driver (Optional)</label>
                       <Select
                         aria-label="Assign driver"
                         className="w-full"
                         value={newDriverId}
-                        onValueChange={setNewDriverId}
+                        onValueChange={driverId => {
+                          setNewDriverId(driverId);
+                          if (!editingOrder) setNewOrderInput(input => applyDriverVehicle(input, drivers.find(driver => driver.id === driverId), loadVehicles()));
+                        }}
                         options={[
                           { value: 'unassigned', label: '— Leave Unassigned (Staged for Dispatch) —' },
                           ...drivers.map((d) => ({ value: d.id, label: `${d.name} (${d.id}) · ${d.statusLabel}` }))
                         ]}
                       />
-                      <p className="text-[11px] text-slate-500 mt-1">Driver choice never changes the customer price.</p>
+                      <p className="text-xs text-slate-500 mt-1">{editingOrder ? 'Driver choice never changes the shipper price.' : 'Uses the vehicle attached to the selected driver.'}</p>
                     </div>
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Handling Instructions</label>
+                      <label className="block font-medium text-slate-700 mb-1">Handling Instructions</label>
                       <textarea
                         rows={2}
                         placeholder="e.g. Liftgate required, call receiver 10m before arrival."
                         value={newInstructions}
                         onChange={(e) => setNewInstructions(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                        className="app-input w-full"
                       />
                     </div>
                   </div>
@@ -915,36 +675,16 @@ export function JobsPage({
                   <PriceBreakdown
                     snapshot={newOrderSnapshot}
                     title="Live estimate"
+                    headerAction={newOrderSnapshot.status === 'PRICED' && selectedCustomer ? <QuotationMenu buildQuotation={() => buildQuotation(newOrderInput, newOrderSnapshot, pricingCtx)} onNotification={onNotification} /> : undefined}
                   />
                 </div>
               </div>
             </form>
 
-            <div className="px-6 py-3 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
-              <span className="text-[11px] text-slate-500">
-                {newOrderSnapshot.status === 'PRICED'
-                  ? 'The estimate is frozen on the order as a Pricing Snapshot.'
-                  : 'The order can be created, but it will land in Needs Attention until it can be priced.'}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-xs cursor-pointer"
-                >
-                  {editingOrder ? 'Save Order' : 'Create Order'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+            <DialogFooter note={newOrderSnapshot.status === 'PRICED' ? 'The estimate is frozen on the order as a Pricing Snapshot.' : 'The order can be created, but it will land in Needs Attention until it can be priced.'}>
+              <Button type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>
+            </DialogFooter>
+        </Dialog>
       )}
     </div>
   );

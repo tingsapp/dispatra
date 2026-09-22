@@ -1,3 +1,4 @@
+import { Button } from '../components/ui/button';
 import {
 CheckCircle2,
 ChevronDown,
@@ -6,15 +7,16 @@ FileText,
 HelpCircle,
 Keyboard,
 PhoneCall,
-Search,
 Send
 } from 'lucide-react';
 import React,{ useState } from 'react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Select } from '../components/ui/Select';
+import { SearchInput } from '../components/ui/SearchInput';
+import { loadBillingConfig } from '../lib/billingStorage';
+import { formatWeight, type Units } from '../lib/units';
 
 interface HelpSupportPageProps {
-  onBackToMonitor: () => void;
   onNotification?: (msg: string) => void;
 }
 
@@ -26,7 +28,7 @@ interface FAQItem {
   answer: string;
 }
 
-const FAQS: FAQItem[] = [
+const getFAQs = (units: Units): FAQItem[] => [
   {
     id: 'faq-1',
     question: 'How does AI route optimization proposal work in Dispatra?',
@@ -41,7 +43,7 @@ const FAQS: FAQItem[] = [
     category: 'exceptions',
     categoryLabel: 'Exceptions & Delays',
     answer:
-      'When traffic bottlenecks, delayed loading, or driver slowdowns push expected delivery past the customer promise window, Dispatra flags the job in the "Needs Attention" list. Dispatchers can click on the flagged job to view the recommended remedy (e.g., reassigning to an idle nearby driver). Approving the recommendation seamlessly updates the route ETA and alerts the driver. Drivers on duty receive updated stop orders on their mobile terminal.'
+      'When traffic bottlenecks, delayed loading, or driver slowdowns push expected delivery past the shipper promise window, Dispatra flags the job in the "Needs Attention" list. Dispatchers can click on the flagged job to view the recommended remedy (e.g., reassigning to an idle nearby driver). Approving the recommendation seamlessly updates the route ETA and alerts the driver. Drivers on duty receive updated stop orders on their mobile terminal.'
   },
   {
     id: 'faq-3',
@@ -49,15 +51,15 @@ const FAQS: FAQItem[] = [
     category: 'fleet',
     categoryLabel: 'Fleet & Capacities',
     answer:
-      'Dispatra categorizes local delivery fleet into four clear tonnage tiers: 1 Tonne (Courier Cargo Van, max 1,000 kg, 2 standard skids), 2 Tonnes (Standard Sprinter/Cube, max 2,000 kg, 4 skids), 3 Tonnes (Medium Box Truck with liftgate, max 3,500 kg, 6 skids), and 5 Tonnes (Heavy Straight Truck, max 5,000 kg, 10-12 skids). The system automatically blocks assignments if a shipment exceeds the vehicle payload or pallet limits.'
+      `Dispatra categorizes local delivery fleet into four clear tonnage tiers: 1 Tonne (Courier Cargo Van, max ${formatWeight(1000, units)}, 2 standard skids), 2 Tonnes (Standard Sprinter/Cube, max ${formatWeight(2000, units)}, 4 skids), 3 Tonnes (Medium Box Truck with liftgate, max ${formatWeight(3500, units)}, 6 skids), and 5 Tonnes (Heavy Straight Truck, max ${formatWeight(5000, units)}, 10-12 skids). The system automatically blocks assignments if a shipment exceeds the vehicle payload or pallet limits.`
   },
   {
     id: 'faq-4',
-    question: 'What customer privacy safeguards are enforced on live tracking links?',
+    question: 'What shipper privacy safeguards are enforced on live tracking links?',
     category: 'tracking',
     categoryLabel: 'Tracking & Privacy',
     answer:
-      'Customer tracking links (/track/:token) are strictly restricted and unauthenticated. To protect driver privacy and other clients, customers only see the live vehicle position on the final delivery leg towards their specific address. Full day routes, other delivery stops, internal notes, and driver private cell numbers are never exposed. Tracking automatically deactivates once the delivery is marked completed.'
+      'Shipper tracking links (/track/:token) are strictly restricted and unauthenticated. To protect driver privacy and other clients, shippers only see the live vehicle position on the final delivery leg towards their specific address. Full day routes, other delivery stops, internal notes, and driver private cell numbers are never exposed. Tracking automatically deactivates once the delivery is marked completed.'
   },
   {
     id: 'faq-5',
@@ -78,7 +80,6 @@ const FAQS: FAQItem[] = [
 ];
 
 export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
-  onBackToMonitor,
   onNotification
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,7 +93,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
   const [ticketMessage, setTicketMessage] = useState('');
   const [submittedTicketId, setSubmittedTicketId] = useState<string | null>(null);
 
-  const filteredFaqs = FAQS.filter((faq) => {
+  const filteredFaqs = getFAQs(loadBillingConfig().general).filter((faq) => {
     const matchesCategory = selectedCategory === 'all' || faq.category === selectedCategory;
     const matchesSearch =
       faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -120,12 +121,12 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
   };
 
   return (
-    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
+    <div className="app-page app-page-reading h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <PageHeader title="Help & Support" description="Operational guides, troubleshooting and support." onBackToMonitor={onBackToMonitor} actions={<>
+      <PageHeader title="Help & Support" description="Operational guides, troubleshooting and support." actions={<>
           <a
             href="tel:18005553477"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            className="app-action app-secondary"
           >
             <PhoneCall className="w-3.5 h-3.5 text-slate-500" />
             <span>Hotline: 1-800-555-DISP</span>
@@ -135,91 +136,58 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
       {/* MAIN CONTAINER */}
       <main className="page-content flex-1 overflow-y-auto py-6 space-y-6">
         {/* SYSTEM STATUS BANNER */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="app-panel app-panel-plain flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <div>
-              <div className="text-xs font-semibold text-slate-900 flex items-center gap-2">
+              <div className="text-sm font-medium text-slate-900 flex flex-wrap items-center gap-2">
                 <span>All Dispatra Systems Operational</span>
-                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded-sm font-medium">
+                <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded-sm font-medium">
                   99.98% Uptime
                 </span>
               </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-500 mt-0.5">
                 Route Optimizer • MapLibre Telemetry Sync • SMS Notifications • Public Tracking API
               </div>
             </div>
           </div>
-          <span className="text-[11px] text-slate-400">
+          <span className="text-xs text-slate-400">
             Last checked: Live continuous
           </span>
         </div>
 
-        {/* SEARCH & FILTER BAR */}
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="pointer-events-none w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search operational guides, dispatch rules, troubleshooting..."
-              className="w-full pl-10 pr-4 py-2.5 text-xs text-slate-900 bg-white rounded-xl border border-slate-200/90 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 shadow-xs"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 px-1.5 py-0.5"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
-          {/* Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            {[
-              { id: 'all', label: 'All Topics' },
-              { id: 'optimization', label: 'Route Optimization' },
-              { id: 'exceptions', label: 'Exceptions & Delays' },
-              { id: 'fleet', label: 'Fleet & Capacities' },
-              { id: 'tracking', label: 'Tracking & Privacy' },
-              { id: 'drivers', label: 'Drivers & Telemetry' }
-            ].map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
-                  selectedCategory === cat.id
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
+        {/* SEARCH & TOPIC FILTER */}
+        <div className="flex items-center gap-3">
+          <SearchInput aria-label="Search help articles" placeholder="Search…"
+            value={searchQuery} onChange={setSearchQuery} className="min-w-0 flex-1" />
+          <Select aria-label="Help topic" value={selectedCategory} onValueChange={setSelectedCategory}
+            align="end" className="w-36 sm:w-56 shrink-0" options={[
+              { value: 'all', label: 'All Topics' },
+              { value: 'optimization', label: 'Route Optimization' },
+              { value: 'exceptions', label: 'Exceptions & Delays' },
+              { value: 'fleet', label: 'Fleet & Capacities' },
+              { value: 'tracking', label: 'Tracking & Privacy' },
+              { value: 'drivers', label: 'Drivers & Telemetry' }
+            ]} />
         </div>
 
         {/* FAQS ACCORDION */}
-        <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs divide-y divide-slate-100 overflow-hidden">
-          <div className="p-4 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+        <div className="app-panel app-panel-plain overflow-hidden">
+          <div className="pb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="app-section-title text-slate-900 flex items-center gap-2">
               <FileText className="w-4 h-4 text-slate-500" />
               <span>Standard Operational Guides ({filteredFaqs.length})</span>
             </h2>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-xs text-slate-400">
               Click any question to expand
             </span>
           </div>
 
           {filteredFaqs.length === 0 ? (
-            <div className="p-8 text-center space-y-2">
+            <div className="py-6 text-center space-y-2">
               <HelpCircle className="w-8 h-8 text-slate-300 mx-auto" />
               <div className="text-xs font-medium text-slate-700">No matching articles found</div>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Try searching with different terms or submit a direct question to the dispatch desk below.
               </p>
             </div>
@@ -231,15 +199,16 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
                   <button
                     type="button"
                     onClick={() => handleToggleFaq(faq.id)}
-                    className="w-full px-5 py-4 text-left flex items-start justify-between gap-4 hover:bg-slate-50/80 transition-colors"
+                    aria-expanded={isExpanded} aria-controls={`help-answer-${faq.id}`}
+                    className="w-full py-4 text-left flex items-start justify-between gap-4 hover:bg-slate-50/80 transition-colors"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
+                        <span className="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
                           {faq.categoryLabel}
                         </span>
                       </div>
-                      <div className="text-xs font-semibold text-slate-900">
+                      <div className="text-sm font-medium text-slate-900">
                         {faq.question}
                       </div>
                     </div>
@@ -253,7 +222,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
                   </button>
 
                   {isExpanded && (
-                    <div className="px-5 pb-4 pt-1 text-xs text-slate-600 leading-relaxed bg-slate-50/40 border-t border-slate-50">
+                    <div id={`help-answer-${faq.id}`} className="pb-4 pt-1 text-sm text-slate-600 leading-relaxed">
                       {faq.answer}
                     </div>
                   )}
@@ -264,39 +233,39 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
         </div>
 
         {/* KEYBOARD SHORTCUTS REFERENCE */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+        <div className="app-panel app-panel-plain space-y-3">
+          <div className="flex items-center gap-2">
             <Keyboard className="w-4 h-4 text-slate-600" />
-            <h3 className="text-xs font-semibold text-slate-900">
+            <h3 className="app-section-title text-slate-900">
               Monitor Keyboard Shortcuts
             </h3>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
-              <span className="text-slate-600 text-[11px]">Recenter Map</span>
-              <kbd className="px-2 py-0.5 bg-white border border-slate-200 rounded-sm text-[10px] font-mono text-slate-800 shadow-2xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-600 text-xs">Recenter Map</span>
+              <kbd className="px-2 py-0.5 bg-white border border-slate-200 rounded-sm text-xs font-mono text-slate-800 shadow-2xs">
                 M
               </kbd>
             </div>
 
-            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
-              <span className="text-slate-600 text-[11px]">Close Overlay</span>
-              <kbd className="px-2 py-0.5 bg-white border border-slate-200 rounded-sm text-[10px] font-mono text-slate-800 shadow-2xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-600 text-xs">Close Overlay</span>
+              <kbd className="px-2 py-0.5 bg-white border border-slate-200 rounded-sm text-xs font-mono text-slate-800 shadow-2xs">
                 Esc
               </kbd>
             </div>
 
-            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
-              <span className="text-slate-600 text-[11px]">Toggle Telemetry</span>
-              <kbd className="px-2 py-0.5 bg-white border border-slate-200 rounded-sm text-[10px] font-mono text-slate-800 shadow-2xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-600 text-xs">Toggle Telemetry</span>
+              <kbd className="px-2 py-0.5 bg-white border border-slate-200 rounded-sm text-xs font-mono text-slate-800 shadow-2xs">
                 Space
               </kbd>
             </div>
 
-            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
-              <span className="text-slate-600 text-[11px]">Quick Search</span>
-              <kbd className="px-2 py-0.5 bg-white border border-slate-200 rounded-sm text-[10px] font-mono text-slate-800 shadow-2xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-600 text-xs">Quick Search</span>
+              <kbd className="px-2 py-0.5 bg-white border border-slate-200 rounded-sm text-xs font-mono text-slate-800 shadow-2xs">
                 /
               </kbd>
             </div>
@@ -304,9 +273,9 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
         </div>
 
         {/* SUBMIT SUPPORT TICKET FORM */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-5">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-semibold text-slate-900">
+        <div className="app-panel app-panel-plain space-y-5">
+          <div className="space-y-1">
+            <h3 className="app-section-title text-slate-900">
               Submit a Dispatch Incident / Support Ticket
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -318,10 +287,10 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-emerald-900">
+                <div className="text-xs font-medium text-emerald-900">
                   Ticket #{submittedTicketId} Registered
                 </div>
-                <p className="text-[11px] text-emerald-800">
+                <p className="text-xs text-emerald-800">
                   Our operations engineer on duty has been notified. Expected response within 10 minutes.
                 </p>
               </div>
@@ -331,7 +300,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
           <form onSubmit={handleSubmitTicket} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                <label className="app-label">
                   Category
                 </label>
                 <Select
@@ -343,14 +312,14 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
                     { value: 'optimization', label: 'Route Optimizer / Proposal Anomaly' },
                     { value: 'telemetry', label: 'Driver App GPS / Telemetry Connectivity' },
                     { value: 'pricing', label: 'Services, Accessorials & Pricing' },
-                    { value: 'tracking', label: 'Customer Tracking Link' },
+                    { value: 'tracking', label: 'Shipper Tracking Link' },
                     { value: 'account', label: 'Account & Dispatch Permissions' }
                   ]}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                <label className="app-label">
                   Urgency Level
                 </label>
                 <Select
@@ -368,7 +337,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1.5">
+              <label className="app-label">
                 Issue Summary / Subject
               </label>
               <input
@@ -376,12 +345,12 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
                 value={ticketSubject}
                 onChange={(e) => setTicketSubject(e.target.value)}
                 placeholder="Brief summary of the dispatch anomaly or question"
-                className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                className="app-input w-full"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1.5">
+              <label className="app-label">
                 Detailed Description & Context
               </label>
               <textarea
@@ -389,21 +358,21 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
                 value={ticketMessage}
                 onChange={(e) => setTicketMessage(e.target.value)}
                 placeholder="Include driver IDs, job numbers (#461), or specific error messages encountered..."
-                className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 resize-none"
+                className="app-input w-full resize-none"
               />
             </div>
 
             <div className="flex items-center justify-between pt-2">
-              <span className="text-[11px] text-slate-400">
+              <span className="text-xs text-slate-400">
                 Logged under dispatcher session: Sarah K.
               </span>
-              <button
+              <Button
                 type="submit"
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-slate-900 hover:bg-black text-white rounded-lg transition-colors shadow-xs"
+                className="app-action app-primary flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-slate-900 hover:bg-black text-white rounded-full transition-colors shadow-xs"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Submit Ticket</span>
-              </button>
+              </Button>
             </div>
           </form>
         </div>

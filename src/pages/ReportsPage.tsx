@@ -1,4 +1,13 @@
+import { ListSummary } from '../components/layout/ListSummary';
+import { Button } from '../components/ui/button';
 import {
+PackageCheck,
+Timer,
+Route,
+Wallet,
+Truck,
+Snowflake,
+HandHeart,
 AlertTriangle,
 CheckCircle2,
 Clock,
@@ -16,11 +25,10 @@ SEVEN_DAYS_PERFORMANCE
 } from '../lib/reportStorage';
 
 interface ReportsPageProps {
-  onBackToMonitor: () => void;
   onNotification: (message: string) => void;
 }
 
-export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProps) {
+export function ReportsPage({ onNotification }: ReportsPageProps) {
   const [dateRange, setDateRange] = useState<'today' | '7days' | 'month' | 'quarter'>('7days');
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
   const [slaFilter, setSlaFilter] = useState<'all' | 'on_time' | 'late' | 'ahead'>('all');
@@ -45,7 +53,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
     const headers = [
       'Timestamp',
       'Job Number',
-      'Customer',
+      'Shipper',
       'Driver',
       'Service',
       'Vehicle',
@@ -90,31 +98,34 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
   };
 
   return (
-    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
+    <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
       {/* TOP BAR */}
-      <PageHeader title="Reports" description="Delivery performance, driver utilization and billing summaries." onBackToMonitor={onBackToMonitor} actions={<>
+      <PageHeader title="Analytics" description="Delivery performance, driver utilization and billing summaries." actions={<>
           {/* Date Range Selector */}
-          <div className="inline-flex bg-slate-50 p-0.5 border border-slate-200 rounded-lg text-xs font-medium">
+          <div className="app-list-status">
             <button
+              aria-pressed={dateRange === 'today'}
               onClick={() => setDateRange('today')}
               className={`px-2.5 py-1 rounded-md transition-colors ${
-                dateRange === 'today' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                dateRange === 'today' ? 'bg-app-selected text-app-text' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Today
             </button>
             <button
+              aria-pressed={dateRange === '7days'}
               onClick={() => setDateRange('7days')}
               className={`px-2.5 py-1 rounded-md transition-colors ${
-                dateRange === '7days' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                dateRange === '7days' ? 'bg-app-selected text-app-text' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Last 7 Days
             </button>
             <button
+              aria-pressed={dateRange === 'month'}
               onClick={() => setDateRange('month')}
               className={`px-2.5 py-1 rounded-md transition-colors ${
-                dateRange === 'month' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                dateRange === 'month' ? 'bg-app-selected text-app-text' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Month to Date
@@ -124,83 +135,54 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
           <button
             type="button"
             onClick={handlePrintSummary}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            className="app-action app-secondary"
           >
             <Printer className="w-3.5 h-3.5 text-slate-500" />
             <span>Print PDF</span>
           </button>
-          <button
+          <Button
             type="button"
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
+            className="app-action app-primary flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
-          </button>
+          </Button>
       </>} />
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6">
         <div className="space-y-6">
           {/* TOP KPI PERFORMANCE TILES */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-                <span>On-Time SLA</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                  +1.4%
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-slate-900 mt-2">96.8%</div>
-              <div className="mt-1 text-[11px] text-slate-500">Target threshold: 95.0%</div>
-            </div>
-
-            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="text-[11px] font-medium text-slate-500">Dispatches Completed</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2">306</div>
-              <div className="mt-1 text-[11px] text-slate-500">44 completed today</div>
-            </div>
-
-            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="text-[11px] font-medium text-slate-500">Average Stop Dwell</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2">8.4 min</div>
-              <div className="text-[11px] text-emerald-600 mt-1">1.2 min faster vs avg</div>
-            </div>
-
-            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="text-[11px] font-medium text-slate-500">Fleet Distance</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2">1,840 km</div>
-              <div className="mt-1 text-[11px] text-slate-500">Across 8 active units</div>
-            </div>
-
-            <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="text-[11px] font-medium text-slate-500">Dispatched Revenue</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2">$28,270</div>
-              <div className="mt-1 text-[11px] text-slate-500">Avg $92.40 per stop</div>
-            </div>
-          </div>
+          <ListSummary label="Analytics summary" items={[
+            { label: 'On-time SLA', value: '96.8%', icon: CheckCircle2, description: '+1.4% · Target 95.0%' },
+            { label: 'Dispatches completed', value: 306, icon: PackageCheck, description: '44 completed today' },
+            { label: 'Average stop dwell', value: '8.4 min', icon: Timer, description: '1.2 min faster vs avg' },
+            { label: 'Fleet distance', value: '1,840 km', icon: Route, description: 'Across 8 active units' },
+            { label: 'Dispatched revenue', value: '$28,270', icon: Wallet, description: 'Avg $92.40 per stop' },
+          ]} />
 
           {/* VISUAL ANALYTICS: HOURLY THROUGHPUT & 7-DAY COMPLIANCE */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Chart 1: Hourly Dispatch Volume */}
-            <div className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center justify-between mb-4">
+            <div className="app-panel min-w-0">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Hourly Dispatch Volume & Rush Peaks</h3>
+                  <h3 className="app-section-title text-slate-900">Hourly Dispatch Volume & Rush Peaks</h3>
                   <p className="text-xs text-slate-500">Metro Vancouver delivery volume distribution throughout shift</p>
                 </div>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700">
+                <span className="text-xs font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700">
                   Peak: 10:00 AM (42 jobs)
                 </span>
               </div>
 
               {/* Bar Chart Visualization */}
-              <div className="h-44 flex items-end gap-2 pt-6 pb-2 border-b border-slate-100">
+              <div className="overflow-x-auto"><div className="h-44 min-w-[30rem] flex items-end gap-1 pt-6 pb-2">
                 {HOURLY_VOLUMES.map((item) => {
                   const heightPercent = Math.round((item.volume / 45) * 100);
                   return (
                     <div key={item.hour} className="flex-1 h-full flex flex-col items-center gap-1 group">
-                      <div className="text-[10px] font-mono text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="text-xs font-mono text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
                         {item.volume}
                       </div>
                       {/* flex-1 gives this track a resolved height so the bar's % height applies */}
@@ -214,12 +196,13 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
                           style={{ height: `${heightPercent}%` }}
                         />
                       </div>
-                      <div className="text-[9px] text-slate-400 font-mono mt-1">{item.hour}</div>
+                      <div className="text-xs text-slate-400 font-mono mt-1">{item.hour}</div>
                     </div>
                   );
                 })}
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-400 mt-3">
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mt-3">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 bg-slate-900 rounded-xs" /> Priority Peak Windows (09:00 - 11:00, 14:00)
                 </span>
@@ -230,13 +213,13 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
             </div>
 
             {/* Chart 2: 7-Day Performance & SLA Trend */}
-            <div className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center justify-between mb-4">
+            <div className="app-panel min-w-0">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">7-Day SLA Trend & Revenue</h3>
+                  <h3 className="app-section-title text-slate-900">7-Day SLA Trend & Revenue</h3>
                   <p className="text-xs text-slate-500">Daily dispatches and on-time SLA fulfillment rates</p>
                 </div>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                <span className="text-xs font-medium px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
                   96.8% Average
                 </span>
               </div>
@@ -247,7 +230,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
                   const onTimePercent = Math.round((day.onTimeJobs / day.totalJobs) * 100);
                   return (
                     <div key={day.day} className="flex items-center gap-3 text-xs">
-                      <span className="w-20 font-medium text-slate-700 text-[11px]">{day.day}</span>
+                      <span className="w-20 font-medium text-slate-700 text-xs">{day.day}</span>
                       <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden flex">
                         <div
                           className="bg-emerald-500 h-full rounded-l-full"
@@ -262,10 +245,10 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
                           />
                         )}
                       </div>
-                      <span className="w-12 text-right font-mono font-bold text-slate-800 text-[11px]">
+                      <span className="w-12 text-right font-mono font-medium text-slate-800 text-xs">
                         {onTimePercent}%
                       </span>
-                      <span className="w-16 text-right text-slate-500 text-[11px] font-mono">
+                      <span className="w-16 text-right text-slate-500 text-xs font-mono">
                         ${day.revenue.toLocaleString()}
                       </span>
                     </div>
@@ -273,7 +256,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
                 })}
               </div>
 
-              <div className="flex items-center justify-between text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mt-4 pt-3">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 bg-emerald-500 rounded-xs" /> Delivered On-Time (SLA Passed)
                 </span>
@@ -285,47 +268,31 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
           </div>
 
           {/* ACCESSORIAL BREAKDOWN TILES */}
-          <div className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
-            <h3 className="text-sm font-bold text-slate-900 mb-1">Accessorial Surcharges & Extra Services</h3>
+          <div className="app-panel app-panel-plain">
+            <h3 className="app-section-title text-slate-900 mb-1">Accessorial Surcharges & Extra Services</h3>
             <p className="text-xs text-slate-500 mb-4">Value-add billing captured during dispatch and offload</p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <div className="text-slate-500 font-medium">Liftgate Services</div>
-                <div className="text-lg font-bold text-slate-900 mt-1">48 Dispatches</div>
-                <div className="text-[11px] text-blue-600 font-semibold mt-0.5">$1,680 billed ($35 ea)</div>
-              </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <div className="text-slate-500 font-medium">Reefer Temp Controlled</div>
-                <div className="text-lg font-bold text-slate-900 mt-1">26 Dispatches</div>
-                <div className="text-[11px] text-blue-600 font-semibold mt-0.5">$1,170 billed ($45 ea)</div>
-              </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <div className="text-slate-500 font-medium">Inside / White Glove</div>
-                <div className="text-lg font-bold text-slate-900 mt-1">32 Dispatches</div>
-                <div className="text-[11px] text-blue-600 font-semibold mt-0.5">$1,280 billed ($40 ea)</div>
-              </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <div className="text-slate-500 font-medium">Waiting Time / Demurrage</div>
-                <div className="text-lg font-bold text-slate-900 mt-1">14 Dispatches</div>
-                <div className="text-[11px] text-amber-600 font-semibold mt-0.5">$630 billed ($1.50/min)</div>
-              </div>
-            </div>
+            <ListSummary label="Accessorial summary" items={[
+              { label: 'Liftgate services', value: 48, icon: Truck, description: 'Dispatches · $1,680 billed ($35 ea)' },
+              { label: 'Reefer temp controlled', value: 26, icon: Snowflake, description: 'Dispatches · $1,170 billed ($45 ea)' },
+              { label: 'Inside / white glove', value: 32, icon: HandHeart, description: 'Dispatches · $1,280 billed ($40 ea)' },
+              { label: 'Waiting time / demurrage', value: 14, icon: Timer, description: 'Dispatches · $630 billed ($1.50/min)' },
+            ]} />
           </div>
 
           {/* SLA DISPATCH AUDIT LOG TABLE */}
-          <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
-            <div className="p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="app-table-shell bg-white overflow-hidden">
+            <div className="py-4 space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Dispatch Audit & SLA Variance Log</h3>
+                <h3 className="app-section-title text-slate-900">Dispatch Audit & SLA Variance Log</h3>
                 <p className="text-xs text-slate-500">
                   Granular timestamp records of scheduled windows vs actual arrivals with proof of delivery
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="app-list-toolbar">
                 <SearchInput
-                  className="w-64"
+                  className="app-list-search"
                   value={auditSearchQuery}
                   onChange={setAuditSearchQuery}
                   placeholder="Search audit log..."
@@ -347,11 +314,11 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table aria-label="Analytics audit log" className="app-table w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide uppercase">
+                  <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-medium text-slate-600">
                     <th className="py-3 px-4">Timestamp / Job</th>
-                    <th className="py-3 px-4">Customer</th>
+                    <th className="py-3 px-4">Shipper</th>
                     <th className="py-3 px-4">Driver & Vehicle</th>
                     <th className="py-3 px-4">Scheduled Window</th>
                     <th className="py-3 px-4">Actual Arrival</th>
@@ -364,8 +331,8 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
                   {filteredAuditLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <span className="font-bold text-slate-900">{log.jobNumber}</span>
-                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">{log.timestamp}</div>
+                        <span className="font-medium text-slate-900">{log.jobNumber}</span>
+                        <div className="text-xs text-slate-400 font-mono mt-0.5">{log.timestamp}</div>
                       </td>
 
                       <td className="py-3 px-4 whitespace-nowrap font-medium text-slate-800">
@@ -374,7 +341,7 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
 
                       <td className="py-3 px-4 whitespace-nowrap">
                         <div className="text-slate-800 font-medium">{log.driverName}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{log.driverCode} • {log.vehicleUnit}</div>
+                        <div className="text-xs text-slate-400 font-mono">{log.driverCode} • {log.vehicleUnit}</div>
                       </td>
 
                       <td className="py-3 px-4 whitespace-nowrap text-slate-600">
@@ -387,19 +354,19 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
 
                       <td className="py-3 px-4 whitespace-nowrap">
                         {log.slaStatus === 'on_time' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                             On Time ({log.varianceMinutes}m)
                           </span>
                         )}
                         {log.slaStatus === 'late' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
                             <AlertTriangle className="w-3 h-3 text-rose-600" />
                             Late (+{log.varianceMinutes}m)
                           </span>
                         )}
                         {log.slaStatus === 'ahead' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                             <Clock className="w-3 h-3 text-blue-600" />
                             Ahead ({Math.abs(log.varianceMinutes)}m early)
                           </span>
@@ -407,19 +374,19 @@ export function ReportsPage({ onBackToMonitor, onNotification }: ReportsPageProp
                       </td>
 
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900">${log.totalBilled.toFixed(2)}</div>
-                        <div className="text-[10px] text-slate-500 truncate max-w-xs">
+                        <div className="font-medium text-slate-900">${log.totalBilled.toFixed(2)}</div>
+                        <div className="text-xs text-slate-500 truncate max-w-xs">
                           {log.accessorialsCharged.join(', ')}
                         </div>
                       </td>
 
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         {log.podVerified ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Signature
                           </span>
                         ) : (
-                          <span className="text-[11px] text-slate-400">Pending</span>
+                          <span className="text-xs text-slate-400">Pending</span>
                         )}
                       </td>
                     </tr>

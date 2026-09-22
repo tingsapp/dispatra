@@ -1,8 +1,9 @@
-import { X } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Dialog, DialogHeader } from '../ui/Dialog';
 import React, { useEffect, useState } from 'react';
-import { AccessorialAutoRule, AccessorialCalcType, AccessorialItem } from '../../types/simplePricing';
+import { AccessorialItem } from '../../types/simplePricing';
 import { useEntityDialog } from '../entities/useEntityDialog';
-import { Select } from '../ui/Select';
+import { normalizeAccessorial } from '../../lib/simplePricingStorage';
 
 interface AccessorialModalProps {
   isOpen: boolean;
@@ -12,63 +13,11 @@ interface AccessorialModalProps {
 }
 
 const fieldClass =
-  'w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400';
-const labelClass = 'block text-xs font-medium text-slate-700 mb-1';
-const hintClass = 'text-[11px] text-slate-500 mt-1';
+  'app-input';
+const labelClass = 'app-label';
+const hintClass = 'text-xs text-slate-500 mt-1';
 const checkboxClass =
-  'w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer';
-
-export const CALC_TYPE_OPTIONS: { value: AccessorialCalcType; label: string; unit: string; hint: string }[] = [
-  { value: 'FLAT', label: 'Flat fee', unit: 'flat fee', hint: 'One charge per order (or per stop).' },
-  { value: 'PER_UNIT', label: 'Per unit / quantity', unit: 'per unit', hint: 'Quantity beyond the free allowance × rate.' },
-  { value: 'PER_MINUTE', label: 'Per minute', unit: 'per minute', hint: 'Entered minutes beyond allowance, rounded to the increment. Waiting requires its explicit automatic rule.' },
-  { value: 'PER_HOUR', label: 'Per hour (labour)', unit: 'per hour', hint: 'Hours × rate. Helpers, crews.' },
-  { value: 'PERCENT_OF_FREIGHT', label: '% of freight', unit: '% of freight', hint: 'Percentage of the service freight amount.' },
-  { value: 'PERCENT_OF_DECLARED_VALUE', label: '% of declared value', unit: '% of declared value', hint: 'Insurance on the declared cargo value.' }
-];
-
-const AUTO_RULE_OPTIONS: { value: AccessorialAutoRule; label: string }[] = [
-  { value: 'NONE', label: 'Manual — dispatcher adds it' },
-  { value: 'WAITING_RECORDED', label: 'Auto — Waiting recorded at stops' },
-  { value: 'AFTER_HOURS', label: 'Auto — service outside 08:00–18:00' },
-  { value: 'WEEKEND', label: 'Auto — Saturday or Sunday' },
-  { value: 'RESIDENTIAL_STOP', label: 'Auto — any residential stop' }
-];
-
-const isPercent = (t: AccessorialCalcType) => t.startsWith('PERCENT');
-
-/** Optional numeric field: blank = null (inherit / no limit). */
-const OptionalNumber: React.FC<{
-  label: string;
-  value: number | null;
-  onChange: (v: number | null) => void;
-  placeholder: string;
-  prefix?: string;
-  suffix?: string;
-  hint?: string;
-  step?: number;
-}> = ({ label, value, onChange, placeholder, prefix, suffix, hint, step = 1 }) => (
-  <div>
-    <label className={labelClass}>{label}</label>
-    <div className="relative">
-      {prefix && <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">{prefix}</span>}
-      <input
-        type="number"
-        min={0}
-        step={step}
-        value={value ?? ''}
-        aria-label={label}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0))}
-        className={`${fieldClass} ${prefix ? 'pl-6' : ''} ${suffix ? 'pr-12' : ''}`}
-      />
-      {suffix && (
-        <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 pointer-events-none">{suffix}</span>
-      )}
-    </div>
-    {hint && <p className={hintClass}>{hint}</p>}
-  </div>
-);
+  'app-checkbox';
 
 export const AccessorialModal: React.FC<AccessorialModalProps> = ({
   isOpen,
@@ -80,115 +29,59 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
-  const [calculationType, setCalculationType] = useState<AccessorialCalcType>('FLAT');
   const [rate, setRate] = useState<number>(15);
-  const [unitLabel, setUnitLabel] = useState('flat fee');
-  const [freeAllowance, setFreeAllowance] = useState<number | null>(null);
-  const [incrementMinutes, setIncrementMinutes] = useState<number | null>(null);
-  const [minimumCharge, setMinimumCharge] = useState<number | null>(null);
-  const [maximumCharge, setMaximumCharge] = useState<number | null>(null);
-  const [appliesAt, setAppliesAt] = useState<'ORDER' | 'PER_STOP'>('ORDER');
-  const [fuelEligible, setFuelEligible] = useState(false);
   const [taxable, setTaxable] = useState(true);
-  const [autoRule, setAutoRule] = useState<AccessorialAutoRule>('NONE');
-  const [active, setActive] = useState(true);
 
   useEffect(() => {
     if (initialAccessorial) {
       setName(initialAccessorial.name);
       setCode(initialAccessorial.code);
       setDescription(initialAccessorial.description);
-      setCalculationType(initialAccessorial.calculationType);
       setRate(initialAccessorial.rate);
-      setUnitLabel(initialAccessorial.unitLabel);
-      setFreeAllowance(initialAccessorial.freeAllowance);
-      setIncrementMinutes(initialAccessorial.incrementMinutes);
-      setMinimumCharge(initialAccessorial.minimumCharge);
-      setMaximumCharge(initialAccessorial.maximumCharge);
-      setAppliesAt(initialAccessorial.appliesAt);
-      setFuelEligible(initialAccessorial.fuelEligible);
       setTaxable(initialAccessorial.taxable);
-      setAutoRule(initialAccessorial.autoRule);
-      setActive(initialAccessorial.active);
     } else {
       setName('');
       setCode('');
       setDescription('');
-      setCalculationType('FLAT');
       setRate(15);
-      setUnitLabel('flat fee');
-      setFreeAllowance(null);
-      setIncrementMinutes(null);
-      setMinimumCharge(null);
-      setMaximumCharge(null);
-      setAppliesAt('ORDER');
-      setFuelEligible(false);
       setTaxable(true);
-      setAutoRule('NONE');
-      setActive(true);
     }
   }, [initialAccessorial, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleTypeChange = (type: AccessorialCalcType) => {
-    setCalculationType(type);
-    const opt = CALC_TYPE_OPTIONS.find((o) => o.value === type);
-    if (opt) setUnitLabel(opt.unit);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    if (autoRule === 'WAITING_RECORDED' && calculationType !== 'PER_MINUTE') { window.alert('Waiting recorded requires per-minute calculation.'); return; }
+    if (!Number.isFinite(rate) || rate < 0) return;
 
-    onSave({
+    onSave(normalizeAccessorial({
       id: initialAccessorial?.id || `acc_${Date.now()}`,
       code: (code.trim() || name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_')).slice(0, 24),
       name: name.trim(),
       description: description.trim(),
-      calculationType,
-      rate: Math.max(0, Number(rate) || 0),
-      unitLabel: unitLabel.trim() || 'per unit',
-      freeAllowance,
-      incrementMinutes,
-      minimumCharge,
-      maximumCharge,
-      appliesAt,
-      fuelEligible,
+      calculationType: 'FLAT',
+      rate,
+      unitLabel: 'per order',
+      freeAllowance: null,
+      incrementMinutes: null,
+      minimumCharge: null,
+      maximumCharge: null,
+      appliesAt: 'ORDER',
+      fuelEligible: false,
       taxable,
-      autoRule,
-      active
-    });
+      autoRule: 'NONE',
+      active: initialAccessorial?.active ?? true
+    }));
     onClose();
   };
 
-  const typeOpt = CALC_TYPE_OPTIONS.find((o) => o.value === calculationType);
-
   return (
-    <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div data-entity-dialog className="bg-white max-h-[90vh] overflow-y-auto rounded-xl shadow-xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <div>
-            <h3 className="text-base font-semibold text-slate-900">
-              {initialAccessorial ? 'Edit Accessorial' : 'Add New Accessorial'}
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              A configurable charge with its own calculation, allowance, limits, and tax/fuel treatment.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-          <div className="grid grid-cols-1 gap-3">
-            <div>
+    <Dialog size="form" onClose={onClose}>
+      <DialogHeader onClose={onClose} closeLabel="Close Accessorial" title={initialAccessorial ? 'Edit Accessorial' : 'Add New Accessorial'} description="A fixed dollar charge, added once when selected on an order." />
+        <form onSubmit={handleSubmit} className="app-dialog-body space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+            <div className="min-w-0">
               <label className={labelClass}>
                 Name <span className="text-rose-500">*</span>
               </label>
@@ -197,170 +90,41 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Stair Carry, Waiting Time, Elevator"
+                placeholder="e.g., Stair Carry"
                 className={fieldClass}
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Calculation</label>
-              <Select
-                aria-label="Calculation type"
-                className="w-full"
-                value={calculationType}
-                onValueChange={(v) => handleTypeChange(v as AccessorialCalcType)}
-                options={CALC_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-              />
-              {typeOpt && <p className={hintClass}>{typeOpt.hint}</p>}
-            </div>
-
-            <div>
-              <label className={labelClass}>
-                Rate <span className="text-rose-500">*</span>
-              </label>
+            <div className="min-w-0">
+              <label className={labelClass}>Rate <span className="text-rose-500">*</span></label>
               <div className="relative">
-                {!isPercent(calculationType) && (
-                  <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">$</span>
-                )}
-                <input aria-label="Accessorial rate"
-                  type="number"
-                  step="0.05"
-                  min="0"
-                  required
-                  value={rate}
-                  onChange={(e) => setRate(parseFloat(e.target.value) || 0)}
-                  className={`${fieldClass} ${isPercent(calculationType) ? 'pr-8' : 'pl-6'}`}
-                />
-                {isPercent(calculationType) && (
-                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400">%</span>
-                )}
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+                <input aria-label="Accessorial rate" type="number" step="0.01" min="0" required
+                  value={rate} onChange={e => setRate(parseFloat(e.target.value) || 0)}
+                  className={`${fieldClass} pl-7`} />
               </div>
-              {calculationType === 'PER_UNIT' && <input aria-label="Unit label"
-                type="text"
-                value={unitLabel}
-                onChange={(e) => setUnitLabel(e.target.value)}
-                placeholder="e.g. per flight, per helper"
-                className={`${fieldClass} mt-1.5 text-xs`}
-              />}
+              <p className={hintClass}>Once per order.</p>
             </div>
           </div>
 
-          {(calculationType === 'PER_UNIT' || calculationType === 'PER_MINUTE') && (
-            <div className="grid grid-cols-2 gap-3">
-              <OptionalNumber
-                label="Free allowance"
-                value={freeAllowance}
-                onChange={setFreeAllowance}
-                placeholder="0"
-                suffix={calculationType === 'PER_MINUTE' ? 'min' : 'units'}
-                hint={
-                  calculationType === 'PER_MINUTE'
-                    ? 'Minutes included at each stop before waiting is charged. Blank or zero means every minute is charged.'
-                    : 'Quantity included before charging starts.'
-                }
-              />
-              {calculationType === 'PER_MINUTE' && (
-                <OptionalNumber
-                  label="Billing increment"
-                  value={incrementMinutes}
-                  onChange={setIncrementMinutes}
-                  placeholder="0"
-                  suffix="min"
-                  hint="Chargeable minutes round up to this block size. Blank or zero means no rounding."
-                />
-              )}
-            </div>
-          )}
-
           <div>
-            <label className={labelClass}>Applies</label>
-            <Select
-              aria-label="Applies at"
-              className="w-full"
-              value={appliesAt}
-              onValueChange={(v) => setAppliesAt(v as 'ORDER' | 'PER_STOP')}
-              options={[
-                { value: 'ORDER', label: 'Once per order' },
-                { value: 'PER_STOP', label: 'Per stop' }
-              ]}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Automatic rule</label>
-            <Select
-              aria-label="Automatic rule"
-              className="w-full"
-              value={autoRule}
-              onValueChange={(v) => { setAutoRule(v as AccessorialAutoRule); if (v === 'WAITING_RECORDED') { setCalculationType('PER_MINUTE'); setUnitLabel('per minute'); setAppliesAt('PER_STOP'); } }}
-              options={AUTO_RULE_OPTIONS}
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>Description / conditions</label>
+            <label className={labelClass}>Description</label>
             <textarea aria-label="Description"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g., Billed per flight of stairs navigated at pickup or delivery site."
+              placeholder="Describe when this charge should be selected."
               className={`${fieldClass} resize-none`}
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200/80">
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-              <input type="checkbox" checked={fuelEligible} onChange={(e) => setFuelEligible(e.target.checked)} className={checkboxClass} />
-              Fuel-eligible
-            </label>
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-              <input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} className={checkboxClass} />
-              Taxable
-            </label>
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-              <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className={checkboxClass} />
-              Active
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <OptionalNumber
-              label="Minimum charge"
-              value={minimumCharge}
-              onChange={setMinimumCharge}
-              placeholder="None"
-              prefix="$"
-              step={0.5}
-              hint="Optional floor once the charge applies."
-            />
-            <OptionalNumber
-              label="Maximum charge"
-              value={maximumCharge}
-              onChange={setMaximumCharge}
-              placeholder="No cap"
-              prefix="$"
-              step={0.5}
-              hint="Optional cap per order."
-            />
-          </div>
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors"
-            >
-              {initialAccessorial ? 'Save Changes' : 'Create Accessorial'}
-            </button>
+          <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input type="checkbox" checked={taxable} onChange={e => setTaxable(e.target.checked)} className={checkboxClass} />
+            Taxable
+          </label>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button type="submit">{initialAccessorial ? 'Save Changes' : 'Create Accessorial'}</Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 };

@@ -2,6 +2,12 @@ import { SimplePricingConfig, DeliveryService, VehicleType, AccessorialItem } fr
 
 export const SIMPLE_PRICING_STORAGE_KEY = 'dispatra_simple_pricing_v4';
 
+/** Apply the approved starting charges to built-in services; custom premiums need review. */
+export function normalizeService(service: DeliveryService): DeliveryService {
+  return { ...service, additionalCharge: service.additionalCharge === undefined
+    ? (INITIAL_SERVICES.find(seed => seed.id === service.id && seed.code === service.code)?.additionalCharge ?? (service.defaultMultiplier === 1 ? 0 : null)) : service.additionalCharge };
+}
+
 export const INITIAL_SERVICES: DeliveryService[] = [
   {
     id: 'srv_same_day',
@@ -9,6 +15,7 @@ export const INITIAL_SERVICES: DeliveryService[] = [
     name: 'Same-Day Standard',
     description: 'Standard scheduled delivery completed by 5:00 PM across metro area.',
     defaultMultiplier: 1.0,
+    additionalCharge: 0,
     estimatedTime: 'Same-Day (by 5 PM)',
     bookingCutoffTime: '14:00',
     exclusiveVehicle: false,
@@ -20,6 +27,7 @@ export const INITIAL_SERVICES: DeliveryService[] = [
     name: 'Rush Expedited (2-Hour)',
     description: 'Priority expedited pickup and delivery within 2 hours of booking.',
     defaultMultiplier: 1.3,
+    additionalCharge: 20,
     estimatedTime: 'Under 2 Hours',
     bookingCutoffTime: '16:00',
     exclusiveVehicle: false,
@@ -31,6 +39,7 @@ export const INITIAL_SERVICES: DeliveryService[] = [
     name: 'Direct Hotshot',
     description: 'Immediate non-stop exclusive vehicle with zero intermediate stops.',
     defaultMultiplier: 1.5,
+    additionalCharge: 35,
     estimatedTime: 'Immediate Direct',
     bookingCutoffTime: '17:00',
     exclusiveVehicle: true,
@@ -42,6 +51,7 @@ export const INITIAL_SERVICES: DeliveryService[] = [
     name: 'Scheduled Economy',
     description: 'Cost-efficient next-day consolidated delivery for non-urgent shipments.',
     defaultMultiplier: 0.9,
+    additionalCharge: 0,
     estimatedTime: 'Next-Day Flexible',
     bookingCutoffTime: '17:00',
     exclusiveVehicle: false,
@@ -108,147 +118,41 @@ export const INITIAL_VEHICLES: VehicleType[] = [
   }
 ];
 
-const accessorial = (
-  partial: Pick<AccessorialItem, 'id' | 'code' | 'name' | 'description' | 'calculationType' | 'rate' | 'unitLabel'> &
-    Partial<AccessorialItem>
-): AccessorialItem => ({
-  freeAllowance: null,
-  incrementMinutes: null,
-  minimumCharge: null,
-  maximumCharge: null,
-  appliesAt: 'ORDER',
-  fuelEligible: false,
-  taxable: true,
-  autoRule: 'NONE',
-  active: true,
-  ...partial
-});
+const retiredSeedDescriptions: Record<string, string> = {
+  "Manual carry per flight of stairs navigated at pickup or delivery site.": "Carry items using stairs at pickup or delivery.",
+  "Site wait beyond the free allowance at each stop, billed in increments.": "Waiting at pickup or delivery.",
+  "Pickup or delivery outside 08:00\u201318:00. Added automatically.": "Pickup or delivery outside 08:00\u201318:00.",
+  "Saturday or Sunday service. Added automatically.": "Saturday or Sunday service.",
+  "Per item over 70 kg requiring special handling.": "Special handling for items over 150 lb.",
+  "Special handling for items over 70 kg.": "Special handling for items over 150 lb.",
+  "Cargo insurance charged as a percentage of declared value.": "Cargo insurance for the order.",
+  "Actual parking or toll cost incurred, passed through at cost.": "Parking or toll charge for the order."
+};
+
+/** Current catalogue rules; frozen quote catalogues bypass storage normalization. */
+export function normalizeAccessorial(item: AccessorialItem): AccessorialItem {
+  return { ...item, description: retiredSeedDescriptions[item.description] ?? item.description, calculationType: 'FLAT', unitLabel: 'per order', appliesAt: 'ORDER',
+    autoRule: 'NONE', fuelEligible: false, freeAllowance: null, incrementMinutes: null,
+    minimumCharge: null, maximumCharge: null };
+}
 
 export const INITIAL_ACCESSORIALS: AccessorialItem[] = [
-  accessorial({
-    id: 'acc_stairs',
-    code: 'STAIRS',
-    name: 'Stair Carry',
-    description: 'Manual carry per flight of stairs navigated at pickup or delivery site.',
-    calculationType: 'PER_UNIT',
-    rate: 5.0,
-    unitLabel: 'per flight',
-    freeAllowance: 0
-  }),
-  accessorial({
-    id: 'acc_wait_time',
-    code: 'WAIT',
-    autoRule: 'WAITING_RECORDED',
-    name: 'Waiting Time',
-    description: 'Site wait beyond the free allowance at each stop, billed in increments.',
-    calculationType: 'PER_MINUTE',
-    rate: 0.75,
-    unitLabel: 'per minute',
-    appliesAt: 'PER_STOP',
-    freeAllowance: 15,
-    incrementMinutes: 5
-  }),
-  accessorial({
-    id: 'acc_helper',
-    code: 'HELPER',
-    name: 'Additional Helper',
-    description: 'Second crew member for heavy, bulky, or awkward pieces.',
-    calculationType: 'PER_HOUR',
-    rate: 35.0,
-    unitLabel: 'per hour',
-    minimumCharge: 35
-  }),
-  accessorial({
-    id: 'acc_liftgate',
-    code: 'LIFTGATE',
-    name: 'Power Liftgate',
-    description: 'Hydraulic tailgate required for palletized freight without a loading dock.',
-    calculationType: 'FLAT',
-    rate: 25.0,
-    unitLabel: 'flat fee',
-    fuelEligible: true
-  }),
-  accessorial({
-    id: 'acc_elevator',
-    code: 'ELEVATOR',
-    name: 'Elevator',
-    description: 'Elevator reservation or freight-elevator handling at a stop.',
-    calculationType: 'FLAT',
-    rate: 10.0,
-    unitLabel: 'flat fee',
-    appliesAt: 'PER_STOP'
-  }),
-  accessorial({
-    id: 'acc_inside',
-    code: 'INSIDE',
-    name: 'Inside / Residential Delivery',
-    description: 'Carry beyond the threshold into a residence, office, or suite.',
-    calculationType: 'FLAT',
-    rate: 20.0,
-    unitLabel: 'flat fee',
-    appliesAt: 'PER_STOP',
-    autoRule: 'RESIDENTIAL_STOP'
-  }),
-  accessorial({
-    id: 'acc_after_hours',
-    code: 'AFTER_HOURS',
-    name: 'After-Hours Service',
-    description: 'Pickup or delivery outside 08:00–18:00. Added automatically.',
-    calculationType: 'FLAT',
-    rate: 30.0,
-    unitLabel: 'flat fee',
-    autoRule: 'AFTER_HOURS'
-  }),
-  accessorial({
-    id: 'acc_weekend',
-    code: 'WEEKEND',
-    name: 'Weekend Service',
-    description: 'Saturday or Sunday service. Added automatically.',
-    calculationType: 'PERCENT_OF_FREIGHT',
-    rate: 20,
-    unitLabel: '% of freight',
-    autoRule: 'WEEKEND'
-  }),
-  accessorial({
-    id: 'acc_heavy_item',
-    code: 'HEAVY_ITEM',
-    name: 'Heavy Item Handling',
-    description: 'Per item over 70 kg requiring special handling.',
-    calculationType: 'PER_UNIT',
-    rate: 15.0,
-    unitLabel: 'per item'
-  }),
-  accessorial({
-    id: 'acc_fragile',
-    code: 'FRAGILE',
-    name: 'Fragile Blanket Wrap',
-    description: 'Padded furniture blankets, protective corner guards, and tie-down strap security.',
-    calculationType: 'FLAT',
-    rate: 15.0,
-    unitLabel: 'flat fee'
-  }),
-  accessorial({
-    id: 'acc_insurance',
-    code: 'INSURANCE',
-    name: 'Declared Value Insurance',
-    description: 'Cargo insurance charged as a percentage of declared value.',
-    calculationType: 'PERCENT_OF_DECLARED_VALUE',
-    rate: 1.5,
-    unitLabel: '% of declared value',
-    minimumCharge: 5,
-    taxable: false
-  }),
-  accessorial({
-    id: 'acc_parking',
-    code: 'PARKING',
-    name: 'Parking / Toll Pass-through',
-    description: 'Actual parking or toll cost incurred, passed through at cost.',
-    calculationType: 'PER_UNIT',
-    rate: 1.0,
-    unitLabel: 'per dollar',
-    taxable: false
-  })
-];
+  {"taxable": true, "id": "acc_stairs", "code": "STAIRS", "name": "Stair Carry", "description": "Carry items using stairs at pickup or delivery.", "rate": 5},
+  {"taxable": true, "id": "acc_wait_time", "code": "WAIT", "name": "Waiting Time", "description": "Waiting at pickup or delivery.", "rate": 0.75},
+  {"taxable": true, "id": "acc_helper", "code": "HELPER", "name": "Additional Helper", "description": "Second crew member for heavy, bulky, or awkward pieces.", "rate": 35},
+  {"taxable": true, "id": "acc_liftgate", "code": "LIFTGATE", "name": "Power Liftgate", "description": "Hydraulic tailgate required for palletized freight without a loading dock.", "rate": 25},
+  {"taxable": true, "id": "acc_elevator", "code": "ELEVATOR", "name": "Elevator", "description": "Elevator reservation or freight-elevator handling at a stop.", "rate": 10},
+  {"taxable": true, "id": "acc_inside", "code": "INSIDE", "name": "Inside / Residential Delivery", "description": "Carry beyond the threshold into a residence, office, or suite.", "rate": 20},
+  {"taxable": true, "id": "acc_after_hours", "code": "AFTER_HOURS", "name": "After-Hours Service", "description": "Pickup or delivery outside 08:00\u201318:00.", "rate": 30},
+  {"taxable": true, "id": "acc_weekend", "code": "WEEKEND", "name": "Weekend Service", "description": "Saturday or Sunday service.", "rate": 20},
+  {"taxable": true, "id": "acc_heavy_item", "code": "HEAVY_ITEM", "name": "Heavy Item Handling", "description": "Special handling for items over 150 lb.", "rate": 15},
+  {"taxable": true, "id": "acc_fragile", "code": "FRAGILE", "name": "Fragile Blanket Wrap", "description": "Padded furniture blankets, protective corner guards, and tie-down strap security.", "rate": 15},
+  {"taxable": false, "id": "acc_insurance", "code": "INSURANCE", "name": "Declared Value Insurance", "description": "Cargo insurance for the order.", "rate": 1.5},
+  {"taxable": false, "id": "acc_parking", "code": "PARKING", "name": "Parking / Toll Pass-through", "description": "Parking or toll charge for the order.", "rate": 1},
+].map(item => ({ ...item, calculationType: 'FLAT', unitLabel: 'per order', appliesAt: 'ORDER',
+  autoRule: 'NONE', active: true, fuelEligible: false, freeAllowance: null,
+  incrementMinutes: null, minimumCharge: null, maximumCharge: null }));
+
 
 export function loadSimplePricingConfig(): SimplePricingConfig {
   try {
@@ -257,14 +161,9 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed.services) && Array.isArray(parsed.accessorials)) {
         return {
-          services: parsed.services,
+          services: parsed.services.map(normalizeService),
           vehicles: Array.isArray(parsed.vehicles) && parsed.vehicles.length > 0 ? parsed.vehicles : INITIAL_VEHICLES,
-          accessorials: parsed.accessorials.map((a: AccessorialItem) => {
-            const item = a.code === 'WAIT' && a.autoRule === 'NONE' && !parsed.schemaVersion ? { ...a, autoRule: 'WAITING_RECORDED' as const } : a;
-            // The waiting rule owns its allowance and increment; older records inherited retired organization defaults (15 min free, 5 min steps).
-            return item.autoRule === 'WAITING_RECORDED' && (item.freeAllowance == null || item.incrementMinutes == null)
-              ? { ...item, freeAllowance: item.freeAllowance ?? 15, incrementMinutes: item.incrementMinutes ?? 5 } : item;
-          })
+          accessorials: parsed.accessorials.map(normalizeAccessorial)
         };
       }
     }
@@ -281,7 +180,7 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
 
 export function saveSimplePricingConfig(config: SimplePricingConfig): void {
   try {
-    localStorage.setItem(SIMPLE_PRICING_STORAGE_KEY, JSON.stringify({ ...config, schemaVersion: 2 }));
+    localStorage.setItem(SIMPLE_PRICING_STORAGE_KEY, JSON.stringify({ ...config, services: config.services.map(normalizeService), accessorials: config.accessorials.map(normalizeAccessorial), schemaVersion: 4 }));
   } catch (err) {
     console.error('Could not save pricing config:', err);
   }

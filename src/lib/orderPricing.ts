@@ -1,4 +1,6 @@
+import { normalizeFuelSurcharge } from './billingEngine';
 import { normalizeOrderInput } from '../domain/orderAdapters';
+import { normalizeLifecycle } from '../domain/operations';
 // Glue between Orders (the legacy `Job` mock) and the pricing engine.
 //
 // Pages call `priceOrder()` / `finalizeOrderPrice()`; they never compute a
@@ -34,7 +36,7 @@ export const createStop = (type: PricingStopInput['type'], partial: Partial<Pric
 });
 
 export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput => normalizeOrderInput({
-  taxCalculation: 'DESTINATION',
+  taxCalculation: 'COMPANY',
   freightTaxTreatment: 'STANDARD_DOMESTIC',
   customerId: null,
   serviceId: ctx.catalogue.services.find((s) => s.active)?.id ?? ctx.catalogue.services[0]?.id ?? '',
@@ -66,7 +68,10 @@ export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput 
 export const priceOrder = (input: PricingOrderInput, ctx: PricingContext = loadPricingContext()): PricingSnapshot =>
   calculatePricing(input, {
     ...ctx,
-    billing: { ...ctx.billing, invoicing: { ...ctx.billing.invoicing, pricesIncludeTax: false } }
+    servicePricingMode: 'FIXED',
+    distanceWeightMode: 'NONE',
+    dimensionalWeightMode: 'METHOD_SPECIFIC',
+    billing: { ...ctx.billing, fuelSurcharge: normalizeFuelSurcharge(ctx.billing.fuelSurcharge), invoicing: { ...ctx.billing.invoicing, pricesIncludeTax: false } }
   });
 
 /**
@@ -81,7 +86,7 @@ export const finalizeOrderPrice = (
 ): { input: PricingOrderInput; snapshot: PricingSnapshot } => {
   if (quoted?.stage === 'FINAL') return { input, snapshot: quoted };
   const finalInput: PricingOrderInput = { ...input, stage: 'FINAL', actualHourlyBillableMinutes: actualMinutes }; // Billable-clock minutes are not driving minutes.
-  const frozenContext = quoted?.context ? { ...structuredClone(quoted.context), asOf: quoted.context.asOf ? new Date(quoted.context.asOf) : undefined } : ctx;
+  const frozenContext = quoted?.context ? { ...structuredClone(quoted.context), distanceWeightMode: quoted.context.distanceWeightMode ?? 'LEGACY' as const, servicePricingMode: quoted.context.servicePricingMode ?? 'LEGACY_MULTIPLIER' as const, dimensionalWeightMode: quoted.context.dimensionalWeightMode ?? 'LEGACY_CARD_SETTING' as const, asOf: quoted.context.asOf ? new Date(quoted.context.asOf) : undefined } : ctx;
   if (quoted?.method === 'HOURLY' && !quoted.context) {
     return { input: finalInput, snapshot: { ...structuredClone(quoted), status: 'NEEDS_ATTENTION', errors: [{ code: 'INVALID_CONFIGURATION', message: 'This legacy quote has no frozen contract terms. Review and re-price it explicitly before hourly settlement.' }] } };
   }
@@ -174,7 +179,9 @@ export const legacyJobToPricingInput = (job: Job, ctx: PricingContext): PricingO
 };
 
 export const enrichJobsWithPricing = (jobs: Job[], ctx: PricingContext = loadPricingContext()): Job[] =>
-  jobs.map((job) => {
+  jobs.map((stored) => {
+    // Older saves carry retired lifecycle values; collapse them onto the current six.
+    const job: Job = stored.lifecycleStatus ? { ...stored, lifecycleStatus: normalizeLifecycle(stored.lifecycleStatus) } : stored;
     const retryLegacyFailure = job.status !== 'completed' && !job.invoicePreview &&
       job.pricing?.stage === 'ESTIMATE' && job.pricing.status !== 'PRICED' &&
       job.pricingInput?.stage === 'ESTIMATE' &&

@@ -1,0 +1,211 @@
+/* One light appearance shared by operations and authenticated workspaces. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/InterVariable.woff2") format("woff2");
+}
+@theme {
+  --font-sans: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-slate-50: #f9f9f9;
+  --color-slate-100: #f0f0f0;
+  --color-slate-200: #e5e5e5;
+  --color-slate-300: #cdcdcd;
+  --color-slate-400: #8f8f8f;
+  --color-slate-500: #6b6b6b;
+  --color-slate-600: #525252;
+  --color-slate-700: #3c3c3c;
+  --color-slate-800: #2f2f2f;
+  --color-slate-900: #171717;
+  --color-slate-950: #0d0d0d;
+  --color-app-sidebar: #fcfcfc;
+  --color-app-hover: #ececec;
+  --color-app-selected: #e3e3e3;
+  --color-app-canvas: #fcfcfc;
+  --color-app-surface: #ffffff;
+  --color-app-text: #0d0d0d;
+  --color-app-muted: #6b6b6b;
+  --color-app-border: #e5e5e5;
+  --spacing-sidebar: 260px;
+  --spacing-sidebar-rail: 64px;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.45;
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 1px 3px #00000008;
+  --shadow-md: 0 4px 16px #0000000a;
+  --shadow-lg: 0 8px 28px #00000012;
+  --shadow-xl: 0 12px 36px #00000018;
+}
+
+:root {
+  --app-page-width: 80rem;
+  --app-reading-width: 48rem;
+  --app-page-gutter: 1.5rem;
+  --app-section-gap: 2rem;
+  --app-table-row-height: 3.75rem;
+  --app-table-radius: .75rem;
+  --app-table-cell-padding: 1rem;
+  --app-table-divider: #ececec;
+  --app-table-divider-inset: 1rem;
+  --app-table-hover: #f5f5f5;
+  --app-panel-padding: 1.5rem;
+  --app-radius-card: 1rem;
+  --app-radius-dialog: 1.5rem;
+  --app-menu-width: 17.5rem;
+  --app-command-menu-width: 16rem;
+  --app-menu-compact-width: 14rem;
+  --app-menu-rich-width: 24rem;
+  --app-dialog-width: 32rem;
+  --app-control-height: 2.5rem;
+  --app-control-height-compact: 2.25rem;
+  --app-radius-control: .75rem;
+  --app-radius-action: 999px;
+  --app-radius-menu-item: .625rem;
+  --app-focus-color: #8f8f8f;
+  --app-backdrop: #00000066;
+  --app-action-height: 2.5rem;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    font-family: var(--font-sans);
+    color: var(--color-app-text);
+    background: var(--color-app-canvas);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body { margin: 0; background: var(--color-app-canvas); }
+  #root { min-height: 100dvh; }
+  ::selection { background: #dedede; color: #0d0d0d; }
+  :where(input, textarea)::placeholder { color: var(--color-slate-400); }
+  :where(input, textarea, select) { accent-color: var(--color-app-text); }
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="color"]), select) {
+    min-height: var(--app-control-height);
+  }
+  :where(button, a[href], summary, [tabindex="0"]):focus-visible {
+    outline: 2px solid var(--color-slate-400);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  .app-page { background: var(--color-app-canvas); }
+  .app-page-reading { --app-page-width: var(--app-reading-width); }
+
+  .app-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    min-height: 5rem;
+    padding-block: 1rem;
+    background: var(--color-app-canvas);
+  }
+
+  .app-icon-button {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--app-radius-menu-item);
+    color: var(--color-slate-600);
+    transition: background-color 150ms, color 150ms;
+  }
+  .app-icon-button:hover { background: var(--color-app-hover); color: var(--color-app-text); }
+
+  .app-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 2.5rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--app-radius-menu-item);
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--color-app-text);
+    transition: background-color 150ms;
+  }
+  .app-nav-item:hover, .app-nav-item:focus-visible { background: var(--color-app-hover); }
+  .app-nav-item[aria-current="page"] { background: var(--color-app-selected); font-weight: 500; }
+
+  .app-tab {
+    flex-shrink: 0;
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--app-radius-menu-item);
+    color: var(--color-slate-600);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background-color 150ms, color 150ms;
+  }
+  .app-tab:hover { background: var(--color-app-hover); color: var(--color-app-text); }
+  .app-tab[aria-selected="true"] { background: var(--color-app-selected); color: var(--color-app-text); }
+
+
+  .app-panel {
+    border: 0;
+    border-radius: var(--app-radius-card);
+    padding: var(--app-panel-padding);
+    background: var(--color-app-surface);
+    box-shadow: none;
+  }
+
+  .app-panel.app-panel-plain {
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .app-input {
+    width: 100%;
+    border: 1px solid var(--color-app-border);
+    border-radius: var(--app-radius-control);
+    padding: 0.5625rem 0.875rem;
+    color: var(--color-app-text);
+    background: var(--color-app-surface);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+  .app-input:disabled { background: var(--color-slate-50); color: var(--color-app-muted); opacity: 0.6; }
+
+
+  .app-portal-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: var(--spacing-sidebar);
+    flex-shrink: 0;
+    height: 100dvh;
+    background: var(--color-app-sidebar);
+  }
+}
+
+.app-sidebar-rail { width: var(--spacing-sidebar-rail); }
+.app-sidebar-rail .app-nav-item { justify-content: center; padding-inline: 0; }
+.app-sidebar-rail .app-nav-item[aria-current="page"] { background: transparent; }
+.app-sidebar-rail .app-account-card { justify-content: center; padding: .5rem 0; }
+.app-sidebar-rail .app-account-card:focus-visible { outline: 2px solid var(--color-app-muted); outline-offset: -2px; }
+
+@media (max-width: 639px) {
+  :root { --app-page-gutter: 1rem; --app-panel-padding: 1rem; }
+  .app-page-header { gap: 0.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* These layout-owned styles also govern nested controls with utility classes. */
+.app-summary { border: 0; }
+.app-summary > div { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.app-page-header :where(button:not(.app-icon-button)) { min-height: 2.25rem; border-radius: 999px; }

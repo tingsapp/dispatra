@@ -114,6 +114,7 @@ export interface RateCard {
 
   // ---- Overrides of organization / catalogue defaults (`null` = inherit) --
   fuelPercent: number | null;
+  /** Legacy opt-out retained for frozen quotes; current active cards always enable it. */
   dimensionalPricingEnabled: boolean | null;
   dimensionalDivisor: number | null;
   waitFreeMinutes: number | null;
@@ -121,6 +122,7 @@ export interface RateCard {
   vehicleSurchargeOverrides: Record<string, number>;
   accessorialRateOverrides: Record<string, number>;
 
+  /** Retained for migration and historical quotes; current discounts belong to shippers. */
   discount: Discount;
   notes: string;
   updatedAt: string;
@@ -130,7 +132,16 @@ export interface Zone {
   id: string;
   code: string;
   name: string;
-  description: string;
+  /** Retained for older saved records; no longer edited. */
+  description?: string;
+  postalCodes?: string[];
+}
+
+export interface ZoneWeightBand {
+  id: string;
+  /** Null values exist only in an incomplete editor draft. */
+  maxWeightKg: number | null;
+  amount: number | null;
 }
 
 export interface ZoneRate {
@@ -138,6 +149,8 @@ export interface ZoneRate {
   originZoneId: string;
   destinationZoneId: string;
   amount: number;
+  /** When present, replaces the legacy flat amount with inclusive weight limits. */
+  weightBands?: ZoneWeightBand[];
   /** Optional service restriction. `null` = any service. */
   serviceId: string | null;
 }
@@ -153,6 +166,8 @@ export interface CustomerGroup {
 }
 
 export interface PricingConfig {
+  /** Absent only in historical quote contexts, which used card discounts. */
+  discountSource?: 'SHIPPER';
   rateCards: RateCard[];
   zones: Zone[];
   zoneRates: ZoneRate[];
@@ -202,7 +217,7 @@ export interface OrderPriceAdjustment {
 
 export interface PricingOrderInput {
   /** Absent on historical records, which retain legacy profile pricing. */
-  taxCalculation?: 'DESTINATION';
+  taxCalculation?: 'COMPANY' | 'DESTINATION';
   freightTaxTreatment?: 'STANDARD_DOMESTIC' | 'REVIEW';
   billingCustomerId?: string | null;
   /** Legacy free-text reason from the removed override control; kept on historical orders only. */
@@ -326,6 +341,8 @@ export interface ResolvedInputs {
   chargeableWeightKg: number;
   pieces: number;
   stopCount: number;
+  /** Present on new fixed-service quotes; absent on historical multiplier quotes. */
+  serviceCharge?: number;
   serviceMultiplier: number;
   fuelPercent: number;
   fuelBase: number;

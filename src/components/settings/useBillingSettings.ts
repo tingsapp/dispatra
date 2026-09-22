@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { loadBillingConfig, saveBillingConfig } from '../../lib/billingStorage';
-import { DESTINATION_TAX_RATES, isValidDestinationTaxRate } from '../../lib/destinationTaxRates';
+import { isValidFuelPercent, normalizeFuelSurcharge } from '../../lib/billingEngine';
+import { isValidTaxRate } from '../../lib/taxRate';
 import { BillingConfig } from '../../types/billing';
 import { useSettingsGuard } from './useSettingsGuard';
 export function useBillingSettings(onNotification?: (message: string) => void) {
@@ -19,8 +20,12 @@ export function useBillingSettings(onNotification?: (message: string) => void) {
   };
 
   const handleSave = () => {
-    if (Object.entries(config.destinationTaxRates).some(([province, rate]) => DESTINATION_TAX_RATES[province as keyof typeof DESTINATION_TAX_RATES] && !isValidDestinationTaxRate(rate))) {
-      setSaveError('Enter a tax rate from 0 to 100% for each edited province in Taxes.');
+    if (!isValidTaxRate(config.companyTax.ratePercent)) {
+      setSaveError('Enter a Tax / GST rate from 0 to 100% in Taxes.');
+      return;
+    }
+    if (!isValidFuelPercent(config.fuelSurcharge.percent)) {
+      setSaveError('Enter a fuel surcharge of 0% or more in Fuel Charge.');
       return;
     }
     setSaveError(null);
@@ -33,6 +38,10 @@ export function useBillingSettings(onNotification?: (message: string) => void) {
       const changed = Object.fromEntries(Object.entries(config[key]).filter(([field, value]) => JSON.stringify(value) !== JSON.stringify((baseline[key] as unknown as Record<string, unknown>)[field])));
       Object.assign(next, { [key]: { ...latest[key], ...changed } });
     }
+    if (config.fuelSurcharge.percent !== baseline.fuelSurcharge.percent) {
+      next.fuelSurcharge = { ...next.fuelSurcharge, mode: 'fixed_percent', enabled: next.fuelSurcharge.percent > 0 };
+    }
+    next.fuelSurcharge = normalizeFuelSurcharge(next.fuelSurcharge);
     saveBillingConfig(next);
     setConfig(next);
     setBaseline(next);

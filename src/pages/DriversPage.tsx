@@ -1,37 +1,40 @@
+import { ListSummary } from '../components/layout/ListSummary';
+import { Button } from '../components/ui/button';
+import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
 import {
-Activity,
-CheckCircle2,
+Route,
+CircleCheck,
+Coffee,
 MapPin,
 Plus,
-Truck,
 Users,
-X
+Trash2
 } from 'lucide-react';
 import { useMemo,useState } from 'react';
 import { DriverEditor } from '../components/entities/DriverEditor';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
+import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
-import { syncDriver } from '../lib/driverStorage';
 import { Driver,Job } from '../types';
 
 interface DriversPageProps {
   drivers: Driver[];
   jobs: Job[];
-  onBackToMonitor: () => void;
   onSelectDriver: (driverId: string) => void;
   onUpdateDriver: (updatedDriver: Driver) => void;
   onCreateDriver: (newDriver: Driver) => void;
+  onDeleteDriver?: (driver: Driver) => void;
   onNotification: (message: string) => void;
 }
 
 export function DriversPage({
   drivers,
   jobs,
-  onBackToMonitor,
   onSelectDriver,
   onUpdateDriver,
   onCreateDriver,
+  onDeleteDriver,
   onNotification
 }: DriversPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,110 +70,67 @@ export function DriversPage({
   const availableCount = drivers.filter((d) => d.status === 'available').length;
   const offlineCount = drivers.filter((d) => d.status === 'idle' || d.status === 'offline').length;
 
-  const handleToggleDuty = (driver: Driver) => {
-    const updated = syncDriver({ ...driver, dutyStatus: driver.dutyStatus === 'ON_DUTY' ? 'OFF_DUTY' : 'ON_DUTY' });
-    try { onUpdateDriver(updated); } catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be saved.'); return; }
-    if (activeDriverDrawer && activeDriverDrawer.id === driver.id) {
-      setActiveDriverDrawer(updated);
-    }
-    onNotification(`Updated ${driver.name} status to ${updated.statusLabel}`);
+  const handleDeleteDriver = async (driver: Driver) => {
+    const active = jobs.filter(j => j.assignedDriverId === driver.id && j.status !== 'completed').length;
+    if (active) { onNotification(`${driver.name} has ${active} active order${active === 1 ? '' : 's'}. Reassign them before deleting the driver.`); return; }
+    if (!(await confirmDialog({ title: `Delete driver "${driver.name}"?`, message: `This removes the driver profile${driver.currentVehicleId ? ' and releases their vehicle' : ''}. Completed orders keep their history. This cannot be undone.`, confirmLabel: 'Delete driver', tone: 'danger' }))) return;
+    try { onDeleteDriver?.(driver); } catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be deleted.'); return; }
+    if (activeDriverDrawer?.id === driver.id) setActiveDriverDrawer(null);
+    onNotification(`Removed driver "${driver.name}".`);
   };
-
   useEntityDialog(!!activeDriverDrawer || showAddModal, () => { setActiveDriverDrawer(null); setShowAddModal(false); });
 
   return (
-    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
-      {/* HEADER BAR */}
-      <PageHeader title="Drivers" description="Driver profiles, employment, attached vehicles and service areas." onBackToMonitor={onBackToMonitor} actions={<>
-          <button
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Driver</span>
-          </button>
+    <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
+      <PageHeader title="Drivers" description="Driver profiles, employment, attached vehicles and service areas." actions={<>
+        <Button
+          type="button"
+          onClick={() => setShowAddModal(true)}
+          className="app-action app-primary flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Add Driver</span>
+        </Button>
       </>} />
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
-        {/* STATS OVERVIEW CARDS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Total Drivers Roster</span>
-              <Users className="w-4 h-4 text-slate-400" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-slate-900">{totalDrivers}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Registered fleet operators</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>On Route / En Route</span>
-              <Truck className="w-4 h-4 text-blue-500" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-blue-600">{onRouteCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Assigned delivery work</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Available for Dispatch</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-emerald-600">{availableCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Ready to accept new assignments</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Off duty / on break</span>
-              <Activity className="w-4 h-4 text-slate-400" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-slate-900">{offlineCount}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Unavailable for new work</div>
-          </div>
-        </div>
+        <ListSummary label="Drivers summary" items={[
+          { label: 'Total', value: totalDrivers, icon: Users },
+          { label: 'On route', value: onRouteCount, icon: Route },
+          { label: 'Available', value: availableCount, icon: CircleCheck },
+          { label: 'Off duty / on break', value: offlineCount, icon: Coffee },
+        ]} />
 
         {/* SEARCH & FILTERS BAR */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          <SearchInput
+        <div className="app-list-toolbar">
+          <SearchInput className="app-list-search"
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder="Search drivers by name, ID (D14), or vehicle..."
           />
 
-          <div className="flex items-center gap-2">
+          <div className="app-list-filters">
             {/* Status Filter Buttons */}
-            <div className="inline-flex bg-slate-50 p-0.5 border border-slate-200 rounded-lg text-xs font-medium">
+            <div className="app-list-status">
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  statusFilter === 'all'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                aria-pressed={statusFilter === 'all'}
+                className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
               >
                 All ({drivers.length})
               </button>
               <button
                 onClick={() => setStatusFilter('on_route')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  statusFilter === 'on_route'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                aria-pressed={statusFilter === 'on_route'}
+                className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
               >
                 On Route
               </button>
               <button
                 onClick={() => setStatusFilter('available')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  statusFilter === 'available'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                aria-pressed={statusFilter === 'available'}
+                className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
               >
                 Available
               </button>
@@ -185,7 +145,7 @@ export function DriversPage({
           {filteredDrivers.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-xl border border-slate-200/90 shadow-2xs">
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <h3 className="text-sm font-semibold text-slate-800">No drivers match your criteria</h3>
+              <h3 className="app-section-title text-slate-800">No drivers match your criteria</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                 Try clearing your search or status filter.
               </p>
@@ -194,18 +154,18 @@ export function DriversPage({
                   setSearchQuery('');
                   setStatusFilter('all');
                 }}
-                className="mt-4 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                className="mt-4 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
               >
                 Reset Filters
               </button>
             </div>
           ) : (
             /* TABLE VIEW */
-            <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            <div className="app-table-shell bg-white overflow-hidden">
               <div className="overflow-x-auto">
-              <table aria-label="Drivers" className="w-full min-w-[850px] text-left border-collapse">
+              <table aria-label="Drivers" className="app-table w-full min-w-[850px] text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide uppercase">
+                  <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-medium text-slate-600">
                     <th className="py-3 px-4">Driver</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Assigned Vehicle</th>
@@ -230,20 +190,20 @@ export function DriversPage({
                             className="w-8 h-8 rounded-full object-cover border border-slate-200"
                           />
                           <div>
-                            <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                            <div className="font-medium text-slate-900 flex items-center gap-1.5">
                               {driver.name}
-                              <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1 py-0.2 rounded">
+                              <span className="text-xs font-mono bg-slate-100 text-slate-600 px-1 py-0.2 rounded">
                                 {driver.id}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-400">{driver.phone}</div>
+                            <div className="text-xs text-slate-400">{driver.phone}</div>
                           </div>
                         </div>
                       </td>
 
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span
-                          className={`px-2 py-0.5 text-[11px] font-semibold rounded-full border ${
+                          className={`px-2 py-0.5 text-xs font-medium rounded-full border ${
                             driver.status === 'on_route'
                               ? 'bg-blue-50 text-blue-700 border-blue-200'
                               : driver.status === 'available' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
@@ -263,22 +223,23 @@ export function DriversPage({
 
                       <td className="py-3.5 px-4 whitespace-nowrap text-slate-700">
                         <div>{driver.eta}</div>
-                        <div className="text-[11px] text-slate-400">{driver.distance} away</div>
+                        <div className="text-xs text-slate-400">{driver.distance} away</div>
                       </td>
 
-                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-500 text-[11px]">
+                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-500 text-xs">
                         {driver.locationCapturedAt || 'No GPS timestamp'}
                       </td>
 
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" aria-label={`Details for ${driver.name}`} onClick={() => setActiveDriverDrawer(driver)} className="mr-2 rounded-md px-2 py-1.5 font-medium text-blue-700 hover:bg-blue-50">Details</button>
+                        <button type="button" aria-label={`Details for ${driver.name}`} onClick={() => setActiveDriverDrawer(driver)} className="mr-2 rounded-md px-2 py-1.5 font-medium text-slate-700 hover:bg-slate-100">Details</button>
                         <button
                           onClick={() => onSelectDriver(driver.id)}
                           title="Locate on Map"
-                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
                         >
                           <MapPin className="w-4 h-4" />
                         </button>
+                        <button type="button" onClick={() => handleDeleteDriver(driver)} title="Delete driver" aria-label={`Delete ${driver.name}`} className="ml-1 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       </td>
                     </tr>
                   ))}
@@ -290,91 +251,30 @@ export function DriversPage({
         </div>
       </div>
 
-      {/* DRIVER PROFILE DRAWER */}
+      {/* DRIVER PROFILE DIALOG */}
       {activeDriverDrawer && (
-        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150">
-          <div
-            className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-hidden animate-in slide-in-from-right duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drawer Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img
-                  src={activeDriverDrawer.avatar}
-                  alt={activeDriverDrawer.name}
-                  className="w-10 h-10 rounded-full object-cover border border-slate-200"
-                />
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                    {activeDriverDrawer.name}
-                    <span className="text-xs font-mono font-bold bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">
-                      {activeDriverDrawer.id}
-                    </span>
-                  </h3>
-                  <div className="text-xs text-slate-500">{activeDriverDrawer.phone}</div>
-                </div>
-              </div>
-              <button
-                onClick={() => setActiveDriverDrawer(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Drawer Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
-              <DriverEditor driver={activeDriverDrawer} drivers={drivers} onCancel={() => setActiveDriverDrawer(null)} onSave={d => { onUpdateDriver(d); setActiveDriverDrawer(null); onNotification('Driver saved'); }} />
-
-            </div>
-
-            {/* Drawer Footer Actions */}
-            <div className="p-4 border-t border-slate-200 bg-white flex items-center gap-2">
-              <button
-                onClick={() => {
-                  onSelectDriver(activeDriverDrawer.id);
-                  setActiveDriverDrawer(null);
-                }}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs cursor-pointer"
-              >
-                <MapPin className="w-3.5 h-3.5" />
-                Locate on Monitor Map
-              </button>
-              <button
-                onClick={() => handleToggleDuty(activeDriverDrawer)}
-                className="px-4 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-              >
-                Toggle duty
-              </button>
-            </div>
-          </div>
-        </div>
+        <Dialog size="md" onClose={() => setActiveDriverDrawer(null)}>
+          <DialogHeader onClose={() => setActiveDriverDrawer(null)}
+            leading={<img src={activeDriverDrawer.avatar} alt={activeDriverDrawer.name} className="w-10 h-10 rounded-full object-cover border border-slate-200" />}
+            title={<>{activeDriverDrawer.name}<span className="text-xs font-mono font-medium bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">{activeDriverDrawer.id}</span></>}
+            description={activeDriverDrawer.phone} />
+          <DialogBody>
+            <DriverEditor driver={activeDriverDrawer} drivers={drivers} formId="driver-details-form" hideActions onCancel={() => setActiveDriverDrawer(null)} onSave={d => { onUpdateDriver(d); setActiveDriverDrawer(null); onNotification('Driver saved'); }} />
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { onSelectDriver(activeDriverDrawer.id); setActiveDriverDrawer(null); }}><MapPin /> Locate on Monitor</Button>
+            <Button type="submit" form="driver-details-form">Save driver</Button>
+          </DialogFooter>
+        </Dialog>
       )}
 
       {/* ADD DRIVER MODAL */}
       {showAddModal && (
-        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div
-            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Add Fleet Driver</h3>
-                <p className="text-xs text-slate-500">Register a new driver to the Metro Vancouver dispatch roster</p>
-              </div>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto p-5"><DriverEditor drivers={drivers} onCancel={() => setShowAddModal(false)} onSave={d => { onCreateDriver(d); setShowAddModal(false); onNotification('Driver created'); }} /></div>
-          </div>
-        </div>
+        <Dialog size="form" onClose={() => setShowAddModal(false)}>
+            <DialogHeader onClose={() => setShowAddModal(false)} title="Add Driver" />
+          <DialogBody><DriverEditor drivers={drivers} formId="driver-add-form" hideActions onCancel={() => setShowAddModal(false)} onSave={d => { onCreateDriver(d); setShowAddModal(false); onNotification('Driver created'); }} /></DialogBody>
+          <DialogFooter><Button type="submit" form="driver-add-form">Save driver</Button></DialogFooter>
+        </Dialog>
       )}
     </div>
   );

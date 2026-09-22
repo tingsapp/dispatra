@@ -1,15 +1,19 @@
+import { ListSummary } from '../components/layout/ListSummary';
+import { Button } from '../components/ui/button';
+import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
+import { DiscountEditor } from '../components/pricing/RateCardFields';
+import { FormSection } from '../components/entities/Fields';
 import {
-AlertTriangle,
+Truck,
+Package,
+CirclePause,
 Building2,
 Edit2,
 ExternalLink,
-Filter,
 MapPin,
-Package,
 Phone,
 Plus,
-Trash2,
-X
+Trash2
 } from 'lucide-react';
 import React,{ useMemo,useState } from 'react';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
@@ -19,6 +23,8 @@ import { Select } from '../components/ui/Select';
 import { validateCustomer } from '../domain/validation';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { Customer,EMPTY_PRICING_RELATIONSHIP,loadCustomers,saveCustomers } from '../lib/customerStorage';
+import { loadBillingConfig } from '../lib/billingStorage';
+import { paymentTermOptions, PaymentTerms, resolvePaymentTerms } from '../lib/paymentTerms';
 import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
 
@@ -84,7 +90,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   }, [customers, searchQuery, statusFilter]);
 
   const activeOrderCount = (id: string) => jobs.filter(j => j.customerId === id && j.status !== 'completed').length;
-  const persistCustomers = (next: Customer[]) => { try { saveCustomers(next); setCustomers(next); return true; } catch { onNotification?.('Customer changes could not be saved in this browser.'); return false; } };
+  const persistCustomers = (next: Customer[]) => { try { saveCustomers(next); setCustomers(next); return true; } catch { onNotification?.('Shipper changes could not be saved in this browser.'); return false; } };
 
   // Statistics
   const stats = useMemo(() => {
@@ -100,6 +106,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     setFormData({
       name: '',
       customerType: 'BUSINESS',
+      paymentTerms: loadBillingConfig().invoicing.defaultPaymentTerms,
       contactName: '',
       email: '',
       phone: '',
@@ -116,21 +123,21 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
   const handleOpenEditModal = (c: Customer) => {
     setEditingCustomer(c);
-    setFormData({ ...c });
+    setFormData({ ...c, paymentTerms: resolvePaymentTerms(c.paymentTerms, loadBillingConfig().invoicing.defaultPaymentTerms) });
     setIsModalOpen(true);
   };
 
   const handleSaveCustomer = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name?.trim()) {
-      onNotification?.('Customer company name is required.');
+      onNotification?.('Shipper company name is required.');
       return;
     }
 
     // The account code is assigned in the background; the API will own it later.
     const code = formData.code || editingCustomer?.code || `CUST-${Math.floor(1000 + Math.random() * 9000)}`;
     const errors = validateCustomer({ ...formData, code }, customers, editingCustomer?.id);
-    if (errors.length) { onNotification?.(errors.join(" ")); return; }
+    if (errors.length) { onNotification?.(errors.join(" ").replace(/Customer/g, "Shipper")); return; }
     if (editingCustomer) {
       // Update
       const updated = customers.map((c) =>
@@ -145,7 +152,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           : c
       );
       if (!persistCustomers(updated)) return;
-      onNotification?.(`Updated customer "${formData.name}".`);
+      onNotification?.(`Updated shipper "${formData.name}".`);
     } else {
       // Add
       const newCustomer: Customer = {
@@ -162,9 +169,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         accountType: formData.accountType as any || 'Standard Freight',
         status: formData.status as any || 'Active',
         defaultRequirements: formData.defaultRequirements || [],
-        billingEmail: formData.billingEmail || '',
+        billingEmail: '',
         rateCardId: formData.rateCardId ?? defaultCard?.id ?? null,
-        discount: EMPTY_PRICING_RELATIONSHIP.discount,
+        discount: formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount,
         taxProfileId: formData.taxProfileId ?? null,
         taxExempt: !!formData.taxExempt,
         totalShipments: 0,
@@ -174,7 +181,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       };
       const updated = [newCustomer, ...customers];
       if (!persistCustomers(updated)) return;
-      onNotification?.(`Added customer account "${newCustomer.name}".`);
+      onNotification?.(`Added shipper account "${newCustomer.name}".`);
     }
 
     setIsModalOpen(false);
@@ -182,78 +189,49 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
   const handleDeleteCustomer = async (id: string, name: string) => {
     const linked = jobs.filter(j => j.customerId === id).length;
-    if (!(await confirmDialog({ title: `Delete customer "${name}"?`, message: linked ? `${linked} order${linked === 1 ? '' : 's'} reference this customer; they keep their saved details but lose the link. This cannot be undone.` : 'This removes the customer account and its saved details. This cannot be undone.', confirmLabel: 'Delete customer', tone: 'danger' }))) return;
+    if (!(await confirmDialog({ title: `Delete shipper "${name}"?`, message: linked ? `${linked} order${linked === 1 ? '' : 's'} reference this shipper; they keep their saved details but lose the link. This cannot be undone.` : 'This removes the shipper account and its saved details. This cannot be undone.', confirmLabel: 'Delete shipper', tone: 'danger' }))) return;
     const updated = customers.filter((c) => c.id !== id);
     if (!persistCustomers(updated)) return;
     if (selectedCustomerForView?.id === id) {
       setSelectedCustomerForView(null);
     }
-    onNotification?.(`Removed customer "${name}".`);
+    onNotification?.(`Removed shipper "${name}".`);
   };
 
   useEntityDialog(!!selectedCustomerForView || isModalOpen, () => { setSelectedCustomerForView(null); setIsModalOpen(false); });
 
   return (
-    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
+    <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <PageHeader title="Customers" description="Customer accounts, contacts and the rate card each one is priced on." onBackToMonitor={onBackToMonitor} actions={<>
-          <button
+      <PageHeader title="Shippers" description="Shipper accounts, contacts and the rate card each one is priced on." actions={<>
+          <Button
             type="button"
             onClick={handleOpenAddModal}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
+            className="app-action app-primary flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>New Customer</span>
-          </button>
+            <span>New Shipper</span>
+          </Button>
       </>} />
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
-        {/* STATS OVERVIEW CARDS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Total Customers</span>
-              <Building2 className="w-4 h-4 text-slate-400" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-slate-900">{stats.total}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Service-purchasing accounts</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>Active in Dispatch</span>
-              <Package className="w-4 h-4 text-blue-500" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-blue-600">
-              {stats.activeWithJobs}{' '}
-              <span className="text-xs font-medium text-slate-400">
-                ({stats.totalActiveJobs} active orders)
-              </span>
-            </div>
-            <div className="mt-1 text-[11px] text-slate-500">Orders linked to these accounts</div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
-            <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-              <span>On Hold</span>
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-amber-600">{stats.onHold}</div>
-            <div className="mt-1 text-[11px] text-slate-500">Requires audit or prepayment</div>
-          </div>
-        </div>
+        <ListSummary label="Shippers summary" items={[
+          { label: 'Total', value: stats.total, icon: Building2 },
+          { label: 'With active orders', value: stats.activeWithJobs, icon: Truck },
+          { label: 'Active orders', value: stats.totalActiveJobs, icon: Package },
+          { label: 'On hold', value: stats.onHold, icon: CirclePause },
+        ]} />
 
         {/* SEARCH & FILTERS BAR */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          <SearchInput
+        <div className="app-list-toolbar">
+          <SearchInput className="app-list-search"
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search customers by name, contact, address, or email..."
+            placeholder="Search shippers by name, contact, address, or email..."
           />
 
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <div className="app-list-filters">
             <Select
               aria-label="Filter by status"
               value={statusFilter}
@@ -268,13 +246,13 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           </div>
         </div>
 
-        {/* CUSTOMERS TABLE */}
-        <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
+        {/* SHIPPERS TABLE */}
+        <div className="app-table-shell bg-white overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table aria-label="Shippers" className="app-table w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-semibold text-slate-600 tracking-wide uppercase">
-                  <th className="py-3 px-4">Customer</th>
+                <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-medium text-slate-600">
+                  <th className="py-3 px-4">Shipper</th>
                   <th className="py-3 px-4">Contact</th>
                   <th className="py-3 px-4">Address</th>
                   <th className="py-3 px-4">Rate Card</th>
@@ -288,8 +266,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400">
                       <Building2 className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                      <p className="font-medium">No customers found matching your criteria</p>
-                      <p className="text-[11px] mt-1 text-slate-400">Try adjusting your search query or filters</p>
+                      <p className="font-medium">No shippers found matching your criteria</p>
+                      <p className="text-xs mt-1 text-slate-400">Try adjusting your search query or filters</p>
                     </td>
                   </tr>
                 ) : (
@@ -302,14 +280,14 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       {/* Customer Name & Code */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200/70 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200/70 text-blue-700 font-medium text-xs flex items-center justify-center shrink-0">
                             {customer.name.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                            <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
                               {customer.name}
                             </div>
-                            <div className="text-[11px] text-slate-400">
+                            <div className="text-xs text-slate-400">
                               {customer.customerType === 'INDIVIDUAL' ? 'Individual' : 'Business'}
                             </div>
                           </div>
@@ -319,7 +297,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       {/* Contact */}
                       <td className="py-3.5 px-4">
                         <div className="font-medium text-slate-900">{customer.contactName}</div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                        <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
                           <span className="flex items-center gap-1">
                             <Phone className="w-3 h-3 text-slate-400" />
                             {customer.phone}
@@ -333,12 +311,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                           <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                           <span className="truncate">{customer.address}</span>
                         </div>
-                        <div className="text-[11px] text-slate-400 pl-5">{customer.city}</div>
+                        <div className="text-xs text-slate-400 pl-5">{customer.city}</div>
                       </td>
 
                       {/* Rate card */}
                       <td className="py-3.5 px-4">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                           {cardName(customer.rateCardId) ?? `${defaultCardName} (Default)`}
                         </span>
                       </td>
@@ -346,19 +324,19 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       {/* Active Orders */}
                       <td className="py-3.5 px-4 text-center">
                         {activeOrderCount(customer.id) > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
                             {activeOrderCount(customer.id)} active
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">—</span>
+                          <span className="text-slate-400 text-xs">—</span>
                         )}
                       </td>
 
                       {/* Status */}
                       <td className="py-3.5 px-4 text-center">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                             customer.status === 'Preferred'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : customer.status === 'Active'
@@ -377,7 +355,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                             type="button"
                             onClick={() => handleOpenEditModal(customer)}
                             className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
-                            title="Edit customer account"
+                            title="Edit shipper account"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -385,7 +363,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                             type="button"
                             onClick={() => handleDeleteCustomer(customer.id, customer.name)}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                            title="Delete customer account"
+                            title="Delete shipper account"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -400,41 +378,13 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         </div>
       </div>
 
-      {/* CUSTOMER DETAILS SLIDE-OVER DRAWER */}
+      {/* SHIPPER DETAILS DIALOG */}
       {selectedCustomerForView && (
-        <div data-entity-dialog
-          className="fixed inset-0 bg-slate-900/40 z-50 flex justify-end animate-in fade-in duration-150"
-          onClick={() => setSelectedCustomerForView(null)}
-        >
-          <div
-            className="w-full max-w-md bg-white h-full shadow-2xl p-6 overflow-y-auto space-y-6 flex flex-col justify-between"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="space-y-6">
-              {/* Header */}
-              <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/70 text-blue-700 font-bold text-sm flex items-center justify-center shrink-0">
-                    {selectedCustomerForView.name.substring(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-slate-900 leading-tight">
-                      {selectedCustomerForView.name}
-                    </h3>
-                    <p className="text-xs font-mono text-slate-500">
-                      {selectedCustomerForView.code}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCustomerForView(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
+        <Dialog size="md" onClose={() => setSelectedCustomerForView(null)}>
+          <DialogHeader onClose={() => setSelectedCustomerForView(null)}
+            leading={<div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/70 text-blue-700 font-medium text-sm flex items-center justify-center shrink-0">{selectedCustomerForView.name.substring(0, 2).toUpperCase()}</div>}
+            title={selectedCustomerForView.name} description={<span className="font-mono">{selectedCustomerForView.code}</span>} />
+          <DialogBody className="space-y-6">
               {/* Status & Tier Badges */}
               <div className="flex items-center gap-2">
                 <span
@@ -453,16 +403,16 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 </span>
               </div>
 
-              <div className="p-4 border rounded-xl text-xs space-y-2"><h4 className="font-semibold">Order history</h4>{jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-slate-500">No linked orders yet.</p>}{jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => <button key={j.id} className="block text-blue-700 text-left" onClick={() => onSelectJob?.(j.jobNumber)}>{j.jobNumber} · {j.statusLabel} · {j.invoicePreview ? 'Invoice preview available' : 'No invoice'}</button>)}</div>
+              <div className="rounded-xl border border-slate-200 p-5 text-xs space-y-2"><h4 className="app-section-title">Order history</h4>{jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-slate-500">No linked orders yet.</p>}{jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => <button key={j.id} className="block text-slate-700 text-left" onClick={() => onSelectJob?.(j.jobNumber)}>{j.jobNumber} · {j.statusLabel} · {j.invoicePreview ? 'Invoice preview available' : 'No invoice'}</button>)}</div>
               {/* Contact Information */}
-              <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
+              <div className="space-y-3 rounded-xl border border-slate-200 p-5">
+                <h4 className="app-section-title text-slate-900">
                   Contact Information
                 </h4>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between text-slate-600">
                     <span className="text-slate-400">Primary Contact:</span>
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-medium text-slate-900">
                       {selectedCustomerForView.contactName}
                     </span>
                   </div>
@@ -484,12 +434,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       {selectedCustomerForView.email}
                     </a>
                   </div>
-                  <div className="pt-2 border-t border-slate-200/70">
+                  <div className="pt-2">
                     <div className="text-slate-400 mb-1">Primary Facility Address:</div>
                     <div className="font-medium text-slate-800">
                       {selectedCustomerForView.address}
                     </div>
-                    <div className="text-slate-500 text-[11px]">
+                    <div className="text-slate-500 text-xs">
                       {selectedCustomerForView.city}
                     </div>
                   </div>
@@ -497,22 +447,15 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </div>
 
               {/* Pricing relationship */}
-              <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
+              <div className="space-y-3 rounded-xl border border-slate-200 p-5">
+                <h4 className="app-section-title text-slate-900">
                   Pricing Relationship
                 </h4>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between text-slate-600">
                     <span className="text-slate-400">Rate Card:</span>
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-medium text-slate-900">
                       {cardName(selectedCustomerForView.rateCardId) ?? `Default (${defaultCardName})`}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Billing Email:</span>
-                    <span className="font-medium text-slate-900 truncate max-w-[60%]">
-                      {selectedCustomerForView.billingEmail || selectedCustomerForView.email}
                     </span>
                   </div>
                 </div>
@@ -521,7 +464,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               {/* Operational Dispatch Notes */}
               {selectedCustomerForView.notes && (
                 <div className="space-y-1.5">
-                  <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
+                  <h4 className="app-section-title text-slate-900">
                     Dispatch & Receiving Notes
                   </h4>
                   <div className="p-3 bg-amber-50/70 border border-amber-200/70 rounded-lg text-xs text-amber-900">
@@ -532,247 +475,70 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
               {/* History stats */}
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
-                  <div className="text-[10px] uppercase font-semibold text-slate-400">
+                <div className="rounded-lg bg-slate-50 p-4 text-center">
+                  <div className="text-xs font-medium text-slate-400">
                     Total Volume
                   </div>
-                  <div className="text-lg font-bold text-slate-900 mt-0.5">
+                  <div className="text-lg font-medium text-slate-900 mt-0.5">
                     {jobs.filter(j => j.customerId === selectedCustomerForView.id).length} orders
                   </div>
                 </div>
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
-                  <div className="text-[10px] uppercase font-semibold text-slate-400">
+                <div className="rounded-lg bg-slate-50 p-4 text-center">
+                  <div className="text-xs font-medium text-slate-400">
                     Active On Road
                   </div>
-                  <div className="text-lg font-bold text-blue-600 mt-0.5">
+                  <div className="text-lg font-medium text-blue-600 mt-0.5">
                     {jobs.filter(j => j.customerId === selectedCustomerForView.id && j.status !== 'completed').length} orders
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Bottom Actions */}
-            <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  handleOpenEditModal(selectedCustomerForView);
-                  setSelectedCustomerForView(null);
-                }}
-                className="flex-1 py-2 px-3 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors flex items-center justify-center gap-1.5"
-              >
-                <Edit2 className="w-3.5 h-3.5 text-slate-600" />
-                <span>Edit Account</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onBackToMonitor();
-                  onNotification?.(`Returning to Monitor filtered by ${selectedCustomerForView.name}`);
-                }}
-                className="flex-1 py-2 px-3 text-xs font-medium bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>View on Map</span>
-              </button>
-            </div>
-          </div>
-        </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { handleOpenEditModal(selectedCustomerForView); setSelectedCustomerForView(null); }}><Edit2 /> Edit Account</Button>
+            <Button type="button" onClick={() => { onBackToMonitor(); onNotification?.(`Returning to Monitor filtered by ${selectedCustomerForView.name}`); }}><ExternalLink /> View on Map</Button>
+          </DialogFooter>
+        </Dialog>
       )}
 
-      {/* ADD / EDIT CUSTOMER MODAL */}
+      {/* ADD / EDIT SHIPPER MODAL */}
       {isModalOpen && (
-        <div data-entity-dialog className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">
-                {editingCustomer ? 'Edit Customer Profile' : 'Add New Customer Account'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+        <Dialog size="form" onClose={() => setIsModalOpen(false)}>
+          <DialogHeader onClose={() => setIsModalOpen(false)} title={editingCustomer ? 'Edit Shipper' : 'New Shipper'} />
+          <DialogBody>
+            <form id="shipper-form" onSubmit={handleSaveCustomer} className="space-y-6">
+              <FormSection title="Shipper">
+                <label className="block"><span className="app-label">Shipper name</span><input type="text" required placeholder="e.g. Pacific Fresh Logistics" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="app-input w-full" /></label>
+                <div><span className="app-label">Shipper type</span><Select aria-label="Shipper type" className="w-full" value={formData.customerType ?? 'BUSINESS'} onValueChange={(v) => setFormData({ ...formData, customerType: v as Customer['customerType'] })} options={[{ value: 'BUSINESS', label: 'Business' }, { value: 'INDIVIDUAL', label: 'Individual' }]} /></div>
+                <label className="block"><span className="app-label">Contact name</span><input type="text" placeholder="e.g. Elena Rostova" value={formData.contactName || ''} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} className="app-input w-full" /></label>
+                <label className="block"><span className="app-label">Phone</span><input type="tel" placeholder="+1 (604) 555-0100" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="app-input w-full" /></label>
+                <label className={`block ${editingCustomer ? '' : 'sm:col-span-2'}`}><span className="app-label">Email</span><input type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" /><span className="mt-1 block text-xs text-slate-500">Quotes and invoices go here.</span></label>
+                {editingCustomer && <div><span className="app-label">Status</span><Select aria-label="Shipper status" className="w-full" value={formData.status || 'Active'} onValueChange={(v) => setFormData({ ...formData, status: v as Customer['status'] })} options={[{ value: 'Active', label: 'Active' }, { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }]} /></div>}
+              </FormSection>
 
-            <form onSubmit={handleSaveCustomer} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Company / Customer Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Pacific Fresh Logistics"
-                    value={formData.name || ''}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  />
-                </div>
+              <FormSection title="Location">
+                <label className="block sm:col-span-2"><span className="app-label">Warehouse Address</span><input type="text" placeholder="e.g. 1420 Derwent Way, Annacis Island" value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="app-input w-full" /></label>
+                <label className="block"><span className="app-label">Service Area</span><input type="text" placeholder="Vancouver, BC" value={formData.city || ''} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className="app-input w-full" /></label>
+              </FormSection>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Customer Type</label>
-                  <Select
-                    aria-label="Customer type"
-                    className="w-full"
-                    value={formData.customerType ?? 'BUSINESS'}
-                    onValueChange={(v) => setFormData({ ...formData, customerType: v as Customer['customerType'] })}
-                    options={[{ value: 'BUSINESS', label: 'Business' }, { value: 'INDIVIDUAL', label: 'Individual' }]}
-                  />
-                </div>
+              <FormSection title="Billing">
+                <div><span className="app-label">Shipper rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">New orders start on it; dispatch can change it per order.</span></div>
+                <div><span className="app-label">Default payment terms</span><Select aria-label="Default payment terms" className="w-full" value={formData.paymentTerms ?? ''} onValueChange={value => setFormData({ ...formData, paymentTerms: value as PaymentTerms })} options={paymentTermOptions(editingCustomer?.paymentTerms)} /><span className="mt-1 block text-xs text-slate-500">Sets invoice due dates.</span></div>
+              </FormSection>
 
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Contact Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Elena Rostova"
-                    value={formData.contactName || ''}
-                    onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  />
-                </div>
+              <section aria-label="Discount" className="space-y-3">
+                <h4 className="app-section-title">Discount</h4>
+                <DiscountEditor value={formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount} onChange={discount => setFormData({ ...formData, discount })} />
+              </section>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="+1 (604) 555-0100"
-                    value={formData.phone || ''}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Work Email
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="logistics@company.ca"
-                    value={formData.email || ''}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Delivery / Warehouse Address
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 1420 Derwent Way, Annacis Island"
-                    value={formData.address || ''}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    City / Service Area
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Vancouver, BC"
-                    value={formData.city || ''}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                  />
-                </div>
-
-                {editingCustomer && <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Status
-                  </label>
-                  <Select
-                    aria-label="Customer status"
-                    className="w-full"
-                    value={formData.status || 'Active'}
-                    onValueChange={(v) => setFormData({ ...formData, status: v as any })}
-                    options={[
-                      { value: 'Active', label: 'Active' },
-                            { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }
-                    ]}
-                  />
-                </div>}
-              </div>
-
-              {/* Pricing relationship */}
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 space-y-3">
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
-                    Pricing Relationship
-                  </span>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Sets this customer's prices. New orders start on it; dispatch can change it per order.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Customer Rate Card</label>
-                    <Select
-                      aria-label="Customer rate card"
-                      className="w-full"
-                      value={formData.rateCardId ?? defaultCard?.id ?? ''}
-                      onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })}
-                      options={customerCards.map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Billing Email</label>
-                    <input
-                      type="email"
-                      placeholder="Defaults to the email above"
-                      value={formData.billingEmail || ''}
-                      onChange={(e) => setFormData({ ...formData, billingEmail: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                    />
-                    <p className="text-[11px] text-slate-500 mt-1">Where invoices and quotes are sent.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Dispatch & Receiving Instructions
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Gate instructions, required paperwork, security clearance..."
-                  value={formData.notes || ''}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                />
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-medium bg-slate-900 hover:bg-slate-800 text-white rounded-lg shadow-2xs transition-colors"
-                >
-                  {editingCustomer ? 'Save Changes' : 'Create Customer'}
-                </button>
-              </div>
+              <section className="space-y-3">
+                <h4 className="app-section-title">Instructions</h4>
+                <label className="block"><span className="app-label">Dispatch & Receiving Instructions</span><textarea rows={3} placeholder="Gate instructions, required paperwork, security clearance..." value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="app-input w-full" /></label>
+              </section>
             </form>
-          </div>
-        </div>
+          </DialogBody>
+          <DialogFooter><Button type="submit" form="shipper-form">{editingCustomer ? 'Save Changes' : 'Create Shipper'}</Button></DialogFooter>
+        </Dialog>
       )}
     </div>
   );

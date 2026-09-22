@@ -1,3 +1,4 @@
+import { useRoutesRevealed } from './monitor/arrival';
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import Map, { Marker, Source, Layer, MapRef } from 'react-map-gl/maplibre';
 import * as maplibregl from 'maplibre-gl';
@@ -20,37 +21,10 @@ import {
   INITIAL_JOBS
 } from '../data/mockData';
 
-// Vancouver Center Coordinates
-export const VANCOUVER_CENTER_LAT_LNG: [number, number] = [49.2827, -123.1207];
-export const VANCOUVER_CENTER_LNG_LAT: [number, number] = [-123.1207, 49.2827];
-export const TORONTO_CENTER_LNG_LAT: [number, number] = VANCOUVER_CENTER_LNG_LAT;
+import { MONITOR_CAMERA, OPENFREEMAP_STREET_STYLE, SATELLITE_STYLE } from './monitor/mapScene';
+export { VANCOUVER_CENTER_LAT_LNG, VANCOUVER_CENTER_LNG_LAT, TORONTO_CENTER_LNG_LAT, OPENFREEMAP_STREET_STYLE, SATELLITE_STYLE } from './monitor/mapScene';
 
-// OpenFreeMap's public street map uses OpenStreetMap data with no API key.
-// Keep MapLibre so the existing route layers, markers and map controls are unchanged.
-export const OPENFREEMAP_STREET_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
-
-export const SATELLITE_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    'esri-satellite': {
-      type: 'raster',
-      tiles: [
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-      ],
-      tileSize: 256,
-      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
-    }
-  },
-  layers: [
-    {
-      id: 'esri-satellite-layer',
-      type: 'raster',
-      source: 'esri-satellite',
-      minzoom: 0,
-      maxzoom: 22
-    }
-  ]
-};
+const ROUTE_REVEAL_TRANSITION = { duration: 900, delay: 0 };
 
 export interface MarkerScreenPositions {
   d14?: { x: number; y: number } | null;
@@ -233,7 +207,7 @@ const D14AnimatedMarker: React.FC<D14AnimatedMarkerProps> = React.memo(({
         className="relative group flex items-center justify-center cursor-pointer select-none"
         style={{ width: '46px', height: '46px' }}
       >
-        <div className="absolute inset-0 rounded-full bg-blue-500/25 animate-radar-ping pointer-events-none" />
+        <div data-arrival-item="driver" style={{ "--arrival-index": 0 } as React.CSSProperties} className="absolute inset-0 rounded-full bg-blue-500/25 animate-radar-ping pointer-events-none" />
         <div className="absolute inset-1.5 rounded-full bg-blue-400/20 animate-radar-ping-fast pointer-events-none" />
         <div className="relative w-9 h-9 rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/40 ring-2 ring-white flex items-center justify-center transform group-hover:scale-110 transition-transform">
           <svg
@@ -246,7 +220,7 @@ const D14AnimatedMarker: React.FC<D14AnimatedMarkerProps> = React.memo(({
             <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
           </svg>
         </div>
-        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none">
+        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none">
           D14 • Arles
         </div>
       </div>
@@ -262,6 +236,7 @@ export interface TorontoMapProps {
   onSelectDriver: (id: string) => void;
   onSelectJob: (id: string) => void;
   onMapClick?: () => void;
+  onReady?: () => void;
   layerConfig: MapLayerConfig;
   onPositionsUpdate?: (positions: MarkerScreenPositions) => void;
   onUpdatePositions?: (positions: MarkerScreenPositions) => void;
@@ -279,6 +254,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
   onSelectDriver,
   onSelectJob,
   onMapClick,
+  onReady,
   layerConfig,
   onPositionsUpdate,
   onUpdatePositions,
@@ -567,6 +543,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
 
     exposeMapController();
     updateScreenPositions();
+    onReady?.();
     // Schedule follow-up resize to ensure WebGL canvas matches final DOM layout
     setTimeout(() => {
       try {
@@ -574,7 +551,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
         updateScreenPositions();
       } catch {}
     }, 150);
-  }, [exposeMapController, updateScreenPositions]);
+  }, [exposeMapController, updateScreenPositions, onReady]);
 
   const handleMapClick = useCallback(() => {
     if (onMapClickRef.current) {
@@ -583,6 +560,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
   }, []);
 
   const activeMapStyle = layerConfig.mode === 'satellite' ? SATELLITE_STYLE : OPENFREEMAP_STREET_STYLE;
+  const routeReveal = useRoutesRevealed() ? 1 : 0;
 
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden select-none bg-slate-100">
@@ -591,13 +569,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
           ref={mapRef}
           mapLib={maplibregl}
           workerUrl={maplibreglWorkerUrl}
-          initialViewState={{
-            longitude: VANCOUVER_CENTER_LNG_LAT[0],
-            latitude: VANCOUVER_CENTER_LNG_LAT[1],
-            zoom: 11,
-            pitch: 0,
-            bearing: 0
-          }}
+          initialViewState={MONITOR_CAMERA}
           dragPan={true}
           scrollZoom={true}
           boxZoom={true}
@@ -625,7 +597,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             paint={{
               'line-color': '#1d4ed8',
               'line-width': 7,
-              'line-opacity': 0.8
+              'line-opacity': 0.8 * routeReveal, 'line-opacity-transition': ROUTE_REVEAL_TRANSITION
             }}
           />
           <Layer
@@ -633,6 +605,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             type="line"
             layout={{ 'line-join': 'round', 'line-cap': 'round' }}
             paint={{
+              'line-opacity': routeReveal, 'line-opacity-transition': ROUTE_REVEAL_TRANSITION,
               'line-color': '#60a5fa',
               'line-width': 4,
               'line-dasharray': [2, 3]
@@ -649,7 +622,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             paint={{
               'line-color': '#047857',
               'line-width': 5,
-              'line-opacity': 0.7
+              'line-opacity': 0.7 * routeReveal, 'line-opacity-transition': ROUTE_REVEAL_TRANSITION
             }}
           />
           <Layer
@@ -657,6 +630,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             type="line"
             layout={{ 'line-join': 'round', 'line-cap': 'round' }}
             paint={{
+              'line-opacity': routeReveal, 'line-opacity-transition': ROUTE_REVEAL_TRANSITION,
               'line-color': '#34d399',
               'line-width': 3
             }}
@@ -672,7 +646,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             paint={{
               'line-color': '#c2410c',
               'line-width': 5,
-              'line-opacity': 0.7
+              'line-opacity': 0.7 * routeReveal, 'line-opacity-transition': ROUTE_REVEAL_TRANSITION
             }}
           />
           <Layer
@@ -680,6 +654,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             type="line"
             layout={{ 'line-join': 'round', 'line-cap': 'round' }}
             paint={{
+              'line-opacity': routeReveal, 'line-opacity-transition': ROUTE_REVEAL_TRANSITION,
               'line-color': '#fb923c',
               'line-width': 3
             }}
@@ -704,7 +679,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
 
         {/* 2. AIRPORT YVR CARGO LANDMARK */}
         <Marker longitude={-123.184} latitude={49.196} anchor="center">
-          <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full shadow-md border border-blue-200 text-blue-700 font-semibold text-[11px] whitespace-nowrap hover:scale-105 transition-transform cursor-pointer select-none">
+          <div data-arrival-item="stop" style={{ "--arrival-index": 0 } as React.CSSProperties} className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full shadow-md border border-blue-200 text-blue-700 font-semibold text-xs whitespace-nowrap hover:scale-105 transition-transform cursor-pointer select-none">
             <svg className="w-3.5 h-3.5 text-blue-600 fill-blue-600" viewBox="0 0 24 24">
               <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
             </svg>
@@ -724,7 +699,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             updateScreenPositions();
           }}
         >
-          <div className="relative group flex items-center justify-center cursor-pointer select-none" style={{ width: '48px', height: '48px' }}>
+          <div data-arrival-item="stop" style={{ "--arrival-index": 1, width: '48px', height: '48px' } as React.CSSProperties} className="relative group flex items-center justify-center cursor-pointer select-none">
             <div className="absolute inset-0 rounded-full bg-rose-500/30 animate-radar-ping-fast pointer-events-none" />
             <div className="absolute inset-2 rounded-full bg-rose-400/20 animate-radar-ping pointer-events-none" />
             <div className="relative w-9 h-9 rounded-full bg-rose-600 text-white ring-2 ring-white shadow-lg shadow-rose-600/40 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -734,7 +709,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
                 <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
             </div>
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none">
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-rose-600 text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none">
               #461 • At Risk (22m late)
             </div>
           </div>
@@ -751,14 +726,14 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             updateScreenPositions();
           }}
         >
-          <div className="relative group flex items-center justify-center cursor-pointer select-none" style={{ width: '40px', height: '40px' }}>
+          <div data-arrival-item="stop" style={{ "--arrival-index": 2, width: '40px', height: '40px' } as React.CSSProperties} className="relative group flex items-center justify-center cursor-pointer select-none">
             <div className="w-8 h-8 rounded-full bg-amber-500 text-white ring-2 ring-white shadow-md shadow-amber-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
             </div>
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap pointer-events-none">
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-xs font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap pointer-events-none">
               #452 • Late Start
             </div>
           </div>
@@ -775,7 +750,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             updateScreenPositions();
           }}
         >
-          <div className="relative group flex items-center justify-center cursor-pointer select-none" style={{ width: '38px', height: '38px' }}>
+          <div data-arrival-item="stop" style={{ "--arrival-index": 3, width: '38px', height: '38px' } as React.CSSProperties} className="relative group flex items-center justify-center cursor-pointer select-none">
             <div className="w-7 h-7 rounded-full bg-slate-700 text-white ring-2 ring-white shadow-md flex items-center justify-center group-hover:scale-110 transition-transform">
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -784,7 +759,7 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
                 <line x1="23" y1="8" x2="18" y2="13" />
               </svg>
             </div>
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap pointer-events-none">
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap pointer-events-none">
               #439 • No Driver
             </div>
           </div>
@@ -811,15 +786,15 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             updateScreenPositions();
           }}
         >
-          <div className="flex items-center gap-2 bg-white rounded-full px-2.5 py-1 shadow-lg shadow-slate-900/10 border border-slate-200/90 hover:border-emerald-300 transition-all hover:scale-105 cursor-pointer select-none">
+          <div data-arrival-item="driver" style={{ "--arrival-index": 1 } as React.CSSProperties} className="flex items-center gap-2 bg-white rounded-full px-2.5 py-1 shadow-lg shadow-slate-900/10 border border-slate-200/90 hover:border-emerald-300 transition-all hover:scale-105 cursor-pointer select-none">
             <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z" />
               </svg>
             </div>
             <div className="pr-1 leading-none">
-              <div className="text-[11px] font-bold text-slate-800">D28 • Marcus</div>
-              <div className="text-[9px] text-emerald-600 font-medium">Available • 5-ton</div>
+              <div className="text-xs font-bold text-slate-800">D28 • Marcus</div>
+              <div className="text-xs text-emerald-600 font-medium">Available • 5-ton</div>
             </div>
           </div>
         </Marker>
@@ -835,10 +810,10 @@ export const TorontoMap: React.FC<TorontoMapProps> = ({
             updateScreenPositions();
           }}
         >
-          <div className="flex items-center gap-1.5 bg-white/95 rounded-full px-2.5 py-1 shadow-md border border-slate-200/90 hover:scale-105 transition-transform cursor-pointer select-none">
+          <div data-arrival-item="driver" style={{ "--arrival-index": 2 } as React.CSSProperties} className="flex items-center gap-1.5 bg-white/95 rounded-full px-2.5 py-1 shadow-md border border-slate-200/90 hover:scale-105 transition-transform cursor-pointer select-none">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span className="text-[11px] font-bold text-slate-800">D09</span>
-            <span className="text-[10px] text-emerald-600 font-semibold">Available</span>
+            <span className="text-xs font-bold text-slate-800">D09</span>
+            <span className="text-xs text-emerald-600 font-semibold">Available</span>
           </div>
         </Marker>
       </Map>

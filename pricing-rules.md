@@ -1,8 +1,13 @@
 # Adopted pricing requirements — September 12, 2026
 
+Current UI (September 21): Pricing tabs are Rate Cards, Fuel Charge, Service Level and Accessorials. Fuel Charge has one nonnegative percentage input; 0 disables it. New settings start at 28.5%, the September 2026 Novex courier benchmark. Existing percentages and quoted terms are preserved, except that the old unversioned active 8% default now migrates to 28.5% (future explicitly saved 8% values remain valid); live indexed settings migrate to their effective percentage. Fuel-price rules below apply only to historical frozen contexts. Zone cards expose their own dimensional divisor; Distance, Fixed and Hourly do not expose or require one. Distance has no Included Weight or Weight Rate fields. Its base freight is Base Fee + max(0, billable distance − Included Distance) × Distance Rate; stored weight terms and divisors cannot affect new quotes or explicit repricing. New contexts freeze distanceWeightMode NONE; historical contexts preserve legacy weight rules and saved amounts. Package weight and dimensions remain available for operational capacity. Zone bands use the greater of actual and dimensional weight separately for each pickup-to-delivery movement, including package quantities. The matrix stores maximum weight limits; the engine performs the comparison automatically. There is no opt-out checkbox. New contexts record METHOD_SPECIFIC; frozen MAX and legacy contexts retain their prior calculations. Active legacy opt-outs normalize to enabled without changing divisors. Frozen historical quotes retain their original dimensional settings at settlement. Service Fee and Extra Stops are retired from new pricing; their legacy calculations below apply only to frozen historical contexts. The Vehicle & Labour Costs tab is removed, with stored estimates preserved. Current Accessorials are fixed dollar charges added once per order only when selected. Their form contains Name, Rate, Description and Taxable; percentage, automatic/per-stop rules, allowances, limits and fuel eligibility below apply only to frozen historical contexts. Existing numeric rates become dollar amounts; names, taxability and status are retained.
+
+
+Service Level now uses a fixed additional charge once per order, in company currency, across all four current methods. Editable starting amounts are Standard 0, Rush 20, Direct 35 and Economy 0. The charge is taxable transport, fuel-eligible and included in transport discounts using existing calculation order. New quotes record FIXED service pricing; multiplier rules below apply only to historical frozen contexts. Imported final agreed totals still bypass modifiers. No multiplier-to-dollar arithmetic conversion is performed: known built-in services receive the approved starting amounts only when missing, while custom nonneutral legacy services require an explicit amount.
+
 User-supplied requirements for the pricing revision. Implementation evidence and known limitations are recorded in [state.md](state.md).
 
-**Preserve calculation rules and make contract overrides explicit.** The September 18 interface decision supersedes the earlier navigation: four settings destinations (Company, Services & Dispatch, Pricing, Billing), a flat rate-card list with one Default card, one method per card, and a single flat rate-card form (name, rates, method terms, Minimum Charge, Discount). Every card applies to every service, vehicle and customer; dispatch attaches a card to each customer and the order pre-selects it. Contract overrides below remain calculation rules with V1 background values; they are not exposed in the rate-card editor and stored cards are normalised to them on load. Time should support dispatch planning and cost estimates; customer time charges should apply only to waiting or an explicitly hourly contract.
+**Preserve calculation rules and make contract overrides explicit.** The September 18 interface decision supersedes the earlier navigation: four settings destinations (Company, Services & Dispatch, Pricing, Billing), a flat rate-card list with one Default card, one method per card, and a single flat rate-card form (name, rates, method terms and Minimum Charge). Every card applies to every service, vehicle and customer; dispatch attaches a card to each customer and the order pre-selects it. Contract overrides below remain calculation rules with V1 background values; they are not exposed in the rate-card editor and stored cards are normalised to them on load. Time should support dispatch planning and cost estimates; customer time charges should apply only to waiting or an explicitly hourly contract.
 
 The following is the final recommended specification. Business rules below are proposed defaults; they are not changes already made to the app.
 
@@ -34,7 +39,7 @@ The normal **Base + Distance** method should contain:
 
 - Base fee.
 - Included distance and distance rate.
-- Included weight and excess-weight rate.
+- No weight allowance, per-weight charge or dimensional divisor in V1 (September 21 simplification).
 - Included pieces and extra-piece rate.
 - Included stops and extra-stop rate.
 - Minimum freight.
@@ -182,18 +187,9 @@ Example: a $100 order minimum with a 20% discount still produces a $100 subtotal
 
 Each rate card owns its Minimum Charge; 0 disables it. New cards start at 0, and existing inherited amounts migrate onto their cards. General has no minimum controls or active minimum-distance floor. Do not make a discount implicitly waive a card minimum.
 
-Discount controls should offer:
+Discount controls live only on the Shipper creation/edit form and offer No discount, Percentage (0–100), or Fixed amount. The shipper discount applies across selected rate cards; new shippers start with no discount. Apply one discount to freight, service multiplier, freight minimum and vehicle surcharge, excluding fuel, Accessorials, service fee and tax.
 
-- Inherit.
-- No discount.
-- Percentage.
-- Fixed amount.
-
-Use this precedence:
-
-**Customer → rate card → no discount.**
-
-At each level, **Inherit** continues the search and **No discount** stops it. Apply one inherited contract discount; do not stack them automatically.
+Existing effective card discounts migrate once to shippers using the attached card or Default. Current pricing ignores the retained historical card discount field. Frozen quotes, including hourly settlement, retain the discount source and values captured at quote time.
 
 Define the discount scope by named charge groups. Show the discount and any minimum adjustment separately.
 

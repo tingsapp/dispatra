@@ -7,9 +7,9 @@ interface Props { card: RateCard; patch: (changes: Partial<RateCard>) => void }
 export const ContractRulesEditor = ({ card, patch }: Props) => {
   if (!['HOURLY', 'IMPORTED'].includes(card.pricingMethod)) return null;
   return <section className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 text-xs">
-    <h3 className="font-semibold text-sm">Pricing terms</h3>
+    <h3 className="app-section-title">Pricing terms</h3>
     {card.pricingMethod === 'HOURLY' && <div className="space-y-2">
-      <p className="text-slate-600">Only this contract sells time. A service named “4 Hour” remains a delivery promise. These terms are fixed for every hourly card.</p>
+      <p className="text-slate-600">Fixed billing rules for hourly cards.</p>
       {[
         `Billable clock starts: ${card.hourlyClockStart}`,
         `Billable clock stops: ${card.hourlyClockStop}`,
@@ -21,8 +21,8 @@ export const ContractRulesEditor = ({ card, patch }: Props) => {
       {card.pricingMethod === 'IMPORTED' && <div className="sm:max-w-sm">
         <label className={labelClass}>Imported amount means</label>
         <Select aria-label="Imported amount means" className="w-full" value={card.importedPriceMode ?? 'FREIGHT'} onValueChange={value => patch({ importedPriceMode: value as RateCard['importedPriceMode'] })} options={[
-          { value: 'FREIGHT', label: 'Freight amount — permitted contract modifiers apply' },
-          { value: 'FINAL_TOTAL', label: 'Final agreed total — preserve exactly, including tax' }
+          { value: 'FREIGHT', label: 'Freight — additional charges may apply' },
+          { value: 'FINAL_TOTAL', label: 'Final total — includes tax; no changes' }
         ]} />
       </div>}
   </section>;

@@ -1,5 +1,6 @@
 import { CustomerOperations } from '../domain/operations';
 import { Discount } from '../types/pricing';
+import { loadPricingConfig, NO_DISCOUNT } from './pricingStorage';
 
 export interface Customer extends CustomerOperations {
   id: string;
@@ -13,14 +14,14 @@ export interface Customer extends CustomerOperations {
   accountType: 'Enterprise' | 'Scheduled Contract' | 'Express / On-Demand' | 'Standard Freight';
   status: 'Active' | 'Preferred' | 'On Hold' | 'Inactive';
   defaultRequirements: string[];
-  /** Invoices are emailed here; falls back to `email`. */
+  /** Retained for older saved records; the shipper's single `email` is used for quotes and invoices. */
   billingEmail: string;
   // ---- Pricing relationship (see types/pricing.ts) ----
   /** Customer-specific Rate Card. `null` = inherit from organization. */
   rateCardId: string | null;
   /** Legacy quote context only; ignored for new pricing. */
   customerGroupId?: string | null;
-  /** Legacy customer-level discount; V1 prices discounts from the attached rate card only. */
+  /** Negotiated discount applied to this shipper across all rate cards. */
   discount: Discount;
   /** `null` = organization default tax profile. */
   taxProfileId: string | null;
@@ -38,7 +39,7 @@ export const EMPTY_PRICING_RELATIONSHIP: Pick<
 > = {
   billingEmail: '',
   rateCardId: null,
-  discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
+  discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
   taxProfileId: null,
   taxExempt: false
 };
@@ -58,7 +59,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Reefer / Cold Chain', 'Liftgate Required', 'Dock Access'],
     billingEmail: 'ap@pacificfresh.ca',
     rateCardId: 'rc_pacific_fresh',
-    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 148,
@@ -80,7 +81,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Temperature Controlled', 'Signature Required', 'Inside Delivery'],
     billingEmail: '',
     rateCardId: 'rc_nordic_direct',
-    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 89,
@@ -102,7 +103,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Liftgate Required', 'Pallet Jack', 'Appointment Needed'],
     billingEmail: '',
     rateCardId: null,
-    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 312,
@@ -124,7 +125,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Heavy Cargo (5T)', 'Reefer / Cold Chain', 'Dock Access'],
     billingEmail: '',
     rateCardId: null,
-    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 204,
@@ -146,7 +147,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Flatbed / Heavy Lift', 'Jobsite Access', 'Tailgate Assist'],
     billingEmail: '',
     rateCardId: null,
-    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 67,
@@ -168,7 +169,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Dock Access', 'High Value Proof-of-Delivery'],
     billingEmail: '',
     rateCardId: null,
-    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 43,
@@ -190,7 +191,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Medical Courier', 'Chain of Custody', 'Strict Temperature'],
     billingEmail: '',
     rateCardId: null,
-    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: true,
     totalShipments: 122,
@@ -212,7 +213,7 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
     defaultRequirements: ['Liftgate Required', 'Commercial Loading Bay'],
     billingEmail: '',
     rateCardId: null,
-    discount: { type: 'INHERIT', value: 0, scope: 'TRANSPORT_ONLY' },
+    discount: { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' },
     taxProfileId: null,
     taxExempt: false,
     totalShipments: 28,
@@ -231,18 +232,37 @@ export function loadCustomers(): Customer[] {
       const parsed = JSON.parse(raw);
       const records = Array.isArray(parsed) ? parsed : parsed.customers;
       if (Array.isArray(records)) {
-        // Customer-level discounts are retired; the attached rate card carries the contract discount.
-        return records.map((c: Partial<Customer>) => ({ ...EMPTY_PRICING_RELATIONSHIP, ...c, discount: EMPTY_PRICING_RELATIONSHIP.discount }) as Customer).map(normalizeCustomer);
+        const legacy = Array.isArray(parsed) || (parsed.schemaVersion ?? 0) < 3;
+        const pricing = legacy ? loadPricingConfig() : null;
+        const customers = records.map((c: Partial<Customer>) => {
+          const card = pricing?.rateCards.find(card => card.id === c.rateCardId && card.status === 'ACTIVE')
+            ?? pricing?.rateCards.find(card => card.scope === 'ORGANIZATION' && card.status === 'ACTIVE');
+          const discount = legacy ? card?.discount ?? NO_DISCOUNT : c.discount ?? NO_DISCOUNT;
+          return normalizeCustomer({ ...EMPTY_PRICING_RELATIONSHIP, ...c, discount: {
+            ...discount, type: discount.type === 'INHERIT' ? 'NONE' : discount.type, scope: 'TRANSPORT_ONLY'
+          } } as Customer);
+        });
+        if (legacy) {
+          try { saveCustomers(customers); } catch { /* Return the existing records even if migration cannot be persisted. */ }
+        }
+        return customers;
       }
     }
   } catch (err) {
     console.warn('Could not load customers from localStorage:', err);
   }
-  return DEFAULT_CUSTOMERS.map(normalizeCustomer);
+  const pricing = loadPricingConfig();
+  const customers = DEFAULT_CUSTOMERS.map(customer => {
+    const card = pricing.rateCards.find(card => card.id === customer.rateCardId && card.status === 'ACTIVE')
+      ?? pricing.rateCards.find(card => card.scope === 'ORGANIZATION' && card.status === 'ACTIVE');
+    return normalizeCustomer({ ...customer, discount: { ...(card?.discount ?? NO_DISCOUNT), scope: 'TRANSPORT_ONLY' } });
+  });
+  try { saveCustomers(customers); } catch { /* Keep demo data usable when browser storage is unavailable. */ }
+  return customers;
 }
 
 export function saveCustomers(customers: Customer[]): void {
-  localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 2, customers }));
+  localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 3, customers }));
 }
 
 export function normalizeCustomer(stored: Customer): Customer {

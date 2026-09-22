@@ -1,3 +1,4 @@
+import { INITIAL_BILLING_CONFIG } from './billingStorage';
 import { loadVehicles, saveVehicles } from './vehicleStorage';
 import { Driver } from '../types';
 export const DRIVER_STORAGE_KEY = 'dispatra_drivers_v1';
@@ -7,6 +8,11 @@ export function normalizeDriver(d: Driver): Driver {
     skills: [], serviceAreaIds: [], vehicleTypeQualifications: [], availabilitySchedule: [], locationPermissionStatus: 'UNKNOWN', ...d,
     // V1 knows two kinds of driver; legacy temporary records count as employees.
     employmentType: d.employmentType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE' };
+}
+/** Background driver number (D01, D02, …): one past the highest existing number. The API will own this later. */
+export function nextDriverNumber(drivers: Driver[]): string {
+  const used = drivers.flatMap(d => [d.driverNumber, d.id]).map(v => /^D(\d+)$/i.exec(v ?? '')?.[1]).filter((n): n is string => !!n).map(Number);
+  return `D${String((used.length ? Math.max(...used) : 0) + 1).padStart(2, '0')}`;
 }
 export function syncDriver(d: Driver): Driver {
   const status = d.accountStatus === 'INACTIVE' || d.dutyStatus === 'OFF_DUTY' ? 'offline' : d.workStatus === 'BUSY' ? 'on_route' : d.workStatus === 'ON_BREAK' ? 'idle' : 'available';
@@ -32,4 +38,11 @@ export function bindDriverVehicle(driver: Driver): void {
   if (old?.availability === 'IN_USE') throw new Error('Finish the active vehicle assignment before changing this driver’s vehicle.');
   const updated = fleet.map(v => v.id === driver.currentVehicleId ? { ...v, currentDriverId: driver.id, currentDriverName: driver.name } : v.currentDriverId === driver.id ? { ...v, currentDriverId: undefined, currentDriverName: undefined } : v);
   saveVehicles(updated);
+}
+
+/** One policy resolver for driver details and both local assignment paths. */
+export function driverOrderLimit(driver: Pick<Driver, 'maxActiveOrders'>, companyDefault: number): number {
+  const valid = (value: number | undefined): value is number => Number.isSafeInteger(value) && value! > 0;
+  return valid(driver.maxActiveOrders) ? driver.maxActiveOrders
+    : valid(companyDefault) ? companyDefault : INITIAL_BILLING_CONFIG.dispatch.maxActiveOrdersPerDriver;
 }

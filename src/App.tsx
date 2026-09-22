@@ -1,4 +1,4 @@
-import { Menu,RefreshCw,Sparkles } from 'lucide-react';
+import { PanelLeft,RefreshCw,Sparkles } from 'lucide-react';
 import { AnimatePresence,motion } from 'motion/react';
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { DateControl } from './components/DateControl';
@@ -7,7 +7,6 @@ import { DriverPopover } from './components/DriverPopover';
 import { JobDetailPopover } from './components/JobDetailPopover';
 import { MapControls } from './components/MapControls';
 import { SettingsArea } from './components/settings/SettingsLayout';
-import { SETTINGS_NAVIGATION_EVENT } from './components/settings/useSettingsGuard';
 import { ConfirmDialogHost } from './components/ui/ConfirmDialog';
 import { Sidebar } from './components/Sidebar';
 import { TopMetrics } from './components/TopMetrics';
@@ -18,15 +17,16 @@ INITIAL_JOBS,
 INITIAL_NEEDS_ATTENTION
 } from './data/mockData';
 import { bindDriverVehicle,loadDrivers,saveDrivers } from './lib/driverStorage';
+import { loadUserProfile } from './lib/profileStorage';
 import { loadPricingContext,loadSavedOrders,pricingAttentionItems,saveOrders } from './lib/orderPricing';
 import { validateAssignment } from './lib/organizationWorkflows';
-import { BillingSettingsPage } from './pages/BillingSettingsPage';
+import { usePageNavigation } from './lib/usePageNavigation';
+import { MonitorStage } from './components/monitor/MonitorStage';
 import { CompanySettingsPage } from './pages/CompanySettingsPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { DriversPage } from './pages/DriversPage';
 import { HelpSupportPage } from './pages/HelpSupportPage';
 import { JobsPage } from './pages/JobsPage';
-import { PricingServicesPage } from './pages/PricingServicesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { RateCardsPage } from './pages/RateCardsPage';
 import { ReportsPage } from './pages/ReportsPage';
@@ -34,21 +34,15 @@ import { VehiclesPage } from './pages/VehiclesPage';
 import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from './types';
 
 /** Tab shown for each Organization Settings destination. */
-const SETTINGS_TABS: Record<SettingsArea, string> = { company: 'company-settings', services: 'services-accessorials', pricing: 'rate-cards', billing: 'billing-settings' };
-const settingsAreaForTab = (tab: string): SettingsArea | undefined => (Object.keys(SETTINGS_TABS) as SettingsArea[]).find(area => SETTINGS_TABS[area] === tab || (area === 'services' && tab === 'pricing-services'));
-export default function App() {
-  const [activeTab, updateActiveTab] = useState<string>('monitor');
-  const activeTabRef = useRef(activeTab);
-  activeTabRef.current = activeTab;
-  const setActiveTab = useCallback((next: string) => {
-    if (next === activeTabRef.current) return;
-    const go = () => { activeTabRef.current = next; updateActiveTab(next); };
-    // A dirty settings page cancels the event and calls `proceed` itself once the user confirms.
-    if (!window.dispatchEvent(new CustomEvent(SETTINGS_NAVIGATION_EVENT, { cancelable: true, detail: { proceed: go } }))) return;
-    go();
-  }, []);
+const SETTINGS_TABS: Record<SettingsArea, string> = { company: 'company-settings', pricing: 'rate-cards' };
+const settingsAreaForTab = (tab: string): SettingsArea | undefined => (Object.keys(SETTINGS_TABS) as SettingsArea[]).find(area => SETTINGS_TABS[area] === tab);
+export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
+  const [activeTab, setActiveTab] = usePageNavigation();
+  const [monitorMapReady, setMonitorMapReady] = useState(false);
+  const onMonitorMapReady = useCallback(() => setMonitorMapReady(true), []);
+  useEffect(() => { if (activeTab !== 'monitor') setMonitorMapReady(false); }, [activeTab]);
   const navigateSettings = (area: SettingsArea) => setActiveTab(SETTINGS_TABS[area]);
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia('(max-width: 639px)').matches);
   useEffect(() => {
     if (activeTab === 'monitor') return;
     const mobile = window.matchMedia('(max-width: 639px)');
@@ -332,6 +326,11 @@ export default function App() {
     setDrivers((prev) => prev.map((d) => (d.id === updatedDriver.id ? updatedDriver : d)));
   }, []);
 
+  const handleDeleteDriver = useCallback((driver: Driver) => {
+    bindDriverVehicle({ ...driver, currentVehicleId: null });
+    setDrivers((prev) => prev.filter((d) => d.id !== driver.id));
+  }, []);
+
   const handleCreateDriver = useCallback((newDriver: Driver) => {
     bindDriverVehicle(newDriver);
     setDrivers((prev) => [newDriver, ...prev]);
@@ -416,8 +415,9 @@ export default function App() {
   const activeJob = jobs.find((j) => j.jobNumber === selectedJobId) || jobs[0];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900">
+    <div className="flex h-dvh w-full overflow-hidden bg-app-canvas font-sans text-app-text antialiased">
       <ConfirmDialogHost />
+      {sidebarOpen && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/20 sm:hidden" onClick={() => setSidebarOpen(false)} />}
       {/* LEFT NAVIGATION SIDEBAR */}
       <Sidebar
         activeTab={activeTab}
@@ -427,6 +427,7 @@ export default function App() {
         showAccountPopover={showAccountPopover}
         setShowAccountPopover={setShowAccountPopover}
         onActionNotification={showToast}
+        onLogout={onSignOut}
         activeSettingsArea={settingsAreaForTab(activeTab)}
         onNavigateSettings={(area) => { setModalDialog({ isOpen: false, type: null }); navigateSettings(area); }}
         dispatchMode={dispatchMode}
@@ -440,54 +441,40 @@ export default function App() {
 
       {/* MAIN VIEWPORT / MAP STAGE OR DEDICATED SETTINGS / PROFILE / HELP PAGE */}
       <main
-        className={`relative flex-1 h-full w-full overflow-hidden ${!sidebarOpen ? 'menu-hidden' : ''}`}
+        className={`relative min-w-0 flex-1 h-full overflow-hidden ${!sidebarOpen ? 'menu-hidden' : ''}`}
       >
-        {/* Menu button — visible whenever the sidebar is hidden. Floats over the map; sits in the page header elsewhere. */}
+        {/* Mobile drawer trigger. Desktop expansion lives in the persistent icon rail. */}
         <button
           type="button"
           onClick={() => setSidebarOpen(true)}
           aria-label="Open menu"
+          aria-hidden={sidebarOpen}
+          tabIndex={sidebarOpen ? -1 : 0}
           title="Open menu"
-          className={`absolute z-40 flex items-center justify-center text-slate-700 transition-all duration-300 ease-in-out ${activeTab === 'monitor'
+          className={`absolute z-40 flex sm:hidden items-center justify-center text-slate-700 transition-all duration-300 ease-in-out ${activeTab === 'monitor'
               ? 'top-5 left-3 w-10 h-10 rounded-xl bg-white border border-slate-200/90 shadow-md shadow-slate-900/5 hover:bg-slate-50'
-              : 'top-3 right-4 w-9 h-9 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+              : 'top-4 left-3 w-9 h-9 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-app-hover'
             } ${sidebarOpen ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-100 translate-x-0'}`}
         >
-          <Menu className="w-4.5 h-4.5" />
+          <PanelLeft className="w-4.5 h-4.5" strokeWidth={1.5} />
         </button>
 
-        {activeTab === 'services-accessorials' || activeTab === 'pricing-services' ? (
-          <PricingServicesPage
-            onNavigateSettings={navigateSettings}
-            onBackToMonitor={() => setActiveTab('monitor')}
-            onNotification={showToast}
-          />
-        ) : activeTab === 'rate-cards' ? (
+        {activeTab === 'rate-cards' ? (
           <RateCardsPage
             onNavigateSettings={navigateSettings}
-            onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
           />
         ) : activeTab === 'company-settings' ? (
           <CompanySettingsPage
             onNavigateSettings={navigateSettings}
-            onBackToMonitor={() => setActiveTab('monitor')}
-            onNotification={showToast}
-          />
-        ) : activeTab === 'billing-settings' ? (
-          <BillingSettingsPage
-            onNavigateSettings={navigateSettings}
-            onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
           />
         ) : activeTab === 'profile' ? (
           <ProfilePage
-            onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
           />
         ) : activeTab === 'help' ? (
           <HelpSupportPage
-            onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
           />
         ) : activeTab === 'customers' ? (
@@ -501,7 +488,6 @@ export default function App() {
           <JobsPage
             jobs={jobs}
             drivers={drivers}
-            onBackToMonitor={() => setActiveTab('monitor')}
             onSelectJob={handleLocateJobOnMap}
             onUpdateJob={handleUpdateJob}
             onCreateJob={handleCreateJob}
@@ -511,26 +497,24 @@ export default function App() {
           <DriversPage
             drivers={drivers}
             jobs={jobs}
-            onBackToMonitor={() => setActiveTab('monitor')}
             onSelectDriver={handleLocateDriverOnMap}
             onUpdateDriver={handleUpdateDriver}
             onCreateDriver={handleCreateDriver}
+            onDeleteDriver={handleDeleteDriver}
             onNotification={showToast}
           />
         ) : activeTab === 'vehicles' ? (
           <VehiclesPage
             drivers={drivers}
-            onBackToMonitor={() => setActiveTab('monitor')}
             onSelectDriver={handleLocateDriverOnMap}
             onNotification={showToast}
           />
         ) : activeTab === 'reports' ? (
           <ReportsPage
-            onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
           />
         ) : (
-          <>
+          <MonitorStage ready={monitorMapReady} skipIntro={pendingLocate !== null} brief={{ name: loadUserProfile().name, orders: activeJobsCount, driversOnDuty: drivers.filter(d => d.status !== 'offline').length, attention: needsAttentionItems.length }}>
             {/* MAPLIBRE GL / LEAFLET INTERACTIVE MAP CANVAS */}
             <TorontoMap
               mapRef={mapRef}
@@ -547,6 +531,7 @@ export default function App() {
               onUpdatePositions={handleMarkerPositionsUpdate}
               onDriverTelemetry={handleDriverTelemetryUpdate}
               onDriverTelemetryUpdate={handleDriverTelemetryUpdate}
+              onReady={onMonitorMapReady}
             />
 
             {/* TOP METRICS (Active Jobs, Available Drivers, Needs Attention) */}
@@ -649,13 +634,13 @@ export default function App() {
             {/* RE-CENTER MAP QUICK ACTION BUTTON */}
             <button
               onClick={handleResetSpecView}
-              className="absolute bottom-6 left-6 z-30 h-10 px-3.5 bg-white rounded-xl shadow-md shadow-slate-900/10 border border-slate-200/90 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"
+              className="app-action app-secondary absolute bottom-6 left-6 z-30 h-10 px-3.5 bg-white rounded-xl shadow-md shadow-slate-900/10 border border-slate-200/90 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"
               title="Reset map camera to Vancouver overview"
             >
               <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
               <span>Vancouver Overview</span>
             </button>
-          </>
+          </MonitorStage>
         )}
 
         {/* NOTIFICATION TOAST */}

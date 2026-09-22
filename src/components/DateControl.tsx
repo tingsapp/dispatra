@@ -1,5 +1,6 @@
+import { SearchInput } from './ui/SearchInput';
+import { FloatingPanel } from './ui/FloatingPanel';
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
   Bell,
@@ -92,8 +93,7 @@ export const DateControl: React.FC<DateControlProps> = ({
 
   const unreadCount = alerts.filter((a) => a.unread).length;
 
-  const toggleSearch = () => {
-    const next = !isSearchOpen;
+  const changeSearch = (next: boolean) => {
     setIsSearchOpen(next);
     if (next) {
       setIsNotificationOpen(false);
@@ -101,8 +101,7 @@ export const DateControl: React.FC<DateControlProps> = ({
     }
   };
 
-  const toggleNotification = () => {
-    const next = !isNotificationOpen;
+  const changeNotification = (next: boolean) => {
     setIsNotificationOpen(next);
     if (next) {
       setIsSearchOpen(false);
@@ -138,33 +137,20 @@ export const DateControl: React.FC<DateControlProps> = ({
   return (
     <div className="absolute top-5 right-6 z-30 pointer-events-auto flex items-center gap-2.5 select-none">
       {/* 1. SEARCH ICON BUTTON */}
-      <div className="relative">
+      <FloatingPanel open={isSearchOpen} onOpenChange={changeSearch} label="Search"
+        align="end" size="rich" className="app-map-menu p-3" autoFocusSelector="input" trigger={
         <button
-          onClick={toggleSearch}
-          className={`h-11 w-11 bg-white rounded-xl shadow-sm shadow-slate-900/5 border flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all ${
-            isSearchOpen
-              ? 'border-blue-500 ring-2 ring-blue-100 text-blue-600'
-              : 'border-slate-200/90 hover:border-slate-300'
-          }`}
+          aria-expanded={isSearchOpen}
+          className="app-metric app-map-icon relative"
           title="Search jobs, drivers, or Vancouver addresses"
         >
           <Search className="w-4 h-4 stroke-[2.2]" />
         </button>
+        }>
 
-        {/* SEARCH POPOVER */}
-        <AnimatePresence>
-          {isSearchOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute right-0 top-full mt-2.5 w-84 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-200/90 p-4 z-50"
-            >
-              <div className="absolute -top-2 right-4 w-0 h-0 border-x-[8px] border-x-transparent border-b-[8px] border-b-white drop-shadow-[0_-1px_1px_rgba(0,0,0,0.06)] pointer-events-none" />
 
-              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-                <span className="font-semibold text-xs text-slate-900">
+              <div className="flex items-center justify-between pb-2.5">
+                <span className="font-medium text-sm text-slate-900">
                   Quick Search
                 </span>
                 <button
@@ -176,23 +162,13 @@ export const DateControl: React.FC<DateControlProps> = ({
                 </button>
               </div>
 
-              <div className="mt-2.5 relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  autoFocus
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search job #, driver, Vancouver address..."
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white"
-                />
-              </div>
+              <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search job #, driver, Vancouver address..." className="mt-3" />
 
               {/* Results */}
-              <div className="mt-2.5 max-h-64 overflow-y-auto divide-y divide-slate-100 text-xs">
+              <div className="mt-2.5 max-h-64 overflow-y-auto text-xs">
                 {searchQuery.trim() === '' ? (
                   <div className="py-3 px-1 text-slate-500 space-y-2">
-                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    <div className="text-xs font-medium text-slate-400">
                       Quick shortcuts
                     </div>
                     <div className="space-y-1">
@@ -203,10 +179,10 @@ export const DateControl: React.FC<DateControlProps> = ({
                         className="w-full text-left px-2 py-1.5 hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between"
                       >
                         <span className="flex items-center gap-2">
-                          <Truck className="w-3.5 h-3.5 text-blue-600" />
+                          <Truck className="w-3.5 h-3.5 text-slate-600" />
                           Driver D14 (Arles Morgan)
                         </span>
-                        <span className="text-[10px] text-slate-400">On route</span>
+                        <span className="text-xs text-slate-400">On route</span>
                       </button>
                       <button
                         onClick={() => {
@@ -218,7 +194,7 @@ export const DateControl: React.FC<DateControlProps> = ({
                           <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
                           Job #461 (Vancouver Gastown)
                         </span>
-                        <span className="text-[10px] text-rose-500 font-medium">At risk</span>
+                        <span className="text-xs text-rose-500 font-medium">At risk</span>
                       </button>
                       <button
                         onClick={() => {
@@ -230,7 +206,7 @@ export const DateControl: React.FC<DateControlProps> = ({
                           <MapPin className="w-3.5 h-3.5 text-slate-400" />
                           Robson Street corridor
                         </span>
-                        <span className="text-[10px] text-slate-400">Zone</span>
+                        <span className="text-xs text-slate-400">Zone</span>
                       </button>
                     </div>
                   </div>
@@ -242,7 +218,7 @@ export const DateControl: React.FC<DateControlProps> = ({
                   <div className="space-y-3 py-1">
                     {filteredJobs.length > 0 && (
                       <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pb-1">
+                        <div className="text-xs font-medium text-slate-400 px-1 pb-1">
                           Jobs ({filteredJobs.length})
                         </div>
                         {filteredJobs.map((job) => (
@@ -255,10 +231,10 @@ export const DateControl: React.FC<DateControlProps> = ({
                             className="p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer flex items-center justify-between"
                           >
                             <div>
-                              <span className="font-bold text-slate-900">{job.jobNumber}</span>{' '}
+                              <span className="font-medium text-slate-900">{job.jobNumber}</span>{' '}
                               <span className="text-slate-600">• {job.customerName}</span>
                             </div>
-                            <span className="text-[10px] text-slate-500">{job.statusLabel}</span>
+                            <span className="text-xs text-slate-500">{job.statusLabel}</span>
                           </div>
                         ))}
                       </div>
@@ -266,7 +242,7 @@ export const DateControl: React.FC<DateControlProps> = ({
 
                     {filteredDrivers.length > 0 && (
                       <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pb-1">
+                        <div className="text-xs font-medium text-slate-400 px-1 pb-1">
                           Drivers ({filteredDrivers.length})
                         </div>
                         {filteredDrivers.map((driver) => (
@@ -285,11 +261,11 @@ export const DateControl: React.FC<DateControlProps> = ({
                                 className="w-5 h-5 rounded-full object-cover"
                               />
                               <div>
-                                <span className="font-semibold text-slate-800">{driver.name}</span>{' '}
-                                <span className="text-[10px] text-slate-400">({driver.id})</span>
+                                <span className="font-medium text-slate-800">{driver.name}</span>{' '}
+                                <span className="text-xs text-slate-400">({driver.id})</span>
                               </div>
                             </div>
-                            <span className="text-[10px] font-semibold text-emerald-600">
+                            <span className="text-xs font-medium text-emerald-600">
                               {driver.statusLabel}
                             </span>
                           </div>
@@ -299,20 +275,14 @@ export const DateControl: React.FC<DateControlProps> = ({
                   </div>
                 )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      </FloatingPanel>
 
       {/* 2. NOTIFICATION ICON BUTTON */}
-      <div className="relative">
+      <FloatingPanel open={isNotificationOpen} onOpenChange={changeNotification} label="Notifications"
+        align="end" size="rich" className="app-map-menu p-3" autoFocusSelector="input" trigger={
         <button
-          onClick={toggleNotification}
-          className={`h-11 w-11 bg-white rounded-xl shadow-sm shadow-slate-900/5 border flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all relative ${
-            isNotificationOpen
-              ? 'border-blue-500 ring-2 ring-blue-100 text-blue-600'
-              : 'border-slate-200/90 hover:border-slate-300'
-          }`}
+          aria-expanded={isNotificationOpen}
+          className="app-metric app-map-icon relative"
           title="Dispatch alerts and notifications"
         >
           <Bell className="w-4 h-4 stroke-[2.2]" />
@@ -320,26 +290,16 @@ export const DateControl: React.FC<DateControlProps> = ({
             <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
           )}
         </button>
+        }>
 
-        {/* NOTIFICATION POPOVER */}
-        <AnimatePresence>
-          {isNotificationOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute right-0 top-full mt-2.5 w-84 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-200/90 p-4 z-50"
-            >
-              <div className="absolute -top-2 right-4 w-0 h-0 border-x-[8px] border-x-transparent border-b-[8px] border-b-white drop-shadow-[0_-1px_1px_rgba(0,0,0,0.06)] pointer-events-none" />
 
-              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-xs text-slate-900">
+                  <span className="font-medium text-sm text-slate-900">
                     Dispatch Notifications
                   </span>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">
+                    <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-medium text-xs">
                       {unreadCount}
                     </span>
                   )}
@@ -347,7 +307,7 @@ export const DateControl: React.FC<DateControlProps> = ({
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={markAllAlertsRead}
-                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                    className="text-xs font-medium text-slate-700 hover:text-slate-700 transition-colors"
                   >
                     Mark read
                   </button>
@@ -361,7 +321,7 @@ export const DateControl: React.FC<DateControlProps> = ({
                 </div>
               </div>
 
-              <div className="mt-2.5 divide-y divide-slate-100 max-h-64 overflow-y-auto">
+              <div className="mt-2.5 max-h-64 overflow-y-auto">
                 {alerts.map((alt) => (
                   <div
                     key={alt.id}
@@ -393,12 +353,12 @@ export const DateControl: React.FC<DateControlProps> = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-slate-800 text-xs truncate">
+                          <span className="font-medium text-slate-800 text-xs truncate">
                             {alt.title}
                           </span>
-                          <span className="text-[10px] text-slate-400">{alt.time}</span>
+                          <span className="text-xs text-slate-400">{alt.time}</span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
                           {alt.message}
                         </p>
                       </div>
@@ -406,10 +366,7 @@ export const DateControl: React.FC<DateControlProps> = ({
                   </div>
                 ))}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      </FloatingPanel>
 
       {/* 3. DATE SELECTOR CONTROL & CALENDAR POPOVER */}
       <DatePicker
@@ -430,7 +387,7 @@ export const DateControl: React.FC<DateControlProps> = ({
         clearable={false}
         showTomorrow
         align="end"
-        className="h-11 w-auto rounded-xl px-4 shadow-sm shadow-slate-900/5"
+        className="app-metric h-11 w-auto px-4"
       />
     </div>
   );

@@ -19,5 +19,5 @@ export const DESTINATION_TAX_RATES: Readonly<Record<CanadianProvince, Destinatio
   YT: { name: 'GST', ratePercent: 5 },
 };
 
-export const isValidDestinationTaxRate = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100;
+// Historical resolver shares the same percentage validation.
+export { isValidTaxRate as isValidDestinationTaxRate } from './taxRate';

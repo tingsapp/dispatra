@@ -1,6 +1,11 @@
+import { normalizeFuelSurcharge } from './billingEngine';
+import { isValidTaxRate } from './taxRate';
 import { BillingConfig, TaxRate, TaxProfileConfig } from '../types/billing';
 
 export const BILLING_STORAGE_KEY = 'dispatra_billing_v2';
+const FUEL_DEFAULT_VERSION = 1;
+const UNITS_DEFAULT_VERSION = 1;
+type StoredBillingConfig = Partial<BillingConfig> & { fuelDefaultVersion?: number; unitsDefaultVersion?: number };
 
 /**
  * Defaults are set for a Metro Vancouver operator:
@@ -41,17 +46,18 @@ export const INITIAL_TAX_PROFILES: TaxProfileConfig[] = [
 ];
 
 export const INITIAL_BILLING_CONFIG: BillingConfig = {
+  companyTax: { ratePercent: 5 },
   destinationTaxRates: {},
   company: { name: 'Dispatra Logistics', address: '', phone: '', email: '', logoDataUrl: '' },
   general: {
     timeZone: 'America/Vancouver',
     distanceUnit: 'km',
-    weightUnit: 'kg',
-    dimensionUnit: 'cm',
+    weightUnit: 'lb',
+    dimensionUnit: 'in',
     dimensionalPricingEnabled: true,
     dimensionalDivisor: 5000,
     defaultIncludedStops: 2,
-    defaultExtraStopRate: 10
+    defaultExtraStopRate: 0
   },
   invoicing: {
     currency: 'CAD',
@@ -64,7 +70,7 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
   },
   taxProfiles: INITIAL_TAX_PROFILES,
   serviceCharge: {
-    enabled: true,
+    enabled: false,
     label: 'Service Fee',
     mode: 'percentage',
     percent: 5,
@@ -76,7 +82,9 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
     enabled: true,
     label: 'Fuel Surcharge',
     mode: 'fixed_percent',
-    percent: 8,
+    // Novex Metro Vancouver courier benchmark, September 2026; editable, not a live feed.
+    // https://www.novex.ca/fuel-surcharge/
+    percent: 28.5,
     taxable: true,
     baselineFuelPrice: 1.55,
     currentFuelPrice: 1.89,
@@ -100,28 +108,44 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
     minimumBillableKm: 0
   },
   dispatch: {
-    maxActiveOrdersPerDriver: 3,
-    hubAddress: '1055 W Georgia St, Vancouver, BC'
+    maxActiveOrdersPerDriver: 3
   }
 };
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 
 /** Merge stored values over defaults so a new setting never arrives undefined. */
-const withDefaults = (stored: Partial<BillingConfig> | null): BillingConfig => {
+const withDefaults = (stored: StoredBillingConfig | null): BillingConfig => {
   const base = clone(INITIAL_BILLING_CONFIG);
   if (!stored) return base;
+  // Preserve the previous home-region rate when upgrading the Vancouver defaults.
+  const previousRate = stored.destinationTaxRates?.BC;
+  const companyTax = stored.companyTax
+    ? { ...base.companyTax, ...stored.companyTax }
+    : { ratePercent: isValidTaxRate(previousRate) ? previousRate : base.companyTax.ratePercent };
+  const fuelSurcharge = normalizeFuelSurcharge({ ...base.fuelSurcharge, ...(stored.fuelSurcharge || {}), label: base.fuelSurcharge.label });
+  // Replace the old active 8% default once. A newly saved 8% remains an explicit choice.
+  if ((stored.fuelDefaultVersion ?? 0) < FUEL_DEFAULT_VERSION && stored.fuelSurcharge?.mode === 'fixed_percent' && stored.fuelSurcharge.enabled && stored.fuelSurcharge.percent === 8) {
+    fuelSurcharge.percent = base.fuelSurcharge.percent;
+  }
+  const general = { ...base.general, ...(stored.general || {}), defaultExtraStopRate: 0 };
+  // Replace the old metric defaults once. Units saved after the marker exists are an explicit choice.
+  if ((stored.unitsDefaultVersion ?? 0) < UNITS_DEFAULT_VERSION) {
+    if (general.weightUnit === 'kg') general.weightUnit = base.general.weightUnit;
+    if (general.dimensionUnit === 'cm') general.dimensionUnit = base.general.dimensionUnit;
+  }
   return {
+    companyTax,
     destinationTaxRates: { ...base.destinationTaxRates, ...(stored.destinationTaxRates || {}) },
     company: { ...base.company, ...(stored.company || {}) },
-    general: { ...base.general, ...(stored.general || {}) },
+    general,
     invoicing: { ...base.invoicing, ...(stored.invoicing || {}) },
     taxProfiles:
       Array.isArray(stored.taxProfiles) && stored.taxProfiles.length
         ? stored.taxProfiles
         : base.taxProfiles,
-    serviceCharge: { ...base.serviceCharge, ...(stored.serviceCharge || {}), label: base.serviceCharge.label, basis: 'transport_and_accessorials', mode: stored.serviceCharge?.mode === 'flat' ? 'flat' : 'percentage' },
-    fuelSurcharge: { ...base.fuelSurcharge, ...(stored.fuelSurcharge || {}), label: base.fuelSurcharge.label },
+    serviceCharge: { ...base.serviceCharge, ...(stored.serviceCharge || {}), enabled: false, label: base.serviceCharge.label, basis: 'transport_and_accessorials', mode: stored.serviceCharge?.mode === 'flat' ? 'flat' : 'percentage' },
+    fuelSurcharge,
     operatingCost: {
       ...base.operatingCost,
       ...Object.fromEntries(Object.entries(stored.operatingCost || {}).filter(([key]) => key !== 'targetGrossMarginPercent')),
@@ -150,7 +174,7 @@ export const loadBillingConfig = (): BillingConfig => {
 
 export const saveBillingConfig = (config: BillingConfig): void => {
   try {
-    localStorage.setItem(BILLING_STORAGE_KEY, JSON.stringify(config));
+    localStorage.setItem(BILLING_STORAGE_KEY, JSON.stringify({ ...config, fuelDefaultVersion: FUEL_DEFAULT_VERSION, unitsDefaultVersion: UNITS_DEFAULT_VERSION, fuelSurcharge: normalizeFuelSurcharge(config.fuelSurcharge) }));
   } catch {
     // Storage unavailable (private mode / quota) — settings stay in memory.
   }

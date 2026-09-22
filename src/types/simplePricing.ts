@@ -8,12 +8,11 @@ export interface DeliveryService {
   code: string; // "SAME_DAY", "DIRECT"
   name: string;
   description: string;
-  /**
-   * Default multiplier applied to freight for this service speed. Next Day is
-   * the cheapest (1.00); Direct the most expensive. A Rate Card may override.
-   */
+  /** Fixed additional charge in company currency, once per order. Null means review required. */
+  additionalCharge?: number | null;
+  /** Retained only for historical quotes; never used by new pricing. */
   defaultMultiplier: number;
-  /** Customer-facing promise, e.g. "Same-Day (by 5 PM)". */
+  /** Shipper-facing promise, e.g. "Same-Day (by 5 PM)". */
   estimatedTime?: string;
   /** Latest booking time for same-day fulfilment, "HH:MM" 24h. */
   bookingCutoffTime?: string;

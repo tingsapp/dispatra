@@ -15,6 +15,6 @@ export function DateTimePicker({ value, onValueChange, timeZone, 'aria-label': l
     <div className="min-w-0 flex-1 basis-40">
       <DatePicker today={organizationTime(new Date(), timeZone)?.day} aria-label={`${label} date`} value={parts?.day ?? ''} onValueChange={day => onValueChange(combineDateAndTime(day, parts?.clock ?? '00:00'))} />
     </div>
-    <TimePicker aria-label={`${label} time`} value={parts?.clock ?? ''} disabled={!parts?.day} onValueChange={clock => onValueChange(combineDateAndTime(parts?.day ?? '', clock))} />
+    <div className="w-44 shrink-0"><TimePicker aria-label={`${label} time`} value={parts?.clock ?? ''} disabled={!parts?.day} onValueChange={clock => onValueChange(combineDateAndTime(parts?.day ?? '', clock))} /></div>
   </div>;
 }

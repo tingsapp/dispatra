@@ -3,21 +3,24 @@ import { test } from 'node:test';
 import { applyDistanceRules, roundMoney } from '../src/lib/billingEngine';
 import { INITIAL_BILLING_CONFIG } from '../src/lib/billingStorage';
 import { DEFAULT_CUSTOMERS } from '../src/lib/customerStorage';
-import { createDefaultOrderInput, finalizeOrderPrice, priceOrder } from '../src/lib/orderPricing';
+import { createDefaultOrderInput, createStop, finalizeOrderPrice, priceOrder } from '../src/lib/orderPricing';
 import { createInvoicePreview, organizationTime, validateAssignment, validateBooking } from '../src/lib/organizationWorkflows';
 import { calculatePricing, estimateInternalCost, PricingContext } from '../src/lib/pricingEngine';
 import { createEmptyRateCard } from '../src/lib/pricingStorage';
-import { INITIAL_ACCESSORIALS, INITIAL_SERVICES, INITIAL_VEHICLES } from '../src/lib/simplePricingStorage';
+import { INITIAL_SERVICES, INITIAL_VEHICLES, normalizeAccessorial } from '../src/lib/simplePricingStorage';
 import { fromDisplayDimension, fromDisplayDistance, fromDisplayDivisor, fromDisplayWeight, toDisplayDimension, toDisplayDistance, toDisplayDivisor, toDisplayWeight } from '../src/lib/units';
 import type { Driver, Job } from '../src/types';
-import type { RateCard } from '../src/types/pricing';
+import type { Discount, RateCard } from '../src/types/pricing';
 
+import { LEGACY_ACCESSORIALS as INITIAL_ACCESSORIALS } from './fixtures/legacyAccessorials';
+
+// Historical calculation fixtures retain the full legacy contract vocabulary.
 const setup = () => {
   const billing = structuredClone(INITIAL_BILLING_CONFIG);
   billing.fuelSurcharge.enabled = false; billing.serviceCharge.enabled = false; // Isolate freight rules; fee tests enable them explicitly.
   billing.rules.minimumChargePerJob = 0;
-  const card = createEmptyRateCard({ id: 'card', scope: 'ORGANIZATION', effectiveFrom: '2020-01-01', pricingMethod: 'FIXED', fixedAmount: 100, applyServiceMultiplier: false, applyVehicleSurcharge: false });
-  const ctx: PricingContext = { billing, catalogue: { services: structuredClone(INITIAL_SERVICES), vehicles: structuredClone(INITIAL_VEHICLES), accessorials: structuredClone(INITIAL_ACCESSORIALS) }, pricing: { rateCards: [card], zones: [], zoneRates: [], customerGroups: [] }, customers: [], asOf: new Date('2026-09-12T12:00:00Z') };
+  const card = createEmptyRateCard({ id: 'card', scope: 'ORGANIZATION', effectiveFrom: '2020-01-01', pricingMethod: 'FIXED', fixedAmount: 100, applyAdminFee: null, extraStopRate: null, dimensionalPricingEnabled: null, dimensionalDivisor: null, applyServiceMultiplier: false, applyVehicleSurcharge: false });
+  const ctx: PricingContext = { distanceWeightMode: 'LEGACY', servicePricingMode: 'LEGACY_MULTIPLIER', billing, catalogue: { services: structuredClone(INITIAL_SERVICES), vehicles: structuredClone(INITIAL_VEHICLES), accessorials: structuredClone(INITIAL_ACCESSORIALS) }, pricing: { rateCards: [card], zones: [], zoneRates: [], customerGroups: [] }, customers: [], asOf: new Date('2026-09-12T12:00:00Z') };
   const order = createDefaultOrderInput(ctx);
   order.taxCalculation = undefined; // Historical profile-pricing regressions.
   order.packages = []; order.routeKm = 10; order.estimatedMinutes = 30;
@@ -83,7 +86,7 @@ test('freight minimum is enforced after service multiplier', () => {
   s.ctx.catalogue.services[0].defaultMultiplier = 0.5;
   assert.equal(priced(s).serviceFreight, 90);
 });
-test('the rate card is the only source of a contract discount; customer and group discounts are ignored', () => {
+test('historical contexts retain card discounts and ignore legacy customer and group values', () => {
   const s = setup(); const customer = structuredClone(DEFAULT_CUSTOMERS[0]); customer.customerGroupId = 'g'; customer.discount = { type: 'PERCENT', value: 50, scope: 'SUBTOTAL' };
   s.ctx.customers = [customer]; s.order.customerId = customer.id;
   s.ctx.pricing.customerGroups = [{ id: 'g', name: 'Group', description: '', rateCardId: null, discount: { type: 'PERCENT', value: 10, scope: 'SUBTOTAL' } }];
@@ -142,7 +145,7 @@ test('cost separates driving, handling and waiting, and flags incomplete inputs'
   assert.equal(zero.grossMarginPercent, 0); assert.equal('meetsTargetMargin' in zero, false);
 });
 test('order wrapper and shared pricing engine return identical results', () => {
-  const s = setup(); const a = calculatePricing(s.order, s.ctx); const b = priceOrder(s.order, s.ctx);
+  const s = setup(); s.ctx.servicePricingMode = 'FIXED'; s.ctx.distanceWeightMode = 'NONE'; const a = calculatePricing(s.order, s.ctx); const b = priceOrder(s.order, s.ctx);
   assert.equal(a.total, b.total); assert.deepEqual(a.lines, b.lines); assert.deepEqual(a.inputs, b.inputs);
 });
 test('quotes preserve terms on finalization; finalized snapshots are immutable to settings changes', () => {
@@ -180,23 +183,20 @@ test('invoice preview uses finalized lines, tax registration and payment terms',
 test('revised settings and shared order form render without a browser', async () => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { BillingSettingsPage } = await import('../src/pages/BillingSettingsPage');
   const { CompanySettingsPage } = await import('../src/pages/CompanySettingsPage');
   const { RateCardsPage } = await import('../src/pages/RateCardsPage');
   const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
   const { ContractRulesEditor } = await import('../src/components/pricing/ContractRulesEditor');
   const noop = () => { };
-  const billing = renderToStaticMarkup(React.createElement(BillingSettingsPage, { onBackToMonitor: noop }));
-  assert.match(billing, /Invoicing Basics/); assert.doesNotMatch(billing, /Currency &amp; Units|Default Fuel Surcharge|Maximum Active Orders per Driver|Minimum Order Subtotal/);
-  const company = renderToStaticMarkup(React.createElement(CompanySettingsPage, { onBackToMonitor: noop }));
-  assert.match(company, /Currency &amp; Units/); assert.doesNotMatch(company, /Vehicle Running Cost|Invoicing Basics|Default Fuel Surcharge/);
-  const rates = renderToStaticMarkup(React.createElement(RateCardsPage, { onBackToMonitor: noop }));
-  assert.match(rates, /Accessorials/); assert.match(rates, /Add rate card/); assert.doesNotMatch(rates, /Minute Rate|Included Minutes|Additional settings|Minimum Freight|Vehicle Restriction/);
+  const company = renderToStaticMarkup(React.createElement(CompanySettingsPage, {}));
+  assert.match(company, /Regional Preferences/); assert.doesNotMatch(company, /Vehicle Running Cost|Invoicing Basics|Fuel surcharge/);
+  const rates = renderToStaticMarkup(React.createElement(RateCardsPage, {}));
+  assert.match(rates, /Accessorials/); assert.match(rates, /Add card/); assert.doesNotMatch(rates, /Minute Rate|Included Minutes|Additional settings|Minimum Freight|Vehicle Restriction/);
   const s = setup(); const form = renderToStaticMarkup(React.createElement(OrderPricingForm, { value: s.order, onChange: noop, ctx: s.ctx, snapshot: priced(s) }));
-  assert.match(form, /Ready at/); assert.match(form, /Contact name/); assert.doesNotMatch(form, /Supplying pickups|Driving only|Freight tax treatment|Move stop|Pricing Adjustments|Rate Card override/);
+  assert.match(form, /aria-label="Stop 1 ready at date:/); assert.match(form, /Contact name/); assert.doesNotMatch(form, /Supplying pickups|Driving only|Freight tax treatment|Move stop|Pricing Adjustments|Rate Card override/);
   s.card.pricingMethod = 'IMPORTED'; s.card.importedPriceMode = 'FINAL_TOTAL';
   const contract = renderToStaticMarkup(React.createElement(ContractRulesEditor, { card: s.card, patch: noop }));
-  assert.match(contract, /preserve exactly/); assert.doesNotMatch(contract, /Apply resolved contract discount/);
+  assert.match(contract, /includes tax; no changes/); assert.doesNotMatch(contract, /Apply resolved contract discount/);
 });
 
 test('hourly billable actuals do not become driving actuals in the cost estimate', () => {
@@ -209,7 +209,7 @@ test('hourly billable actuals do not become driving actuals in the cost estimate
 });
 
 test('legacy time rates retire on load and stored discounts normalise to None / Percentage / Fixed on freight', async () => {
-  const { loadPricingConfig, savePricingConfig, PRICING_STORAGE_KEY } = await import('../src/lib/pricingStorage');
+  const { loadPricingConfig, savePricingConfig, PRICING_STORAGE_KEY, INITIAL_ZONES } = await import('../src/lib/pricingStorage');
   const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   const data = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
@@ -222,7 +222,7 @@ test('legacy time rates retire on load and stored discounts normalise to None / 
 });
 
 test('saved Base + Distance and Zone cards migrate once to the flat form, keeping rates, discount and zone prices', async () => {
-  const { loadPricingConfig, savePricingConfig, PRICING_STORAGE_KEY } = await import('../src/lib/pricingStorage');
+  const { loadPricingConfig, savePricingConfig, PRICING_STORAGE_KEY, INITIAL_ZONES } = await import('../src/lib/pricingStorage');
   const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   const data = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
@@ -231,14 +231,14 @@ test('saved Base + Distance and Zone cards migrate once to the flat form, keepin
     for (const method of ['BASE_PLUS_DISTANCE', 'ZONE'] as const) {
       const card = createEmptyRateCard({ ...s.card, pricingMethod: method, minuteRate: 0.4, includedMinutes: 30, version: 7, baseFee: 83, fuelPercent: 4, discount: { type: 'NONE', value: 0, scope: 'SUBTOTAL' }, zoneRates: [{ id: 'zoneprice', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 67 }], vehicleSurchargeOverrides: { van: 0 } });
       const hourly = createEmptyRateCard({ id: 'hourly', pricingMethod: 'HOURLY', hourlyRate: 123, minimumBillableMinutes: 90, minuteRate: 9, includedMinutes: 20 });
-      data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, rateCards: [card, hourly], schemaVersion: 2 }));
+      data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, zones: INITIAL_ZONES, rateCards: [card, hourly], schemaVersion: 2 }));
       const loaded = loadPricingConfig(); const migrated = loaded.rateCards[0];
       assert.equal(migrated.minuteRate, 0); assert.equal(migrated.includedMinutes, 0); assert.equal(migrated.version, 8);
       assert.equal(migrated.fuelPercent, null); assert.deepEqual(migrated.vehicleSurchargeOverrides, {}); assert.equal(migrated.applyServiceMultiplier, true);
       assert.equal(migrated.baseFee, 83); assert.deepEqual(migrated.discount, { ...card.discount, scope: 'TRANSPORT_ONLY' }); assert.deepEqual(migrated.zoneRates, card.zoneRates); assert.equal(migrated.scope, 'ORGANIZATION');
       assert.deepEqual(loaded.rateCards[1], hourly);
       const saved = data.get(PRICING_STORAGE_KEY)!;
-      assert.equal(JSON.parse(saved).schemaVersion, 7); assert.equal(JSON.parse(saved).rateCards[0].minuteRate, 0);
+      assert.equal(JSON.parse(saved).schemaVersion, 11); assert.equal(JSON.parse(saved).rateCards[0].minuteRate, 0);
       assert.deepEqual(loadPricingConfig(), loaded); assert.equal(data.get(PRICING_STORAGE_KEY), saved);
       savePricingConfig({ ...loaded, rateCards: [card] });
       assert.equal(loadPricingConfig().rateCards[0].minuteRate, 0);
@@ -469,15 +469,391 @@ test('automatic precision uses cents and hundredths of a kilometre despite legac
 });
 
 test('zone cards that inherited the organization matrix take their own copy of it on load', async () => {
-  const { loadPricingConfig, PRICING_STORAGE_KEY } = await import('../src/lib/pricingStorage');
+  const { loadPricingConfig, PRICING_STORAGE_KEY, INITIAL_ZONES } = await import('../src/lib/pricingStorage');
   const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage'); const data = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
   try {
     const s = setup();
     const inherited = createEmptyRateCard({ ...s.card, id: 'inherited', scope: 'ORDER', pricingMethod: 'ZONE', zoneMatrixMode: 'INHERIT', zoneRates: [] });
-    data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, zoneRates: [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 40 }], rateCards: [s.card, inherited], schemaVersion: 6 }));
+    data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, zones: INITIAL_ZONES, zoneRates: [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 40 }], rateCards: [s.card, inherited], schemaVersion: 6 }));
     const loaded = loadPricingConfig(); const card = loaded.rateCards[1];
     assert.equal(card.zoneMatrixMode, 'CONTRACT'); assert.deepEqual(card.zoneRates.map(r => [r.originZoneId, r.destinationZoneId, r.amount]), [['a', 'b', 40]]); assert.equal(card.version, inherited.version + 1);
     assert.deepEqual(loadPricingConfig(), loaded);
   } finally { if (original) Object.defineProperty(globalThis, 'localStorage', original); else Reflect.deleteProperty(globalThis, 'localStorage'); }
+});
+
+test('shipper discounts apply across rate cards, do not stack and exclude fuel and fees', () => {
+  const s = setup(); s.ctx.pricing.discountSource = 'SHIPPER';
+  const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), rateCardId: s.card.id, discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' } as Discount };
+  s.ctx.customers = [customer]; s.order.customerId = customer.id;
+  s.card.discount = { type: 'PERCENT', value: 50, scope: 'TRANSPORT_ONLY' };
+  s.billing.fuelSurcharge.enabled = true; s.billing.fuelSurcharge.percent = 20;
+  s.billing.serviceCharge.enabled = true; s.billing.serviceCharge.mode = 'flat'; s.billing.serviceCharge.flatAmount = 8;
+  assert.equal(priced(s).discount, 10);
+  s.ctx.pricing.rateCards.push(createEmptyRateCard({ ...s.card, id: 'second', scope: 'ORDER', fixedAmount: 200 }));
+  s.order.rateCardOverrideId = 'second'; assert.equal(priced(s).discount, 20);
+  customer.discount = { type: 'FIXED', value: 7, scope: 'TRANSPORT_ONLY' };
+  assert.equal(priced(s).discount, 7);
+  customer.discount.type = 'NONE'; assert.equal(priced(s).discount, 0);
+  s.order.customerId = null; assert.equal(priced(s).discount, 0);
+});
+
+test('hourly settlement freezes the shipper discount while legacy quotes retain the card discount', () => {
+  const s = setup(); s.ctx.pricing.discountSource = 'SHIPPER';
+  const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), rateCardId: s.card.id, discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' } as Discount };
+  s.ctx.customers = [customer]; s.order.customerId = customer.id;
+  Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true, discount: { type: 'PERCENT', value: 50, scope: 'TRANSPORT_ONLY' } });
+  s.order.hourlyBillableMinutes = 60;
+  const quote = priced(s); assert.equal(quote.discount, 10);
+  customer.discount.value = 90;
+  const final = finalizeOrderPrice(s.order, 120, s.ctx, quote).snapshot;
+  assert.equal(final.status, 'PRICED'); assert.equal(final.discount, 20); assert.equal(final.subtotal, 180);
+  delete s.ctx.pricing.discountSource;
+  const historical = priced(s); assert.equal(historical.discount, 50);
+  s.ctx.pricing.discountSource = 'SHIPPER';
+  const legacyFinal = finalizeOrderPrice(s.order, 120, s.ctx, historical).snapshot;
+  assert.equal(legacyFinal.discount, 100);
+});
+
+test('card dimensional rules change chargeable weight independently and frozen quotes retain their divisor', () => {
+  const s = setup(); Object.assign(s.card, { pricingMethod: 'BASE_PLUS_DISTANCE', baseFee: 0, includedKm: 0, kmRate: 0, includedWeightKg: 0, weightRatePerKg: 1, dimensionalDivisor: 4000, dimensionalPricingEnabled: true });
+  s.order.packages = [{ id: 'box', quantity: 1, weightKg: 10, lengthCm: 100, widthCm: 50, heightCm: 40, declaredValue: 0 }];
+  const quote = priced(s); assert.equal(quote.inputs.chargeableWeightKg, 50); assert.equal(quote.freight, 50);
+  const other = createEmptyRateCard({ ...s.card, id: 'other', scope: 'ORDER', dimensionalDivisor: 10000 }); s.ctx.pricing.rateCards.push(other);
+  s.order.rateCardOverrideId = other.id; assert.equal(priced(s).inputs.chargeableWeightKg, 20);
+  other.dimensionalPricingEnabled = false; assert.equal(priced(s).inputs.chargeableWeightKg, 20);
+  s.card.dimensionalDivisor = 2000;
+  const final = finalizeOrderPrice({ ...s.order, rateCardOverrideId: null }, null, s.ctx, quote).snapshot;
+  assert.equal(final.inputs.chargeableWeightKg, 50); assert.equal(final.freight, 50);
+});
+
+test('retired fees disappear from current configuration while historical quotes retain their amounts', async () => {
+  const data = new Map<string, string>(); const previous = globalThis.localStorage;
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
+  try {
+    const { BILLING_STORAGE_KEY, loadBillingConfig } = await import('../src/lib/billingStorage');
+    const { PRICING_STORAGE_KEY, loadPricingConfig } = await import('../src/lib/pricingStorage');
+    const s = setup(); s.card.pricingMethod = 'BASE_PLUS_DISTANCE'; s.card.extraStopRate = 10; s.card.applyAdminFee = true;
+    s.billing.serviceCharge.enabled = true; s.billing.serviceCharge.mode = 'flat'; s.billing.serviceCharge.flatAmount = 8;
+    s.order.stops.push(createStop('DROPOFF', { label: 'Third stop', pickupIds: [s.order.stops[0].id] }));
+    const quote = priced(s); assert.equal(quote.lines.find(line => line.key === 'stops')!.amount, 10); assert.equal(quote.companyCharge, 8);
+    data.set(BILLING_STORAGE_KEY, JSON.stringify(s.billing)); data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, schemaVersion: 8 }));
+    const current = { ...s.ctx, billing: loadBillingConfig(), pricing: loadPricingConfig() };
+    const price = calculatePricing(s.order, current); assert.equal(price.status, 'PRICED'); assert.equal(price.companyCharge, 0); assert.equal(price.lines.some(line => line.key === 'stops'), false);
+    const final = finalizeOrderPrice(s.order, null, current, quote).snapshot;
+    assert.equal(final.companyCharge, 8); assert.equal(final.lines.find(line => line.key === 'stops')!.amount, 10);
+  } finally { Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: previous }); }
+});
+
+
+test('current Accessorials charge selected items once, with no automatic triggers or limits', () => {
+  const s = setup();
+  const legacy = structuredClone(s.ctx.catalogue.accessorials);
+  s.ctx.catalogue.accessorials = legacy.map(normalizeAccessorial);
+  s.order.scheduledAt = '2026-09-20T23:00:00Z';
+  s.order.stops.forEach(stop => { stop.waitMinutes = 45; stop.residential = true; });
+  assert.equal(priced(s).accessorialsTotal, 0);
+  const selected = s.ctx.catalogue.accessorials.find(a => a.code === 'WEEKEND')!;
+  s.order.accessorials = [{ accessorialId: selected.id, quantity: 7 }, { accessorialId: selected.id, quantity: 2 }];
+  const result = priced(s);
+  assert.equal(result.accessorialsTotal, selected.rate);
+  assert.equal(result.lines.filter(l => l.key === `acc_${selected.id}`).length, 1);
+  assert.equal(result.lines.find(l => l.key === `acc_${selected.id}`)!.quantity, 1);
+  // Frozen catalogues retain percentage, per-stop and automatic rules.
+  assert.equal(legacy.find(a => a.code === 'WEEKEND')!.calculationType, 'PERCENT_OF_FREIGHT');
+  assert.equal(legacy.find(a => a.code === 'WAIT')!.autoRule, 'WAITING_RECORDED');
+});
+
+test('zone weight bands select inclusive limits and never use the legacy amount above the maximum', () => {
+  const s = setup(); s.card.pricingMethod = 'ZONE'; s.card.zoneMatrixMode = 'CONTRACT';
+  s.order.stops[0].zoneId = 'a'; s.order.stops[1].zoneId = 'b'; s.order.stops[1].pickupIds = [s.order.stops[0].id];
+  s.card.zoneRates = [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 999, weightBands: [
+    { id: '500', maxWeightKg: 500, amount: 40 }, { id: '100', maxWeightKg: 100, amount: 25 }, { id: '1000', maxWeightKg: 1000, amount: 65 }
+  ] }];
+  s.order.packages = [{ id: 'p', quantity: 1, weightKg: 100, lengthCm: 1, widthCm: 1, heightCm: 1, declaredValue: 0 }];
+  for (const [weight, amount] of [[100, 25], [100.01, 40], [420, 40], [500, 40], [500.01, 65], [1000, 65]]) {
+    s.order.packages[0].weightKg = weight; assert.equal(priced(s).freight, amount);
+  }
+  for (const weight of [1000.01, 0]) { s.order.packages[0].weightKg = weight; assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION'); }
+  s.order.packages[0].weightKg = 100; s.order.packages[0].quantity = 2; assert.equal(priced(s).freight, 40);
+  s.card.zoneRates[0].weightBands!.push({ id: 'duplicate', maxWeightKg: 500, amount: 1 });
+  assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION');
+});
+
+test('zone weight bands price each movement independently and require unambiguous package links', () => {
+  const s = setup(); s.card.pricingMethod = 'ZONE'; s.card.zoneMatrixMode = 'CONTRACT';
+  const pickup = s.order.stops[0], drop = s.order.stops[1]; pickup.zoneId = 'a'; drop.zoneId = 'b'; drop.pickupIds = [pickup.id];
+  const returnStop = { ...pickup, id: 'return-pickup', zoneId: 'b' };
+  const returnDrop = { ...drop, id: 'return-drop', zoneId: 'a', pickupIds: [returnStop.id] };
+  s.order.stops.push(returnStop, returnDrop);
+  s.card.zoneRates = [
+    { id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 999, weightBands: [{ id: 'ab100', maxWeightKg: 100, amount: 25 }, { id: 'ab500', maxWeightKg: 500, amount: 40 }] },
+    { id: 'ba', originZoneId: 'b', destinationZoneId: 'a', serviceId: null, amount: 999, weightBands: [{ id: 'ba500', maxWeightKg: 500, amount: 30 }] }
+  ];
+  s.order.packages = [
+    { id: 'p1', quantity: 1, weightKg: 90, lengthCm: 1, widthCm: 1, heightCm: 1, declaredValue: 0, pickupStopId: pickup.id, deliveryStopId: drop.id },
+    { id: 'p2', quantity: 2, weightKg: 200, lengthCm: 1, widthCm: 1, heightCm: 1, declaredValue: 0, pickupStopId: returnStop.id, deliveryStopId: returnDrop.id }
+  ];
+  assert.equal(priced(s).freight, 55);
+  s.order.packages[0].pickupStopId = undefined; assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION');
+});
+
+
+test('historical MAX and legacy hourly settlements retain their original dimensional terms', () => {
+  const s = setup();
+  Object.assign(s.card, { pricingMethod: 'HOURLY', dimensionalDivisor: 4000, dimensionalPricingEnabled: false, minimumBillableMinutes: 0, billingIncrementMinutes: 1 });
+  s.billing.general.dimensionalPricingEnabled = false;
+  s.order.hourlyBillableMinutes = 60;
+  s.order.packages = [{ id: 'box', quantity: 2, weightKg: 10, lengthCm: 100, widthCm: 50, heightCm: 40, declaredValue: 0 }];
+  const quote = calculatePricing(s.order, { ...s.ctx, dimensionalWeightMode: 'MAX' });
+  assert.equal(quote.status, 'PRICED');
+  assert.equal(quote.inputs.actualWeightKg, 20);
+  assert.equal(quote.inputs.dimensionalWeightKg, 100);
+  assert.equal(quote.inputs.chargeableWeightKg, 100);
+  assert.equal(quote.inputs.dimensionalPricingEnabled, true);
+  assert.equal(quote.context!.dimensionalWeightMode, 'MAX');
+  s.order.packages[0].weightKg = 80;
+  assert.equal(priceOrder(s.order, s.ctx).inputs.chargeableWeightKg, 160);
+  s.order.packages[0].weightKg = 10;
+  const legacy = calculatePricing(s.order, { ...s.ctx, dimensionalWeightMode: 'LEGACY_CARD_SETTING' });
+  assert.equal(legacy.inputs.chargeableWeightKg, 20);
+  delete legacy.context!.dimensionalWeightMode; // Snapshot created before the new rule.
+  const original = structuredClone(legacy);
+  s.card.dimensionalDivisor = 2000;
+  const final = finalizeOrderPrice(s.order, 120, s.ctx, legacy).snapshot;
+  assert.equal(final.status, 'PRICED');
+  assert.equal(final.inputs.chargeableWeightKg, 20);
+  assert.equal(final.inputs.dimensionalPricingEnabled, false);
+  assert.deepEqual(legacy, original);
+  const currentFinal = finalizeOrderPrice(s.order, 120, s.ctx, quote).snapshot;
+  assert.equal(currentFinal.inputs.chargeableWeightKg, 100);
+  assert.equal(currentFinal.inputs.dimensionalPricingEnabled, true);
+});
+
+test('current pricing requires a finite positive divisor even with a legacy disabled flag', () => {
+  const s = setup(); s.card.pricingMethod = 'ZONE'; s.card.dimensionalPricingEnabled = false;
+  for (const divisor of [0, -1, NaN, Infinity]) {
+    s.card.dimensionalDivisor = divisor;
+    const result = priceOrder(s.order, s.ctx);
+    assert.equal(result.status, 'NEEDS_ATTENTION');
+    assert.ok(result.errors.some(error => error.code === 'INVALID_CONFIGURATION' && /divisor/.test(error.message)));
+  }
+});
+
+
+test('Fixed and Hourly ignore unused divisors and preserve new hourly terms through settlement', () => {
+  for (const method of ['FIXED', 'HOURLY'] as const) {
+    const s = setup();
+    Object.assign(s.card, { pricingMethod: method, fixedAmount: 100, hourlyRate: 60, minimumBillableMinutes: 0, billingIncrementMinutes: 1 });
+    s.order.hourlyBillableMinutes = 60;
+    s.order.packages = [{ id: 'box', quantity: 1, weightKg: 10, lengthCm: 100, widthCm: 100, heightCm: 100, declaredValue: 0 }];
+    for (const divisor of [0, -1, NaN, Infinity, 5000]) {
+      s.card.dimensionalDivisor = divisor;
+      const result = priceOrder(s.order, s.ctx);
+      assert.equal(result.status, 'PRICED', JSON.stringify(result.errors));
+      assert.equal(result.freight, method === 'FIXED' ? 100 : 60);
+      assert.equal(result.inputs.dimensionalPricingEnabled, false);
+      assert.equal(result.inputs.chargeableWeightKg, 10);
+      assert.equal(result.context!.dimensionalWeightMode, 'METHOD_SPECIFIC');
+      if (method === 'HOURLY') {
+        const final = finalizeOrderPrice(s.order, 120, s.ctx, result).snapshot;
+        assert.equal(final.status, 'PRICED'); assert.equal(final.freight, 120);
+        assert.equal(final.inputs.dimensionalPricingEnabled, false);
+      }
+    }
+  }
+});
+
+test('historical Distance pricing retains weight charges and allowances', () => {
+  const s = setup();
+  Object.assign(s.card, { pricingMethod: 'BASE_PLUS_DISTANCE', baseFee: 20, kmRate: 0, includedWeightKg: 30, weightRatePerKg: 2, dimensionalDivisor: 5000, dimensionalPricingEnabled: false });
+  s.order.packages = [{ id: 'box', quantity: 2, weightKg: 10, lengthCm: 100, widthCm: 50, heightCm: 40, declaredValue: 0 }];
+  let result = priced(s);
+  assert.equal(result.inputs.actualWeightKg, 20); assert.equal(result.inputs.dimensionalWeightKg, 80);
+  assert.equal(result.inputs.chargeableWeightKg, 80); assert.equal(result.lines.find(l => l.key === 'load')!.amount, 100);
+  s.order.packages[0].weightKg = 60;
+  result = priced(s);
+  assert.equal(result.inputs.chargeableWeightKg, 120); assert.equal(result.lines.find(l => l.key === 'load')!.amount, 180);
+  s.card.includedWeightKg = 150;
+  result = priced(s); assert.equal(result.freight, 20); assert.equal(result.lines.find(l => l.key === 'load'), undefined);
+  s.card.includedWeightKg = 0; s.card.weightRatePerKg = 0;
+  assert.equal(priced(s).freight, 20);
+});
+
+
+test('Zone compares actual and dimensional weight per direction and preserves historical actual-only bands', () => {
+  const s = setup(); Object.assign(s.billing.general, { weightUnit: 'kg', dimensionUnit: 'cm' }); Object.assign(s.card, { pricingMethod: 'ZONE', zoneMatrixMode: 'CONTRACT', dimensionalDivisor: 5000 });
+  const pickup = s.order.stops[0], drop = s.order.stops[1];
+  pickup.zoneId = 'a'; drop.zoneId = 'b'; drop.pickupIds = [pickup.id];
+  const backPickup = { ...pickup, id: 'back-pickup', zoneId: 'b' };
+  const backDrop = { ...drop, id: 'back-drop', zoneId: 'a', pickupIds: [backPickup.id] };
+  s.order.stops.push(backPickup, backDrop);
+  s.card.zoneRates = [
+    { id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 999, weightBands: [{ id: 'ab100', maxWeightKg: 100, amount: 30 }, { id: 'ab500', maxWeightKg: 500, amount: 60 }] },
+    { id: 'ba', originZoneId: 'b', destinationZoneId: 'a', serviceId: null, amount: 999, weightBands: [{ id: 'ba100', maxWeightKg: 100, amount: 20 }, { id: 'ba500', maxWeightKg: 500, amount: 40 }] }
+  ];
+  s.order.packages = [
+    { id: 'bulky', quantity: 2, weightKg: 10, lengthCm: 100, widthCm: 50, heightCm: 100, declaredValue: 0, pickupStopId: pickup.id, deliveryStopId: drop.id },
+    { id: 'dense', quantity: 1, weightKg: 100, lengthCm: 10, widthCm: 10, heightCm: 10, declaredValue: 0, pickupStopId: backPickup.id, deliveryStopId: backDrop.id }
+  ];
+  const quote = priceOrder(s.order, s.ctx);
+  assert.equal(quote.status, 'PRICED'); assert.equal(quote.freight, 80);
+  Object.assign(s.billing.general, { weightUnit: 'lb', dimensionUnit: 'in' });
+  assert.equal(priceOrder(s.order, s.ctx).freight, 80);
+  assert.match(quote.lines.find(l => l.key === `zone_${pickup.id}_${drop.id}`)!.detail!, /200 kg chargeable weight \(actual 20 kg, dimensional 200 kg\)/);
+  assert.match(quote.lines.find(l => l.key === `zone_${backPickup.id}_${backDrop.id}`)!.detail!, /100 kg chargeable weight/);
+  const historical = calculatePricing(s.order, { ...s.ctx, dimensionalWeightMode: 'MAX' });
+  assert.equal(historical.freight, 50);
+  assert.equal(finalizeOrderPrice(s.order, null, s.ctx, historical).snapshot.freight, 50);
+  s.card.zoneRates[0].weightBands![1].maxWeightKg = 200;
+  assert.equal(priceOrder(s.order, s.ctx).freight, 80); // Inclusive exact dimensional boundary.
+  s.order.packages[0].heightCm = 100.001;
+  assert.equal(priceOrder(s.order, s.ctx).status, 'NEEDS_ATTENTION'); // Never round down to 200.
+  s.order.packages[0].heightCm = 300;
+  assert.equal(priceOrder(s.order, s.ctx).status, 'NEEDS_ATTENTION');
+  delete s.card.zoneRates[0].weightBands;
+  assert.equal(priceOrder(s.order, s.ctx).freight, 1019); // Legacy flat amount remains independent of weight.
+});
+
+test('company units change new calculation descriptions without changing amounts or frozen facts', () => {
+  const s = setup();
+  Object.assign(s.card, { pricingMethod: 'BASE_PLUS_DISTANCE', includedWeightKg: 5, weightRatePerKg: 2, includedKm: 1, kmRate: 3 });
+  s.order.packages = [{ id: 'p', quantity: 2, weightKg: 20, lengthCm: 10, widthCm: 10, heightCm: 10, declaredValue: 0 }];
+  const metric = priceOrder(s.order, s.ctx);
+  const frozen = structuredClone(metric);
+  Object.assign(s.billing.general, { weightUnit: 'lb', distanceUnit: 'mi', dimensionUnit: 'in' });
+  const imperial = priceOrder(s.order, s.ctx);
+  assert.equal(imperial.total, metric.total);
+  assert.deepEqual(imperial.inputs, metric.inputs);
+  assert.deepEqual(imperial.lines.map(l => [l.key, l.quantity, l.unitRate, l.amount]), metric.lines.map(l => [l.key, l.quantity, l.unitRate, l.amount]));
+  assert.equal(imperial.lines.find(l => l.key === 'load'), undefined);
+  assert.match(imperial.lines.find(l => l.key === 'distance')!.detail!, /mi.*\/mi/);
+  assert.deepEqual(metric, frozen);
+});
+
+
+test('assignment enforces individual driver limits with company fallback and leaves prices unchanged', () => {
+  const s = setup(); s.billing.dispatch.maxActiveOrdersPerDriver = 3;
+  const driver = { id: 'd', status: 'available', maxActiveOrders: 1 } as Driver;
+  const job = { id: 'new', status: 'no_driver', pricing: priced(s), pricingInput: s.order } as Job;
+  const active = { ...job, id: 'old', assignedDriverId: 'd' };
+  const snapshot = structuredClone(job.pricing);
+  assert.match(validateAssignment(job, driver, [active], s.ctx, s.ctx.asOf)[0], /maximum/);
+  assert.deepEqual(validateAssignment(job, { ...driver, maxActiveOrders: 2 }, [active], s.ctx, s.ctx.asOf), []);
+  assert.deepEqual(validateAssignment(job, { ...driver, maxActiveOrders: undefined }, [active], s.ctx, s.ctx.asOf), []);
+  const threeActive = [active, { ...active, id: 'second' }, { ...active, id: 'third' }];
+  assert.deepEqual(validateAssignment(job, { ...driver, maxActiveOrders: 4 }, threeActive, s.ctx, s.ctx.asOf), []);
+  assert.match(validateAssignment(job, { ...driver, maxActiveOrders: undefined }, threeActive, s.ctx, s.ctx.asOf)[0], /maximum/);
+  const other = { ...driver, id: 'other' };
+  assert.deepEqual(validateAssignment(job, other, [active], s.ctx, s.ctx.asOf), []);
+  assert.deepEqual(validateAssignment(active, driver, [active], s.ctx, s.ctx.asOf), []);
+  assert.deepEqual(job.pricing, snapshot);
+  assert.equal(s.billing.dispatch.maxActiveOrdersPerDriver, 3);
+});
+
+test('fixed service charge applies once on all four methods, ignoring retired multipliers and switches', () => {
+  for (const method of ['FIXED', 'HOURLY', 'BASE_PLUS_DISTANCE', 'ZONE'] as const) {
+    const s = setup(); s.ctx.servicePricingMode = 'FIXED';
+    Object.assign(s.card, { pricingMethod: method, fixedAmount: 100, hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, baseFee: 60, includedKm: 0, kmRate: 4, extraStopRate: 0, zoneMatrixMode: 'CONTRACT', applyServiceMultiplier: false });
+    s.ctx.catalogue.services[0].additionalCharge = 20.25;
+    s.ctx.catalogue.services[0].defaultMultiplier = 9;
+    s.card.serviceOverrides[s.order.serviceId] = { multiplier: 7, baseFee: null, includedKm: null, kmRate: null };
+    s.order.hourlyBillableMinutes = 60;
+    s.order.stops[0].zoneId = 'a'; s.order.stops[1].zoneId = 'b'; s.order.stops[1].pickupIds = [s.order.stops[0].id];
+    s.order.stops.push({ ...s.order.stops[1], id: 'drop2' });
+    s.card.zoneRates = [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 50 }];
+    const quote = priced(s);
+    assert.equal(quote.freight, 100, method);
+    assert.equal(quote.serviceFreight, 120.25, method);
+    assert.equal(quote.inputs.serviceCharge, 20.25);
+    assert.equal(quote.inputs.serviceMultiplier, 1);
+    assert.equal(quote.lines.filter(l => l.group === 'SERVICE').length, 1);
+    assert.equal(quote.lines.find(l => l.key === 'service_charge')?.amount, 20.25);
+    assert.equal(quote.lines.some(l => l.key === 'service_multiplier'), false);
+    assert.equal(quote.context?.servicePricingMode, 'FIXED');
+    s.ctx.catalogue.services[0].additionalCharge = 0;
+    assert.equal(priced(s).serviceFreight, 100);
+    assert.equal(priced(s).lines.some(l => l.group === 'SERVICE'), false);
+  }
+});
+
+test('fixed service charges reject missing, non-finite, negative and fractional-cent amounts', () => {
+  for (const charge of [undefined, null, NaN, Infinity, -1, 1.234]) {
+    const s = setup(); s.ctx.servicePricingMode = 'FIXED'; s.ctx.catalogue.services[0].additionalCharge = charge;
+    const quote = calculatePricing(s.order, s.ctx);
+    assert.equal(quote.status, 'NEEDS_ATTENTION');
+    assert.match(quote.errors[0].message, /Set a valid fixed charge/);
+  }
+});
+
+test('fixed service charge retains fuel, transport discount, tax and minimum treatment', () => {
+  const s = setup(); s.ctx.servicePricingMode = 'FIXED'; s.ctx.catalogue.services[0].additionalCharge = 20;
+  s.billing.fuelSurcharge.enabled = true; s.billing.fuelSurcharge.percent = 10; s.card.fuelPercent = 10;
+  s.card.discount = { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' };
+  s.billing.taxProfiles[0].taxes = [{ id: 'gst', name: 'GST', active: true, ratePercent: 5, appliesTo: ['transport', 'fuel_surcharge', 'accessorials'] }];
+  s.ctx.catalogue.accessorials = [normalizeAccessorial({ ...s.ctx.catalogue.accessorials[0], rate: 7 })];
+  s.order.accessorials = [{ accessorialId: s.ctx.catalogue.accessorials[0].id, quantity: 1 }];
+  const quote = priced(s);
+  assert.equal(quote.inputs.fuelBase, 120); assert.equal(quote.fuelSurcharge, 12);
+  assert.equal(quote.discount, 12); assert.equal(quote.accessorialsTotal, 7);
+  assert.equal(quote.subtotal, 127); assert.equal(quote.taxTotal, 6.35); assert.equal(quote.total, 133.35);
+  s.card.minimumOrderSubtotal = 150;
+  assert.equal(priced(s).subtotal, 150); assert.equal(priced(s).minimumAdjustment, 23);
+});
+
+test('hourly settlement preserves fixed charges and historical multipliers from frozen quotes', () => {
+  const s = setup(); Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true, applyServiceMultiplier: true });
+  s.order.hourlyBillableMinutes = 60;
+  s.ctx.catalogue.services[0].defaultMultiplier = 1.5; s.ctx.catalogue.services[0].additionalCharge = 20;
+  const legacy = priced(s);
+  delete legacy.context!.servicePricingMode;
+  delete legacy.context!.catalogue.services[0].additionalCharge;
+  legacy.engineVersion = 'client-static-v8-method-dimensional-weight';
+  const frozenLegacy = JSON.stringify(legacy);
+  const current = priceOrder(s.order, s.ctx); // Explicit repricing selects fixed charges even with a legacy context.
+  assert.equal(current.serviceFreight, 120);
+  const frozenCurrent = JSON.stringify(current);
+  s.ctx.catalogue.services[0].additionalCharge = 999; s.ctx.catalogue.services[0].defaultMultiplier = 8;
+  assert.equal(finalizeOrderPrice(s.order, 120, s.ctx, current).snapshot.serviceFreight, 220);
+  assert.equal(finalizeOrderPrice(s.order, 120, s.ctx, legacy).snapshot.serviceFreight, 300);
+  assert.equal(JSON.stringify(legacy), frozenLegacy); assert.equal(JSON.stringify(current), frozenCurrent);
+});
+
+test('imported final totals bypass the new service charge while imported freight adds it once', () => {
+  const s = setup(); s.ctx.servicePricingMode = 'FIXED'; s.order.importedPrice = 100;
+  s.ctx.catalogue.services[0].additionalCharge = 20;
+  assert.equal(priced(s).serviceFreight, 120);
+  s.card.importedPriceMode = 'FINAL_TOTAL'; s.order.importedTaxTreatment = 'SUPPLIED'; s.order.importedTaxAmount = 5;
+  s.ctx.catalogue.services[0].additionalCharge = null;
+  assert.equal(priced(s).total, 100); assert.equal(priced(s).lines.some(l => l.group === 'SERVICE'), false);
+});
+
+test('new Distance quotes ignore all retired weight settings and retain package facts', () => {
+  const s = setup();
+  Object.assign(s.card, { pricingMethod: 'BASE_PLUS_DISTANCE', baseFee: 20, includedKm: 5, kmRate: 2, includedWeightKg: 5, weightRatePerKg: 999 });
+  for (const divisor of [0, -1, NaN, Infinity, 5000]) {
+    s.card.dimensionalDivisor = divisor;
+    for (const [weightKg, lengthCm] of [[10, 1], [100, 200]]) {
+      s.order.packages = [{ id: 'box', quantity: 2, weightKg, lengthCm, widthCm: 100, heightCm: 100, declaredValue: 0 }];
+      const result = priceOrder(s.order, s.ctx);
+      assert.equal(result.status, 'PRICED', JSON.stringify(result.errors));
+      assert.equal(result.freight, 30); assert.equal(result.context!.distanceWeightMode, 'NONE');
+      assert.equal(result.inputs.dimensionalPricingEnabled, false); assert.equal(result.inputs.dimensionalDivisor, 0);
+      assert.equal(result.inputs.actualWeightKg, weightKg * 2); assert.equal(result.inputs.chargeableWeightKg, weightKg * 2);
+      assert.equal(result.lines.find(l => l.key === 'load'), undefined);
+      assert.deepEqual(result.orderFacts!.packages, s.order.packages);
+    }
+  }
+});
+
+test('old Distance quotes retain weight amounts while explicit repricing uses distance only', () => {
+  const s = setup();
+  Object.assign(s.card, { pricingMethod: 'BASE_PLUS_DISTANCE', baseFee: 20, includedKm: 5, kmRate: 2, includedWeightKg: 30, weightRatePerKg: 2, dimensionalDivisor: 5000 });
+  s.order.packages = [{ id: 'box', quantity: 2, weightKg: 10, lengthCm: 100, widthCm: 50, heightCm: 40, declaredValue: 0 }];
+  const historical = priced(s); assert.equal(historical.freight, 130);
+  delete historical.context!.distanceWeightMode; // An existing snapshot written before this revision.
+  const before = structuredClone(historical);
+  assert.equal(finalizeOrderPrice(s.order, null, s.ctx, historical).snapshot.freight, 130);
+  assert.equal(priceOrder(s.order, s.ctx).freight, 30);
+  assert.deepEqual(historical, before);
 });

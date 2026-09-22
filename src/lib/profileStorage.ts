@@ -17,7 +17,7 @@ export interface UserProfile {
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
   name: 'Sarah Kowalski',
-  email: 'support@tingsapp.com',
+  email: 'dispatcher@dispatra.com',
   phone: '+1 (604) 555-0192',
   role: 'Senior Dispatcher & Logistics Ops',
   employeeId: 'ORG-8842',

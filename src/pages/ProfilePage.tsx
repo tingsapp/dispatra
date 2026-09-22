@@ -1,3 +1,4 @@
+import { Button } from '../components/ui/button';
 import {
 Building,
 Camera,
@@ -6,13 +7,11 @@ CheckCircle2,
 Clock,
 Hash,
 Image as ImageIcon,
-Laptop,
 Mail,
 MapPin,
 Phone,
 RotateCcw,
 Shield,
-Sliders,
 Trash2,
 User
 } from 'lucide-react';
@@ -26,16 +25,14 @@ saveUserProfile
 } from '../lib/profileStorage';
 
 interface ProfilePageProps {
-  onBackToMonitor: () => void;
   onNotification?: (msg: string) => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
-  onBackToMonitor,
   onNotification
 }) => {
   const [profile, setProfile] = useState<UserProfile>(() => loadUserProfile());
-  const [activeSection, setActiveSection] = useState<'details' | 'preferences' | 'security'>('details');
+  const [activeSection, setActiveSection] = useState<'details' | 'security'>('details');
   const [isSaved, setIsSaved] = useState(false);
 
   // File upload refs & drag states
@@ -141,13 +138,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   };
 
   return (
-    <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden font-sans">
+    <div className="app-page app-page-reading h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <PageHeader title="My Profile" description="Your account details, notification and display preferences." onBackToMonitor={onBackToMonitor} actions={<>
+      <PageHeader title="Profile" description="Your personal details and account security." actions={<>
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+            className="app-action app-secondary"
             title="Reset to defaults"
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
@@ -157,7 +154,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           <button
             type="button"
             onClick={() => handleSave()}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-white transition-colors shadow-2xs ${
+            className={`app-action text-white ${
               isSaved ? 'bg-emerald-600' : 'bg-slate-900 hover:bg-slate-800'
             }`}
           >
@@ -173,41 +170,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       </>} />
 
       {/* SUB-NAVIGATION TABS */}
-      <div className="page-content h-12 bg-white flex items-center gap-2 shrink-0 overflow-x-auto">
+      <div className="page-content h-12 bg-app-canvas flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveSection('details')}
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              activeSection === 'details'
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
+                aria-pressed={activeSection === 'details'}
+            className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
           >
             <User className="w-3.5 h-3.5" />
-            <span>Personal & Hub Details</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSection('preferences')}
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              activeSection === 'preferences'
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Dispatch & Monitor Preferences</span>
+            <span>Personal Details</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSection('security')}
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              activeSection === 'security'
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
+                aria-pressed={activeSection === 'security'}
+            className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
           >
             <Shield className="w-3.5 h-3.5" />
             <span>Security & Sessions</span>
@@ -216,11 +194,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
       {/* MAIN CONTENT AREA */}
       <main className="page-content flex-1 overflow-y-auto py-6 space-y-6">
-        {/* SECTION 1: PERSONAL & HUB DETAILS */}
+        {/* SECTION 1: PERSONAL DETAILS */}
         {activeSection === 'details' && (
           <div className="space-y-6">
             {/* Dispatcher Identity Card with Changeable Logo */}
-            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs">
+            <div className="app-panel app-panel-plain">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
                 {/* Changeable Logo / Avatar with drag & drop */}
                 <div
@@ -244,7 +222,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <span className="text-slate-800 font-semibold text-xl">
+                    <span className="text-slate-800 font-medium text-xl">
                       {profile.avatarInitials}
                     </span>
                   )}
@@ -252,13 +230,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   {/* Hover Overlay with Camera Icon */}
                   <div className="absolute inset-0 bg-slate-900/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <Camera className="w-5 h-5 mb-0.5 text-white" />
-                    <span className="text-[10px] font-medium">Change</span>
+                    <span className="text-xs font-medium">Change</span>
                   </div>
 
-                  <span
-                    className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full pointer-events-none"
-                    title="On Duty"
-                  />
                 </div>
 
                 {/* Hidden Input for avatar file selection */}
@@ -272,10 +246,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
                 <div className="space-y-1.5 flex-1">
                   <div className="flex items-center gap-2.5">
-                    <h2 className="text-base font-semibold text-slate-900">{profile.name}</h2>
-                    <span className="text-[11px] font-medium bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200/60">
-                      On Duty
-                    </span>
+                    <h2 className="app-section-title text-slate-900">{profile.name}</h2>
                   </div>
                   <p className="text-xs text-slate-500 flex items-center gap-2">
                     <span>{profile.role}</span>
@@ -294,7 +265,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       </button>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-xs text-slate-400">
                     Click or drop an image on the avatar to change it. PNG, JPG or SVG, max 3MB.
                   </p>
                 </div>
@@ -302,14 +273,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
 
             {/* Profile Form */}
-            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-5">
-              <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-3">
+            <div className="app-panel app-panel-plain space-y-5">
+              <h3 className="app-section-title text-slate-900">
                 Contact Information
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  <label className="app-label">
                     Full Name
                   </label>
                   <div className="relative">
@@ -318,13 +289,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       type="text"
                       value={profile.name}
                       onChange={(e) => handleTextChange('name', e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                      className="app-input w-full pl-9 pr-3"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  <label className="app-label">
                     Work Email
                   </label>
                   <div className="relative">
@@ -333,13 +304,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       type="email"
                       value={profile.email}
                       onChange={(e) => handleTextChange('email', e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                      className="app-input w-full pl-9 pr-3"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  <label className="app-label">
                     Direct Phone / Dispatch Radio
                   </label>
                   <div className="relative">
@@ -348,20 +319,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       type="tel"
                       value={profile.phone}
                       onChange={(e) => handleTextChange('phone', e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                      className="app-input w-full pl-9 pr-3"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  <label className="app-label">
                     Operational Role
                   </label>
                   <input
                     type="text"
                     value={profile.role}
                     onChange={(e) => handleTextChange('role', e.target.value)}
-                    className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                    className="app-input w-full"
                   />
                 </div>
 
@@ -370,142 +341,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         )}
 
-        {/* SECTION 2: DISPATCH & MONITOR PREFERENCES */}
-        {activeSection === 'preferences' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-6">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Monitor Canvas & Map Defaults
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Configure default basemap view and automatic viewport centering when tracking active routes.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2 border-t border-slate-100">
-                {/* Default Basemap */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                    Default Basemap Style
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleTextChange('defaultMapMode', 'map')}
-                      className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors text-center ${
-                        profile.defaultMapMode === 'map'
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      Street Map (Liberty)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTextChange('defaultMapMode', 'satellite')}
-                      className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors text-center ${
-                        profile.defaultMapMode === 'satellite'
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      Satellite Imagery
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Toggles */}
-              <div className="space-y-4 pt-4 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-xs font-medium text-slate-900">
-                      Auto-Fly on Entity Selection
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Smoothly center the map view onto drivers or delivery destinations when selected.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleTextChange('autoCenterOnSelect', !profile.autoCenterOnSelect)}
-                    className={`w-11 h-6 flex items-center rounded-full transition-colors p-1 ${
-                      profile.autoCenterOnSelect ? 'bg-slate-900' : 'bg-slate-200'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                        profile.autoCenterOnSelect ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-xs font-medium text-slate-900">
-                      Exception Sound Chimes
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Play an audible alert when a delivery is flagged as late start or ETA at risk.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleTextChange('enableSoundAlerts', !profile.enableSoundAlerts)}
-                    className={`w-11 h-6 flex items-center rounded-full transition-colors p-1 ${
-                      profile.enableSoundAlerts ? 'bg-slate-900' : 'bg-slate-200'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                        profile.enableSoundAlerts ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              {/* Inactive Telemetry Threshold */}
-              <div className="pt-4 border-t border-slate-100 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-slate-900">
-                    Driver Inactive Telemetry Warning Threshold
-                  </label>
-                  <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
-                    {profile.telemetryThresholdMinutes} minutes
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Drivers without fresh GPS signal beyond this threshold receive an amber "GPS Stale" warning.
-                </p>
-                <input
-                  type="range"
-                  min="2"
-                  max="15"
-                  step="1"
-                  value={profile.telemetryThresholdMinutes}
-                  onChange={(e) => handleTextChange('telemetryThresholdMinutes', parseInt(e.target.value, 10))}
-                  className="w-full accent-slate-900 cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-slate-400">
-                  <span>2 min (Strict)</span>
-                  <span>5 min (Recommended)</span>
-                  <span>15 min (Relaxed)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SECTION 3: SECURITY & SESSIONS */}
+        {/* SECTION 2: SECURITY & SESSIONS */}
         {activeSection === 'security' && (
           <div className="space-y-6">
             {/* Change Password */}
-            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+            <div className="app-panel app-panel-plain space-y-4">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">
+                <h3 className="app-section-title text-slate-900">
                   Account Credentials
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -520,9 +362,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handlePasswordSubmit} className="space-y-4 pt-2">
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="app-label">
                     Current Password
                   </label>
                   <input
@@ -530,13 +372,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full max-w-md px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                    className="app-input w-full max-w-md"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 max-w-xl gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                    <label className="app-label">
                       New Password
                     </label>
                     <input
@@ -544,12 +386,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="At least 8 characters"
-                      className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                      className="app-input w-full"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                    <label className="app-label">
                       Confirm New Password
                     </label>
                     <input
@@ -557,32 +399,32 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat new password"
-                      className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                      className="app-input w-full"
                     />
                   </div>
                 </div>
 
-                <button
+                <Button
                   type="submit"
-                  className="px-4 py-2 text-xs font-medium bg-slate-900 hover:bg-black text-white rounded-lg transition-colors"
+                  className="app-action app-primary px-4 py-2 text-xs font-medium bg-slate-900 hover:bg-black text-white rounded-full transition-colors"
                 >
                   Update Password
-                </button>
+                </Button>
               </form>
             </div>
 
             {/* Two Factor Authentication */}
-            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+            <div className="app-panel app-panel-plain space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <h3 className="app-section-title text-slate-900">
                     Two-Factor Authentication (2FA)
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Hardware key or TOTP Authenticator app verification.
                   </p>
                 </div>
-                <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-200/80 flex items-center gap-1.5">
+                <span className="text-xs font-medium bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-200/80 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                   <span>Enforced & Active</span>
                 </span>
@@ -592,26 +434,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </p>
             </div>
 
-            {/* Active Session */}
-            <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-              <h3 className="text-sm font-semibold text-slate-900">
-                Active Dispatcher Session
-              </h3>
-              <div className="flex items-start gap-3.5 p-3.5 bg-slate-50 rounded-lg border border-slate-200/80">
-                <Laptop className="w-5 h-5 text-slate-600 mt-0.5" />
-                <div className="space-y-0.5">
-                  <div className="text-xs font-medium text-slate-900 flex items-center gap-2">
-                    <span>Current Workstation (Chrome on macOS)</span>
-                    <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-sm font-semibold">
-                      This Device
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Vancouver, BC, Canada • Session started at 07:15 AM PT
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </main>

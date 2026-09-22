@@ -1,26 +1,17 @@
-# Automatic destination tax — September 17, 2026
+# Company Tax / GST — September 20, 2026
 
-New orders at `/` and `/prototype` use the shared pricing engine for destination tax. This does not add authenticated customer booking, backend invoice issuance, or a tax-service integration.
+Company → Taxes has one company-wide Tax / GST percentage and an optional GST registration number. There is no province table or province-based selection for new quotes. The configured rate applies to taxable lines regardless of pickup or delivery province; the number is printed on invoice previews and does not enable or disable tax.
 
-## Supported calculation
+## Configuration and pricing
 
-The product assumes tax applies to all new supported domestic freight quotes, per the user-approved simplification. Legacy registration choices no longer disable tax or block pricing; the GST/HST number is optional invoice information. Ordinary domestic carrier freight with pickups in Canada and all deliveries in one supported province receives GST/HST based on the delivery province: ON 13%; NS 14%; NB, NL and PE 15%; AB, BC, SK, MB, NT, NU and YT 5%. All stops must have consistent country/province evidence. Same-province multi-stop orders use one treatment. New quotes treat entered rates as before tax and add GST/HST to the subtotal, ignoring the retired inclusive-price setting. Existing line taxability, discount allocation and rounding stay in the shared engine. Frozen historical quotes retain their original inclusive treatment during settlement. This assumes Accessorials and surcharges are part of the freight supply; standalone goods/rentals or other special treatment require review.
+The rate accepts 0–100%, including decimals. Blank, negative, non-finite and greater-than-100 values cannot be saved; invalid persisted rates produce Needs Attention instead of an invoice. New settings default to 5%. Upgrading older settings preserves a valid BC override from the previous Vancouver defaults, otherwise uses 5%. Once present, the company rate takes precedence, including zero. Other provincial overrides remain stored only for historical compatibility.
 
-The versioned rules apply to pricing dates from April 1, 2025 onward. The supplied rate defaults were checked September 17, 2026; they do not update online. Billing → Taxes allows company overrides from 0–100%, including decimals, saved through Save billing. New quotes use saved overrides; missing overrides use the supplied defaults. Quebec remains unsupported. Quotes save the resolved profile and rule version in their context. Hourly settlement uses that saved decision. Older dates are unsupported rather than assigned current rates. Transition-period invoices require separate review.
+New orders, explicit order edits and Re-price use company tax through the central pricing engine. Entered rates are before tax. Existing taxable-line selection, discount allocation and cent rounding remain unchanged. The rate-card worked example uses the same decision and displays the configured percentage. Imports, claimed customer exemptions and explicitly flagged special freight retain their review requirement.
 
-## Address and exception handling
+## Saved quotes and addresses
 
-Address entry extracts a recognizable province suffix and/or Canadian postal code. Country/province can be confirmed explicitly; evidence that disagrees produces an error. Postal prefixes shared by NT/NU need a province. Street/city existence is not verified, and no geocoding or address-autocomplete provider was added. Changing address text clears old jurisdiction and map coordinates. Route stop reordering does not change tax.
+Quotes freeze the company rate, registration details and `company-tax-v1` decision in their pricing context. Later settings changes affect new pricing only. Hourly settlement uses the frozen rate. Historical destination-based and profile-based quotes retain their original tax until explicitly edited or repriced; their legacy calculation remains available for settlement. Finalized snapshots and invoice previews are not rewritten.
 
-Incomplete/conflicting locations, international movements, Quebec GST/QST, multiple destination provinces needing charge allocation, imported prices, claimed customer exemptions, and explicitly flagged special freight generate Needs Attention. No final invoice or assignment is allowed from unresolved pricing. The UI supports recording these orders for review; it does not yet provide a tax allocation/exception approval workflow.
+Province information is still parsed for address/routing data, and changed address text clears stale jurisdiction and map coordinates. Province details, Quebec locations and mixed-province deliveries do not select or block the company rate. Route-stop reordering does not change tax. Changed quoted destinations still require explicit repricing before hourly settlement.
 
-The Taxes tab shows editable province rates; the optional company GST/HST number is entered under Company. There is no tax-inclusive price checkbox. Legacy profiles remain stored for historical records, but profile management and the customer profile selector are removed. Existing quotes/final snapshots are not recalculated. Existing orders without destination mode retain their legacy profile behavior; no silent migration occurs.
-
-## Primary references
-
-- [CRA freight-carrier guidance](https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-specific-situations/freight-carriers.html): domestic freight, international/continuous movements, interlining and incidental supplies.
-- [CRA transportation place-of-supply rules](https://www.canada.ca/en/revenue-agency/services/forms-publications/publications/3-3-7/plc-spply-prvnc-trnsprttn.html): delivery destination and reasonable charge allocation for destinations in multiple provinces.
-- [CRA GST/HST rates](https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-which-rate.html): current rates and Nova Scotia transition.
-- [Revenu Québec freight services](https://www.revenuquebec.ca/en/businesses/consumption-taxes/gsthst-and-qst/special-cases-gsthst-and-qst/transportation-applying-the-gst-and-qst/freight-carriers/freight-transportation-services/): separate Quebec treatment; not automated here.
-- [Canada Post postal-code guidance](https://www.canadapost-postescanada.ca/cpc/en/support/articles/addressing-guidelines/postal-codes.page): province/territory prefix mapping.
-- [BC PST exemptions](https://www2.gov.bc.ca/gov/content/taxes/sales-taxes/pst/exemptions/exemptions-documentation): courier/freight services, distinct from taxable goods or rentals.
+This behavior applies to the local dispatch prototype at `/` and `/prototype`. Authenticated booking, backend invoice issuance and a live tax-service integration are outside this slice. The configured rate is an organization setting, not a jurisdictional tax determination.

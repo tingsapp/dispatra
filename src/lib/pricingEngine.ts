@@ -1,3 +1,7 @@
+import { toDisplayWeight, toDisplayWeightRate, toDisplayDistance, toDisplayDistanceRate } from './units';
+import { hasDimensionalWeightSetting } from './dimensionalWeight';
+import { zoneAmountForWeight } from './zoneWeightBands';
+import { resolveCompanyTax } from './companyTax';
 import { DestinationTaxDecision, resolveDestinationTax, taxDestinationKey } from './destinationTax';
 // Shared commercial pricing. Canonical units: km, kg, cm. Snapshots retain quoted terms.
 import { BillingConfig, ChargeGroup, TaxProfileConfig, TaxRate } from '../types/billing';
@@ -24,17 +28,24 @@ import {
 } from '../types/pricing';
 import { Customer } from './customerStorage';
 import { organizationTime } from './organizationWorkflows';
-import { applyDistanceRules, resolveFuelPercent, roundMoney } from './billingEngine';
+import { applyDistanceRules, isValidFuelPercent, resolveFuelPercent, roundMoney } from './billingEngine';
 
-export const PRICING_ENGINE_VERSION = 'client-static-v5-simple-cards';
+export const PRICING_ENGINE_VERSION = 'client-static-v11-distance-only';
 
 export interface PricingContext {
+  /** New Distance quotes ignore weight rates; frozen quotes retain their original rule. */
+  distanceWeightMode?: 'NONE' | 'LEGACY';
+  /** Frozen legacy quotes retain multiplicative service terms. */
+  servicePricingMode?: 'FIXED' | 'LEGACY_MULTIPLIER';
+  /** New quotes scope dimensional weight by method; frozen contexts keep their quoted rule. */
+  dimensionalWeightMode?: 'METHOD_SPECIFIC' | 'MAX' | 'LEGACY_CARD_SETTING';
   billing: BillingConfig;
   catalogue: SimplePricingConfig;
   pricing: PricingConfig;
   customers: Customer[];
   /** Pricing date — defaults to now. Drives effective-date filtering. */
   asOf?: Date;
+  /** Frozen company or historical destination decision; key retained for saved snapshots. */
   destinationTax?: DestinationTaxDecision;
 }
 
@@ -131,8 +142,7 @@ const isWeekend = (iso: string | null, zone: string): boolean => {
 const ceilToIncrement = (value: number, increment: number): number =>
   increment > 0 ? Math.ceil(value / increment) * increment : value;
 
-/** Contractual discount: customer-level beats card-level. */
-/** The rate card is the only source of a contract discount; legacy customer-level and INHERIT values are ignored. */
+/** Historical frozen contexts retain their original card discount semantics. */
 const resolveDiscount = (card: RateCard): Discount | null =>
   card.discount && (card.discount.type === 'PERCENT' || card.discount.type === 'FIXED') ? card.discount : null;
 
@@ -235,9 +245,9 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   const vehicle: VehicleType | undefined = order.vehicleId
     ? catalogue.vehicles.find((v) => v.id === order.vehicleId)
     : undefined;
-  const automaticTax = order.taxCalculation === 'DESTINATION';
+  const automaticTax = order.taxCalculation === 'COMPANY' || order.taxCalculation === 'DESTINATION';
   const taxCustomer = order.billingCustomerId ? ctx.customers.find(c => c.id === order.billingCustomerId) : customer;
-  const taxDecision = automaticTax ? ctx.destinationTax ?? resolveDestinationTax(order, billing, taxCustomer, ctx.asOf ?? new Date()) : undefined;
+  const taxDecision = automaticTax ? ctx.destinationTax ?? (order.taxCalculation === 'COMPANY' ? resolveCompanyTax(order, billing, taxCustomer) : resolveDestinationTax(order, billing, taxCustomer, ctx.asOf ?? new Date())) : undefined;
   const taxProfile = automaticTax ? taxDecision?.profile ?? null : resolveTaxProfile(customer, billing);
   const taxExempt = !automaticTax && !!customer?.taxExempt;
   const ratesFor = (group: ChargeGroup, taxable = true): TaxRate[] =>
@@ -251,7 +261,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   const resolutionMode = () => ctx.pricing.rateCards.find(c => c.id === order.rateCardOverrideId)?.importedPriceMode ?? resolvedImportMode;
   let resolvedImportMode: 'FREIGHT' | 'FINAL_TOTAL' = 'FREIGHT';
   const base = (status: PricingSnapshot['status'], extra: Partial<PricingSnapshot> = {}): PricingSnapshot => ({
-    context: structuredClone({ ...ctx, asOf: ctx.asOf ?? new Date(), ...(taxDecision ? { destinationTax: taxDecision } : {}) }),
+    context: structuredClone({ ...ctx, distanceWeightMode: ctx.distanceWeightMode ?? 'NONE', servicePricingMode: ctx.servicePricingMode ?? 'FIXED', dimensionalWeightMode: ctx.dimensionalWeightMode ?? 'METHOD_SPECIFIC', asOf: ctx.asOf ?? new Date(), ...(taxDecision ? { destinationTax: taxDecision } : {}) }),
     taxDecision,
     orderFacts: structuredClone(order),
     quoteExpiresAt: new Date((ctx.asOf ?? new Date()).getTime() + billing.invoicing.quoteValidityDays * 86400000).toISOString(),
@@ -331,8 +341,13 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     errors.push({ code: 'INVALID_CONFIGURATION', message: 'The configured customer or organization tax profile is missing. Select a valid profile.' });
     return base('NEEDS_ATTENTION', { rateCard: resolved, method: card.pricingMethod });
   }
-  if (card.dimensionalPricingEnabled !== false && (card.dimensionalPricingEnabled ?? billing.general.dimensionalPricingEnabled) && (card.dimensionalDivisor ?? billing.general.dimensionalDivisor) <= 0) {
-    errors.push({ code: 'INVALID_CONFIGURATION', message: 'Enabled dimensional pricing requires a positive divisor.' });
+  const legacyDistanceWeight = ctx.distanceWeightMode === 'LEGACY';
+  const dimEnabled = (card.pricingMethod !== 'BASE_PLUS_DISTANCE' || legacyDistanceWeight) && (ctx.dimensionalWeightMode === 'LEGACY_CARD_SETTING'
+    ? inherit(card.dimensionalPricingEnabled, billing.general.dimensionalPricingEnabled)
+    : ctx.dimensionalWeightMode === 'MAX' || hasDimensionalWeightSetting(card.pricingMethod) || card.pricingMethod === 'BASE_PLUS_DISTANCE');
+  const dimDivisor = dimEnabled ? inherit(card.dimensionalDivisor, billing.general.dimensionalDivisor) : 0;
+  if (dimEnabled && (!Number.isFinite(dimDivisor) || dimDivisor <= 0)) {
+    errors.push({ code: 'INVALID_CONFIGURATION', message: 'Dimensional pricing requires a finite positive divisor.' });
     return base('NEEDS_ATTENTION', { rateCard: resolved, method: card.pricingMethod });
   }
   // ---- 2. Resolve inherited parameters -----------------------------------
@@ -340,11 +355,11 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   const baseFee = inherit(svcOverride?.baseFee, card.baseFee);
   const includedKm = inherit(svcOverride?.includedKm, card.includedKm);
   const kmRate = inherit(svcOverride?.kmRate, card.kmRate);
-  const multiplier = inherit(svcOverride?.multiplier, service.defaultMultiplier);
+  const fixedServicePricing = (ctx.servicePricingMode ?? 'FIXED') === 'FIXED';
+  const multiplier = fixedServicePricing ? 1 : inherit(svcOverride?.multiplier, service.defaultMultiplier);
+  const additionalCharge = service.additionalCharge;
   const includedStops = inherit(card.includedStops, billing.general.defaultIncludedStops);
   const extraStopRate = inherit(card.extraStopRate, billing.general.defaultExtraStopRate);
-  const dimEnabled = inherit(card.dimensionalPricingEnabled, billing.general.dimensionalPricingEnabled);
-  const dimDivisor = inherit(card.dimensionalDivisor, billing.general.dimensionalDivisor);
   const waitingRule = catalogue.accessorials.find(a => a.active && a.autoRule === 'WAITING_RECORDED');
   const waitFree = inherit(card.waitFreeMinutes, waitingRule?.freeAllowance ?? 0);
   const waitIncrement = inherit(card.waitIncrementMinutes, waitingRule?.incrementMinutes ?? 0);
@@ -405,17 +420,17 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     }
     const billableKm = applyDistanceRules(order.routeKm, billing);
     inputs.billableKm = billableKm;
-    lines.push(line({ key: 'base_fee', group: 'FREIGHT', label: 'Base Fee', detail: `Includes ${includedKm} km`, amount: round2(baseFee), fuelEligible: true }));
+    lines.push(line({ key: 'base_fee', group: 'FREIGHT', label: 'Base Fee', detail: `Includes ${round2(toDisplayDistance(includedKm, billing.general))} ${billing.general.distanceUnit}`, amount: round2(baseFee), fuelEligible: true }));
 
     const extraKm = round2(Math.max(0, billableKm - includedKm));
     if (extraKm > 0 || kmRate > 0) {
-      lines.push(line({ key: 'distance', group: 'FREIGHT', label: 'Distance Charge', detail: extraKm > 0 ? `${extraKm} km × ${money(kmRate)}/km` : 'Within included distance', quantity: extraKm, unitRate: kmRate, amount: round2(extraKm * kmRate), fuelEligible: true }));
+      lines.push(line({ key: 'distance', group: 'FREIGHT', label: 'Distance Charge', detail: extraKm > 0 ? `${round2(toDisplayDistance(extraKm, billing.general))} ${billing.general.distanceUnit} × ${money(toDisplayDistanceRate(kmRate, billing.general))}/${billing.general.distanceUnit}` : 'Within included distance', quantity: extraKm, unitRate: kmRate, amount: round2(extraKm * kmRate), fuelEligible: true }));
     }
 
-    if (card.weightRatePerKg > 0) {
+    if (legacyDistanceWeight && card.weightRatePerKg > 0) {
       const extraKg = round2(Math.max(0, chargeableWeight - card.includedWeightKg));
       const basis = dimEnabled && dimWeight > actualWeight ? 'dimensional' : 'actual';
-      if (extraKg > 0) lines.push(line({ key: 'load', group: 'FREIGHT', label: 'Load Charge', detail: extraKg > 0 ? `${extraKg} kg (${basis}) × ${money(card.weightRatePerKg)}/kg` : `Within ${card.includedWeightKg} kg included`, quantity: extraKg, unitRate: card.weightRatePerKg, amount: round2(extraKg * card.weightRatePerKg), fuelEligible: true }));
+      if (extraKg > 0) lines.push(line({ key: 'load', group: 'FREIGHT', label: 'Load Charge', detail: extraKg > 0 ? `${round2(toDisplayWeight(extraKg, billing.general))} ${billing.general.weightUnit} (${basis}) × ${money(toDisplayWeightRate(card.weightRatePerKg, billing.general))}/${billing.general.weightUnit}` : `Within ${round2(toDisplayWeight(card.includedWeightKg, billing.general))} ${billing.general.weightUnit} included`, quantity: extraKg, unitRate: card.weightRatePerKg, amount: round2(extraKg * card.weightRatePerKg), fuelEligible: true }));
     }
 
     if (card.pieceRate > 0) {
@@ -424,7 +439,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     }
 
     const extraStops = Math.max(0, stopCount - includedStops);
-    if (extraStops > 0) {
+    if (extraStops > 0 && extraStopRate !== 0) {
       lines.push(line({ key: 'stops', group: 'FREIGHT', label: 'Extra Stops', detail: `${extraStops} × ${money(extraStopRate)}`, quantity: extraStops, unitRate: extraStopRate, amount: round2(extraStops * extraStopRate), fuelEligible: true }));
     }
 
@@ -501,7 +516,28 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
       for (const { pickup, drop } of movements) {
         const rate = findRate(card.zoneMatrixMode === 'CONTRACT' ? card.zoneRates ?? [] : ctx.pricing.zoneRates, pickup!.zoneId!, drop.zoneId!);
         if (!rate) { unmatched = true; break; }
-        zoneLines.push(line({ key: `zone_${pickup!.id}_${drop.id}`, group: 'FREIGHT', label: 'Zone movement', detail: `${pickup!.label || pickup!.id} → ${drop.label || drop.id}; packages on this movement combined`, amount: round2(rate.amount), fuelEligible: true }));
+        // A single movement can infer package links. Multiple movements require explicit links.
+        const unknownLinks = rate.weightBands && order.packages.some(pkg => pkg.quantity > 0 &&
+          ((!pkg.pickupStopId || !pkg.deliveryStopId) && movements.length > 1 ||
+           pkg.pickupStopId && pkg.deliveryStopId && !movements.some(m => m.pickup?.id === pkg.pickupStopId && m.drop.id === pkg.deliveryStopId)));
+        const packages = order.packages.filter(pkg =>
+          (pkg.pickupStopId ?? (movements.length === 1 ? pickup!.id : null)) === pickup!.id &&
+          (pkg.deliveryStopId ?? (movements.length === 1 ? drop.id : null)) === drop.id);
+        const actualMovementWeight = packages.reduce((total, pkg) => total + pkg.quantity * pkg.weightKg, 0);
+        // Historical quotes used actual movement weight, including the former global MAX mode.
+        const useDimensionalBands = (ctx.dimensionalWeightMode ?? 'METHOD_SPECIFIC') === 'METHOD_SPECIFIC';
+        const dimensionalMovementWeight = useDimensionalBands
+          ? packages.reduce((total, pkg) => total + pkg.quantity * pkg.lengthCm * pkg.widthCm * pkg.heightCm, 0) / dimDivisor
+          : 0;
+        // Keep unknown/zero actual weights in review; never round down into a cheaper band.
+        const movementWeight = unknownLinks ? NaN : actualMovementWeight <= 0 ? 0
+          : Math.max(actualMovementWeight, dimensionalMovementWeight);
+        const amount = zoneAmountForWeight(rate, movementWeight);
+        if (amount == null) {
+          errors.push({ code: 'ZONE_NO_MATCH', message: `No matching weight band for ${pickup!.label || pickup!.id} → ${drop.label || drop.id}. Check package weights, dimensions and pickup/delivery links, or request a quote.` });
+          break;
+        }
+        zoneLines.push(line({ key: `zone_${pickup!.id}_${drop.id}`, group: 'FREIGHT', label: 'Zone movement', detail: `${pickup!.label || pickup!.id} → ${drop.label || drop.id}; ${rate.weightBands ? `${round2(toDisplayWeight(movementWeight, billing.general))} ${billing.general.weightUnit} ${useDimensionalBands ? `chargeable weight (actual ${round2(toDisplayWeight(actualMovementWeight, billing.general))} ${billing.general.weightUnit}, dimensional ${round2(toDisplayWeight(dimensionalMovementWeight, billing.general))} ${billing.general.weightUnit})` : 'actual weight'}` : 'packages on this movement combined'}`, amount: round2(amount), fuelEligible: true }));
       }
       if (unmatched) {
         if (card.zoneNoMatchFallback === 'BASE_PLUS_DISTANCE') {
@@ -559,13 +595,27 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     return base('PRICED', { rateCard: resolved, candidates: resolution.candidates, method: effectiveMethod, freight: revenue, serviceFreight: revenue, subtotal: revenue, taxTotal: tax, total: agreed, taxLines: tax ? [line({ key: 'import_tax', group: 'TAX', label: 'Included / supplied tax', amount: tax, taxable: false })] : [], cost: costForOrder(revenue) });
   }
 
+  if (!isValidFuelPercent(fuelPercent)) {
+    errors.push({ code: 'INVALID_CONFIGURATION', message: 'Enter a valid nonnegative fuel surcharge in Pricing → Fuel Charge.' });
+    return base('NEEDS_ATTENTION', { rateCard: resolved, method: effectiveMethod });
+  }
+
   for (const charge of lines) charge.amount = netAmount(charge.amount, groupOfLine(charge), charge.taxable);
   freight = round2(lines.reduce((n, l) => n + l.amount, 0));
   const appliedMultiplier = multiplierApplied ? multiplier : 1;
-  serviceFreight = round2(freight * appliedMultiplier);
+  if (fixedServicePricing) {
+    if (additionalCharge == null || !Number.isFinite(additionalCharge) || additionalCharge < 0 || Math.abs(additionalCharge * 100 - Math.round(additionalCharge * 100)) > 0.000001) {
+      errors.push({ code: 'INVALID_CONFIGURATION', message: `Set a valid fixed charge for ${service.name} in Pricing → Service Level.` });
+      return base('NEEDS_ATTENTION', { rateCard: resolved, method: effectiveMethod });
+    }
+    const serviceCharge = netAmount(additionalCharge, 'transport');
+    inputs.serviceCharge = serviceCharge;
+    serviceFreight = round2(freight + serviceCharge);
+    if (serviceCharge > 0) lines.push(line({ key: 'service_charge', group: 'SERVICE', label: `${service.name} service`, detail: 'Fixed charge · once per order', amount: serviceCharge, fuelEligible: true }));
+  } else serviceFreight = round2(freight * appliedMultiplier);
   if (appliedMultiplier !== 1) lines.push(line({ key: 'service_multiplier', group: 'SERVICE', label: `${service.name} ×${appliedMultiplier.toFixed(2)}`, amount: round2(serviceFreight - freight), fuelEligible: true }));
   if (effectiveMethod !== 'IMPORTED' && serviceFreight < card.minimumFreight) {
-    lines.push(line({ key: 'minimum_freight', group: 'MINIMUM', label: 'Minimum freight', detail: 'Freight floor excluding tax, after the service multiplier', amount: round2(card.minimumFreight - serviceFreight), fuelEligible: true }));
+    lines.push(line({ key: 'minimum_freight', group: 'MINIMUM', label: 'Minimum freight', detail: fixedServicePricing ? 'Freight floor excluding tax, after the service charge' : 'Freight floor excluding tax, after the service multiplier', amount: round2(card.minimumFreight - serviceFreight), fuelEligible: true }));
     serviceFreight = card.minimumFreight;
   }
 
@@ -720,7 +770,10 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
 
   // Contract discounts are net amounts; one resolved discount, never stacked.
   const beforeDiscount = round2(serviceFreight + vehicleSurcharge + fuelSurcharge + accessorialsTotal + companyCharge);
-  const discountRule = card.applyContractDiscount === false ? null : resolveDiscount(card);
+  const shipperDiscount = customer?.discount;
+  const discountRule = ctx.pricing.discountSource === 'SHIPPER'
+    ? shipperDiscount && (shipperDiscount.type === 'PERCENT' || shipperDiscount.type === 'FIXED') ? { ...shipperDiscount, scope: 'TRANSPORT_ONLY' as const } : null
+    : card.applyContractDiscount === false ? null : resolveDiscount(card);
   const discountGroups = discountRule?.scope === 'TRANSPORT_ONLY' ? ['FREIGHT', 'SERVICE', 'MINIMUM', 'VEHICLE'] : ['FREIGHT', 'SERVICE', 'MINIMUM', 'VEHICLE', 'FUEL', 'ACCESSORIAL', 'COMPANY_CHARGE'];
   const eligibleLines = lines.filter(l => discountGroups.includes(l.group));
   const discountBase = round2(eligibleLines.reduce((n, l) => n + l.amount, 0));

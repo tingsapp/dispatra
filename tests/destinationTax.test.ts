@@ -15,7 +15,7 @@ function setup() {
   billing.fuelSurcharge.enabled = false; billing.serviceCharge.enabled = false; billing.rules.minimumChargePerJob = 0;
   const card = createEmptyRateCard({ id: 'tax-card', scope: 'ORGANIZATION', effectiveFrom: '2020-01-01', pricingMethod: 'FIXED', fixedAmount: 100, applyVehicleSurcharge: false, applyAdminFee: false, applyServiceMultiplier: false, applyAccessorials: false });
   const ctx: PricingContext = { billing, catalogue: { services: structuredClone(INITIAL_SERVICES), vehicles: structuredClone(INITIAL_VEHICLES), accessorials: structuredClone(INITIAL_ACCESSORIALS) }, pricing: { rateCards: [card], zones: [], zoneRates: [], customerGroups: [] }, customers: [], asOf: new Date('2026-09-17T12:00:00Z') };
-  const order = createDefaultOrderInput(ctx); order.packages = [];
+  const order = createDefaultOrderInput(ctx); order.packages = []; order.taxCalculation = 'DESTINATION'; // Historical quote compatibility.
   order.stops[0] = { ...order.stops[0], ...addressChange('100 Main St, Vancouver, BC V6A 2S5, Canada') };
   order.stops[1] = { ...order.stops[1], ...addressChange('200 Main St, Vancouver, BC V6A 2S5, Canada') };
   return { ctx, order, billing, card };
@@ -25,7 +25,7 @@ function assertReview(s: ReturnType<typeof setup>, pattern: RegExp) {
   assert.equal(result.taxTotal, 0); assert.throws(() => createInvoicePreview('order', { ...result, stage: 'FINAL' }, s.ctx));
 }
 
-test('new orders enable destination tax; every supported domestic province gets its current GST/HST rate', () => {
+test('historical destination-mode orders retain their supported province rates', () => {
   for (const [province, rate] of Object.entries({ BC: 5, AB: 5, SK: 5, MB: 5, ON: 13, NB: 15, NS: 14, PE: 15, NL: 15, NT: 5, NU: 5, YT: 5 })) {
     const s = setup(); assert.equal(s.order.taxCalculation, 'DESTINATION');
     s.order.stops[1] = { ...s.order.stops[1], ...addressChange(`200 Main Street, City, ${province}, Canada`) };

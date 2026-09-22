@@ -4,9 +4,13 @@ export interface Communications { sms: boolean; email: boolean; tracking: boolea
 export interface SavedAddress { id: string; type: 'PICKUP' | 'DELIVERY' | 'BILLING' | 'DEPOT'; label: string; address: string; contactName?: string; phone?: string; instructions?: string; }
 export interface AvailabilityPeriod { id: string; start: string; end: string; available: boolean; notes?: string; }
 export interface DriverOperations extends AuditFields {
+  /** Optional driver limit; older records inherit the company dispatch default. */
+  maxActiveOrders?: number;
   driverNumber?: string; accountStatus?: 'ACTIVE' | 'INACTIVE'; dutyStatus?: 'ON_DUTY' | 'OFF_DUTY'; workStatus?: 'AVAILABLE' | 'BUSY' | 'ON_BREAK';
-  /** EMPLOYEE drives a company vehicle; CONTRACTOR is an owner-operator driving their own (still a Vehicles record). Never affects customer price. */
+  /** EMPLOYEE drives a company vehicle; CONTRACTOR is an owner-operator driving their own (still a Vehicles record). Never affects shipper price. */
   employmentType?: 'EMPLOYEE' | 'CONTRACTOR' | 'TEMPORARY'; homeDepotId?: string; serviceAreaIds?: string[]; skills?: string[];
+  /** Owner-operator payout terms: share of the order's freight/service price and of its fuel surcharge (0–100). Internal only; never affects shipper price. */
+  revenueSharePercent?: number; fuelSurchargeSharePercent?: number;
   vehicleTypeQualifications?: string[]; currentVehicleId?: string | null; shiftEnd?: string; maximumWorkMinutes?: number;
   preferredStartLocation?: string; availabilitySchedule?: AvailabilityPeriod[]; appLastSeenAt?: string | null; locationCapturedAt?: string | null;
   locationPermissionStatus?: 'GRANTED' | 'DENIED' | 'UNKNOWN'; notes?: string;
@@ -19,17 +23,25 @@ export interface VehicleOperations extends AuditFields {
 }
 export interface CustomerOperations extends AuditFields {
   customerType?: 'BUSINESS' | 'INDIVIDUAL'; legalName?: string; addresses?: SavedAddress[]; currency?: string;
-  paymentTerms?: 'INHERIT' | 'COD' | 'NET7' | 'NET15' | 'NET30' | 'NET60'; defaultServiceId?: string;
+  paymentTerms?: 'INHERIT' | 'COD' | 'NET7' | 'NET15' | 'NET30' | 'NET45' | 'NET60'; defaultServiceId?: string;
   defaultWindowStart?: string; defaultWindowEnd?: string; instructions?: string; communicationPreferences?: Communications;
   tags?: string[]; permittedBranchIds?: string[]; metadata?: Record<string, unknown>;
 }
-export type OrderLifecycle = 'DRAFT' | 'SUBMITTED' | 'PRICED' | 'READY_FOR_DISPATCH' | 'ASSIGNED' | 'IN_EXECUTION' | 'COMPLETED' | 'BILLING_FINALIZATION' | 'INVOICED' | 'CANCELLED' | 'FAILED' | 'NEEDS_ATTENTION';
+/** Where an order is in its life. Exceptions (pricing problems, risk, failed attempts) are attention flags layered on top, never statuses. */
+export type OrderLifecycle = 'NEW' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'INVOICED' | 'CANCELLED';
+export const ORDER_LIFECYCLES: OrderLifecycle[] = ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'INVOICED', 'CANCELLED'];
+export const ORDER_LIFECYCLE_LABELS: Record<OrderLifecycle, string> = { NEW: 'New', ASSIGNED: 'Assigned', IN_PROGRESS: 'In progress', COMPLETED: 'Completed', INVOICED: 'Invoiced', CANCELLED: 'Cancelled' };
+/** Retired statuses from older saved records collapse onto the six current ones. */
+const LEGACY_LIFECYCLES: Record<string, OrderLifecycle> = { DRAFT: 'NEW', SUBMITTED: 'NEW', PRICED: 'NEW', READY_FOR_DISPATCH: 'NEW', NEEDS_ATTENTION: 'NEW', IN_EXECUTION: 'IN_PROGRESS', BILLING_FINALIZATION: 'COMPLETED', FAILED: 'CANCELLED' };
+export const normalizeLifecycle = (value?: string | null): OrderLifecycle | undefined => value ? (ORDER_LIFECYCLES as string[]).includes(value) ? value as OrderLifecycle : LEGACY_LIFECYCLES[value] : undefined;
+export type OrderAttentionFlag = 'PRICING' | 'AT_RISK' | 'LATE_START' | 'FAILED_ATTEMPT';
+export const ORDER_ATTENTION_LABELS: Record<OrderAttentionFlag, string> = { PRICING: 'Pricing needs review', AT_RISK: 'At risk', LATE_START: 'Late start', FAILED_ATTEMPT: 'Failed attempt' };
 export interface OrderOperations extends AuditFields {
   lifecycleStatus?: OrderLifecycle; priority?: 'NORMAL' | 'HIGH' | 'URGENT'; orderType?: 'DELIVERY' | 'PICKUP' | 'RETURN' | 'TRANSFER' | 'SERVICE_CALL';
   billingCustomerId?: string | null; customerSnapshot?: { id: string | null; name: string; phone: string; email: string; billingEmail: string; legalName?: string; address?: string; paymentTerms?: string };
   billingCustomerSnapshot?: OrderOperations['customerSnapshot']; referenceNumbers?: string; commodityDescription?: string;
   requiredSkills?: string[]; requiredEquipment?: string[]; serviceAreaId?: string; tags?: string[]; dispatcherNotes?: string;
-  notificationPreferences?: Communications; version?: number; cancellationReason?: string; cancelledAt?: string; metadata?: Record<string, unknown>;
+  notificationPreferences?: Communications; version?: number; cancellationReason?: string; cancelledAt?: string; invoicedAt?: string; metadata?: Record<string, unknown>;
 }
 export interface StopOperations {
   countryCode?: string; provinceCode?: string; postalCode?: string;

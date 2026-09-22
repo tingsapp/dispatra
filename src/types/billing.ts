@@ -30,7 +30,7 @@ export interface TaxProfileConfig {
 
 export interface ServiceChargeSettings {
   enabled: boolean;
-  /** Customer-facing label on the quote and invoice. */
+  /** Shipper-facing label on the quote and invoice. */
   label: string;
   mode: 'percentage' | 'flat' | 'greater_of';
   percent: number;
@@ -42,7 +42,7 @@ export interface ServiceChargeSettings {
 export interface FuelSurchargeSettings {
   enabled: boolean;
   label: string;
-  /** 'fixed_percent' uses `percent`; 'index_pegged' derives it from fuel price. */
+  /** Live settings use fixed_percent; index_pegged remains for historical frozen quotes. */
   mode: 'fixed_percent' | 'index_pegged';
   percent: number;
   taxable: boolean;
@@ -74,8 +74,8 @@ export interface BillingRules {
 }
 
 /**
- * Organization-wide defaults (Pricing → Extras). Every value here is a
- * fallback: a Rate Card may override any of them for its own customers.
+ * Organization units and legacy pricing defaults. New cards copy dimensional
+ * settings; retired extra-stop values remain compatible with frozen quotes.
  */
 export interface OrganizationDefaults {
   timeZone?: string;
@@ -93,7 +93,7 @@ export interface OrganizationDefaults {
 }
 
 export interface InvoicingSettings {
-  /** Legacy stored value; new destination tax always applies regardless of registration. */
+  /** Legacy stored value; new company tax applies regardless of registration. */
   taxRegistrationStatus?: 'UNCONFIRMED' | 'REGISTERED' | 'NOT_REGISTERED';
   currency: 'CAD' | 'USD';
   /** Tax profile applied unless a customer overrides it. */
@@ -106,11 +106,11 @@ export interface InvoicingSettings {
   latePaymentFeePercent: number;
 }
 
-/** Assignment policy. Never read by the pricing engine — it does not change customer price. */
+/** Assignment policy. Never read by the pricing engine — it does not change shipper price. */
 export interface DispatchSettings {
   maxActiveOrdersPerDriver: number;
-  /** V1 runs one origin hub: the depot routes start from and return to. */
-  hubAddress: string;
+  /** Retired UI field; retained only for compatibility with older saved settings. */
+  hubAddress?: string;
 }
 
 /** Who the organization is, as shown on invoices and customer communication. */
@@ -124,7 +124,9 @@ export interface CompanyDetails {
 }
 
 export interface BillingConfig {
-  /** Saved province rate overrides; absent entries use the supplied defaults. */
+  /** One company-wide percentage for new quotes; null is an invalid, blank draft. */
+  companyTax: { ratePercent: number | null };
+  /** Historical province overrides retained for existing destination-based quotes. */
   destinationTaxRates: Partial<Record<CanadianProvince, number | null>>;
   company: CompanyDetails;
   general: OrganizationDefaults;
