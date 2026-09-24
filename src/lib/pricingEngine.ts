@@ -1,6 +1,7 @@
 import { toDisplayWeight, toDisplayWeightRate, toDisplayDistance, toDisplayDistanceRate } from './units';
 import { hasDimensionalWeightSetting } from './dimensionalWeight';
 import { zoneAmountForWeight } from './zoneWeightBands';
+import { CENTRAL_PICKUP_ZONE_ID, hasCentralZoneRates } from './centralZoneRates';
 import { resolveCompanyTax } from './companyTax';
 import { DestinationTaxDecision, resolveDestinationTax, taxDestinationKey } from './destinationTax';
 // Shared commercial pricing. Canonical units: km, kg, cm. Snapshots retain quoted terms.
@@ -496,12 +497,14 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     case 'ZONE': {
       const drops = order.stops.filter(s => s.type === 'DROPOFF');
       const movements = drops.flatMap(drop => [...new Set(drop.pickupIds ?? [])].map(id => ({ pickup: order.stops.find(s => s.id === id && s.type === 'PICKUP'), drop })));
-      const invalid = !drops.length || drops.some(d => !d.pickupIds?.length) || movements.some(m => !m.pickup?.zoneId || !m.drop.zoneId);
+      const zoneRates = card.zoneMatrixMode === 'CONTRACT' ? card.zoneRates ?? [] : ctx.pricing.zoneRates;
+      const centralPickup = hasCentralZoneRates(zoneRates);
+      const invalid = !drops.length || drops.some(d => !d.pickupIds?.length) || movements.some(m => !m.pickup || !m.drop.zoneId || (!centralPickup && !m.pickup.zoneId));
       if (invalid) {
         if (card.zoneNoMatchFallback === 'BASE_PLUS_DISTANCE') {
           warnings.push('Commercial pickup-to-delivery movements are incomplete; using the contract Base + Distance fallback.');
           effectiveMethod = 'BASE_PLUS_DISTANCE'; computeCalculated();
-        } else errors.push({ code: 'MISSING_MOVEMENTS', message: 'Link each delivery to its supplying pickup(s) and assign zones to those stops.' });
+        } else errors.push({ code: 'MISSING_MOVEMENTS', message: 'Link each delivery to its supplying pickup(s) and assign the required delivery zone.' });
         break;
       }
       let unmatched = false;
@@ -514,7 +517,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
         return candidates[0];
       };
       for (const { pickup, drop } of movements) {
-        const rate = findRate(card.zoneMatrixMode === 'CONTRACT' ? card.zoneRates ?? [] : ctx.pricing.zoneRates, pickup!.zoneId!, drop.zoneId!);
+        const rate = findRate(zoneRates, centralPickup ? CENTRAL_PICKUP_ZONE_ID : pickup!.zoneId!, drop.zoneId!);
         if (!rate) { unmatched = true; break; }
         // A single movement can infer package links. Multiple movements require explicit links.
         const unknownLinks = rate.weightBands && order.packages.some(pkg => pkg.quantity > 0 &&
@@ -545,7 +548,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
           effectiveMethod = 'BASE_PLUS_DISTANCE';
           computeCalculated();
         } else {
-          errors.push({ code: 'ZONE_NO_MATCH', message: 'No zone rate exists for this origin → destination pair.' });
+          errors.push({ code: 'ZONE_NO_MATCH', message: 'No zone rate exists for this delivery zone.' });
         }
         break;
       }
@@ -596,7 +599,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   }
 
   if (!isValidFuelPercent(fuelPercent)) {
-    errors.push({ code: 'INVALID_CONFIGURATION', message: 'Enter a valid nonnegative fuel surcharge in Pricing → Fuel Charge.' });
+    errors.push({ code: 'INVALID_CONFIGURATION', message: 'Enter a valid nonnegative fuel surcharge in Pricing → Fuel Surcharge.' });
     return base('NEEDS_ATTENTION', { rateCard: resolved, method: effectiveMethod });
   }
 
@@ -805,7 +808,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
       const taxableBase = lines.filter(l => l.taxable && l.group !== 'DISCOUNT' && tax.appliesTo.includes(groupOfLine(l))).reduce((n, l) => n + (taxBases.get(l.key) ?? l.amount), 0);
       const amount = round2(Math.max(0, taxableBase) * tax.ratePercent / 100);
       taxTotal = round2(taxTotal + amount);
-      if (amount) taxLines.push(line({ key: `tax_${tax.id}`, group: 'TAX', label: `${tax.name} (${tax.ratePercent}%)`, detail: `on ${money(taxableBase)} excluding tax`, amount, taxable: false }));
+      if (amount) taxLines.push(line({ key: `tax_${tax.id}`, group: 'TAX', label: `${tax.name} (${tax.ratePercent}%)`, detail: `on ${money(taxableBase)} excluding tax`, quantity: taxableBase, unitRate: tax.ratePercent / 100, amount, taxable: false }));
     }
   }
   const total = roundMoney(subtotal + taxTotal);

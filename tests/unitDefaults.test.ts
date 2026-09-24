@@ -8,7 +8,8 @@ HTMLElement.prototype.scrollIntoView = () => {};
 const { render, screen, cleanup } = await import('@testing-library/react');
 const { default: userEvent } = await import('@testing-library/user-event');
 const { BILLING_STORAGE_KEY, loadBillingConfig, saveBillingConfig } = await import('../src/lib/billingStorage');
-const { CompanySettingsPage } = await import('../src/pages/CompanySettingsPage');
+const { ProfilePage } = await import('../src/pages/ProfilePage');
+const TaxesPreferencesPage = () => React.createElement(ProfilePage, { initialSection: 'taxes' });
 const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
 const { VehicleEditor } = await import('../src/components/entities/VehicleEditor');
 const { loadVehicles } = await import('../src/lib/vehicleStorage');
@@ -38,7 +39,7 @@ test('settings saved before the pound/inch defaults migrate once to lb and in', 
 });
 test('Company settings shows the new defaults and keeps a saved metric preference after reload', async () => {
   const user = userEvent.setup({ document });
-  let page = render(React.createElement(CompanySettingsPage, {}));
+  let page = render(React.createElement(TaxesPreferencesPage, {}));
   assert.match(screen.getByRole('combobox', { name: 'Weight unit' }).textContent!, /Pounds/);
   assert.match(screen.getByRole('combobox', { name: 'Dimension unit' }).textContent!, /Inches/);
   assert.match(screen.getByRole('combobox', { name: 'Distance unit' }).textContent!, /Kilometres/);
@@ -46,7 +47,7 @@ test('Company settings shows the new defaults and keeps a saved metric preferenc
     await user.click(screen.getByRole('combobox', { name })); await user.click(screen.getByRole('option', { name: option }));
   }
   await user.click(screen.getByRole('button', { name: 'Save Settings' }));
-  page.unmount(); page = render(React.createElement(CompanySettingsPage, {}));
+  page.unmount(); page = render(React.createElement(TaxesPreferencesPage, {}));
   assert.match(screen.getByRole('combobox', { name: 'Weight unit' }).textContent!, /Kilograms/);
   assert.match(screen.getByRole('combobox', { name: 'Dimension unit' }).textContent!, /Centimetres/);
 });

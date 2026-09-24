@@ -46,7 +46,7 @@ export const INITIAL_TAX_PROFILES: TaxProfileConfig[] = [
 ];
 
 export const INITIAL_BILLING_CONFIG: BillingConfig = {
-  companyTax: { ratePercent: 5 },
+  companyTax: { enabled: true, ratePercent: 5, provincialEnabled: false, provincialRatePercent: 0 },
   destinationTaxRates: {},
   company: { name: 'Dispatra Logistics', address: '', phone: '', email: '', logoDataUrl: '' },
   general: {
@@ -122,7 +122,7 @@ const withDefaults = (stored: StoredBillingConfig | null): BillingConfig => {
   const previousRate = stored.destinationTaxRates?.BC;
   const companyTax = stored.companyTax
     ? { ...base.companyTax, ...stored.companyTax }
-    : { ratePercent: isValidTaxRate(previousRate) ? previousRate : base.companyTax.ratePercent };
+    : { ...base.companyTax, ratePercent: isValidTaxRate(previousRate) ? previousRate : base.companyTax.ratePercent };
   const fuelSurcharge = normalizeFuelSurcharge({ ...base.fuelSurcharge, ...(stored.fuelSurcharge || {}), label: base.fuelSurcharge.label });
   // Replace the old active 8% default once. A newly saved 8% remains an explicit choice.
   if ((stored.fuelDefaultVersion ?? 0) < FUEL_DEFAULT_VERSION && stored.fuelSurcharge?.mode === 'fixed_percent' && stored.fuelSurcharge.enabled && stored.fuelSurcharge.percent === 8) {

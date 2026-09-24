@@ -38,7 +38,7 @@ Page headings and content share the scrolling `.app-page` canvas and its respons
 
 `PageHeader` contains the title, description and optional page actions. Do not add a Back to Monitor button; use the shared Dispatra brand navigation. Headers without actions do not reserve an action container.
 
-The account command menu uses `DropdownMenuContent size="trigger"` to match its account card width and edges within the sidebar, with 8px collision padding and a 224px Settings flyout, using the shared menu surface, row, typography and animation tokens. Flyouts start closed even when their destination is active. If neither side has enough room, a shared offset derived from Radix available width overlaps the parent instead of clipping options. These widths are local design choices; exact ChatGPT account-menu measurements have not been verified.
+The account command menu uses `DropdownMenuContent size="trigger"` to match its account card width and edges within the sidebar, with 8px collision padding and direct Profile, Pricing, Help and Logout rows using the shared menu surface, typography and animation tokens. These widths are local design choices; exact ChatGPT account-menu measurements have not been verified.
 
 Desktop sidebars collapse to the shared 64px rail token. Use `SidebarHeader` for the brand and expanded-state collapse control. The collapsed logo itself expands the sidebar without navigating; there is no separate expand icon. Retain visually hidden navigation labels, accessible names and hover titles. In the operational rail, the account menu uses the normal `menu` width and opens to the right with room beyond the rail edge; it must not shrink to the avatar trigger width. Mobile keeps the existing modal drawer and page-level open control.
 

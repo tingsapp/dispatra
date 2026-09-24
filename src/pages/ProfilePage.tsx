@@ -1,43 +1,47 @@
 import { Button } from '../components/ui/button';
 import {
-Building,
-Camera,
 Check,
 CheckCircle2,
-Clock,
-Hash,
-Image as ImageIcon,
+Building2,
 Mail,
-MapPin,
 Phone,
-RotateCcw,
+ReceiptText,
 Shield,
-Trash2,
 User
 } from 'lucide-react';
-import React,{ useRef,useState } from 'react';
+import React,{ useState } from 'react';
 import { PageHeader } from '../components/layout/PageHeader';
+import { BillingSettingsForm } from '../components/settings/BillingSettingsForm';
+import { CompanyIdentity, type CompanyIdentityValue } from '../components/settings/CompanyIdentity';
+import { useSettingsGuard } from '../components/settings/useSettingsGuard';
+import { loadBillingConfig, saveBillingConfig } from '../lib/billingStorage';
 import {
 UserProfile,
 loadUserProfile,
-resetUserProfile,
 saveUserProfile
 } from '../lib/profileStorage';
 
 interface ProfilePageProps {
   onNotification?: (msg: string) => void;
+  initialSection?: 'company' | 'security' | 'taxes';
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
-  onNotification
+  onNotification,
+  initialSection
 }) => {
   const [profile, setProfile] = useState<UserProfile>(() => loadUserProfile());
-  const [activeSection, setActiveSection] = useState<'details' | 'security'>('details');
+  const [savedProfile, setSavedProfile] = useState(profile);
+  const [companyIdentity, setCompanyIdentity] = useState<CompanyIdentityValue>(() => {
+    const { name, address, logoDataUrl } = loadBillingConfig().company;
+    return { name, address, logoDataUrl };
+  });
+  const [savedCompanyIdentity, setSavedCompanyIdentity] = useState(companyIdentity);
+  const [activeSection, setActiveSection] = useState<'company' | 'security' | 'taxes'>(() => initialSection ?? 'company');
+  const companyDirty = Object.keys(companyIdentity).some(key => companyIdentity[key as keyof CompanyIdentityValue] !== savedCompanyIdentity[key as keyof CompanyIdentityValue]);
+  const contactDirty = (['name', 'email', 'phone', 'role'] as const).some(key => profile[key] !== savedProfile[key]);
+  useSettingsGuard(companyDirty || contactDirty);
   const [isSaved, setIsSaved] = useState(false);
-
-  // File upload refs & drag states
-  const avatarInputRef = useRef<HTMLInputElement | null>(null);
-  const [isAvatarDragging, setIsAvatarDragging] = useState(false);
 
   // Password fields state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -45,74 +49,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-  const processImageFile = (file: File, callback: (dataUrl: string) => void) => {
-    if (!file.type.startsWith('image/')) {
-      onNotification?.('Please select a valid image file (PNG, JPG, SVG, WebP)');
-      return;
-    }
-    if (file.size > 3 * 1024 * 1024) {
-      onNotification?.('Image size must be under 3 MB');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        callback(result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processImageFile(file, (dataUrl) => {
-        setProfile((prev) => ({ ...prev, avatarUrl: dataUrl }));
-        setIsSaved(false);
-        onNotification?.('Dispatcher logo updated. Click "Save Profile" to persist.');
-      });
-    }
-    if (avatarInputRef.current) avatarInputRef.current.value = '';
-  };
-
-  const handleAvatarDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsAvatarDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processImageFile(file, (dataUrl) => {
-        setProfile((prev) => ({ ...prev, avatarUrl: dataUrl }));
-        setIsSaved(false);
-        onNotification?.('Dispatcher logo updated via drag-and-drop');
-      });
-    }
-  };
-
-  const handleRemoveAvatar = () => {
-    setProfile((prev) => ({ ...prev, avatarUrl: undefined }));
-    setIsSaved(false);
-    onNotification?.('Removed custom logo. Reverted to default monogram.');
-  };
-
-  const handleTextChange = (field: keyof UserProfile, val: any) => {
+  const handleTextChange = (field: 'name' | 'email' | 'phone' | 'role', val: string) => {
     setProfile((prev) => ({ ...prev, [field]: val }));
     setIsSaved(false);
   };
 
-  const handleSave = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    saveUserProfile(profile);
+  const handleSave = () => {
+    if (contactDirty) {
+      const latest = loadUserProfile();
+      for (const key of ['name', 'email', 'phone', 'role'] as const) {
+        if (profile[key] !== savedProfile[key]) latest[key] = profile[key];
+      }
+      saveUserProfile(latest);
+      setProfile(latest);
+      setSavedProfile(latest);
+    }
+    if (companyDirty) {
+      const latest = loadBillingConfig();
+      const changed: Partial<CompanyIdentityValue> = {};
+      for (const key of ['name', 'address', 'logoDataUrl'] as const) {
+        if (companyIdentity[key] !== savedCompanyIdentity[key]) changed[key] = companyIdentity[key];
+      }
+      saveBillingConfig({ ...latest, company: { ...latest.company, ...changed } });
+      setSavedCompanyIdentity(companyIdentity);
+    }
     setIsSaved(true);
-    onNotification?.('Dispatcher profile updated successfully');
+    onNotification?.('Company details saved.');
     setTimeout(() => setIsSaved(false), 3000);
-  };
-
-  const handleReset = () => {
-    const defaults = resetUserProfile();
-    setProfile(defaults);
-    setIsSaved(false);
-    onNotification?.('Profile settings reset to system defaults');
   };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -138,47 +101,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   };
 
   return (
-    <div className="app-page app-page-reading h-full w-full flex flex-col overflow-hidden font-sans">
+    <div className="app-page app-page-profile app-page-reading h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <PageHeader title="Profile" description="Your personal details and account security." actions={<>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="app-action app-secondary"
-            title="Reset to defaults"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Reset</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSave()}
-            className={`app-action text-white ${
-              isSaved ? 'bg-emerald-600' : 'bg-slate-900 hover:bg-slate-800'
-            }`}
-          >
-            {isSaved ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                <span>Changes Saved</span>
-              </>
-            ) : (
-              <span>Save Profile</span>
-            )}
-          </button>
-      </>} />
+      <PageHeader title="Profile" description="Company details, account security, taxes and preferences." />
 
       {/* SUB-NAVIGATION TABS */}
       <div className="page-content h-12 bg-app-canvas flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             type="button"
-            onClick={() => setActiveSection('details')}
-                aria-pressed={activeSection === 'details'}
+            onClick={() => setActiveSection('company')}
+                aria-pressed={activeSection === 'company'}
             className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
           >
-            <User className="w-3.5 h-3.5" />
-            <span>Personal Details</span>
+            <Building2 className="w-3.5 h-3.5" />
+            <span>Company</span>
           </button>
 
           <button
@@ -190,102 +126,38 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <Shield className="w-3.5 h-3.5" />
             <span>Security & Sessions</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection('taxes')}
+            aria-pressed={activeSection === 'taxes'}
+            className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
+          >
+            <ReceiptText className="w-3.5 h-3.5" />
+            <span>Taxes & Preferences</span>
+          </button>
       </div>
 
       {/* MAIN CONTENT AREA */}
       <main className="page-content flex-1 overflow-y-auto py-6 space-y-6">
-        {/* SECTION 1: PERSONAL DETAILS */}
-        {activeSection === 'details' && (
-          <div className="space-y-6">
-            {/* Dispatcher Identity Card with Changeable Logo */}
-            <div className="app-panel app-panel-plain">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                {/* Changeable Logo / Avatar with drag & drop */}
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDragEnter={() => setIsAvatarDragging(true)}
-                  onDragLeave={() => setIsAvatarDragging(false)}
-                  onDrop={handleAvatarDrop}
-                  onClick={() => avatarInputRef.current?.click()}
-                  className={`relative w-20 h-20 rounded-full border-2 cursor-pointer transition-all flex items-center justify-center overflow-hidden group select-none shrink-0 ${
-                    isAvatarDragging
-                      ? 'border-slate-900 bg-slate-50 ring-4 ring-slate-900/10'
-                      : 'border-slate-200 bg-slate-100 hover:border-slate-400'
-                  }`}
-                  title="Click or drag & drop image to change logo"
-                >
-                  {profile.avatarUrl ? (
-                    <img
-                      src={profile.avatarUrl}
-                      alt={profile.name}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <span className="text-slate-800 font-medium text-xl">
-                      {profile.avatarInitials}
-                    </span>
-                  )}
-
-                  {/* Hover Overlay with Camera Icon */}
-                  <div className="absolute inset-0 bg-slate-900/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="w-5 h-5 mb-0.5 text-white" />
-                    <span className="text-xs font-medium">Change</span>
-                  </div>
-
-                </div>
-
-                {/* Hidden Input for avatar file selection */}
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarFileSelect}
-                  className="hidden"
-                />
-
-                <div className="space-y-1.5 flex-1">
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="app-section-title text-slate-900">{profile.name}</h2>
-                  </div>
-                  <p className="text-xs text-slate-500 flex items-center gap-2">
-                    <span>{profile.role}</span>
-                  </p>
-
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {profile.avatarUrl && (
-                      <button
-                        type="button"
-                        onClick={handleRemoveAvatar}
-                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
-                        title="Remove custom logo and revert to monogram"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Remove</span>
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    Click or drop an image on the avatar to change it. PNG, JPG or SVG, max 3MB.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Profile Form */}
-            <div className="app-panel app-panel-plain space-y-5">
-              <h3 className="app-section-title text-slate-900">
-                Contact Information
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {/* SECTION 1: COMPANY */}
+        {activeSection === 'company' && (
+          <div className="profile-company-content flex flex-1 flex-col gap-6">
+            <CompanyIdentity value={companyIdentity} onChange={change => {
+              setCompanyIdentity(previous => ({ ...previous, ...change }));
+              setIsSaved(false);
+            }}>
+              <div>
+                <h4 className="app-section-title text-slate-900 mb-4">Contact Information</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label className="app-label">
-                    Full Name
+                  <label htmlFor="company-contact-name" className="app-label">
+                    Contact Full Name
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
+                      id="company-contact-name"
                       type="text"
                       value={profile.name}
                       onChange={(e) => handleTextChange('name', e.target.value)}
@@ -295,12 +167,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
 
                 <div>
-                  <label className="app-label">
-                    Work Email
+                  <label htmlFor="company-contact-email" className="app-label">
+                    Email
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
+                      id="company-contact-email"
                       type="email"
                       value={profile.email}
                       onChange={(e) => handleTextChange('email', e.target.value)}
@@ -310,12 +183,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
 
                 <div>
-                  <label className="app-label">
-                    Direct Phone / Dispatch Radio
+                  <label htmlFor="company-contact-phone" className="app-label">
+                    Phone
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
+                      id="company-contact-phone"
                       type="tel"
                       value={profile.phone}
                       onChange={(e) => handleTextChange('phone', e.target.value)}
@@ -325,10 +199,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
 
                 <div>
-                  <label className="app-label">
-                    Operational Role
+                  <label htmlFor="company-contact-role" className="app-label">
+                    Role
                   </label>
                   <input
+                    id="company-contact-role"
                     type="text"
                     value={profile.role}
                     onChange={(e) => handleTextChange('role', e.target.value)}
@@ -336,7 +211,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   />
                 </div>
 
+                </div>
               </div>
+            </CompanyIdentity>
+            <div className="mt-auto flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleSave}
+                className={`app-action app-primary rounded-full px-4 py-2 text-xs font-medium text-white ${
+                  isSaved ? 'bg-emerald-600' : 'bg-slate-900 hover:bg-slate-800'
+                }`}
+              >
+                {isSaved ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Changes Saved</span>
+                  </>
+                ) : (
+                  <span>Save Company</span>
+                )}
+              </button>
             </div>
           </div>
         )}
@@ -364,10 +258,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
               <form onSubmit={handlePasswordSubmit} className="space-y-4">
                 <div>
-                  <label className="app-label">
+                  <label htmlFor="profile-current-password" className="app-label">
                     Current Password
                   </label>
                   <input
+                    id="profile-current-password"
                     type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
@@ -378,10 +273,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 max-w-xl gap-4">
                   <div>
-                    <label className="app-label">
+                    <label htmlFor="profile-new-password" className="app-label">
                       New Password
                     </label>
                     <input
+                      id="profile-new-password"
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
@@ -391,10 +287,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </div>
 
                   <div>
-                    <label className="app-label">
+                    <label htmlFor="profile-confirm-password" className="app-label">
                       Confirm New Password
                     </label>
                     <input
+                      id="profile-confirm-password"
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
@@ -436,6 +333,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
           </div>
         )}
+        <div hidden={activeSection !== 'taxes'} className={activeSection === 'taxes' ? '' : 'hidden'}>
+          <BillingSettingsForm section="taxes" onNotification={onNotification} />
+        </div>
       </main>
     </div>
   );

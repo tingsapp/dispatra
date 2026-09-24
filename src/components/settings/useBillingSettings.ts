@@ -20,12 +20,16 @@ export function useBillingSettings(onNotification?: (message: string) => void) {
   };
 
   const handleSave = () => {
-    if (!isValidTaxRate(config.companyTax.ratePercent)) {
-      setSaveError('Enter a Tax / GST rate from 0 to 100% in Taxes.');
+    if (config.companyTax.enabled && !isValidTaxRate(config.companyTax.ratePercent)) {
+      setSaveError('Enter a GST/HST rate from 0 to 100%.');
+      return;
+    }
+    if (config.companyTax.provincialEnabled && !isValidTaxRate(config.companyTax.provincialRatePercent)) {
+      setSaveError('Enter a provincial tax rate from 0 to 100%.');
       return;
     }
     if (!isValidFuelPercent(config.fuelSurcharge.percent)) {
-      setSaveError('Enter a fuel surcharge of 0% or more in Fuel Charge.');
+      setSaveError('Enter a fuel surcharge of 0% or more in Fuel Surcharge.');
       return;
     }
     setSaveError(null);

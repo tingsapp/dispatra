@@ -1,4 +1,5 @@
 import { addressChange, resolveStopLocation } from '../../lib/taxAddress';
+import { hasCentralZoneRates } from '../../lib/centralZoneRates';
 import { applyCustomerDefaults, removeOrderStop } from '../../domain/orderAdapters';
 import React from 'react';
 import { Trash2, Package, MapPin, AlertTriangle, Building2, Layers, Route, Tag, ChevronDown } from 'lucide-react';
@@ -50,6 +51,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   // The shipper's card (or the Default) decides whether stops need zones.
   const card = pricing.rateCards.find(c => c.id === customer?.rateCardId && c.status === 'ACTIVE') ?? defaultRateCard(pricing.rateCards);
   const zonePriced = card?.pricingMethod === 'ZONE';
+  const centralPickup = zonePriced && hasCentralZoneRates(card.zoneRates ?? []);
   const pickups = value.stops.filter(s => s.type === 'PICKUP');
   const drops = value.stops.filter(s => s.type === 'DROPOFF');
 
@@ -121,14 +123,14 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                 <button type="button" disabled={value.stops.length <= 2} onClick={() => onChange(removeOrderStop(value, stop.id))} className="p-1.5 -mr-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 shrink-0" title="Remove stop" aria-label={`Remove stop ${i + 1}`}><Trash2 className="w-4 h-4" /></button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {showStopAddresses && <div className={zonePriced ? '' : 'sm:col-span-2'}>
+                {showStopAddresses && <div className={zonePriced && (!centralPickup || stop.type === 'DROPOFF') ? '' : 'sm:col-span-2'}>
                   <label htmlFor={`${sid}-address`} className={labelClass}>{stop.type === 'PICKUP' ? 'Pickup address' : 'Delivery address'}</label>
                   <input id={`${sid}-address`} type="text" value={stop.label ?? ''} placeholder="Street, city, province, postal code" onChange={(e) => updateStop(stop.id, { label: e.target.value })} className={`${fieldClass} w-full`} aria-label="Stop address" />
                   {unresolved && <p className="mt-1 text-xs text-amber-700">Include the province and postal code so tax can be calculated for this stop.</p>}
                 </div>}
-                {zonePriced && <div className={showStopAddresses ? '' : 'sm:col-span-2'}>
-                  <label className={labelClass}>Zone</label>
-                  <Select aria-label="Zone" className="w-full" value={stop.zoneId ?? ''} onValueChange={(v) => updateStop(stop.id, { zoneId: v || null })} options={[{ value: '', label: 'Zone (required)' }, ...pricing.zones.map((z) => ({ value: z.id, label: z.name }))]} />
+                {zonePriced && (!centralPickup || stop.type === 'DROPOFF') && <div className={showStopAddresses ? '' : 'sm:col-span-2'}>
+                  <label className={labelClass}>{centralPickup ? 'Delivery zone' : 'Zone'}</label>
+                  <Select aria-label={centralPickup ? 'Delivery zone' : 'Zone'} className="w-full" value={stop.zoneId ?? ''} onValueChange={(v) => updateStop(stop.id, { zoneId: v || null })} options={[{ value: '', label: centralPickup ? 'Delivery zone (required)' : 'Zone (required)' }, ...pricing.zones.map((z) => ({ value: z.id, label: z.name }))]} />
                 </div>}
                 <div>
                   <label htmlFor={`${sid}-contact`} className={labelClass}>Contact name</label>

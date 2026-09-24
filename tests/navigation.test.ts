@@ -24,7 +24,7 @@ function Navigation() {
     React.createElement(ConfirmDialogHost),
     React.createElement('output', { 'aria-label': 'Current page' }, page),
     ...Object.keys(PAGE_PATHS).map(key => React.createElement('button', { key, onClick: () => navigate(key) }, key)),
-    page === 'company-settings' && React.createElement(SettingsDraft),
+    page === 'profile' && React.createElement(SettingsDraft),
   );
 }
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
@@ -43,6 +43,8 @@ test('all operational destinations resolve directly, including prototype URLs; t
     assert.equal(pathForPage(page, '/orders'), path);
     assert.equal(pathForPage(page, '/prototype/orders'), `/prototype${path === '/' ? '' : path}`);
   }
+  assert.equal(pageForPath('/settings/company'), 'profile');
+  assert.equal(pathForPage('company-settings', '/'), undefined);
   for (const path of ['/platform', '/acme/dispatch', '/acme/customer/settings', '/prototype-company/dispatch', '/orders/customer', '/settings/services', '/prototype/settings/services', '/unknown']) {
     assert.equal(pageForPath(path), undefined);
   }
@@ -68,12 +70,12 @@ test('navigation updates the URL, avoids duplicate entries, restores Back/Forwar
 });
 
 test('sidebar navigation preserves draft and URL on cancel, then leaves on confirmation', async () => {
-  window.history.replaceState(null, '', '/settings/company');
+  window.history.replaceState(null, '', '/profile');
   render(React.createElement(Navigation));
   fireEvent.change(screen.getByLabelText('Draft'), { target: { value: 'Unsaved company' } });
   click('drivers');
   assert.ok(screen.getByRole('alertdialog'));
-  await at('/settings/company', 'company-settings');
+  await at('/profile', 'profile');
   click('Keep editing');
   assert.equal((screen.getByLabelText('Draft') as HTMLInputElement).value, 'Unsaved company');
   click('drivers'); click('Discard changes');
@@ -82,18 +84,18 @@ test('sidebar navigation preserves draft and URL on cancel, then leaves on confi
 
 test('Back cancellation restores URL and draft; confirmed Back and Forward retain the history stack', async () => {
   render(React.createElement(Navigation));
-  click('company-settings');
+  click('profile');
   fireEvent.change(screen.getByLabelText('Draft'), { target: { value: 'Unsaved company' } });
   window.history.back();
   await screen.findByRole('alertdialog');
-  await at('/settings/company', 'company-settings');
+  await at('/profile', 'profile');
   click('Keep editing');
   assert.equal((screen.getByLabelText('Draft') as HTMLInputElement).value, 'Unsaved company');
   window.history.back();
   await screen.findByRole('alertdialog');
   click('Discard changes');
   await at('/orders', 'jobs');
-  window.history.forward(); await at('/settings/company', 'company-settings');
+  window.history.forward(); await at('/profile', 'profile');
   assert.equal((screen.getByLabelText('Draft') as HTMLInputElement).value, '');
 });
 

@@ -38,7 +38,7 @@ export function loadUserProfile(): UserProfile {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Organization-level fields (name, hub, time zone, logo) moved to Organization Settings → Company; drop stale copies.
+      // Organization-level fields are edited in Profile → Company; drop stale copies from personal profiles.
       const { organization: _org, hub: _hub, organizationId: _orgId, timezone: _tz, orgLogoUrl: _logo, ...personal } = parsed;
       return { ...DEFAULT_USER_PROFILE, ...personal };
     }

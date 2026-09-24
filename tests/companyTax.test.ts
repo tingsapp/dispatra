@@ -47,12 +47,51 @@ test('zero, decimal and maximum rates are supported without a registration numbe
     assert.equal(result.status, 'PRICED'); assert.equal(result.taxTotal, Math.round(rate * 100) / 100);
   }
 });
+test('GST/HST and provincial tax can be charged independently or together', () => {
+  const s = setup();
+  s.billing.companyTax.provincialEnabled = true;
+  s.billing.companyTax.provincialRatePercent = 7;
+  let result = priceOrder(s.order, s.ctx);
+  assert.equal(result.status, 'PRICED');
+  assert.equal(result.taxTotal, 12);
+  assert.equal(result.total, 112);
+  assert.deepEqual(result.taxLines.map(line => [line.label, line.amount]), [['GST/HST (5%)', 5], ['Provincial tax (7%)', 7]]);
+  assert.match(result.taxDecision!.description, /GST\/HST 5% \+ Provincial tax 7%/);
+
+  s.billing.companyTax.enabled = false;
+  result = priceOrder(s.order, s.ctx);
+  assert.equal(result.status, 'PRICED');
+  assert.equal(result.taxTotal, 7);
+  assert.deepEqual(result.taxLines.map(line => line.label), ['Provincial tax (7%)']);
+
+  s.billing.companyTax.provincialEnabled = false;
+  result = priceOrder(s.order, s.ctx);
+  assert.equal(result.status, 'PRICED');
+  assert.equal(result.taxTotal, 0);
+  assert.equal(result.total, 100);
+  assert.deepEqual(result.taxLines, []);
+});
+
+test('enabled tax rates require valid percentages while disabled rates are ignored', () => {
+  const s = setup();
+  s.billing.companyTax.provincialEnabled = true;
+  for (const rate of [null, -1, 101, NaN, Infinity]) {
+    s.billing.companyTax.provincialRatePercent = rate;
+    assert.equal(priceOrder(s.order, s.ctx).status, 'NEEDS_ATTENTION');
+  }
+  s.billing.companyTax.provincialEnabled = false;
+  assert.equal(priceOrder(s.order, s.ctx).taxTotal, 5);
+  s.billing.companyTax.enabled = false;
+  s.billing.companyTax.ratePercent = null;
+  assert.equal(priceOrder(s.order, s.ctx).taxTotal, 0);
+});
+
 test('invalid company rates require review and cannot produce an invoice', () => {
   for (const rate of [null, -1, 101, NaN, Infinity]) {
     const s = setup(); s.billing.companyTax.ratePercent = rate;
     const result = priceOrder(s.order, s.ctx);
     assert.equal(result.status, 'NEEDS_ATTENTION');
-    assert.ok(result.errors.some(error => error.code === 'TAX_REVIEW_REQUIRED' && /Company → Taxes/.test(error.message)));
+    assert.ok(result.errors.some(error => error.code === 'TAX_REVIEW_REQUIRED' && /Company/.test(error.message)));
     assert.throws(() => createInvoicePreview('order', { ...result, stage: 'FINAL' }, s.ctx));
   }
 });
@@ -74,6 +113,23 @@ test('saved quotes, hourly settlement and invoices retain their frozen company r
   s.order.stops[1].label = 'Changed delivery';
   assert.equal(finalizeOrderPrice(s.order, 120, s.ctx, quote).snapshot.status, 'NEEDS_ATTENTION');
 });
+test('hourly settlement retains both selected tax rates from the saved quote', () => {
+  const s = setup();
+  Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true });
+  s.order.hourlyBillableMinutes = 60;
+  s.billing.companyTax.provincialEnabled = true;
+  s.billing.companyTax.provincialRatePercent = 7;
+  const quote = JSON.parse(JSON.stringify(priceOrder(s.order, s.ctx)));
+  assert.equal(quote.taxTotal, 12);
+  s.billing.companyTax.enabled = false;
+  s.billing.companyTax.provincialEnabled = false;
+  assert.equal(priceOrder(s.order, s.ctx).taxTotal, 0);
+  const settled = finalizeOrderPrice(s.order, 120, s.ctx, quote);
+  assert.equal(settled.snapshot.taxTotal, 24);
+  assert.deepEqual(settled.snapshot.taxLines.map(line => line.amount), [10, 14]);
+  assert.equal(createInvoicePreview('order', settled.snapshot, s.ctx).tax, 24);
+});
+
 test('explicit repricing can replace a historical province rate without mutating its snapshot', () => {
   const s = setup(); s.order.taxCalculation = 'DESTINATION';
   s.order.stops[1] = { ...s.order.stops[1], ...addressChange('20 King St, Toronto ON M5V 2T6') };
@@ -87,10 +143,10 @@ test('storage upgrades preserve the previous home rate and explicit company rate
   let raw: string | null = null;
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => key === BILLING_STORAGE_KEY ? raw : null } });
   try {
-    assert.equal(loadBillingConfig().companyTax.ratePercent, 5);
+    assert.deepEqual(loadBillingConfig().companyTax, { enabled: true, ratePercent: 5, provincialEnabled: false, provincialRatePercent: 0 });
     for (const rate of [0, 7.25]) {
       raw = JSON.stringify({ destinationTaxRates: { BC: rate, ON: 13 } });
-      assert.equal(loadBillingConfig().companyTax.ratePercent, rate);
+      assert.deepEqual(loadBillingConfig().companyTax, { enabled: true, ratePercent: rate, provincialEnabled: false, provincialRatePercent: 0 });
     }
     for (const rate of [0, 6, null]) {
       raw = JSON.stringify({ companyTax: { ratePercent: rate }, destinationTaxRates: { BC: 7.25 } });

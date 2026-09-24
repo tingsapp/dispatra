@@ -1,5 +1,173 @@
 # Dispatra Web Client Implementation State
 
+### September 24: Zone 1 starter row
+
+The Zone-to-Zone Matrix now opens with a real 0–99 range in the current company weight unit and $20 in the Zone 1 column; other destination prices remain empty. New Zone card drafts use the same row. Pricing schema 14 adds it once to empty active Zone cards while preserving populated and archived cards. Added rows still start empty.
+
+Validation: 75/75 settings tests and 66/66 pricing tests pass. TypeScript, production build and diff checks pass.
+
+### September 24: Explicit subtotal, tax and total equations
+
+The rate-card example now shows Subtotal as an amount-only signed sum of the actual engine charges compared with the card minimum; charge names remain in the values list above, Tax as the engine's taxable base multiplied by each configured rate, and Total as subtotal plus tax. Tax lines expose their base and rate as structured values for this display. An unpriced Zone card shows a short $20 sample band marked not saved; its actual rate matrix remains empty.
+
+Validation: 74/74 settings tests, 66/66 pricing tests and 11/11 company-tax tests pass. TypeScript, production build and diff checks pass.
+
+### September 24: Clear method-specific pricing explanations
+
+“How Pricing Work?” now leads with a short plain-language formula for the selected rate-card method, then lists only the values used by an engine-calculated example. The Zone formula describes destination-zone and weight-band pricing, and unpriced Zone cards still show that formula with the missing-rate message. Imported final totals show their own direct-total rule.
+
+Validation: 73/73 settings tests pass, including formula order and method-specific examples. TypeScript, production build and diff checks pass.
+
+### September 24: Blank initial zone matrix and one-time price reset
+
+The first matrix row now starts with empty From, To and destination-price inputs. New Zone cards start with no copied prices. Pricing schema 13 clears previously saved rates on active Zone cards and the legacy organization-wide zone matrix once; archived cards and frozen order quotes keep their historical amounts. Newly entered rates persist after the migration. The starter zones remain available without starter prices.
+
+Validation: 73/73 settings tests and 66/66 pricing tests pass. TypeScript, production build and diff checks pass.
+
+### September 24: Matrix row controls and alignment
+
+The single central-pickup matrix now places a small delete icon in the final Action cell of each row. The last remaining row cannot be deleted. A newly added row starts with empty From, To and destination-price inputs; its From value derives after the limit is entered. Destination column headings align left. The prominent Add weight range button uses an icon and a descriptive label.
+
+Validation: focused matrix tests, TypeScript, production build and diff checks pass.
+
+### September 24: Single central-pickup zone matrix
+
+Replaced the repeated pickup-zone tables with one table containing From, To and a price column for each delivery zone. Saved weight bands provide the initial rows. Add row creates a new editable range on request; there is no automatic empty row. New zone cards use central-pickup rates, and existing active cards gain central rates copied from their first available pickup row while their older directional records remain stored. New pricing uses the delivery zone and weight without requiring a pickup zone; the order form requires zones on drop-offs only for these cards. Historical directional contexts remain compatible.
+
+Validation: focused settings and pricing tests, TypeScript, production build and diff checks pass.
+
+### September 24: Weight ranges by pickup zone in Zone-to-Zone Matrix
+
+The matrix now shows one table per pickup zone. Each table has derived From and editable To weight fields, then one price column per destination zone. Existing directional prices and weight bands remain visible. Add weight range and row removal support multiple bands; Save Card persists the edited ranges and prices. Flat prices stay flat until a To is entered. Validation remains field-specific, and clearing/re-entering a price preserves the rate ID.
+
+Validation: focused matrix tests, TypeScript, production build and diff checks pass.
+
+### September 24: Rate card selection stays in place
+
+Selecting a different rate card no longer scrolls the pricing page to the editor. Focus still moves to the selected editor with scroll prevention, preserving keyboard context.
+
+Validation: focused rate-card test, TypeScript, production build, browser check with a nonzero Pricing canvas scroll offset, and diff checks pass.
+
+### September 24: Simplify the Rate Card list header
+
+Removed the visible “Rate cards” label beside Add card above the list search field. Add card stays right-aligned, and the list keeps its accessible name.
+
+Validation: focused settings test, TypeScript, production build and diff checks pass.
+
+### September 24: Restore catalogue Action column
+
+Service Level and Accessorials show a visible Action column with their Delete and Edit icons together. Vehicle Types retain Status and have a visible Action heading for Edit. Corrected the empty-table column spans to match each tab.
+
+Validation: focused catalogue tests, TypeScript, production build and diff checks pass. Chrome confirms the visible Action heading and both icons in one cell on Service Level and Accessorials.
+
+### September 24: Icon-only catalogue deletion
+
+Service Level and Accessorials now show a trash icon in place of the Delete text button. Each icon retains a descriptive accessible name and tooltip, and opens the same confirmation dialog. The action column heading is visually hidden for these two tabs.
+
+Validation: focused catalogue tests, TypeScript, production build and diff checks pass. Chrome confirms the visible Action heading and both icons in one cell on Service Level and Accessorials.
+
+### September 24: Delete Service Levels and Accessorials
+
+Replaced the Active/Inactive controls in Pricing → Service Level and Accessorials with Delete actions. Each asks for confirmation, then removes the chosen record from the saved catalogue. Cancelling keeps it. Vehicle Types retain their status control. Existing saved order prices remain frozen; editing or repricing an order that referenced a deleted item may require a replacement.
+
+Validation: all 72 settings tests pass, including confirmation, cancellation, deletion, persistence and unchanged Vehicle Type status. TypeScript, production build and diff checks pass. Chrome confirms Delete buttons and confirmation dialogs on both Pricing tabs.
+
+### September 24: Pricing explanation label
+
+Renamed the rate-card pricing disclosure from “Pricing formula” to “How Pricing Work?” and aligned its accessible formula label. The worked example and calculation are unchanged.
+
+Validation: focused rate-card settings tests, TypeScript, production build and diff checks pass.
+
+### September 24: Fuel Surcharge naming
+
+Renamed the Pricing tab, section heading, Save action and on-screen guidance from Fuel Charge to Fuel Surcharge. The percentage setting and pricing calculation are unchanged.
+
+Validation: 8 fuel tests, all 69 settings tests, TypeScript, production build and diff checks pass. One pre-existing test assertion was updated from the retired “customers” wording to the current “shippers” wording.
+
+### September 24: Remove Orders export action
+
+Removed Export Manifest from the Orders toolbar, along with its unused CSV handler. The date filter remains in the page header and continues to filter the Orders table.
+
+Validation: focused list page tests, TypeScript, production build and diff checks pass.
+
+### September 24: Orders date menu order
+
+The Orders date menu presents Today and Tomorrow on the first row, then All dates and Date range on the second row. Selection behavior is unchanged.
+
+Validation: focused date picker tests, TypeScript, production build and diff checks pass.
+
+### September 24: Orders header date control
+
+Placed the Orders date filter in the page header where Export Manifest was. Export Manifest remains available in the list toolbar. The date choices and table/CSV filtering behavior are unchanged.
+
+Validation: focused list page tests, TypeScript, production build, desktop/mobile browser checks and diff checks pass.
+
+### September 24: Orders date filter
+
+Moved the date menu from Monitor to the Orders list toolbar. Orders now offers All dates, Today, Tomorrow and an inclusive calendar date range. The selection filters the table and its CSV export by scheduled date; the demo records with time-only schedules count as today. Monitor retains search and notifications without a date picker. Clear all filters also resets the date selection.
+
+Validation: 8 date picker and 6 list page tests pass, including range selection, year rollover and row filtering. TypeScript, production build and diff checks pass. Chrome verifies the Orders choices, inclusive range filtering, filter reset, absence of the Monitor date control and a mobile-width menu that fits the viewport.
+
+### September 24: Descriptive tax checkboxes
+
+In Profile → Taxes & Preferences, the optional tax controls now read “Apply GST/HST to taxable charges” and “Apply provincial tax to taxable charges.” The labels state what enabling each tax does; rates, defaults and calculation behavior are unchanged.
+
+Validation: four focused Profile/tax tests, TypeScript, production build and diff checks pass. The running app exposes both updated checkbox names.
+
+### September 24: Company save row anchored to tab bottom
+
+The Profile page now lets its main content grow, and the Company section fills the available height. Save Company stays below the address and moves to the tab bottom on taller screens. At mobile height it follows the fields in the page scroll. The shared page rule had prevented this growth, so the earlier move placed the button after the fields without anchoring it visually.
+
+Validation: inspected the running app at 1440×1200 and 390×844. On desktop the button is outside the header and ends near the tab bottom; on mobile it remains below the address in the scrollable content.
+
+### September 24: Company save action moved below the fields
+
+Moved Save Company from the Profile header to the bottom of the Company tab, aligned with the Save Settings action in Taxes & Preferences. The save behavior and feedback remain the same.
+
+Validation: Two focused company-save tests, TypeScript, production build and diff checks pass.
+
+### September 24: Profile field label audit
+
+Confirmed the Company and Taxes & Preferences labels against rendered accessible names. Added a visible Company Logo label above the upload control and explicit input associations for Current Password, New Password and Confirm New Password. The Company contact labels, address text input, GST/HST registration number, tax checkboxes/rates and regional preference controls retain their intended names.
+
+Validation: the focused Profile label and company save tests pass; TypeScript and diff checks pass.
+
+### September 24: Company-first Profile and Taxes & Preferences
+
+Reordered Profile tabs to Company, Security & Sessions, and Taxes & Preferences. Company now combines the logo, company name, contact full name, email, phone, role and single-line address under Save Company. The last tab contains the optional GST/HST registration number, GST/HST and provincial tax controls, and regional preferences under Save Settings. Both tabs retain drafts while switching and preserve concurrent edits to unrelated billing fields. The old `/settings/company` bookmark opens the first Company tab.
+
+Validation: 10 focused Profile/company/tax tests, seven unit-default tests, six navigation tests and the server-rendering pricing test pass. TypeScript, production build and diff checks pass.
+
+### September 24: Company moved into Profile and Settings submenu removed
+
+The account menu now lists Profile, Pricing, Help and Logout directly. Profile tabs are Personal Details, Security & Sessions, and Company. Company Identity (name, single-line address, logo and optional GST/HST registration number), Regional Preferences, GST/HST and Provincial tax now share the Company tab and Save Settings. Personal contact fields retain Save Profile. Company drafts stay mounted across tab switches and use the unsaved-change navigation guard. The standalone Company page and its menu destination are removed; `/settings/company` resolves to Profile for older bookmarks. Pricing remains at `/settings/pricing`.
+
+Validation: TypeScript and production build pass. Eleven focused Company/Profile tests pass, covering the direct menu, legacy URL, identity and tax saves, optional tax controls, logo behavior and draft retention across tab switches. All six navigation tests and the unit-default tests pass. The pricing suite has one unrelated failing assertion for a manual minute quantity in the order form; the requested Profile and menu changes do not touch that form.
+
+### September 24: GST/HST registration number moved to Profile
+
+Moved the optional GST/HST registration number from the Company tax page to Profile → Company Identity beside the name, address and logo. Save Profile still writes `invoicing.taxRegistrationNumber`, preserving existing invoice output and other invoicing settings changed elsewhere. Company now shows only Regional Preferences and the two tax-rate sections; the registration number is independent of both tax checkboxes.
+
+Validation: four focused Company/Profile tests pass, including registration save/reload while GST/HST is disabled and preservation of concurrent invoicing settings. TypeScript, production build and diff checks pass. The earlier full settings run has one unrelated rate-card archive-copy expectation failure; it was not rerun for this field move.
+
+### September 24: Optional GST/HST and provincial tax
+
+Renamed the Company tax heading and rate to GST/HST. Added labeled Charge GST/HST and Charge provincial tax checkboxes with separate percentage fields. Existing company GST/HST rates remain enabled on load; provincial tax starts disabled at 0%. Enabled rates apply as separate tax lines to new quotes and repriced orders, while disabled rates contribute nothing. Saving checks only enabled percentages, and historical quote snapshots keep their frozen tax decisions. Tax Registration remains optional; the company GST/HST number is unchanged in storage.
+
+Validation: four focused Company settings tests and the pricing-example label test, all 11 company-tax tests (including two-line totals and frozen hourly settlement), 20 legacy destination-tax tests and five quotation tests pass. TypeScript, production build and diff checks pass. The earlier full settings run still has one unrelated rate-card archive-copy expectation failure; it was not rerun for this tax change.
+
+### September 24: Single Company settings page
+
+Removed the company phone and billing email inputs from Settings → Company. The existing stored values remain available to invoice and quotation output and are preserved by later settings saves. Combined Regional Preferences, Tax / GST and Tax Registration on the Company page beneath its existing heading, removing the General and Taxes tab row. The same Save Settings action saves all visible settings; the tax rate validation and unsaved-change guard remain.
+
+Validation: four focused Company settings tests, all eight company-tax tests, TypeScript, production build and diff checks pass. The earlier full settings run had one unrelated rate-card archive-copy expectation failure; it was not rerun for this page change.
+
+### September 24: Company identity moved to Profile
+
+Moved the company name, address and logo editor from Settings → Company → General to Profile → Personal Details. The address is a single-line text field. Save Profile persists all three fields in the existing `BillingConfig.company` record used by invoices, quotes and the shipper portal, while preserving concurrent changes to other company settings. The logo remains a keyboard-accessible upload control with PNG/JPEG and 200 KB validation, replacement and removal. Unsaved identity edits retain the shared navigation guard. Company → General retains company phone, billing email and regional preferences. Removed the personal avatar editor, leaving the company logo as the only image control on Profile, and updated `spec.md`.
+
+Validation: TypeScript, production build and diff checks pass. Four focused Company/Profile identity tests passed after the address move. Three focused Profile/logo tests pass after avatar removal, including address save/reload, logo validation, preservation of unrelated company data and the Profile navigation guard. The Profile test also verifies that a stored personal avatar is not shown and that the company logo is the sole image input. The earlier full settings run passed 67/68, with its existing unrelated rate-card archive-copy assertion still expecting “customers” where the UI says “shippers.” No API or deployment change.
+
 ### September 22: Layered arrival and morning brief after the intro
 
 When the Monitor intro flight lands, the map now assembles in sequence instead of appearing at once: stop markers drop in (staggered), then driver markers slide on, then the route lines fade in through a MapLibre paint transition, and a brief card settles below the metrics — "Good morning/afternoon/evening, <first name>" with today's order count, drivers on duty and items needing attention (`MonitorBrief`, auto-dismisses after 9 s or via ×). `useMonitorIntro` drives the phases (`arrival.ts`: stops 0 ms, drivers 500 ms, routes 950 ms, brief 1500 ms, done 2300 ms) and exposes them through `ArrivalContext`; markers carry `data-arrival-item` with a stagger index and `mapIntro.css` animates them only while the stage carries `data-arrival`; `TorontoMap` scales route `line-opacity` by the reveal phase. Skipped intros and repeat visits open on the live map with no sequence; reduced motion skips the animation but still shows the brief. Fixed during verification: the sequence timers were cleared on each phase change, which stalled at "routes" — the effect is now keyed on a one-shot landed flag. spec.md updated.

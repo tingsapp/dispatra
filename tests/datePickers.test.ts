@@ -17,7 +17,8 @@ const { render, screen, cleanup, waitFor } = await import('@testing-library/reac
 const { default: userEvent } = await import('@testing-library/user-event');
 const { DatePicker } = await import('../src/components/ui/DatePicker');
 const { DateTimePicker } = await import('../src/components/ui/DateTimePicker');
-const { DateControl } = await import('../src/components/DateControl');
+const { MonitorActions } = await import('../src/components/MonitorActions');
+const { OrderDateFilter } = await import('../src/components/orders/OrderDateFilter');
 afterEach(cleanup);
 
 function Field({ initial = '2026-09-14', onChange = (_: string) => {} }) {
@@ -111,7 +112,7 @@ test('service calendar preserves organization wall time and arbitrary minutes wh
   assert.ok((screen.getByRole('combobox', { name: 'Service window time hours' }) as HTMLButtonElement).disabled);
 });
 
-test('Monitor calendar uses real dates and shortcuts across year boundaries', async () => {
+test('shared calendar uses real dates and shortcuts across year boundaries', async () => {
   const user = userEvent.setup({ document });
   let last = '';
   render(React.createElement(DatePicker, { value: '2026-12-31', today: '2026-12-31', 'aria-label': 'Dispatch date', onValueChange: next => { last = next; }, clearable: false, showTomorrow: true }));
@@ -124,16 +125,34 @@ test('Monitor calendar uses real dates and shortcuts across year boundaries', as
   assert.equal(last, '2026-12-31');
 });
 
-test('Monitor opens the shared calendar and closes adjacent search and notification popovers', async () => {
+test('Orders date menu supports shortcuts and a selected inclusive range', async () => {
   const user = userEvent.setup({ document });
-  const search: boolean[] = []; const notifications: boolean[] = [];
-  function Monitor() {
-    const [open, setOpen] = useState(false);
-    return React.createElement(DateControl, { showCalendarPopover: open, setShowCalendarPopover: setOpen, setShowSearchPopover: next => search.push(next as boolean), setShowNotificationPopover: next => notifications.push(next as boolean), onActionNotification: () => {} });
+  const changes: unknown[] = [];
+  function Filter() {
+    const [value, setValue] = useState<import('../src/components/orders/OrderDateFilter').OrderDateSelection>({ kind: 'all' });
+    return React.createElement(OrderDateFilter, { value, today: '2026-12-31', onValueChange: next => { changes.push(next); setValue(next); } });
   }
-  render(React.createElement(Monitor));
-  await user.click(screen.getByRole('button', { name: /^Dispatch date:/ }));
-  assert.ok(screen.getByRole('dialog', { name: 'Dispatch date calendar' }));
-  assert.deepEqual(search, [false]);
-  assert.deepEqual(notifications, [false]);
+  render(React.createElement(Filter));
+  const trigger = screen.getByRole('button', { name: /^Filter orders by date:/ });
+  await user.click(trigger);
+  assert.deepEqual(Array.from(screen.getByRole('dialog', { name: 'Order date filter' }).querySelectorAll('button')).map(button => button.textContent?.trim()), ['Today', 'Tomorrow', 'All dates', 'Date range']);
+  await user.click(screen.getByRole('button', { name: 'Tomorrow' }));
+  assert.deepEqual(changes.at(-1), { kind: 'day', date: '2027-01-01' });
+  await user.click(trigger);
+  await user.click(screen.getByRole('button', { name: 'Date range' }));
+  assert.equal((screen.getByRole('button', { name: 'Apply range' }) as HTMLButtonElement).disabled, true);
+  await user.click(screen.getByRole('button', { name: /December 30th, 2026/ }));
+  await user.click(screen.getByRole('button', { name: /December 31st, 2026/ }));
+  await user.click(screen.getByRole('button', { name: 'Apply range' }));
+  assert.deepEqual(changes.at(-1), { kind: 'range', from: '2026-12-30', to: '2026-12-31' });
+  await user.click(trigger);
+  await user.click(screen.getByRole('button', { name: 'All dates' }));
+  assert.deepEqual(changes.at(-1), { kind: 'all' });
+});
+
+test('Monitor keeps search and notifications without a date menu', async () => {
+  render(React.createElement(MonitorActions, { onActionNotification: () => {} }));
+  assert.equal(screen.queryByRole('button', { name: /^Dispatch date:/ }), null);
+  assert.ok(screen.getByTitle('Search jobs, drivers, or Vancouver addresses'));
+  assert.ok(screen.getByTitle('Dispatch alerts and notifications'));
 });

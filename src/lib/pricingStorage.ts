@@ -1,8 +1,10 @@
 import { loadBillingConfig } from './billingStorage';
+import { CENTRAL_PICKUP_ZONE_ID } from './centralZoneRates';
+import { fromDisplayWeight, Units } from './units';
 import { Discount, PricingConfig, RateCard, Zone, ZoneRate } from '../types/pricing';
 
 export const PRICING_STORAGE_KEY = 'dispatra_pricing_v1';
-const PRICING_SCHEMA_VERSION = 11;
+const PRICING_SCHEMA_VERSION = 14;
 
 export const NO_DISCOUNT: Discount = { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' };
 
@@ -107,18 +109,13 @@ export const INITIAL_ZONES: Zone[] = [
   { id: 'zone_3', code: 'ZONE3', name: 'Zone 3', postalCodes: ['V3T 1V8'] }
 ];
 
-/** Starter pickup → delivery prices (CAD) with one 500 kg band per movement. */
-const STARTER_ZONE_PRICES: Record<string, Record<string, number>> = {
-  zone_1: { zone_1: 30, zone_2: 45, zone_3: 65 },
-  zone_2: { zone_1: 45, zone_2: 30, zone_3: 50 },
-  zone_3: { zone_1: 65, zone_2: 50, zone_3: 35 }
+/** The first Zone row starts at zero, ends at 99 company weight units, and prices Zone 1 only. */
+export const initialZoneOneRates = (cardId: string, zones: Zone[], units: Units): ZoneRate[] => {
+  const zoneOne = zones.find(zone => zone.id === 'zone_1') ?? zones.find(zone => zone.name.trim().toLowerCase() === 'zone 1');
+  if (!zoneOne) return [];
+  return [{ id: `${cardId}_central_zone_1`, originZoneId: CENTRAL_PICKUP_ZONE_ID, destinationZoneId: zoneOne.id,
+    serviceId: null, amount: 20, weightBands: [{ id: `${cardId}_zone_1_first_band`, maxWeightKg: fromDisplayWeight(99, units), amount: 20 }] }];
 };
-export const STARTER_ZONE_MAX_WEIGHT_KG = 500;
-const starterZoneRates = (prefix: string): ZoneRate[] => Object.entries(STARTER_ZONE_PRICES).flatMap(([origin, row]) => Object.entries(row).map(([destination, amount]) => ({
-  id: `${prefix}${origin}_${destination}`, originZoneId: origin, destinationZoneId: destination, serviceId: null, amount,
-  weightBands: [{ id: `${prefix}${origin}_${destination}_band`, maxWeightKg: STARTER_ZONE_MAX_WEIGHT_KG, amount }]
-})));
-export const INITIAL_ZONE_RATES: ZoneRate[] = starterZoneRates('zr_');
 
 const PRESET_CARD_NAMES: Record<string, { previous: string; name: string }> = {
   rc_org_standard: { previous: 'Standard', name: 'Distance based' },
@@ -131,7 +128,7 @@ const PRESET_CARD_NAMES: Record<string, { previous: string; name: string }> = {
 export const INITIAL_RATE_CARDS: RateCard[] = [
   createEmptyRateCard({ id: 'rc_org_standard', name: 'Distance based', code: 'STD', scope: 'ORGANIZATION', effectiveFrom: '2026-01-01', baseFee: 20, includedKm: 5, kmRate: 1.5 }),
   createEmptyRateCard({ id: 'rc_medical_group', name: 'Medical & Pharma', code: 'MED', status: 'ARCHIVED', effectiveFrom: '2026-01-01', baseFee: 28, includedKm: 8, kmRate: 1.6 }),
-  createEmptyRateCard({ id: 'rc_pacific_fresh', name: 'Zone to zone', code: 'PFL-2026', effectiveFrom: '2026-01-01', pricingMethod: 'ZONE', zoneRates: starterZoneRates('rc_pacific_fresh_') }),
+  createEmptyRateCard({ id: 'rc_pacific_fresh', name: 'Zone to zone', code: 'PFL-2026', effectiveFrom: '2026-01-01', pricingMethod: 'ZONE', zoneRates: [] }),
   createEmptyRateCard({ id: 'rc_nordic_direct', name: 'Fixed per delivery', code: 'NBH-DIRECT', effectiveFrom: '2026-03-01', pricingMethod: 'FIXED', fixedAmount: 95 }),
   createEmptyRateCard({ id: 'rc_westcoast_hourly', name: 'Hourly', code: 'WCCS-HOURLY', effectiveFrom: '2026-01-01', pricingMethod: 'HOURLY', hourlyRate: 85, minimumBillableMinutes: 120, billingIncrementMinutes: 30 }),
   createEmptyRateCard({ id: 'rc_org_2025', name: 'Standard (2025)', code: 'STD-2025', status: 'ARCHIVED', effectiveFrom: '2025-01-01', baseFee: 18, includedKm: 5, kmRate: 1.4 })
@@ -139,11 +136,19 @@ export const INITIAL_RATE_CARDS: RateCard[] = [
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 
+const freshPricingConfig = (): PricingConfig => {
+  const defaults = clone(INITIAL_PRICING_CONFIG);
+  for (const card of defaults.rateCards) if (card.status === 'ACTIVE' && card.pricingMethod === 'ZONE') {
+    card.zoneRates = initialZoneOneRates(card.id, defaults.zones, loadBillingConfig().general);
+  }
+  return defaults;
+};
+
 export const INITIAL_PRICING_CONFIG: PricingConfig = {
   discountSource: 'SHIPPER',
   rateCards: INITIAL_RATE_CARDS,
   zones: INITIAL_ZONES,
-  zoneRates: INITIAL_ZONE_RATES,
+  zoneRates: [],
   customerGroups: []
 };
 
@@ -237,23 +242,18 @@ export const loadPricingConfig = (): PricingConfig => {
       ).map(zone => zone.id) : []);
       const keepRate = (rate: ZoneRate) => !retired.has(rate.originZoneId) && !retired.has(rate.destinationZoneId);
       const zones: Zone[] = storedZones.filter(zone => !retired.has(zone.id)).map(zone => ({ ...zone, postalCodes: zone.postalCodes ?? [] }));
-      // Add the starter zones and prices once to configurations that lack them. An older zone that only shares a
-      // starter's name is replaced by the starter (user decision, September 21); other zones and prices are kept.
+      // Add missing starter zones once. An older zone that only shares a starter name is replaced.
       const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
       const seedStarter = (parsed.schemaVersion ?? 0) < 11 && INITIAL_ZONES.some(seed => !zones.some(zone => zone.id === seed.id) || zones.some(zone => zone.id !== seed.id && sameName(zone.name, seed.name)));
-      const replaced = new Set<string>();
       if (seedStarter) for (const seed of INITIAL_ZONES) {
-        for (const zone of zones.filter(zone => zone.id !== seed.id && sameName(zone.name, seed.name))) { replaced.add(zone.id); zones.splice(zones.indexOf(zone), 1); }
+        for (const zone of zones.filter(zone => zone.id !== seed.id && sameName(zone.name, seed.name))) zones.splice(zones.indexOf(zone), 1);
         if (!zones.some(zone => zone.id === seed.id)) zones.push(clone(seed));
       }
-      const pairKey = (rate: ZoneRate) => `${rate.originZoneId}→${rate.destinationZoneId}`;
-      const withStarters = (rates: ZoneRate[], prefix: string) => {
-        const current = rates.filter(rate => !replaced.has(rate.originZoneId) && !replaced.has(rate.destinationZoneId));
-        const have = new Set(current.map(pairKey));
-        return [...current, ...starterZoneRates(prefix).filter(rate => !have.has(pairKey(rate)))];
-      };
+      // Schema 13 clears active zone prices once, including the retired organization-wide matrix.
+      // Archived cards and frozen order quotes keep their historical prices.
+      const clearSavedZoneRates = (parsed.schemaVersion ?? 0) < 13;
       const storedRates = Array.isArray(parsed.zoneRates) ? parsed.zoneRates.filter(keepRate) : [];
-      const zoneRates = normaliseZoneRates(seedStarter ? withStarters(storedRates, 'zr_') : storedRates);
+      const zoneRates = clearSavedZoneRates ? [] : normaliseZoneRates(storedRates);
       const config: PricingConfig = {
         discountSource: 'SHIPPER',
         zones,
@@ -261,11 +261,19 @@ export const loadPricingConfig = (): PricingConfig => {
         rateCards: normaliseDefault(Array.isArray(parsed.rateCards) ? parsed.rateCards.map(card => {
           const normalized = normaliseCard(card, zoneRates);
           const rates = normalized.zoneRates ?? [];
-          if (seedStarter && normalized.status === 'ACTIVE' && normalized.pricingMethod === 'ZONE') return { ...normalized, zoneRates: withStarters(rates.filter(keepRate), `${normalized.id}_`), version: normalized.version + 1, updatedAt: new Date().toISOString() };
-          return normalized.status === 'ACTIVE' && rates.some(rate => !keepRate(rate))
-            ? { ...normalized, zoneRates: rates.filter(keepRate), version: normalized.version + 1, updatedAt: new Date().toISOString() }
-            : normalized;
-        }) : clone(INITIAL_RATE_CARDS)),
+          let next = normalized;
+          if (next.status === 'ACTIVE' && rates.some(rate => !keepRate(rate))) next = { ...next, zoneRates: rates.filter(keepRate), version: next.version + 1, updatedAt: new Date().toISOString() };
+          if (next.status === 'ACTIVE' && next.pricingMethod === 'ZONE') {
+            const cleared = clearSavedZoneRates && !!next.zoneRates?.length;
+            const currentRates = cleared ? [] : next.zoneRates ?? [];
+            // Empty saved cards need a real starter price so the matrix and formula agree.
+            const starter = !currentRates.length ? initialZoneOneRates(next.id, zones, loadBillingConfig().general) : [];
+            if (cleared || starter.length) next = { ...next, zoneRates: starter.length ? starter : currentRates,
+              version: next.version + 1, updatedAt: new Date().toISOString() };
+          }
+          return next;
+        }) : clone(INITIAL_RATE_CARDS).map(card => card.status === 'ACTIVE' && card.pricingMethod === 'ZONE'
+          ? { ...card, zoneRates: initialZoneOneRates(card.id, zones, loadBillingConfig().general) } : card)),
         customerGroups: []
       };
       if ((parsed.schemaVersion ?? 0) < PRICING_SCHEMA_VERSION || JSON.stringify(config.rateCards) !== JSON.stringify(parsed.rateCards) || parsed.customerGroups?.length) {
@@ -276,7 +284,7 @@ export const loadPricingConfig = (): PricingConfig => {
   } catch {
     // fall through to defaults
   }
-  return clone(INITIAL_PRICING_CONFIG);
+  return freshPricingConfig();
 };
 
 export const savePricingConfig = (config: PricingConfig): void => {
@@ -288,7 +296,7 @@ export const savePricingConfig = (config: PricingConfig): void => {
 };
 
 export const resetPricingConfig = (): PricingConfig => {
-  const defaults = clone(INITIAL_PRICING_CONFIG);
+  const defaults = freshPricingConfig();
   savePricingConfig(defaults);
   return defaults;
 };

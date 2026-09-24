@@ -1,4 +1,5 @@
-import { Pencil, Plus } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { confirmDialog } from '../ui/ConfirmDialog';
 import { useState } from 'react';
 import { loadBillingConfig, saveBillingConfig } from '../../lib/billingStorage';
 import { loadSimplePricingConfig, saveSimplePricingConfig } from '../../lib/simplePricingStorage';
@@ -48,6 +49,18 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
     commit(loadSimplePricingConfig()[section].map(record => record.id === item.id ? { ...record, active: !record.active } : record));
     onNotification?.(`${item.name} ${item.active ? 'deactivated' : 'activated'}.`);
   };
+  const deleteItem = async (item: Item) => {
+    if (!(await confirmDialog({
+      title: `Delete ${singular.toLowerCase()} “${item.name}”?`,
+      message: 'This removes it from future order choices. Saved order prices stay unchanged, but orders using it may need a replacement before editing or repricing.',
+      confirmLabel: `Delete ${singular.toLowerCase()}`,
+      tone: 'danger'
+    }))) return;
+    const records = loadSimplePricingConfig()[section];
+    if (!records.some(record => record.id === item.id)) return;
+    commit(records.filter(record => record.id !== item.id));
+    onNotification?.(`${item.name} deleted.`);
+  };
   return <section aria-label={title} className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="app-section-title text-slate-900">{title}</h2><p className="text-xs text-slate-500 mt-1">{description}</p></div><button type="button" onClick={() => setEditing(null)} className={button}><Plus className="w-3.5 h-3.5" />Add {singular}</button></div>
     {section === 'accessorials' && <input aria-label="Search Accessorials" placeholder="Search Accessorials" value={search} onChange={event => setSearch(event.target.value)} className="app-input w-full sm:max-w-xs" />}
@@ -57,7 +70,8 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       <th className="px-4 py-3 font-medium">{section === 'services' ? 'Booking requirements' : section === 'accessorials' ? 'Applies when' : 'Type limits'}</th>
       {section === 'services' && <th className="px-4 py-3 font-medium">Additional charge ({billing.invoicing.currency})</th>}
       {section === 'vehicles' && <th className="px-4 py-3 font-medium">Cost / {billing.general.distanceUnit}</th>}
-      <th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3"><span className="sr-only">Edit</span></th>
+      {section === 'vehicles' && <th className="px-4 py-3 font-medium">Status</th>}
+      <th className="px-4 py-3 font-medium">Action</th>
     </tr></thead><tbody>{items.map(item => <tr key={item.id} className="border-t border-slate-100">
       <td className="px-4 py-3 font-medium text-slate-900">{item.name}</td>
       {section === 'services' ? <><td className="px-4 py-3 text-slate-600">{(item as DeliveryService).estimatedTime || 'Not specified'}</td><td className="px-4 py-3 text-slate-500">{(item as DeliveryService).bookingCutoffTime ? `Book by ${(item as DeliveryService).bookingCutoffTime}` : 'No cutoff'} · {(item as DeliveryService).exclusiveVehicle ? 'Exclusive vehicle' : 'Shared vehicle'}</td></> : section === 'accessorials' ? <>
@@ -66,9 +80,12 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       </> : <><td className="px-4 py-3 text-slate-600">${(item as VehicleType).baseSurcharge.toFixed(2)}</td><td className="px-4 py-3 text-slate-500">{formatWeight((item as VehicleType).payloadCapacityKg, billing.general)} · {(item as VehicleType).palletCapacity} pallets</td></>}
       {section === 'services' && <td className="px-4 py-3 text-slate-600 tabular-nums">{(item as DeliveryService).additionalCharge == null ? 'Set charge' : `$${(item as DeliveryService).additionalCharge!.toFixed(2)}`}</td>}
       {section === 'vehicles' && <td className="px-4 py-3 text-slate-600 tabular-nums">{costPerKm(item.id) == null ? <span className="text-slate-400">default</span> : `$${toDisplayDistanceRate(costPerKm(item.id)!, billing.general).toFixed(2)}`}</td>}
-      <td className="px-4 py-3"><button type="button" aria-label={`${item.name}: ${item.active ? 'deactivate' : 'activate'}`} onClick={() => toggle(item)} className={`px-2 py-1 rounded text-xs font-medium ${item.active ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 bg-slate-100'}`}>{item.active ? 'Active' : 'Inactive'}</button></td>
-      <td className="px-4 py-3"><button type="button" aria-label={`Edit ${item.name}`} onClick={() => setEditing(item)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Pencil className="w-3.5 h-3.5" /></button></td>
-    </tr>)}{!items.length && <tr><td colSpan={section === 'accessorials' ? 5 : 6} className="p-6 text-center text-slate-500">{search ? 'No matches. Try a different search.' : `No ${title.toLowerCase()} yet.`}</td></tr>}</tbody></table></div>
+      {section === 'vehicles' && <td className="px-4 py-3"><button type="button" aria-label={`${item.name}: ${item.active ? 'deactivate' : 'activate'}`} onClick={() => toggle(item)} className={`px-2 py-1 rounded text-xs font-medium ${item.active ? 'text-emerald-700 bg-emerald-50' : 'text-slate-500 bg-slate-100'}`}>{item.active ? 'Active' : 'Inactive'}</button></td>}
+      <td className="px-4 py-3"><div className="inline-flex items-center gap-1">
+        {section !== 'vehicles' && <button type="button" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} onClick={() => void deleteItem(item)} className="rounded p-1.5 text-rose-700 hover:bg-rose-50"><Trash2 aria-hidden="true" className="h-3.5 w-3.5" /></button>}
+        <button type="button" aria-label={`Edit ${item.name}`} onClick={() => setEditing(item)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Pencil className="w-3.5 h-3.5" /></button>
+      </div></td>
+    </tr>)}{!items.length && <tr><td colSpan={section === 'accessorials' ? 4 : section === 'services' ? 5 : 6} className="p-6 text-center text-slate-500">{search ? 'No matches. Try a different search.' : `No ${title.toLowerCase()} yet.`}</td></tr>}</tbody></table></div>
     {editing !== undefined && section === 'services' && <ServiceModal isOpen onClose={() => setEditing(undefined)} onSave={save} initialService={editing as DeliveryService | null} />}
     {editing !== undefined && section === 'accessorials' && <AccessorialModal isOpen onClose={() => setEditing(undefined)} onSave={save} initialAccessorial={editing as AccessorialItem | null} />}
     {editing !== undefined && section === 'vehicles' && <VehicleModal isOpen onClose={() => setEditing(undefined)} onSave={saveVehicle} initialVehicle={editing as VehicleType | null} initialCostPerKm={editing ? costPerKm(editing.id) : null} />}

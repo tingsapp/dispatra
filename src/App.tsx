@@ -1,12 +1,11 @@
 import { PanelLeft,RefreshCw,Sparkles } from 'lucide-react';
 import { AnimatePresence,motion } from 'motion/react';
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
-import { DateControl } from './components/DateControl';
+import { MonitorActions } from './components/MonitorActions';
 import { DetailModalDialog } from './components/DetailModalDialog';
 import { DriverPopover } from './components/DriverPopover';
 import { JobDetailPopover } from './components/JobDetailPopover';
 import { MapControls } from './components/MapControls';
-import { SettingsArea } from './components/settings/SettingsLayout';
 import { ConfirmDialogHost } from './components/ui/ConfirmDialog';
 import { Sidebar } from './components/Sidebar';
 import { TopMetrics } from './components/TopMetrics';
@@ -22,7 +21,6 @@ import { loadPricingContext,loadSavedOrders,pricingAttentionItems,saveOrders } f
 import { validateAssignment } from './lib/organizationWorkflows';
 import { usePageNavigation } from './lib/usePageNavigation';
 import { MonitorStage } from './components/monitor/MonitorStage';
-import { CompanySettingsPage } from './pages/CompanySettingsPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { DriversPage } from './pages/DriversPage';
 import { HelpSupportPage } from './pages/HelpSupportPage';
@@ -33,15 +31,11 @@ import { ReportsPage } from './pages/ReportsPage';
 import { VehiclesPage } from './pages/VehiclesPage';
 import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from './types';
 
-/** Tab shown for each Organization Settings destination. */
-const SETTINGS_TABS: Record<SettingsArea, string> = { company: 'company-settings', pricing: 'rate-cards' };
-const settingsAreaForTab = (tab: string): SettingsArea | undefined => (Object.keys(SETTINGS_TABS) as SettingsArea[]).find(area => SETTINGS_TABS[area] === tab);
 export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const [activeTab, setActiveTab] = usePageNavigation();
   const [monitorMapReady, setMonitorMapReady] = useState(false);
   const onMonitorMapReady = useCallback(() => setMonitorMapReady(true), []);
   useEffect(() => { if (activeTab !== 'monitor') setMonitorMapReady(false); }, [activeTab]);
-  const navigateSettings = (area: SettingsArea) => setActiveTab(SETTINGS_TABS[area]);
   const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia('(max-width: 639px)').matches);
   useEffect(() => {
     if (activeTab === 'monitor') return;
@@ -77,7 +71,6 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const [showActiveJobsMenu, setShowActiveJobsMenu] = useState<boolean>(false);
   const [showAvailableDriversMenu, setShowAvailableDriversMenu] = useState<boolean>(false);
   const [showNeedsAttentionPopover, setShowNeedsAttentionPopover] = useState<boolean>(false);
-  const [showCalendarPopover, setShowCalendarPopover] = useState<boolean>(false);
   const [showSearchPopover, setShowSearchPopover] = useState<boolean>(false);
   const [showNotificationPopover, setShowNotificationPopover] = useState<boolean>(false);
   const [showAccountPopover, setShowAccountPopover] = useState<boolean>(false);
@@ -428,8 +421,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
         setShowAccountPopover={setShowAccountPopover}
         onActionNotification={showToast}
         onLogout={onSignOut}
-        activeSettingsArea={settingsAreaForTab(activeTab)}
-        onNavigateSettings={(area) => { setModalDialog({ isOpen: false, type: null }); navigateSettings(area); }}
+        onOpenPricing={() => { setModalDialog({ isOpen: false, type: null }); setActiveTab('rate-cards'); }}
         dispatchMode={dispatchMode}
         onDispatchModeChange={(mode) => {
           setDispatchMode(mode);
@@ -461,12 +453,6 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
 
         {activeTab === 'rate-cards' ? (
           <RateCardsPage
-            onNavigateSettings={navigateSettings}
-            onNotification={showToast}
-          />
-        ) : activeTab === 'company-settings' ? (
-          <CompanySettingsPage
-            onNavigateSettings={navigateSettings}
             onNotification={showToast}
           />
         ) : activeTab === 'profile' ? (
@@ -564,10 +550,8 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
               onOpenAllExceptions={handleOpenAllExceptions}
             />
 
-            {/* COMPACT DATE CONTROL, NOTIFICATION & SEARCH ICONS */}
-            <DateControl
-              showCalendarPopover={showCalendarPopover}
-              setShowCalendarPopover={setShowCalendarPopover}
+            {/* MONITOR SEARCH AND NOTIFICATIONS */}
+            <MonitorActions
               showSearchPopover={showSearchPopover}
               setShowSearchPopover={setShowSearchPopover}
               showNotificationPopover={showNotificationPopover}

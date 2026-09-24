@@ -1,13 +1,28 @@
 import { Button } from '../ui/button';
-import { CompanyTabs } from './CompanyTabs';
+import { RegionalSettings } from './RegionalSettings';
+import { cardClass, fieldClass, labelClass } from './BillingFields';
+import { TaxSettings } from './TaxSettings';
 import { FuelChargeSettings } from './FuelChargeSettings';
 import { useBillingSettings } from './useBillingSettings';
 
-const SAVE_LABELS = { company: 'Settings', fuel: 'Fuel Charge' } as const;
+const SAVE_LABELS = { taxes: 'Settings', fuel: 'Fuel Surcharge' } as const;
 export function BillingSettingsForm({ section, onNotification }: { section: keyof typeof SAVE_LABELS; onNotification?: (message: string) => void }) {
   const editor = useBillingSettings(onNotification);
-  return <form onSubmit={event => { event.preventDefault(); editor.handleSave(); }} className={`space-y-5 ${section === 'fuel' ? 'w-full max-w-2xl' : ''}`}>
-    {section === 'company' && <CompanyTabs editor={editor} />}
+  return <form noValidate={section === 'taxes'} onSubmit={event => { event.preventDefault(); editor.handleSave(); }} className={`space-y-5 ${section === 'fuel' ? 'w-full max-w-2xl' : ''}`}>
+    {section === 'taxes' && <div className="app-sections">
+      <section className={`${cardClass} app-panel-plain`} aria-labelledby="tax-registration-heading">
+        <h2 id="tax-registration-heading" className="app-section-title text-slate-900">Tax Registration</h2>
+        <div className="mt-4 max-w-md">
+          <label htmlFor="tax-registration" className={labelClass}>GST/HST Registration Number</label>
+          <input id="tax-registration" type="text" aria-label="GST/HST registration number" className={fieldClass}
+            value={editor.config.invoicing.taxRegistrationNumber} placeholder="123456789 RT0001"
+            onChange={event => editor.patch('invoicing', { taxRegistrationNumber: event.target.value })} />
+          <p className="mt-1 text-xs text-slate-500">Optional. Printed on invoices.</p>
+        </div>
+      </section>
+      <TaxSettings editor={editor} />
+      <RegionalSettings editor={editor} />
+    </div>}
     {section === 'fuel' && <FuelChargeSettings editor={editor} />}
     {editor.saveError && <p role="alert" className="text-sm text-red-600">{editor.saveError}</p>}
     <div className={`flex items-center justify-end gap-3 ${section === 'fuel' ? 'flex-row-reverse flex-wrap' : ''}`}>

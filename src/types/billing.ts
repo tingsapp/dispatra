@@ -124,8 +124,8 @@ export interface CompanyDetails {
 }
 
 export interface BillingConfig {
-  /** One company-wide percentage for new quotes; null is an invalid, blank draft. */
-  companyTax: { ratePercent: number | null };
+  /** Optional company-wide rates for new quotes; null is an invalid, blank enabled draft. */
+  companyTax: { enabled: boolean; ratePercent: number | null; provincialEnabled: boolean; provincialRatePercent: number | null };
   /** Historical province overrides retained for existing destination-based quotes. */
   destinationTaxRates: Partial<Record<CanadianProvince, number | null>>;
   company: CompanyDetails;

@@ -11,7 +11,6 @@ import { AccountMenu } from './layout/AccountMenu';
 import { SidebarHeader } from './layout/SidebarHeader';
 import { useSidebarDrawer } from './layout/useSidebarDrawer';
 import { loadUserProfile } from '../lib/profileStorage';
-import { SettingsArea } from './settings/SettingsLayout';
 
 interface SidebarProps {
   activeTab: string;
@@ -23,9 +22,7 @@ interface SidebarProps {
   onActionNotification: (msg: string) => void;
   /** Ends the dispatcher session and returns to the login page. */
   onLogout?: () => void;
-  /** Settings destination currently open, if any; highlights the destination when its submenu is opened. */
-  activeSettingsArea?: SettingsArea;
-  onNavigateSettings?: (area: SettingsArea) => void;
+  onOpenPricing?: () => void;
   dispatchMode: 'AUTO' | 'MANUAL';
   onDispatchModeChange: (mode: 'AUTO' | 'MANUAL') => void;
   onOpenProfile?: () => void;
@@ -41,8 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setShowAccountPopover,
   onActionNotification,
   onLogout,
-  activeSettingsArea,
-  onNavigateSettings,
+  onOpenPricing,
   dispatchMode,
   onDispatchModeChange,
   onOpenProfile,
@@ -124,9 +120,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <AccountMenu open={showAccountPopover} onOpenChange={setShowAccountPopover}
             modal={mobile}
             collapsed={collapsed}
-            activeTab={activeTab} activeSettingsArea={activeSettingsArea}
+            activeTab={activeTab}
             onProfile={() => { setActiveTab('profile'); onOpenProfile?.(); }}
-            onSettings={area => { onNavigateSettings?.(area); }}
+            onPricing={() => { onOpenPricing?.(); }}
             onHelp={() => { setActiveTab('help'); onOpenHelp?.(); }}
             onLogout={() => { if (onLogout) onLogout(); else onActionNotification('Logged out dispatcher session'); }}
             trigger={

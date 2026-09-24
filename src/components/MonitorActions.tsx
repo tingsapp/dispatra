@@ -13,12 +13,8 @@ import {
   MapPin
 } from 'lucide-react';
 import { Driver, Job } from '../types';
-import { DatePicker } from './ui/DatePicker';
-import { formatDateValue } from '../lib/dateValues';
 
-interface DateControlProps {
-  showCalendarPopover: boolean;
-  setShowCalendarPopover: React.Dispatch<React.SetStateAction<boolean>>;
+interface MonitorActionsProps {
   showSearchPopover?: boolean;
   setShowSearchPopover?: React.Dispatch<React.SetStateAction<boolean>>;
   showNotificationPopover?: boolean;
@@ -39,9 +35,7 @@ interface DispatchAlert {
   unread: boolean;
 }
 
-export const DateControl: React.FC<DateControlProps> = ({
-  showCalendarPopover,
-  setShowCalendarPopover,
+export const MonitorActions: React.FC<MonitorActionsProps> = ({
   showSearchPopover: externalShowSearch,
   setShowSearchPopover: externalSetShowSearch,
   showNotificationPopover: externalShowNotification,
@@ -62,7 +56,6 @@ export const DateControl: React.FC<DateControlProps> = ({
   const isNotificationOpen = externalShowNotification !== undefined ? externalShowNotification : internalNotificationOpen;
   const setIsNotificationOpen = externalSetShowNotification || setInternalNotificationOpen;
 
-  const [selectedDate, setSelectedDate] = useState(() => formatDateValue(new Date()));
   const [searchQuery, setSearchQuery] = useState('');
   const [alerts, setAlerts] = useState<DispatchAlert[]>([
     {
@@ -97,7 +90,6 @@ export const DateControl: React.FC<DateControlProps> = ({
     setIsSearchOpen(next);
     if (next) {
       setIsNotificationOpen(false);
-      setShowCalendarPopover(false);
     }
   };
 
@@ -105,7 +97,6 @@ export const DateControl: React.FC<DateControlProps> = ({
     setIsNotificationOpen(next);
     if (next) {
       setIsSearchOpen(false);
-      setShowCalendarPopover(false);
     }
   };
 
@@ -367,28 +358,6 @@ export const DateControl: React.FC<DateControlProps> = ({
                 ))}
               </div>
       </FloatingPanel>
-
-      {/* 3. DATE SELECTOR CONTROL & CALENDAR POPOVER */}
-      <DatePicker
-        aria-label="Dispatch date"
-        value={selectedDate}
-        onValueChange={date => {
-          setSelectedDate(date);
-          onActionNotification(`Selected dispatch date ${date}`);
-        }}
-        open={showCalendarPopover}
-        onOpenChange={open => {
-          setShowCalendarPopover(open);
-          if (open) {
-            setIsSearchOpen(false);
-            setIsNotificationOpen(false);
-          }
-        }}
-        clearable={false}
-        showTomorrow
-        align="end"
-        className="app-metric h-11 w-auto px-4"
-      />
     </div>
   );
 };

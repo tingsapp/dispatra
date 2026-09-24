@@ -1,5 +1,8 @@
+import { CENTRAL_PICKUP_ZONE_ID } from '../lib/centralZoneRates';
 import { ListSummary } from '../components/layout/ListSummary';
 import { DriverAssignmentMenu } from '../components/entities/DriverAssignmentMenu';
+import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
+import { formatDateValue } from '../lib/dateValues';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
 import {
@@ -8,7 +11,6 @@ UserRoundSearch,
 AlertTriangle,
 ChevronRight,
 Clock,
-Download,
 MapPin,
 Package,
 Phone,
@@ -27,7 +29,6 @@ import { buildQuotation } from '../lib/quotation';
 import { invoiceOrder, invoiceState } from '../lib/invoicing';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
-import { csv } from '../domain/csv';
 import { applyDriverVehicle,normalizeOrderInput,snapshotCustomer } from '../domain/orderAdapters';
 import { loadVehicles } from '../lib/vehicleStorage';
 import { lifecycleLabel,orderAttention,orderEditable,orderLifecycle,validateOrderFacts } from '../domain/validation';
@@ -80,6 +81,8 @@ export function JobsPage({
   const [statusFilter, setStatusFilter] = useState<'all' | 'on_time' | 'at_risk' | 'late_start' | 'no_driver' | 'completed'>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<OrderDateSelection>({ kind: 'all' });
+  const today = formatDateValue(new Date());
   
   // Selected job for detail drawer
   const [activeJobDossier, setActiveJobDossier] = useState<Job | null>(null);
@@ -137,10 +140,17 @@ export function JobsPage({
 
       const matchesType =
         typeFilter === 'all' || job.serviceId === typeFilter;
+      // Legacy demo orders have time-only schedules; treat those as today's orders.
+      const scheduledDate = job.pricingInput?.scheduledAt?.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+        ?? job.scheduledTime.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+        ?? today;
+      const matchesDate = dateFilter.kind === 'all' || (dateFilter.kind === 'day'
+        ? scheduledDate === dateFilter.date
+        : scheduledDate >= dateFilter.from && scheduledDate <= dateFilter.to);
 
-      return matchesSearch && matchesStatus && matchesType && (lifecycleFilter === 'all' || (lifecycleFilter === 'attention' ? orderAttention(job).length > 0 : orderLifecycle(job) === lifecycleFilter));
+      return matchesSearch && matchesStatus && matchesType && matchesDate && (lifecycleFilter === 'all' || (lifecycleFilter === 'attention' ? orderAttention(job).length > 0 : orderLifecycle(job) === lifecycleFilter));
     });
-  }, [jobs, searchQuery, statusFilter, typeFilter, lifecycleFilter]);
+  }, [jobs, searchQuery, statusFilter, typeFilter, lifecycleFilter, dateFilter, today]);
 
   // Metrics
   const totalCount = jobs.length;
@@ -148,22 +158,6 @@ export function JobsPage({
   const atRiskCount = jobs.filter((j) => j.status === 'at_risk' || j.status === 'late_start').length;
   const noDriverCount = jobs.filter(j => !j.assignedDriverId && j.status !== 'completed').length;
   const completedCount = jobs.filter((j) => j.status === 'completed').length;
-
-  const handleExportCSV = () => {
-    const content = csv([
-      ['Order number','Order status','Risk','Shipper','Reference / PO','Priority','Stops in order','Scheduled','Driver','Service','Pricing status','Currency','Subtotal','Tax','Total'],
-      ...filteredJobs.map(j => [j.jobNumber,lifecycleLabel(j),orderAttention(j).map(a => a.label).join('; '),j.customerName,j.referenceNumbers,j.priority ?? 'NORMAL',j.pricingInput?.stops.map((s,i) => `${i+1}. ${s.type}: ${s.label} (${s.contactName ?? ''})`).join(' | '),j.scheduledTime,j.assignedDriverId,j.serviceLevel,j.pricing?.status,j.pricing?.currency,j.pricing?.subtotal,j.pricing?.taxTotal,j.pricing?.total])
-    ]);
-    const encodedUri = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `dispatra_orders_manifest_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(encodedUri);
-    onNotification(`Exported ${filteredJobs.length} jobs to CSV manifest`);
-  };
 
   const handleReassignDriver = (job: Job, driverId: string) => {
     if (!orderEditable(job)) { onNotification('This order is locked for operational or billing changes.'); return; }
@@ -205,7 +199,11 @@ export function JobsPage({
     const normalizedNumber = editingOrder?.jobNumber ?? nextJobNumber(jobs);
     const factsErrors = validateOrderFacts(newOrderInput);
     const zoneCard = pricingCtx.pricing.rateCards.find(c => c.id === selectedCustomer.rateCardId && c.status === 'ACTIVE') ?? pricingCtx.pricing.rateCards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
-    if (zoneCard?.pricingMethod === 'ZONE' && newOrderInput.stops.some(st => !st.zoneId)) factsErrors.push('Choose a zone for every stop — this shipper is priced zone to zone.');
+    if (zoneCard?.pricingMethod === 'ZONE') {
+      const centralPickup = zoneCard.zoneRates?.some(rate => rate.originZoneId === CENTRAL_PICKUP_ZONE_ID);
+      if (newOrderInput.stops.some(st => (st.type === 'DROPOFF' || !centralPickup) && !st.zoneId))
+        factsErrors.push(centralPickup ? 'Choose a delivery zone for every drop-off.' : 'Choose a zone for every stop — this shipper is priced zone to zone.');
+    }
     if (selectedCustomer && ['Inactive','On Hold'].includes(selectedCustomer.status)) factsErrors.push('Choose an active shipper.');
     const latest = editingOrder && jobs.find(j => j.id === editingOrder.id);
     if (editingOrder && (!latest || !orderEditable(latest) || (latest.version ?? 1) !== (editingOrder.version ?? 1))) factsErrors.push('Order changed while editing. Close and reopen it before saving.');
@@ -279,14 +277,7 @@ export function JobsPage({
     <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
       <PageHeader title="Orders" description="Order details, shipper pricing, time windows and assignments." actions={<>
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="app-action app-secondary"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Export Manifest</span>
-          </button>
+          <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={today} />
           <Button
             type="button"
             onClick={openCreateModal}
@@ -375,7 +366,7 @@ export function JobsPage({
                 onClick={() => {
                   setSearchQuery('');
                   setStatusFilter('all');
-                  setTypeFilter('all'); setLifecycleFilter('all');
+                  setTypeFilter('all'); setLifecycleFilter('all'); setDateFilter({ kind: 'all' });
                 }}
                 className="mt-4 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
               >

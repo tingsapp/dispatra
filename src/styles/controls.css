@@ -17,6 +17,11 @@
   flex: 0 0 auto;
   overflow-y: visible;
 }
+.app-page.app-page-profile > main.page-content {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
 .app-page:has([data-page-width="reading"]) { --app-page-width: var(--app-reading-width); }
 .app-page-title { font-size: 1.75rem; line-height: 2.25rem; font-weight: 500; letter-spacing: -.025em; color: var(--color-app-text); }
 @media (max-width: 767px) {
@@ -257,10 +262,14 @@ svg.lucide { stroke-width: 1.75; }
 .app-table-input:focus { background: var(--color-app-surface); border-color: var(--color-app-muted); outline: 1px solid var(--color-app-muted); outline-offset: -1px; }
 .app-zone-matrix-scroll { max-width: 100%; max-height: 70vh; overflow: auto; }
 .app-zone-matrix { --app-zone-input-min-width: 70px; width: 100%; table-layout: auto; }
-.app-zone-matrix :is(th, td) { min-width: calc(2 * var(--app-zone-input-min-width) + .875rem); }
+.app-zone-matrix :is(th, td) { min-width: 7rem; }
 .app-zone-matrix > thead { position: sticky; top: 0; z-index: 2; background: var(--color-app-surface); }
-.app-zone-matrix > :is(thead, tbody) > tr > th:first-child { position: sticky; left: 0; z-index: 1; width: 10rem; min-width: 10rem; max-width: 10rem; background: var(--color-app-surface); white-space: normal; }
-.app-zone-band-grid { display: grid; grid-template-columns: repeat(2, minmax(var(--app-zone-input-min-width), 1fr)); gap: .375rem; align-items: start; }
+.app-zone-matrix > thead tr:last-child th:nth-child(-n + 2),
+.app-zone-matrix > tbody td:nth-child(-n + 2) { position: sticky; z-index: 1; width: 6rem; min-width: 6rem; background: var(--color-app-surface); }
+.app-zone-matrix > thead tr:last-child th:first-child,
+.app-zone-matrix > tbody td:first-child { left: 0; }
+.app-zone-matrix > thead tr:last-child th:nth-child(2),
+.app-zone-matrix > tbody td:nth-child(2) { left: 6rem; }
 
 /* The zone editor uses the reference's compact, outlined fields rather than ruled rows. */
 .app-panel.app-zone-panel {
@@ -297,6 +306,8 @@ svg.lucide { stroke-width: 1.75; }
 .app-zone-panel .app-table-input:hover { border-color: var(--color-slate-300); }
 .app-zone-panel .app-table-input:focus { border-color: var(--color-app-muted); outline: none; box-shadow: none; }
 .app-zone-panel .app-table-input[aria-invalid="true"] { border-color: var(--color-rose-600); }
+.app-zone-matrix thead th { text-align: left; }
+.app-zone-matrix :is(th, td).app-zone-matrix-action { min-width: 2.5rem; width: 2.5rem; text-align: center; }
 .app-zone-matrix input[type="number"] { width: 100%; min-width: var(--app-zone-input-min-width); text-align: left; font-variant-numeric: tabular-nums; }
 .app-zone-table button[data-size="icon-sm"] { color: var(--color-slate-400); }
 

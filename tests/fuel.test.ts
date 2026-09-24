@@ -52,7 +52,7 @@ test('legacy indexed and disabled fuel settings migrate without changing their e
   assert.equal(normalizeFuelSurcharge({ ...INITIAL_BILLING_CONFIG.fuelSurcharge, mode: 'index_pegged', currentFuelPrice: 1 }).percent, 0);
 });
 
-test('Fuel Charge exposes one field, validates input, saves decimals and toggles charging with zero', async () => {
+test('Fuel Surcharge exposes one field, validates input, saves decimals and toggles charging with zero', async () => {
   const user = userEvent.setup({ document });
   const page = render(React.createElement(BillingSettingsForm, { section: 'fuel' }));
   assert.equal(screen.getAllByRole('spinbutton').length, 1);
@@ -63,19 +63,19 @@ test('Fuel Charge exposes one field, validates input, saves decimals and toggles
   assert.equal((field as HTMLInputElement).value, '28.5');
   for (const invalid of ['', '-1']) {
     await user.clear(field); if (invalid) await user.type(field, invalid);
-    await user.click(screen.getByRole('button', { name: 'Save Fuel Charge' }));
+    await user.click(screen.getByRole('button', { name: 'Save Fuel Surcharge' }));
     assert.equal(loadBillingConfig().fuelSurcharge.percent, 28.5);
   }
   await user.clear(field); await user.type(field, '24.75');
   const changedElsewhere = loadBillingConfig(); changedElsewhere.company.name = 'Concurrent company'; changedElsewhere.fuelSurcharge.taxable = false; saveBillingConfig(changedElsewhere);
-  await user.click(screen.getByRole('button', { name: 'Save Fuel Charge' }));
+  await user.click(screen.getByRole('button', { name: 'Save Fuel Surcharge' }));
   assert.equal(loadBillingConfig().fuelSurcharge.percent, 24.75); assert.equal(loadBillingConfig().fuelSurcharge.taxable, false);
   assert.equal(loadBillingConfig().company.name, 'Concurrent company');
-  await user.clear(field); await user.type(field, '0'); await user.click(screen.getByRole('button', { name: 'Save Fuel Charge' }));
+  await user.clear(field); await user.type(field, '0'); await user.click(screen.getByRole('button', { name: 'Save Fuel Surcharge' }));
   assert.equal(loadBillingConfig().fuelSurcharge.enabled, false);
   page.unmount(); render(React.createElement(BillingSettingsForm, { section: 'fuel' }));
   const reloaded = screen.getByLabelText('Fuel surcharge (%)'); assert.equal((reloaded as HTMLInputElement).value, '0');
-  await user.clear(reloaded); await user.type(reloaded, '28.5'); await user.click(screen.getByRole('button', { name: 'Save Fuel Charge' }));
+  await user.clear(reloaded); await user.type(reloaded, '28.5'); await user.click(screen.getByRole('button', { name: 'Save Fuel Surcharge' }));
   assert.equal(loadBillingConfig().fuelSurcharge.enabled, true);
 });
 
@@ -83,7 +83,7 @@ test('editing fuel percent wins over a concurrent disable without losing unrelat
   const user = userEvent.setup({ document }); render(React.createElement(BillingSettingsForm, { section: 'fuel' }));
   const field = screen.getByLabelText('Fuel surcharge (%)'); await user.clear(field); await user.type(field, '24');
   const latest = loadBillingConfig(); latest.fuelSurcharge.enabled = false; saveBillingConfig(latest);
-  await user.click(screen.getByRole('button', { name: 'Save Fuel Charge' }));
+  await user.click(screen.getByRole('button', { name: 'Save Fuel Surcharge' }));
   assert.equal(loadBillingConfig().fuelSurcharge.percent, 24); assert.equal(loadBillingConfig().fuelSurcharge.enabled, true);
 });
 

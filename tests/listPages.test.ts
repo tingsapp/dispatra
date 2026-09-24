@@ -15,6 +15,7 @@ const { CustomersPage } = await import('../src/pages/CustomersPage');
 const { VehiclesPage } = await import('../src/pages/VehiclesPage');
 const { INITIAL_DRIVERS, INITIAL_JOBS } = await import('../src/data/mockData');
 const { loadVehicles } = await import('../src/lib/vehicleStorage');
+const { formatDateValue } = await import('../src/lib/dateValues');
 const { loadCustomers } = await import('../src/lib/customerStorage');
 const noop = () => {};
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -62,4 +63,32 @@ test('Analytics retains KPI values and audit filtering with the shared summary c
   assert.equal(summary.textContent, before);
   await user.click(screen.getByRole('button', { name: 'Today' }));
   assert.equal(screen.getByRole('button', { name: 'Today' }).getAttribute('aria-pressed'), 'true');
+});
+
+test('Orders date menu filters scheduled rows and resets with other filters', async () => {
+  const user = userEvent.setup({ document });
+  const today = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 7);
+  const jobs = [
+    { ...INITIAL_JOBS[0], id: 'date-today', jobNumber: '#9101', scheduledTime: `${formatDateValue(today)}T10:00` },
+    { ...INITIAL_JOBS[1], id: 'date-tomorrow', jobNumber: '#9102', scheduledTime: `${formatDateValue(tomorrow)}T10:00` },
+    { ...INITIAL_JOBS[2], id: 'date-next-week', jobNumber: '#9103', scheduledTime: `${formatDateValue(nextWeek)}T10:00` },
+  ];
+  render(React.createElement(JobsPage, { jobs, drivers: INITIAL_DRIVERS, onSelectJob: noop, onUpdateJob: noop, onCreateJob: noop, onNotification: noop }));
+  const trigger = screen.getByRole('button', { name: /^Filter orders by date:/ });
+  assert.ok(screen.getByRole('banner').contains(trigger));
+  assert.equal(screen.queryByRole('button', { name: 'Export Manifest' }), null);
+  assert.equal(screen.getByRole('table', { name: 'Orders' }).querySelectorAll('tbody tr').length, 3);
+  await user.click(trigger);
+  await user.click(screen.getByRole('button', { name: 'Today' }));
+  assert.equal(screen.getByRole('table', { name: 'Orders' }).querySelectorAll('tbody tr').length, 1);
+  assert.ok(screen.getByText('#9101'));
+  await user.click(trigger);
+  await user.click(screen.getByRole('button', { name: 'Tomorrow' }));
+  assert.equal(screen.getByRole('table', { name: 'Orders' }).querySelectorAll('tbody tr').length, 1);
+  assert.ok(screen.getByText('#9102'));
+  await user.click(trigger);
+  await user.click(screen.getByRole('button', { name: 'All dates' }));
+  assert.equal(screen.getByRole('table', { name: 'Orders' }).querySelectorAll('tbody tr').length, 3);
 });

@@ -1,22 +1,14 @@
-import { Building2, ChevronDown, FileText } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import React,{ useId } from 'react';
 import { PageHeader } from '../layout/PageHeader';
 
-export type SettingsArea = 'company' | 'pricing';
 export interface SettingsPageProps {
   onNotification?: (message: string) => void;
-  onNavigateSettings?: (area: SettingsArea) => void;
 }
-/** The Organization Settings submenu: one entry per destination, in menu order. */
-export const SETTINGS_AREAS = [
-  { id: 'company', label: 'Company', description: 'Company details, taxes, currency, units and time zone.', icon: Building2 },
-  { id: 'pricing', label: 'Pricing', description: 'Rate cards, service levels, fuel charges and Accessorials.', icon: FileText },
-] as const;
 
-export function SettingsLayout({ area, children }: SettingsPageProps & { area: SettingsArea; children: React.ReactNode }) {
-  const current = SETTINGS_AREAS.find(item => item.id === area)!;
-  return <div className={`app-page ${area === 'company' ? 'app-page-reading' : ''} h-full min-w-0 flex flex-col`}>
-    <PageHeader title={current.label} description={current.description} />
+export function SettingsLayout({ children }: { children: React.ReactNode }) {
+  return <div className="app-page h-full min-w-0 flex flex-col">
+    <PageHeader title="Pricing" description="Rate cards, service levels, fuel charges and Accessorials." />
     <main className="page-content flex-1 overflow-y-auto min-h-0 py-6"><div className="app-sections">{children}</div></main>
   </div>;
 }

@@ -106,6 +106,35 @@ test('contract matrices differ and explicit movements price each supplying picku
   s.order.stops[1].pickupIds.push('pickup2', 'pickup2'); s.card.zoneRates.push({ id: 'cb', originZoneId: 'c', destinationZoneId: 'b', serviceId: null, amount: 25 });
   assert.equal(priced(s).freight, 65);
 });
+test('central-pickup zone card prices by destination and weight without a pickup zone', () => {
+  const s = setup(); s.card.pricingMethod = 'ZONE'; s.card.zoneMatrixMode = 'CONTRACT';
+  const pickup = s.order.stops[0], drop = s.order.stops[1];
+  pickup.zoneId = null; drop.zoneId = 'b'; drop.pickupIds = [pickup.id];
+  s.card.zoneRates = [{ id: 'central-b', originZoneId: '__central_pickup__', destinationZoneId: 'b', serviceId: null, amount: 999,
+    weightBands: [{ id: 'first', maxWeightKg: 99, amount: 20 }, { id: 'second', maxWeightKg: 199, amount: 24 }] }];
+  s.order.packages = [{ id: 'box', quantity: 1, weightKg: 99, lengthCm: 1, widthCm: 1, heightCm: 1, declaredValue: 0 }];
+  assert.equal(priced(s).freight, 20);
+  s.order.packages[0].weightKg = 100;
+  assert.equal(priced(s).freight, 24);
+  pickup.zoneId = 'another-pickup-zone';
+  assert.equal(priced(s).freight, 24);
+  drop.zoneId = 'unpriced';
+  assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION');
+});
+
+test('central-pickup order form asks for delivery zones only', async () => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
+  const s = setup(); s.card.pricingMethod = 'ZONE';
+  s.card.zoneRates = [{ id: 'central-b', originZoneId: '__central_pickup__', destinationZoneId: 'b', serviceId: null, amount: 20 }];
+  s.order.stops[0].zoneId = null; s.order.stops[1].zoneId = 'b'; s.order.stops[1].pickupIds = [s.order.stops[0].id];
+  const markup = renderToStaticMarkup(React.createElement(OrderPricingForm, { value: s.order, onChange: () => {}, ctx: s.ctx,
+    snapshot: calculatePricing(s.order, s.ctx), showStopAddresses: true }));
+  assert.equal(markup.match(/aria-label="Delivery zone"/g)?.length, 1);
+  assert.doesNotMatch(markup, /aria-label="Zone"/);
+});
+
 test('a pair missing from a card\'s own zone prices is no match; organization prices are never used silently', () => {
   const s = setup(); s.card.pricingMethod = 'ZONE'; s.card.zoneMatrixMode = 'CONTRACT';
   s.order.stops[0].zoneId = 'a'; s.order.stops[1].zoneId = 'b'; s.order.stops[1].pickupIds = [s.order.stops[0].id];
@@ -183,12 +212,13 @@ test('invoice preview uses finalized lines, tax registration and payment terms',
 test('revised settings and shared order form render without a browser', async () => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { CompanySettingsPage } = await import('../src/pages/CompanySettingsPage');
+  const { ProfilePage } = await import('../src/pages/ProfilePage');
+  const TaxesPreferencesPage = () => React.createElement(ProfilePage, { initialSection: 'taxes' });
   const { RateCardsPage } = await import('../src/pages/RateCardsPage');
   const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
   const { ContractRulesEditor } = await import('../src/components/pricing/ContractRulesEditor');
   const noop = () => { };
-  const company = renderToStaticMarkup(React.createElement(CompanySettingsPage, {}));
+  const company = renderToStaticMarkup(React.createElement(TaxesPreferencesPage, {}));
   assert.match(company, /Regional Preferences/); assert.doesNotMatch(company, /Vehicle Running Cost|Invoicing Basics|Fuel surcharge/);
   const rates = renderToStaticMarkup(React.createElement(RateCardsPage, {}));
   assert.match(rates, /Accessorials/); assert.match(rates, /Add card/); assert.doesNotMatch(rates, /Minute Rate|Included Minutes|Additional settings|Minimum Freight|Vehicle Restriction/);
@@ -221,7 +251,7 @@ test('legacy time rates retire on load and stored discounts normalise to None / 
   } finally { if (original) Object.defineProperty(globalThis, 'localStorage', original); else Reflect.deleteProperty(globalThis, 'localStorage'); }
 });
 
-test('saved Base + Distance and Zone cards migrate once to the flat form, keeping rates, discount and zone prices', async () => {
+test('saved Base + Distance and Zone cards migrate once, seeding only the first Zone rate', async () => {
   const { loadPricingConfig, savePricingConfig, PRICING_STORAGE_KEY, INITIAL_ZONES } = await import('../src/lib/pricingStorage');
   const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   const data = new Map<string, string>();
@@ -233,12 +263,12 @@ test('saved Base + Distance and Zone cards migrate once to the flat form, keepin
       const hourly = createEmptyRateCard({ id: 'hourly', pricingMethod: 'HOURLY', hourlyRate: 123, minimumBillableMinutes: 90, minuteRate: 9, includedMinutes: 20 });
       data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, zones: INITIAL_ZONES, rateCards: [card, hourly], schemaVersion: 2 }));
       const loaded = loadPricingConfig(); const migrated = loaded.rateCards[0];
-      assert.equal(migrated.minuteRate, 0); assert.equal(migrated.includedMinutes, 0); assert.equal(migrated.version, 8);
+      assert.equal(migrated.minuteRate, 0); assert.equal(migrated.includedMinutes, 0); assert.equal(migrated.version, method === 'ZONE' ? 9 : 8);
       assert.equal(migrated.fuelPercent, null); assert.deepEqual(migrated.vehicleSurchargeOverrides, {}); assert.equal(migrated.applyServiceMultiplier, true);
-      assert.equal(migrated.baseFee, 83); assert.deepEqual(migrated.discount, { ...card.discount, scope: 'TRANSPORT_ONLY' }); assert.deepEqual(migrated.zoneRates, card.zoneRates); assert.equal(migrated.scope, 'ORGANIZATION');
+      assert.equal(migrated.baseFee, 83); assert.deepEqual(migrated.discount, { ...card.discount, scope: 'TRANSPORT_ONLY' }); assert.deepEqual(migrated.zoneRates, method === 'ZONE' ? [{ id: `${migrated.id}_central_zone_1`, originZoneId: '__central_pickup__', destinationZoneId: 'zone_1', serviceId: null, amount: 20, weightBands: [{ id: `${migrated.id}_zone_1_first_band`, maxWeightKg: 99 * 0.45359237, amount: 20 }] }] : card.zoneRates); assert.equal(migrated.scope, 'ORGANIZATION');
       assert.deepEqual(loaded.rateCards[1], hourly);
       const saved = data.get(PRICING_STORAGE_KEY)!;
-      assert.equal(JSON.parse(saved).schemaVersion, 11); assert.equal(JSON.parse(saved).rateCards[0].minuteRate, 0);
+      assert.equal(JSON.parse(saved).schemaVersion, 14); assert.equal(JSON.parse(saved).rateCards[0].minuteRate, 0);
       assert.deepEqual(loadPricingConfig(), loaded); assert.equal(data.get(PRICING_STORAGE_KEY), saved);
       savePricingConfig({ ...loaded, rateCards: [card] });
       assert.equal(loadPricingConfig().rateCards[0].minuteRate, 0);
@@ -384,7 +414,7 @@ test('without an attached card the Default applies; without a Default pricing is
   const result = calculatePricing(s.order, s.ctx); assert.equal(result.status, 'UNAVAILABLE'); assert.equal(result.errors[0]?.code, 'NO_RATE_CARD');
 });
 
-test('shared order form exposes manual minute quantities while waiting remains automatic', async () => {
+test('shared order form lists fixed Accessorials while historical minute pricing remains compatible', async () => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
@@ -396,8 +426,8 @@ test('shared order form exposes manual minute quantities while waiting remains a
   const result = priced(s);
   const markup = renderToStaticMarkup(React.createElement(OrderPricingForm, { value: s.order, onChange: () => { }, ctx: s.ctx, snapshot: result }));
   assert.match(markup, /Special handling time/);
-  assert.match(markup, /<input[^>]*aria-label="Special handling time minutes"[^>]*value="12"/);
-  assert.doesNotMatch(markup, /Waiting Time/);
+  assert.doesNotMatch(markup, /aria-label="Special handling time minutes"/);
+  assert.match(markup, /Waiting Time/);
   assert.equal(result.lines.find(l => l.key === 'acc_manual-minute')?.amount, 20);
   assert.equal(result.lines.filter(l => l.key === `acc_${wait.id}`).length, 1);
   s.order.accessorials = [];
@@ -468,7 +498,7 @@ test('automatic precision uses cents and hundredths of a kilometre despite legac
   assert.equal(applyDistanceRules(10.234, s.billing), 15);
 });
 
-test('zone cards that inherited the organization matrix take their own copy of it on load', async () => {
+test('zone cards that inherited the organization matrix receive only the first Zone rate on load', async () => {
   const { loadPricingConfig, PRICING_STORAGE_KEY, INITIAL_ZONES } = await import('../src/lib/pricingStorage');
   const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage'); const data = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
@@ -477,7 +507,7 @@ test('zone cards that inherited the organization matrix take their own copy of i
     const inherited = createEmptyRateCard({ ...s.card, id: 'inherited', scope: 'ORDER', pricingMethod: 'ZONE', zoneMatrixMode: 'INHERIT', zoneRates: [] });
     data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, zones: INITIAL_ZONES, zoneRates: [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 40 }], rateCards: [s.card, inherited], schemaVersion: 6 }));
     const loaded = loadPricingConfig(); const card = loaded.rateCards[1];
-    assert.equal(card.zoneMatrixMode, 'CONTRACT'); assert.deepEqual(card.zoneRates.map(r => [r.originZoneId, r.destinationZoneId, r.amount]), [['a', 'b', 40]]); assert.equal(card.version, inherited.version + 1);
+    assert.equal(card.zoneMatrixMode, 'CONTRACT'); assert.equal(card.zoneRates.length, 1); assert.equal(card.zoneRates[0].destinationZoneId, 'zone_1'); assert.equal(card.zoneRates[0].amount, 20); assert.deepEqual(loaded.zoneRates, []); assert.equal(card.version, inherited.version + 2);
     assert.deepEqual(loadPricingConfig(), loaded);
   } finally { if (original) Object.defineProperty(globalThis, 'localStorage', original); else Reflect.deleteProperty(globalThis, 'localStorage'); }
 });

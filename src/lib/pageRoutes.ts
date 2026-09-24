@@ -6,7 +6,6 @@ export const PAGE_PATHS: Record<string, string> = {
   vehicles: '/vehicles',
   customers: '/shippers',
   reports: '/analytics',
-  'company-settings': '/settings/company',
   'rate-cards': '/settings/pricing',
   profile: '/profile',
   help: '/help',
@@ -14,6 +13,7 @@ export const PAGE_PATHS: Record<string, string> = {
 
 export function pageForPath(pathname: string): string | undefined {
   const path = pathname.replace(/^\/prototype(?=\/|$)/, '').replace(/\/+$/, '') || '/';
+  if (path === '/settings/company') return 'profile';
   return Object.keys(PAGE_PATHS).find(page => PAGE_PATHS[page] === path);
 }
 

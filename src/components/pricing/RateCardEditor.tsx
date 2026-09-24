@@ -3,6 +3,7 @@ import { ContractRulesEditor } from '../../components/pricing/ContractRulesEdito
 import { Select } from '../../components/ui/Select';
 import { fromDisplayDistance, fromDisplayDistanceRate, toDisplayDistance, toDisplayDistanceRate } from '../../lib/units';
 import { PricingMethod } from '../../types/pricing';
+import { initialZoneOneRates } from '../../lib/pricingStorage';
 import { RateCardZones } from './RateCardZones';
 import { ZoneMatrixEditor } from './ZoneMatrixEditor';
 import { RateCardEditorProps } from './RateCardEditorProps';
@@ -22,13 +23,13 @@ export function RateCardEditor({ draft, isNew, config, catalogue, billing, patch
           <input aria-label="Rate card name" type="text" value={draft.name} onChange={(e) => patchDraft({ name: e.target.value })} className={fieldClass} />
         </div>
         {hasMinimum && <NumberField label="Minimum Charge" value={draft.applyOrderMinimum === false ? 0 : draft.minimumOrderSubtotal ?? 0} onChange={value => patchDraft({ minimumOrderSubtotal: value, applyOrderMinimum: true })} prefix="$" hint="Before tax, after discounts and adjustments. 0 = no minimum." />}
-        {isNew && <div className="sm:col-span-2"><label className={labelClass}>Pricing method</label><Select aria-label="Pricing method" className="w-full" value={draft.pricingMethod} onValueChange={value => patchDraft({ pricingMethod: value as PricingMethod, ...(value === 'ZONE' && !draft.zoneRates?.length ? { zoneRates: config.zoneRates.map(rate => ({ ...rate, id: `${draft.id}_${rate.originZoneId}_${rate.destinationZoneId}` })) } : {}) })} options={(Object.keys(METHOD_LABELS) as PricingMethod[]).filter(method => method !== 'IMPORTED' || draft.pricingMethod === 'IMPORTED').map(method => ({ value: method, label: METHOD_LABELS[method] }))} /></div>}
+        {isNew && <div className="sm:col-span-2"><label className={labelClass}>Pricing method</label><Select aria-label="Pricing method" className="w-full" value={draft.pricingMethod} onValueChange={value => patchDraft({ pricingMethod: value as PricingMethod, ...(value === 'ZONE' && !draft.zoneRates?.length ? { zoneRates: initialZoneOneRates(draft.id, config.zones, billing.general) } : {}) })} options={(Object.keys(METHOD_LABELS) as PricingMethod[]).filter(method => method !== 'IMPORTED' || draft.pricingMethod === 'IMPORTED').map(method => ({ value: method, label: METHOD_LABELS[method] }))} /></div>}
       </div>
     </div>
 
     {/* Pricing method */}
     {draft.pricingMethod !== 'ZONE' && <div className={cardClass}>
-      <h3 className="app-section-title text-slate-900">{isCalculated ? 'Distance Based Rates' : `${METHOD_LABELS[draft.pricingMethod]} rates`}</h3><p className="text-xs text-slate-500 mt-0.5 mb-4">Rates exclude tax. Manage tax in Company → Taxes.</p>
+      <h3 className="app-section-title text-slate-900">{isCalculated ? 'Distance Based Rates' : `${METHOD_LABELS[draft.pricingMethod]} rates`}</h3><p className="text-xs text-slate-500 mt-0.5 mb-4">Rates exclude tax. Manage tax in Company.</p>
       {draft.pricingMethod === 'FIXED' && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <NumberField label="Fixed Amount per Delivery" value={draft.fixedAmount} onChange={(v) => patchDraft({ fixedAmount: v })} prefix="$" />

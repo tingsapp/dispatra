@@ -27,7 +27,7 @@ import { PricingTabs } from '../components/pricing/PricingTabs';
 import { SettingsLayout, SettingsPageProps } from '../components/settings/SettingsLayout';
 import { DISCARD_CHANGES, useSettingsGuard } from '../components/settings/useSettingsGuard';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
-export function RateCardsPage({ onNotification, onNavigateSettings }: SettingsPageProps) {
+export function RateCardsPage({ onNotification }: SettingsPageProps) {
   const [config, setConfig] = useState<PricingConfig>(() => loadPricingConfig());
   const [revision, setRevision] = useState(0);
   const [isNew, setIsNew] = useState(false);
@@ -40,8 +40,7 @@ export function RateCardsPage({ onNotification, onNavigateSettings }: SettingsPa
   useEffect(() => {
     if (draft && focusedCardId.current !== draft.id) {
       focusedCardId.current = draft.id;
-      editorRef.current?.focus();
-      editorRef.current?.scrollIntoView({ block: 'start' });
+      editorRef.current?.focus({ preventScroll: true });
     }
   }, [draft?.id]);
 
@@ -182,7 +181,7 @@ export function RateCardsPage({ onNotification, onNavigateSettings }: SettingsPa
   const refreshDefaults = (message: string) => { setRevision(value => value + 1); onNotification?.(message); };
   const zoneActions = { addZone, patchZone, deleteZone };
   const methodFilterControl = <Select aria-label="Filter pricing method" value={methodFilter} onValueChange={setMethodFilter} options={[{ value: '', label: 'All pricing methods' }, ...Object.entries(METHOD_LABELS).filter(([value]) => value !== 'IMPORTED').map(([value, label]) => ({ value, label }))]} />;
-  return <SettingsLayout area="pricing" onNavigateSettings={onNavigateSettings}>
+  return <SettingsLayout>
     <PricingTabs tabs={[
       { id: 'cards', label: 'Rate Cards', content: <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
         <RateCardList cards={visibleCards} selectedId={draft?.id} search={search} onSearch={setSearch} onAdd={addCard} onSelect={selectCard} isDefault={isDefault} />
@@ -203,7 +202,7 @@ export function RateCardsPage({ onNotification, onNavigateSettings }: SettingsPa
         </section> : <div className="space-y-5"><div className="flex justify-end">{methodFilterControl}</div><div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">Select a rate card or add one to set your prices.</div></div>}
       </div>
       },
-      { id: 'fuel', label: 'Fuel Charge', content: <BillingSettingsForm section="fuel" onNotification={refreshDefaults} /> },
+      { id: 'fuel', label: 'Fuel Surcharge', content: <BillingSettingsForm section="fuel" onNotification={refreshDefaults} /> },
       { id: 'services', label: 'Service Level', content: <CatalogueSection section="services" onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
       { id: 'accessorials', label: 'Accessorials', content: <CatalogueSection section="accessorials" onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
     ]} />
