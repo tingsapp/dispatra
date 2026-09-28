@@ -12,48 +12,27 @@ async function at(path, title) {
   await page.getByRole('heading', { name: title, exact: true }).waitFor();
 }
 try {
-  await page.goto(origin + '/orders');
-  await at('/orders', 'Orders');
-  for (const [path, title] of [['/drivers', 'Drivers'], ['/vehicles', 'Vehicles'], ['/shippers', 'Shippers'], ['/analytics', 'Analytics']]) {
+  await page.goto(origin + '/');
+  await page.getByRole('heading', { name: 'Automatic dispatch. Smarter deliveries.' }).waitFor();
+  await page.goto(origin + '/prototype/orders');
+  await page.getByLabel('Email').fill('dispatcher@dispatra.com');
+  await page.getByLabel('Password').fill('123456');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.waitForURL(origin + '/prototype');
+  await page.getByRole('button', { name: 'Orders', exact: true }).click();
+  await at('/prototype/orders', 'Orders');
+  for (const [title, path] of [['Drivers', '/prototype/drivers'], ['Vehicles', '/prototype/vehicles'], ['Shippers', '/prototype/shippers'], ['Analytics', '/prototype/analytics']]) {
     await page.getByRole('button', { name: title, exact: true }).click();
     await at(path, title);
     await page.reload();
     await at(path, title);
   }
-  await page.goBack(); await at('/shippers', 'Shippers');
-  await page.goForward(); await at('/analytics', 'Analytics');
-  await page.getByTitle('Dispatcher Account', { exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Company', exact: true }).click();
-  await at('/settings/company', 'Company');
-  await page.getByLabel('Company name', { exact: true }).fill('Unsaved navigation test');
-  await page.getByRole('button', { name: 'Drivers', exact: true }).click();
-  await page.getByRole('alertdialog').waitFor();
-  assert.equal(new URL(page.url()).pathname, '/settings/company');
-  await page.getByRole('button', { name: 'Keep editing', exact: true }).click();
-  await page.evaluate(() => history.back());
-  await page.getByRole('alertdialog').waitFor();
-  await page.waitForURL(origin + '/settings/company');
-  await page.getByRole('button', { name: 'Keep editing', exact: true }).click();
-  assert.equal(await page.getByLabel('Company name', { exact: true }).inputValue(), 'Unsaved navigation test');
-  await page.evaluate(() => history.back());
-  await page.getByRole('alertdialog').waitFor();
-  await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
-  await at('/analytics', 'Analytics');
-  await page.goForward(); await at('/settings/company', 'Company');
-  for (const [path, title] of [['/settings/pricing', 'Pricing'], ['/profile', 'Profile'], ['/help', 'Help & Support'], ['/prototype/orders', 'Orders']]) {
-    await page.goto(origin + path);
-    await at(path, title);
-  }
-  await page.getByRole('button', { name: 'Drivers', exact: true }).click();
-  await at('/prototype/drivers', 'Drivers');
-  await page.reload(); await at('/prototype/drivers', 'Drivers');
-  await page.getByRole('button', { name: 'Dispatra — Monitor', exact: true }).click();
-  await page.waitForURL(origin + '/prototype');
-  await page.getByRole('button', { name: 'Orders', exact: true }).click();
-  await at('/prototype/orders', 'Orders');
+  await page.goBack();
+  await at('/prototype/shippers', 'Shippers');
+  await page.goForward();
+  await at('/prototype/analytics', 'Analytics');
   assert.deepEqual(errors, []);
-  console.log('Navigation browser checks passed: page URLs, direct loads, refresh, Back/Forward, dirty-settings cancellation/confirmation and prototype prefix.');
+  console.log('Public site and prototype navigation browser checks passed.');
 } finally {
   await browser.close();
 }

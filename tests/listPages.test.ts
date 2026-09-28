@@ -44,14 +44,19 @@ for (const scenario of scenarios) test(`${scenario.name} summary stays accurate 
   assert.equal(summary.textContent, totals);
 });
 
-test('Analytics retains KPI values and audit filtering with the shared summary cards', async () => {
+test('Analytics date menu updates figures, audit rows and CSV together', async () => {
   const { ReportsPage } = await import('../src/pages/ReportsPage');
   const { AUDIT_LOG_ITEMS } = await import('../src/lib/reportStorage');
   const user = userEvent.setup({ document });
-  render(React.createElement(ReportsPage, { onNotification: noop }));
+  const notices: string[] = [];
+  render(React.createElement(ReportsPage, { onNotification: message => notices.push(message), today: '2026-09-09' }));
   const summary = screen.getByLabelText('Analytics summary');
   const before = summary.textContent;
-  for (const value of ['96.8%', '306', '8.4 min', '1,840 km', '$28,270']) assert.ok(within(summary).getByText(value));
+  for (const value of ['71.4%', '31.6 min', '$1,425']) assert.ok(within(summary).getByText(value));
+  assert.equal(within(summary).getByText('Dispatches completed').closest('dt')!.nextElementSibling!.textContent, '7');
+  assert.ok(screen.getByText('Peak: 09:00 (1 jobs)'));
+  assert.ok(screen.getByText('Sep 9'));
+  assert.equal(within(screen.getByLabelText('Accessorial summary')).getByText('Liftgate services').closest('dt')!.nextElementSibling!.textContent, '2');
   const table = screen.getByRole('table', { name: 'Analytics audit log' });
   assert.equal(table.querySelectorAll('tbody tr').length, AUDIT_LOG_ITEMS.length);
   await user.type(screen.getByRole('searchbox'), AUDIT_LOG_ITEMS[0].jobNumber);
@@ -60,9 +65,38 @@ test('Analytics retains KPI values and audit filtering with the shared summary c
   await user.click(screen.getByRole('combobox', { name: 'Filter by SLA outcome' }));
   await user.click(screen.getByRole('option', { name: 'Late (SLA Breached)' }));
   assert.equal(table.querySelectorAll('tbody tr').length, AUDIT_LOG_ITEMS.filter(log => log.slaStatus === 'late').length);
+  await user.click(screen.getByRole('combobox', { name: 'Filter by SLA outcome' }));
+  await user.click(screen.getByRole('option', { name: 'All SLA Outcomes' }));
   assert.equal(summary.textContent, before);
+  assert.equal(screen.queryByRole('button', { name: 'Print PDF' }), null);
+  assert.equal(screen.queryByRole('button', { name: 'Last 7 Days' }), null);
+  const trigger = screen.getByRole('button', { name: /^Filter analytics by date:/ });
+  assert.ok(screen.getByRole('banner').contains(trigger));
+  await user.click(trigger);
+  assert.deepEqual(Array.from(screen.getByRole('dialog', { name: 'Analytics date filter' }).querySelectorAll('button')).map(button => button.textContent?.trim()), ['Today', 'Tomorrow', 'All dates', 'Date range']);
+  await user.click(screen.getByRole('button', { name: 'Tomorrow' }));
+  assert.equal(screen.queryByText(AUDIT_LOG_ITEMS[0].jobNumber), null);
+  assert.ok(screen.getByText('No audit records for these filters.'));
+  assert.equal(within(summary).getByText('Dispatches completed').closest('dt')!.nextElementSibling!.textContent, '0');
+  assert.ok(within(summary).getByText('$0'));
+  assert.ok(screen.getByText('No hourly activity for the selected dates.'));
+  assert.ok(screen.getByText('No daily activity for the selected dates.'));
+  assert.equal(within(screen.getByLabelText('Accessorial summary')).getByText('Liftgate services').closest('dt')!.nextElementSibling!.textContent, '0');
+  await user.click(screen.getByRole('button', { name: 'Export CSV' }));
+  assert.equal(notices.at(-1), 'Downloaded SLA Audit Log report (0 records)');
+  await user.click(trigger);
   await user.click(screen.getByRole('button', { name: 'Today' }));
-  assert.equal(screen.getByRole('button', { name: 'Today' }).getAttribute('aria-pressed'), 'true');
+  assert.equal(table.querySelectorAll('tbody tr').length, AUDIT_LOG_ITEMS.length);
+  assert.equal(summary.textContent, before);
+  await user.click(trigger);
+  await user.click(screen.getByRole('button', { name: 'Date range' }));
+  await user.click(screen.getByRole('button', { name: /September 8th, 2026/ }));
+  await user.click(screen.getByRole('button', { name: /September 9th, 2026/ }));
+  await user.click(screen.getByRole('button', { name: 'Apply range' }));
+  assert.equal(table.querySelectorAll('tbody tr').length, AUDIT_LOG_ITEMS.length);
+  await user.click(trigger);
+  await user.click(screen.getByRole('button', { name: 'All dates' }));
+  assert.equal(table.querySelectorAll('tbody tr').length, AUDIT_LOG_ITEMS.length);
 });
 
 test('Orders date menu filters scheduled rows and resets with other filters', async () => {
@@ -77,7 +111,13 @@ test('Orders date menu filters scheduled rows and resets with other filters', as
   ];
   render(React.createElement(JobsPage, { jobs, drivers: INITIAL_DRIVERS, onSelectJob: noop, onUpdateJob: noop, onCreateJob: noop, onNotification: noop }));
   const trigger = screen.getByRole('button', { name: /^Filter orders by date:/ });
-  assert.ok(screen.getByRole('banner').contains(trigger));
+  assert.ok(document.querySelector('.app-list-filters')?.contains(trigger));
+  assert.equal(screen.getByRole('banner').querySelectorAll('button').length, 2);
+  assert.ok(screen.getByRole('button', { name: 'New Quote' }));
+  assert.equal(screen.queryByRole('button', { name: 'Unassigned' }), null);
+  await user.click(screen.getByRole('combobox', { name: 'Filter by order status' }));
+  assert.ok(screen.getByRole('option', { name: 'New' }));
+  await user.keyboard('{Escape}');
   assert.equal(screen.queryByRole('button', { name: 'Export Manifest' }), null);
   assert.equal(screen.getByRole('table', { name: 'Orders' }).querySelectorAll('tbody tr').length, 3);
   await user.click(trigger);
@@ -91,4 +131,17 @@ test('Orders date menu filters scheduled rows and resets with other filters', as
   await user.click(trigger);
   await user.click(screen.getByRole('button', { name: 'All dates' }));
   assert.equal(screen.getByRole('table', { name: 'Orders' }).querySelectorAll('tbody tr').length, 3);
+});
+
+test('drivers without photos show a first-letter avatar in the list and details', async () => {
+  const user = userEvent.setup({ document });
+  const withoutPhoto = { ...INITIAL_DRIVERS[0], name: 'Alice Rivera', avatar: ' ' };
+  const withPhoto = INITIAL_DRIVERS[1];
+  render(React.createElement(DriversPage, { jobs: [], drivers: [withoutPhoto, withPhoto], onSelectDriver: noop, onCreateDriver: noop, onUpdateDriver: noop, onNotification: noop }));
+  const fallback = screen.getByRole('img', { name: withoutPhoto.name });
+  assert.equal(fallback.tagName, 'SPAN');
+  assert.equal(fallback.textContent?.trim(), 'A');
+  assert.equal(screen.getByRole('img', { name: withPhoto.name }).tagName, 'IMG');
+  await user.click(screen.getByRole('button', { name: `Details for ${withoutPhoto.name}` }));
+  assert.equal(screen.getAllByRole('img', { name: withoutPhoto.name }).filter(node => node.textContent?.trim() === 'A').length, 2);
 });

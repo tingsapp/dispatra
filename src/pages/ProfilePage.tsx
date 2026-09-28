@@ -1,3 +1,5 @@
+import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
+import { CompanyProfilePage } from '../portal/CompanyProfilePage';
 import { Button } from '../components/ui/button';
 import {
 Check,
@@ -26,7 +28,12 @@ interface ProfilePageProps {
   initialSection?: 'company' | 'security' | 'taxes';
 }
 
-export const ProfilePage: React.FC<ProfilePageProps> = ({
+export const ProfilePage: React.FC<ProfilePageProps> = (props) => {
+  const workspace = useWorkspaceAccount();
+  return workspace ? <CompanyProfilePage initialSection={props.initialSection} /> : <PrototypeProfilePage {...props} />;
+};
+
+const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
   onNotification,
   initialSection
 }) => {

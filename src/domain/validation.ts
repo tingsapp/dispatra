@@ -1,3 +1,4 @@
+import { cityFromAddress } from '../lib/driverCity';
 import { PricingOrderInput } from '../types/pricing';
 import { Driver, Order } from '../types';
 import { ORDER_LIFECYCLE_LABELS, ORDER_ATTENTION_LABELS, normalizeLifecycle, OrderAttentionFlag, OrderLifecycle } from './operations';
@@ -45,6 +46,9 @@ export function validateCustomer(c: Partial<Customer>, all: Customer[], id?: str
 export function validateDriver(d: Driver, all: Driver[]): string[] {
   if (d.maxActiveOrders != null && (!Number.isSafeInteger(d.maxActiveOrders) || d.maxActiveOrders < 1)) return ['Maximum active orders must be a whole number of at least 1.'];
   if (!d.name.trim() || !d.phone?.trim()) return ['Driver name and phone are required.'];
+  if (!d.address?.trim()) return ['Driver address is required.'];
+  if (!cityFromAddress(d.address)) return ['Driver address must include a Canadian city and province.'];
+  if (!d.email?.trim() || !emailOK(d.email)) return ['Enter a valid driver email for portal login.'];
   if (!d.driverNumber?.trim()) return ['Driver number could not be assigned.'];
   if (all.some(x => x.id !== d.id && (x.driverNumber ?? x.id).toLowerCase() === d.driverNumber!.trim().toLowerCase())) return ['Driver number already exists.'];
   if (d.currentVehicleId && all.some(x => x.id !== d.id && x.currentVehicleId === d.currentVehicleId)) return ['Vehicle is already linked to another driver.'];
@@ -56,6 +60,8 @@ export function validateVehicle(v: VehicleAsset, all: VehicleAsset[]): string[] 
   if (!v.unitNumber.trim() || !v.plateNumber.trim() || !v.vehicleTypeId) return ['Unit number, licence plate and vehicle type are required.'];
   if (all.some(x => x.id !== v.id && (x.unitNumber.toLowerCase() === v.unitNumber.toLowerCase() || x.plateNumber.toLowerCase() === v.plateNumber.toLowerCase() && x.plateProvince === v.plateProvince))) return ['Unit number or plate/province already exists.'];
   if (![v.payloadCapacityKg,v.palletCapacity,v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm,v.cargoVolumeM3].every(nonnegative) || !Number.isInteger(v.palletCapacity)) return ['Enter nonnegative capacities and whole pallet counts.'];
+  if ([v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm].some(value => value == null || !Number.isFinite(value) || value <= 0)) return ['Cargo length, width and height must be greater than zero.'];
+  if (v.maxStops != null && (!Number.isSafeInteger(v.maxStops) || v.maxStops < 1)) return ['Maximum stops must be a positive whole number.'];
   if (v.availability === 'UNAVAILABLE' && !v.unavailableReason?.trim()) return ['Enter the reason this vehicle is unavailable.'];
   return windowErrors(v.unavailableFrom, v.unavailableUntil, 'Unavailability');
 }

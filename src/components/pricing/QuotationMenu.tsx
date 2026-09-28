@@ -9,6 +9,10 @@ interface QuotationMenuProps {
   /** Built lazily so the quote number and date reflect the moment the menu opens. */
   buildQuotation: () => Quotation;
   onNotification: (msg: string) => void;
+  triggerLabel?: string;
+  prominent?: boolean;
+  /** Allow a new shipper's details to be entered when sending a quote. */
+  allowRecipientEntry?: boolean;
   /** Browser hand-offs, overridable for tests. */
   openMail?: (href: string) => void;
   saveFile?: (name: string, file: Blob) => void;
@@ -38,8 +42,8 @@ const defaultLogo = (dataUrl: string): Promise<PdfJpeg | undefined> => new Promi
 });
 const greeting = (q: Quotation) => `Hello${q.customer.contactName ? ` ${q.customer.contactName}` : ''},\n\nPlease find your delivery quotation attached (${quotationFileName(q)}). Reply to this email to confirm the booking.`;
 
-/** Send as quote: shows the shipper's email, then Email (saves the PDF and opens the mail client) or Download (PDF). */
-export const QuotationMenu: React.FC<QuotationMenuProps> = ({ buildQuotation, onNotification, openMail = href => { window.location.href = href; }, saveFile = defaultSave, logoFor = defaultLogo }) => {
+/** Send as quote: saves a PDF and opens the mail client, or downloads the PDF. */
+export const QuotationMenu: React.FC<QuotationMenuProps> = ({ buildQuotation, onNotification, triggerLabel = 'Send as quote', prominent = false, allowRecipientEntry = false, openMail = href => { window.location.href = href; }, saveFile = defaultSave, logoFor = defaultLogo }) => {
   const [open, setOpen] = useState(false);
   const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,14 +57,24 @@ export const QuotationMenu: React.FC<QuotationMenuProps> = ({ buildQuotation, on
   const run = async (action: (quote: Quotation) => Promise<void>) => { if (!q || busy) return; setBusy(true); try { await action(q); setOpen(false); } finally { setBusy(false); } };
   const email = () => run(async quote => { if (!canEmail) return; await savePdf(quote); openMail(quotationMailto(quote, to, greeting(quote))); onNotification(`${quotationFileName(quote)} saved — attach it to the email that just opened for ${to}`); });
   const download = () => run(async quote => { await savePdf(quote); onNotification(`${quotationFileName(quote)} downloaded`); });
-  return <FloatingPanel open={open} onOpenChange={next => { if (next) setQuotation(buildQuotation()); setOpen(next); }} label="Send as quote" size="rich" align="end" className="p-4"
-    trigger={<Button type="button" variant="outline" size="xs"><Mail /> Send as quote</Button>}>
+  return <FloatingPanel open={open} onOpenChange={next => { if (next) setQuotation(buildQuotation()); setOpen(next); }} label={triggerLabel} size="rich" align="end" className="p-4"
+    trigger={<Button type="button" variant={prominent ? "default" : "outline"} size={prominent ? "default" : "xs"}><Mail />{triggerLabel}</Button>}>
     {q && <div className="space-y-4">
-      <div>
+      {allowRecipientEntry ? <div className="space-y-3">
+        <div>
+          <label htmlFor="quote-recipient-name" className="app-label">Shipper name</label>
+          <input id="quote-recipient-name" type="text" className="app-input w-full" value={q.customer.name} onChange={event => setQuotation({ ...q, customer: { ...q.customer, name: event.target.value } })} placeholder="New shipper name" />
+        </div>
+        <div>
+          <label htmlFor="quote-recipient-email" className="app-label">Recipient email</label>
+          <input id="quote-recipient-email" type="email" className="app-input w-full" value={q.customer.email} onChange={event => setQuotation({ ...q, customer: { ...q.customer, email: event.target.value } })} placeholder="name@example.com" />
+          {to && !canEmail && <p role="alert" className="mt-1 text-xs text-rose-700">Enter a valid email address to send the quote.</p>}
+        </div>
+      </div> : <div>
         <p className="text-xs text-slate-500">Send to</p>
         <p className="text-sm text-slate-900 truncate" title={to || undefined}>{q.customer.name || 'Shipper'}</p>
         {canEmail ? <p className="text-sm text-slate-600 truncate">{to}</p> : <p role="alert" className="text-xs text-rose-700">No email on file for this shipper. Add one on the Shipper form to email the quote.</p>}
-      </div>
+      </div>}
       <div className="flex items-center gap-2">
         <Button type="button" size="sm" className="flex-1" onClick={email} disabled={!canEmail || busy}><Mail /> Email</Button>
         <Button type="button" size="sm" variant="outline" className="flex-1" onClick={download} disabled={busy}><Download /> Download</Button>

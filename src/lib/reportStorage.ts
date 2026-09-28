@@ -161,26 +161,44 @@ export const AUDIT_LOG_ITEMS: AuditLogItem[] = [
   }
 ];
 
-export const HOURLY_VOLUMES: HourlyVolume[] = [
-  { hour: '07:00', volume: 8, peak: false },
-  { hour: '08:00', volume: 18, peak: false },
-  { hour: '09:00', volume: 34, peak: true },
-  { hour: '10:00', volume: 42, peak: true },
-  { hour: '11:00', volume: 38, peak: true },
-  { hour: '12:00', volume: 29, peak: false },
-  { hour: '13:00', volume: 31, peak: false },
-  { hour: '14:00', volume: 39, peak: true },
-  { hour: '15:00', volume: 27, peak: false },
-  { hour: '16:00', volume: 22, peak: false },
-  { hour: '17:00', volume: 14, peak: false }
-];
+export function summarizeAuditLogs(logs: AuditLogItem[]) {
+  const total = logs.length;
+  const onTime = logs.filter(log => log.slaStatus === 'on_time' || log.slaStatus === 'ahead').length;
+  const revenue = logs.reduce((sum, log) => sum + log.totalBilled, 0);
+  const podVerified = logs.filter(log => log.podVerified).length;
+  const averageVariance = total ? logs.reduce((sum, log) => sum + Math.abs(log.varianceMinutes), 0) / total : null;
+  const onTimePercent = total ? Math.round(onTime / total * 1000) / 10 : null;
 
-export const SEVEN_DAYS_PERFORMANCE: DayPerformance[] = [
-  { day: 'Thu 09/03', totalJobs: 48, onTimeJobs: 46, lateJobs: 2, exceptionJobs: 0, revenue: 4280 },
-  { day: 'Fri 09/04', totalJobs: 56, onTimeJobs: 53, lateJobs: 3, exceptionJobs: 0, revenue: 5120 },
-  { day: 'Sat 09/05', totalJobs: 24, onTimeJobs: 24, lateJobs: 0, exceptionJobs: 0, revenue: 2310 },
-  { day: 'Sun 09/06', totalJobs: 18, onTimeJobs: 18, lateJobs: 0, exceptionJobs: 0, revenue: 1890 },
-  { day: 'Mon 09/07', totalJobs: 52, onTimeJobs: 50, lateJobs: 2, exceptionJobs: 0, revenue: 4890 },
-  { day: 'Tue 09/08', totalJobs: 58, onTimeJobs: 56, lateJobs: 2, exceptionJobs: 0, revenue: 5460 },
-  { day: 'Today', totalJobs: 46, onTimeJobs: 44, lateJobs: 2, exceptionJobs: 0, revenue: 4320 }
-];
+  const hourCounts = new Map<number, number>();
+  const dayCounts = new Map<string, DayPerformance>();
+  const accessorialCounts = { liftgate: 0, reefer: 0, inside: 0, waiting: 0 };
+  for (const log of logs) {
+    const hour = Number(log.timestamp.slice(11, 13));
+    hourCounts.set(hour, (hourCounts.get(hour) ?? 0) + 1);
+    const day = log.timestamp.slice(0, 10);
+    const performance = dayCounts.get(day) ?? { day, totalJobs: 0, onTimeJobs: 0, lateJobs: 0, exceptionJobs: 0, revenue: 0 };
+    performance.totalJobs += 1;
+    performance.onTimeJobs += Number(log.slaStatus === 'on_time' || log.slaStatus === 'ahead');
+    performance.lateJobs += Number(log.slaStatus === 'late');
+    performance.exceptionJobs += Number(log.slaStatus === 'exception');
+    performance.revenue += log.totalBilled;
+    dayCounts.set(day, performance);
+    for (const charge of log.accessorialsCharged) {
+      if (/liftgate/i.test(charge)) accessorialCounts.liftgate += 1;
+      if (/reefer|temperature/i.test(charge)) accessorialCounts.reefer += 1;
+      if (/inside|white glove/i.test(charge)) accessorialCounts.inside += 1;
+      if (/wait|demurrage/i.test(charge)) accessorialCounts.waiting += 1;
+    }
+  }
+  const hours = [...hourCounts.keys()].sort((a, b) => a - b);
+  const peakVolume = Math.max(0, ...hourCounts.values());
+  const hourlyVolumes: HourlyVolume[] = hours.length ? Array.from({ length: hours.at(-1)! - hours[0] + 1 }, (_, index) => {
+    const hour = hours[0] + index;
+    const volume = hourCounts.get(hour) ?? 0;
+    return { hour: `${String(hour).padStart(2, '0')}:00`, volume, peak: volume > 0 && volume === peakVolume };
+  }) : [];
+  const dailyPerformance = [...dayCounts.values()].sort((a, b) => a.day.localeCompare(b.day));
+  const peakHour = hourlyVolumes.find(item => item.peak);
+  return { total, onTime, onTimePercent, revenue, podVerified, averageVariance, accessorialCounts,
+    hourlyVolumes, dailyPerformance, peakHour };
+}

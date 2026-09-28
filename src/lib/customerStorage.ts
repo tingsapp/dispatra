@@ -1,3 +1,4 @@
+import { scopedStorageKey } from './scopedStorage';
 import { CustomerOperations } from '../domain/operations';
 import { Discount } from '../types/pricing';
 import { loadPricingConfig, NO_DISCOUNT } from './pricingStorage';
@@ -10,6 +11,7 @@ export interface Customer extends CustomerOperations {
   email: string;
   phone: string;
   address: string;
+  /** Legacy location text; new shippers enter one complete warehouse address. */
   city: string;
   accountType: 'Enterprise' | 'Scheduled Contract' | 'Express / On-Demand' | 'Standard Freight';
   status: 'Active' | 'Preferred' | 'On Hold' | 'Inactive';
@@ -227,7 +229,7 @@ export const CUSTOMERS_STORAGE_KEY = 'dispatra_customers_v2';
 
 export function loadCustomers(): Customer[] {
   try {
-    const raw = localStorage.getItem(CUSTOMERS_STORAGE_KEY);
+    const raw = localStorage.getItem(scopedStorageKey(CUSTOMERS_STORAGE_KEY));
     if (raw) {
       const parsed = JSON.parse(raw);
       const records = Array.isArray(parsed) ? parsed : parsed.customers;
@@ -262,13 +264,29 @@ export function loadCustomers(): Customer[] {
 }
 
 export function saveCustomers(customers: Customer[]): void {
-  localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 3, customers }));
+  localStorage.setItem(scopedStorageKey(CUSTOMERS_STORAGE_KEY), JSON.stringify({ schemaVersion: 3, customers }));
+}
+
+/** Keep the city from older two-field shipper records without duplicating a complete address. */
+export function warehouseAddress(customer: Pick<Customer, 'address' | 'city'>): string {
+  const address = customer.address.trim();
+  const city = customer.city?.trim() ?? '';
+  if (!address || !city || address.toLocaleLowerCase().includes(city.split(',')[0].trim().toLocaleLowerCase())) return address;
+  return `${address}, ${city}`;
 }
 
 export function normalizeCustomer(stored: Customer): Customer {
   const { customerGroupId: _retiredGroup, ...c } = stored;
+  const address = warehouseAddress(c);
+  const primaryId = `${c.id}-primary`;
+  const primary = c.addresses?.find(item => item.id === primaryId);
+  const addresses = (c.addresses ?? []).filter(item => item.id !== primaryId);
+  if (address) {
+    const updatedPrimary = { ...primary, id: primaryId, type: 'PICKUP' as const, label: primary?.label ?? 'Primary address', address, contactName: c.contactName, phone: c.phone };
+    if (primary) addresses.splice(c.addresses!.indexOf(primary), 0, updatedPrimary);
+    else addresses.push(updatedPrimary);
+  }
   return { customerType: 'BUSINESS', legalName: c.name, currency: 'CAD', paymentTerms: 'INHERIT',
-    addresses: c.address ? [{ id: `${c.id}-primary`, type: 'PICKUP', label: 'Primary address', address: [c.address, c.city].filter(Boolean).join(', '), contactName: c.contactName, phone: c.phone }] : [],
-    communicationPreferences: { sms: false, email: true, tracking: true }, ...c, status: c.status === 'Preferred' ? 'Active' : c.status,
+    communicationPreferences: { sms: false, email: true, tracking: true }, ...c, address, addresses, status: c.status === 'Preferred' ? 'Active' : c.status,
     tags: [...new Set([...(c.tags ?? []), ...(c.status === 'Preferred' ? ['Preferred'] : [])])] };
 }

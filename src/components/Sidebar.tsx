@@ -10,6 +10,7 @@ import { Switch } from './ui/Switch';
 import { AccountMenu } from './layout/AccountMenu';
 import { SidebarHeader } from './layout/SidebarHeader';
 import { useSidebarDrawer } from './layout/useSidebarDrawer';
+import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
 import { loadUserProfile } from '../lib/profileStorage';
 
 interface SidebarProps {
@@ -47,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { mobile, panelRef } = useSidebarDrawer(isOpen, () => { if (isOpen) onToggle(); });
   const collapsed = !isOpen && !mobile;
   const hidden = !isOpen && mobile;
-  const [profile, setProfile] = useState(() => loadUserProfile());
+  const [localProfile, setProfile] = useState(() => loadUserProfile());
 
   useEffect(() => {
     const handleSync = () => {
@@ -57,6 +58,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     handleSync();
     return () => window.removeEventListener('storage', handleSync);
   }, [activeTab, showAccountPopover]);
+
+  const workspace = useWorkspaceAccount();
+  const name = workspace?.settings.data.contact_name || workspace?.account.login_id || '';
+  const profile = workspace ? { name, role: 'Dispatcher', avatarInitials: name.slice(0, 1).toUpperCase(), avatarUrl: '' } : localProfile;
 
   const navItems = [
     { id: 'jobs', label: 'Orders', icon: ClipboardList },

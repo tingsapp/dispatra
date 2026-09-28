@@ -1,4 +1,8 @@
+import { scopedStorageKey } from './scopedStorage';
 import { VehicleOperations } from '../domain/operations';
+import type { VehicleType } from '../types/simplePricing';
+import { loadSimplePricingConfig, saveSimplePricingConfig } from './simplePricingStorage';
+import { loadBillingConfig, saveBillingConfig } from './billingStorage';
 export interface VehicleAsset extends VehicleOperations {
   id: string;
   unitNumber: string;
@@ -221,7 +225,7 @@ export const VEHICLES_STORAGE_KEY = 'dispatra_vehicles_fleet_v1';
 export function loadVehicles(): VehicleAsset[] {
   if (typeof localStorage === 'undefined') return INITIAL_VEHICLES_FLEET.map(normalizeVehicle);
   try {
-    const raw = localStorage.getItem(VEHICLES_STORAGE_KEY);
+    const raw = localStorage.getItem(scopedStorageKey(VEHICLES_STORAGE_KEY));
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
@@ -235,7 +239,7 @@ export function loadVehicles(): VehicleAsset[] {
 }
 
 export function saveVehicles(vehicles: VehicleAsset[]): void {
-  localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(vehicles));
+  localStorage.setItem(scopedStorageKey(VEHICLES_STORAGE_KEY), JSON.stringify(vehicles));
 }
 
 export function normalizeVehicle(v: VehicleAsset): VehicleAsset {
@@ -247,4 +251,32 @@ export function syncVehicle(v: VehicleAsset): VehicleAsset {
   return { ...v, status: v.availability === 'IN_USE' ? 'in_service' : v.availability === 'AVAILABLE' && v.recordStatus !== 'INACTIVE' ? 'available' : 'standby',
     statusLabel: v.recordStatus === 'INACTIVE' ? 'Inactive' : v.availability === 'IN_USE' ? 'In use' : v.availability === 'AVAILABLE' ? 'Available' : 'Unavailable',
     hasLiftgate: (v.equipment ?? []).some(e => e.toLowerCase() === 'liftgate'), hasReefer: (v.equipment ?? []).some(e => e.toLowerCase() === 'refrigeration'), updatedAt: new Date().toISOString() };
+}
+
+/** A fleet vehicle owns its pricing profile after registration; legacy shared types remain readable. */
+export interface VehicleProfile { type: VehicleType; costPerKm: number | null; }
+
+export function saveVehicleProfile(vehicle: VehicleAsset, profile: VehicleProfile, fleet = loadVehicles()): VehicleAsset[] {
+  const nextFleet = fleet.some(item => item.id === vehicle.id)
+    ? fleet.map(item => item.id === vehicle.id ? vehicle : item) : [vehicle, ...fleet];
+  const catalogue = loadSimplePricingConfig();
+  const types = catalogue.vehicles.some(item => item.id === profile.type.id)
+    ? catalogue.vehicles.map(item => item.id === profile.type.id ? profile.type : item)
+    : [...catalogue.vehicles, profile.type];
+  const billing = loadBillingConfig();
+  const costs = { ...billing.operatingCost.costPerKmByVehicleId };
+  if (profile.costPerKm == null) delete costs[profile.type.id];
+  else costs[profile.type.id] = profile.costPerKm;
+  saveSimplePricingConfig({ ...catalogue, vehicles: types });
+  saveBillingConfig({ ...billing, operatingCost: { ...billing.operatingCost, costPerKmByVehicleId: costs } });
+  saveVehicles(nextFleet);
+  return nextFleet;
+}
+
+/** Keep a deleted vehicle's pricing type for historical references, but remove it from future choices. */
+export function archiveVehicleProfile(vehicle: VehicleAsset): void {
+  if (!vehicle.vehicleTypeId?.startsWith('fleet_')) return;
+  const catalogue = loadSimplePricingConfig();
+  saveSimplePricingConfig({ ...catalogue, vehicles: catalogue.vehicles.map(type =>
+    type.id === vehicle.vehicleTypeId ? { ...type, active: false } : type) });
 }

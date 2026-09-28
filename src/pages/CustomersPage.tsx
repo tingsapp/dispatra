@@ -19,10 +19,11 @@ import React,{ useMemo,useState } from 'react';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
+import { AddressAutocomplete } from '../components/ui/AddressAutocomplete';
 import { Select } from '../components/ui/Select';
 import { validateCustomer } from '../domain/validation';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
-import { Customer,EMPTY_PRICING_RELATIONSHIP,loadCustomers,saveCustomers } from '../lib/customerStorage';
+import { Customer,EMPTY_PRICING_RELATIONSHIP,loadCustomers,normalizeCustomer,saveCustomers } from '../lib/customerStorage';
 import { loadBillingConfig } from '../lib/billingStorage';
 import { paymentTermOptions, PaymentTerms, resolvePaymentTerms } from '../lib/paymentTerms';
 import { loadPricingConfig } from '../lib/pricingStorage';
@@ -65,7 +66,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     email: '',
     phone: '',
     address: '',
-    city: 'Vancouver, BC',
+    city: '',
     accountType: 'Enterprise',
     status: 'Active',
     defaultRequirements: [],
@@ -81,7 +82,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.email.toLowerCase().includes(searchQuery.toLowerCase()) || [...(c.tags ?? []), ...(c.addresses ?? []).map(a => a.address)].join(' ').toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
@@ -90,7 +90,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   }, [customers, searchQuery, statusFilter]);
 
   const activeOrderCount = (id: string) => jobs.filter(j => j.customerId === id && j.status !== 'completed').length;
-  const persistCustomers = (next: Customer[]) => { try { saveCustomers(next); setCustomers(next); return true; } catch { onNotification?.('Shipper changes could not be saved in this browser.'); return false; } };
+  const persistCustomers = (next: Customer[]) => { try { const normalized = next.map(normalizeCustomer); saveCustomers(normalized); setCustomers(normalized); return true; } catch { onNotification?.('Shipper changes could not be saved in this browser.'); return false; } };
 
   // Statistics
   const stats = useMemo(() => {
@@ -106,12 +106,13 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     setFormData({
       name: '',
       customerType: 'BUSINESS',
+      legalName: '',
       paymentTerms: loadBillingConfig().invoicing.defaultPaymentTerms,
       contactName: '',
       email: '',
       phone: '',
       address: '',
-      city: 'Vancouver, BC',
+      city: '',
       accountType: 'Standard Freight',
       status: 'Active',
       defaultRequirements: [],
@@ -123,19 +124,24 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
   const handleOpenEditModal = (c: Customer) => {
     setEditingCustomer(c);
-    setFormData({ ...c, paymentTerms: resolvePaymentTerms(c.paymentTerms, loadBillingConfig().invoicing.defaultPaymentTerms) });
+    setFormData({ ...c, city: '', paymentTerms: resolvePaymentTerms(c.paymentTerms, loadBillingConfig().invoicing.defaultPaymentTerms) });
     setIsModalOpen(true);
   };
 
   const handleSaveCustomer = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name?.trim()) {
-      onNotification?.('Shipper company name is required.');
+      onNotification?.('Shipper name is required.');
       return;
     }
 
+    const legalName = formData.customerType === 'INDIVIDUAL' ? formData.name.trim() : formData.legalName?.trim() ?? '';
+    if (formData.customerType !== 'INDIVIDUAL' && !legalName) { onNotification?.('Company name is required.'); return; }
+
     // The account code is assigned in the background; the API will own it later.
     const code = formData.code || editingCustomer?.code || `CUST-${Math.floor(1000 + Math.random() * 9000)}`;
+    const contactName = formData.customerType === 'INDIVIDUAL' ? formData.name.trim()
+      : editingCustomer?.contactName && editingCustomer.contactName !== editingCustomer.name ? editingCustomer.contactName : formData.name.trim();
     const errors = validateCustomer({ ...formData, code }, customers, editingCustomer?.id);
     if (errors.length) { onNotification?.(errors.join(" ").replace(/Customer/g, "Shipper")); return; }
     if (editingCustomer) {
@@ -147,6 +153,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               ...formData,
               updatedAt: new Date().toISOString(),
               name: formData.name!.trim(),
+              legalName,
+              contactName,
               code
             } as Customer)
           : c
@@ -161,11 +169,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         id: `cust-${Date.now()}`,
         code,
         name: formData.name!.trim(),
-        contactName: formData.contactName || '',
+        legalName,
+        contactName,
         email: formData.email || '',
         phone: formData.phone || '',
         address: formData.address || '',
-        city: formData.city || 'Vancouver, BC',
+        city: '',
         accountType: formData.accountType as any || 'Standard Freight',
         status: formData.status as any || 'Active',
         defaultRequirements: formData.defaultRequirements || [],
@@ -181,7 +190,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       };
       const updated = [newCustomer, ...customers];
       if (!persistCustomers(updated)) return;
-      onNotification?.(`Added shipper account "${newCustomer.name}".`);
+      onNotification?.(`Added shipper "${newCustomer.name}".`);
     }
 
     setIsModalOpen(false);
@@ -288,7 +297,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                               {customer.name}
                             </div>
                             <div className="text-xs text-slate-400">
-                              {customer.customerType === 'INDIVIDUAL' ? 'Individual' : 'Business'}
+                              {customer.customerType === 'INDIVIDUAL' ? 'Individual' : customer.legalName && customer.legalName !== customer.name ? customer.legalName : 'Business'}
                             </div>
                           </div>
                         </div>
@@ -296,7 +305,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
                       {/* Contact */}
                       <td className="py-3.5 px-4">
-                        <div className="font-medium text-slate-900">{customer.contactName}</div>
+                        {customer.contactName && customer.contactName !== customer.name && <div className="font-medium text-slate-900">{customer.contactName}</div>}
                         <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
                           <span className="flex items-center gap-1">
                             <Phone className="w-3 h-3 text-slate-400" />
@@ -311,7 +320,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                           <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                           <span className="truncate">{customer.address}</span>
                         </div>
-                        <div className="text-xs text-slate-400 pl-5">{customer.city}</div>
                       </td>
 
                       {/* Rate card */}
@@ -410,12 +418,14 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   Contact Information
                 </h4>
                 <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between text-slate-600">
+                  {selectedCustomerForView.customerType !== 'INDIVIDUAL' && selectedCustomerForView.legalName && <div className="flex items-center justify-between text-slate-600">
+                    <span className="text-slate-400">Company name:</span>
+                    <span className="font-medium text-slate-900">{selectedCustomerForView.legalName}</span>
+                  </div>}
+                  {selectedCustomerForView.contactName && selectedCustomerForView.contactName !== selectedCustomerForView.name && <div className="flex items-center justify-between text-slate-600">
                     <span className="text-slate-400">Primary Contact:</span>
-                    <span className="font-medium text-slate-900">
-                      {selectedCustomerForView.contactName}
-                    </span>
-                  </div>
+                    <span className="font-medium text-slate-900">{selectedCustomerForView.contactName}</span>
+                  </div>}
                   <div className="flex items-center justify-between text-slate-600">
                     <span className="text-slate-400">Phone:</span>
                     <a
@@ -438,9 +448,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     <div className="text-slate-400 mb-1">Primary Facility Address:</div>
                     <div className="font-medium text-slate-800">
                       {selectedCustomerForView.address}
-                    </div>
-                    <div className="text-slate-500 text-xs">
-                      {selectedCustomerForView.city}
                     </div>
                   </div>
                 </div>
@@ -508,22 +515,29 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <DialogBody>
             <form id="shipper-form" onSubmit={handleSaveCustomer} className="space-y-6">
               <FormSection title="Shipper">
-                <label className="block"><span className="app-label">Shipper name</span><input type="text" required placeholder="e.g. Pacific Fresh Logistics" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="app-input w-full" /></label>
+                <label className="block"><span className="app-label">Shipper name</span><input type="text" required placeholder="e.g. Alex Morgan" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="app-input w-full" /></label>
                 <div><span className="app-label">Shipper type</span><Select aria-label="Shipper type" className="w-full" value={formData.customerType ?? 'BUSINESS'} onValueChange={(v) => setFormData({ ...formData, customerType: v as Customer['customerType'] })} options={[{ value: 'BUSINESS', label: 'Business' }, { value: 'INDIVIDUAL', label: 'Individual' }]} /></div>
-                <label className="block"><span className="app-label">Contact name</span><input type="text" placeholder="e.g. Elena Rostova" value={formData.contactName || ''} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} className="app-input w-full" /></label>
+                {formData.customerType !== 'INDIVIDUAL' && <label className="block sm:col-span-2"><span className="app-label">Company name</span><input type="text" required placeholder="e.g. Pacific Fresh Logistics" value={formData.legalName || ''} onChange={(e) => setFormData({ ...formData, legalName: e.target.value })} className="app-input w-full" /></label>}
                 <label className="block"><span className="app-label">Phone</span><input type="tel" placeholder="+1 (604) 555-0100" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="app-input w-full" /></label>
-                <label className={`block ${editingCustomer ? '' : 'sm:col-span-2'}`}><span className="app-label">Email</span><input type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" /><span className="mt-1 block text-xs text-slate-500">Quotes and invoices go here.</span></label>
+                <label className="block"><span className="app-label">Email</span><input type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Used for portal login, quotes and invoices.</span></label>
                 {editingCustomer && <div><span className="app-label">Status</span><Select aria-label="Shipper status" className="w-full" value={formData.status || 'Active'} onValueChange={(v) => setFormData({ ...formData, status: v as Customer['status'] })} options={[{ value: 'Active', label: 'Active' }, { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }]} /></div>}
               </FormSection>
 
               <FormSection title="Location">
-                <label className="block sm:col-span-2"><span className="app-label">Warehouse Address</span><input type="text" placeholder="e.g. 1420 Derwent Way, Annacis Island" value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="app-input w-full" /></label>
-                <label className="block"><span className="app-label">Service Area</span><input type="text" placeholder="Vancouver, BC" value={formData.city || ''} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className="app-input w-full" /></label>
+                <div className="sm:col-span-2"><label htmlFor="shipper-warehouse-address" className="app-label">Warehouse Address</label><AddressAutocomplete id="shipper-warehouse-address" aria-label="Warehouse Address" placeholder="e.g. 1420 Derwent Way, Delta, BC V3M 6M7" value={formData.address || ''} onChange={address => setFormData(current => ({ ...current, address }))} className="app-input w-full" /><span className="mt-1 block text-xs text-slate-500">Include street, city, province and postal code. Used as the default pickup address.</span></div>
               </FormSection>
 
               <FormSection title="Billing">
                 <div><span className="app-label">Shipper rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">New orders start on it; dispatch can change it per order.</span></div>
                 <div><span className="app-label">Default payment terms</span><Select aria-label="Default payment terms" className="w-full" value={formData.paymentTerms ?? ''} onValueChange={value => setFormData({ ...formData, paymentTerms: value as PaymentTerms })} options={paymentTermOptions(editingCustomer?.paymentTerms)} /><span className="mt-1 block text-xs text-slate-500">Sets invoice due dates.</span></div>
+                <div className="sm:col-span-2">
+                  <span className="app-label">Credit card</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2.5">
+                    <span className="text-sm text-slate-500">No card on file</span>
+                    <Button type="button" variant="outline" disabled aria-describedby="shipper-card-note">Add credit card</Button>
+                  </div>
+                  <p id="shipper-card-note" className="mt-1 text-xs text-slate-500">Card entry will be available when payments are connected.</p>
+                </div>
               </FormSection>
 
               <section aria-label="Discount" className="space-y-3">

@@ -1,13 +1,17 @@
+import { cityAreaId, cityFromAddress } from './driverCity';
+import { scopedStorageKey } from './scopedStorage';
 import { INITIAL_BILLING_CONFIG } from './billingStorage';
 import { loadVehicles, saveVehicles } from './vehicleStorage';
 import { Driver } from '../types';
 export const DRIVER_STORAGE_KEY = 'dispatra_drivers_v1';
 export function normalizeDriver(d: Driver): Driver {
+  const city = cityFromAddress(d.address);
   return { currentVehicleId: loadVehicles().find(v => v.currentDriverId === d.id)?.id ?? null, driverNumber: d.id, accountStatus: 'ACTIVE', dutyStatus: d.status === 'offline' ? 'OFF_DUTY' : 'ON_DUTY',
     workStatus: d.status === 'on_route' ? 'BUSY' : d.status === 'idle' ? 'ON_BREAK' : 'AVAILABLE',
-    skills: [], serviceAreaIds: [], vehicleTypeQualifications: [], availabilitySchedule: [], locationPermissionStatus: 'UNKNOWN', ...d,
+    skills: [], vehicleTypeQualifications: [], availabilitySchedule: [], locationPermissionStatus: 'UNKNOWN', ...d,
     // V1 knows two kinds of driver; legacy temporary records count as employees.
-    employmentType: d.employmentType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE' };
+    employmentType: d.employmentType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE',
+    serviceAreaIds: city ? [cityAreaId(city)] : d.serviceAreaIds ?? [] };
 }
 /** Background driver number (D01, D02, …): one past the highest existing number. The API will own this later. */
 export function nextDriverNumber(drivers: Driver[]): string {
@@ -16,7 +20,8 @@ export function nextDriverNumber(drivers: Driver[]): string {
 }
 export function syncDriver(d: Driver): Driver {
   const status = d.accountStatus === 'INACTIVE' || d.dutyStatus === 'OFF_DUTY' ? 'offline' : d.workStatus === 'BUSY' ? 'on_route' : d.workStatus === 'ON_BREAK' ? 'idle' : 'available';
-  return { ...d, status, statusLabel: d.accountStatus === 'INACTIVE' ? 'Inactive' : d.dutyStatus === 'OFF_DUTY' ? 'Off duty' : d.workStatus === 'ON_BREAK' ? 'On break' : d.workStatus === 'BUSY' ? 'Busy' : 'Available', updatedAt: new Date().toISOString() };
+  const city = cityFromAddress(d.address);
+  return { ...d, serviceAreaIds: city ? [cityAreaId(city)] : [], status, statusLabel: d.accountStatus === 'INACTIVE' ? 'Inactive' : d.dutyStatus === 'OFF_DUTY' ? 'Off duty' : d.workStatus === 'ON_BREAK' ? 'On break' : d.workStatus === 'BUSY' ? 'Busy' : 'Available', updatedAt: new Date().toISOString() };
 }
 export function connectivity(timestamp?: string | null, now = Date.now()): 'Online' | 'Stale' | 'Offline' | 'Unknown' {
   if (!timestamp || !Number.isFinite(Date.parse(timestamp))) return 'Unknown';
@@ -24,10 +29,10 @@ export function connectivity(timestamp?: string | null, now = Date.now()): 'Onli
   return age < 0 ? 'Unknown' : age <= 120000 ? 'Online' : age <= 900000 ? 'Stale' : 'Offline';
 }
 export function loadDrivers(fallback: Driver[]): Driver[] {
-  try { const raw = localStorage.getItem(DRIVER_STORAGE_KEY); if (raw) { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) return parsed.map(normalizeDriver); } } catch { /* Read-only fallback; saving errors are shown by the app. */ }
+  try { const raw = localStorage.getItem(scopedStorageKey(DRIVER_STORAGE_KEY)); if (raw) { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) return parsed.map(normalizeDriver); } } catch { /* Read-only fallback; saving errors are shown by the app. */ }
   return fallback.map(normalizeDriver);
 }
-export function saveDrivers(drivers: Driver[]): void { localStorage.setItem(DRIVER_STORAGE_KEY, JSON.stringify(drivers)); }
+export function saveDrivers(drivers: Driver[]): void { localStorage.setItem(scopedStorageKey(DRIVER_STORAGE_KEY), JSON.stringify(drivers)); }
 
 /** Keep the driver's selected asset and fleet ownership in sync in local mode. */
 export function bindDriverVehicle(driver: Driver): void {

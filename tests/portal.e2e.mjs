@@ -12,7 +12,7 @@ const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 const login = async (path,id,password) => {
   await page.goto(origin+path);
-  await page.getByLabel('Login ID',{exact:true}).fill(id);
+  await page.getByLabel(path.includes('shipper-portal') ? 'Email or login ID' : 'Login ID',{exact:true}).fill(id);
   await page.getByLabel('Password',{exact:true}).fill(password);
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
 };
@@ -21,7 +21,7 @@ const logout = async () => {
   await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();
 };
 try {
-  await login('/platform',process.env.E2E_OWNER_LOGIN || 'owner',ownerPassword);
+  await login('/admin',process.env.E2E_OWNER_LOGIN || 'owner',ownerPassword);
   await page.getByRole('button',{name:'Add company'}).click();
   await page.getByLabel('Company name',{exact:true}).fill('Acme Test Dispatch');
   await page.getByLabel('Company identifier',{exact:true}).fill(slug);
@@ -30,20 +30,20 @@ try {
   assert.ok(adminPassword.length>=20);
   await page.getByRole('button',{name:'Create company',exact:true}).click();
   await page.getByRole('heading',{name:'Login details ready'}).waitFor();
-  assert.ok((await page.getByLabel('Login details',{exact:true}).inputValue()).includes(`/${slug}/dispatch`));
+  assert.ok((await page.getByLabel('Login details',{exact:true}).inputValue()).includes(`/${slug}/`));
   await page.getByRole('button',{name:'Done',exact:true}).click();
   await logout();
   await login(`/${slug}/dispatch`,'acme-admin',adminPassword);
   await page.getByRole('button',{name:'Add shipper'}).click();
   await page.getByLabel('Shipper name',{exact:true}).fill('ABC Trading');
   await page.getByLabel('Shipper number',{exact:true}).fill('CUST-001');
-  await page.getByLabel('Login ID',{exact:true}).fill('abc-customer');
+  await page.getByLabel('Email for login',{exact:true}).fill('abc@example.com');
   const customerPassword = await page.getByLabel('Initial password',{exact:true}).inputValue();
   await page.getByRole('button',{name:'Create shipper',exact:true}).click();
   await page.getByRole('heading',{name:'Login details ready'}).waitFor();
   await page.getByRole('button',{name:'Done',exact:true}).click();
   await logout();
-  await login(`/${slug}/customer`,'abc-customer',customerPassword);
+  await login(`/${slug}/shipper-portal`,'abc@example.com',customerPassword);
   await page.getByRole('heading',{name:'ABC Trading',exact:true}).waitFor();
   assert.equal(await page.getByLabel('Current password',{exact:true}).count(),0,'No forced first-login change');
   await page.getByLabel('Contact name',{exact:true}).fill('Jane Customer');
@@ -66,7 +66,7 @@ try {
   const stored = await page.evaluate(()=>JSON.stringify({...localStorage}));
   assert.ok(!stored.includes(customerPassword) && !stored.includes('Customer-new-password-123!'));
   await logout();
-  await login(`/${slug}/customer`,'abc-customer','Customer-new-password-123!');
+  await login(`/${slug}/shipper-portal`,'abc@example.com','Customer-new-password-123!');
   await page.getByRole('heading',{name:'ABC Trading',exact:true}).waitFor();
   await page.setViewportSize({width:390,height:844});
   if (output) await page.screenshot({path:`output/mobile.png`.replace('output',output),fullPage:true});

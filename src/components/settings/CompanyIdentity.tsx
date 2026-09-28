@@ -2,6 +2,7 @@ import { ImagePlus, X } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '../ui/button';
 import { fieldClass, labelClass } from './BillingFields';
+import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 
 export interface CompanyIdentityValue {
   name: string;
@@ -53,7 +54,7 @@ export function CompanyIdentity({ value, onChange, children }: { value: CompanyI
     {children}
     <div>
       <label htmlFor="company-address" className={labelClass}>Company Address</label>
-      <input id="company-address" type="text" aria-label="Company address" className={fieldClass} value={value.address} placeholder="Street, city, province, postal code" onChange={event => onChange({ address: event.target.value })} />
+      <AddressAutocomplete id="company-address" aria-label="Company address" className={fieldClass} value={value.address} placeholder="Street, city, province, postal code" onChange={address => onChange({ address })} />
     </div>
   </section>;
 }

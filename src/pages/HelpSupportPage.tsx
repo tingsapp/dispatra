@@ -147,7 +147,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
                 </span>
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
-                Route Optimizer • MapLibre Telemetry Sync • SMS Notifications • Public Tracking API
+                Route Optimizer • Google Maps • SMS Notifications • Public Tracking API
               </div>
             </div>
           </div>

@@ -9,18 +9,17 @@ import { MapControls } from './components/MapControls';
 import { ConfirmDialogHost } from './components/ui/ConfirmDialog';
 import { Sidebar } from './components/Sidebar';
 import { TopMetrics } from './components/TopMetrics';
-import { MapController,TorontoMap,VANCOUVER_CENTER_LNG_LAT } from './components/TorontoMap';
+import { GoogleMonitorMap, type MapController, VANCOUVER_CENTER_LNG_LAT } from './components/GoogleMonitorMap';
 import {
 INITIAL_DRIVERS,
 INITIAL_JOBS,
 INITIAL_NEEDS_ATTENTION
 } from './data/mockData';
 import { bindDriverVehicle,loadDrivers,saveDrivers } from './lib/driverStorage';
-import { loadUserProfile } from './lib/profileStorage';
+import { freezeCompletedOrder } from './lib/driverPayout';
 import { loadPricingContext,loadSavedOrders,pricingAttentionItems,saveOrders } from './lib/orderPricing';
 import { validateAssignment } from './lib/organizationWorkflows';
 import { usePageNavigation } from './lib/usePageNavigation';
-import { MonitorStage } from './components/monitor/MonitorStage';
 import { CustomersPage } from './pages/CustomersPage';
 import { DriversPage } from './pages/DriversPage';
 import { HelpSupportPage } from './pages/HelpSupportPage';
@@ -33,9 +32,8 @@ import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from '.
 
 export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const [activeTab, setActiveTab] = usePageNavigation();
-  const [monitorMapReady, setMonitorMapReady] = useState(false);
-  const onMonitorMapReady = useCallback(() => setMonitorMapReady(true), []);
-  useEffect(() => { if (activeTab !== 'monitor') setMonitorMapReady(false); }, [activeTab]);
+  const [mapEverOpened, setMapEverOpened] = useState(() => activeTab === 'monitor');
+  useEffect(() => { if (activeTab === 'monitor') setMapEverOpened(true); }, [activeTab]);
   const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia('(max-width: 639px)').matches);
   useEffect(() => {
     if (activeTab === 'monitor') return;
@@ -88,6 +86,12 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   // Interactive Map Controller ref for smooth animations and zooms
   const mapRef = useRef<MapController | null>(null);
 
+  useEffect(() => {
+    if (activeTab !== 'monitor' || !mapEverOpened) return;
+    const frame = requestAnimationFrame(() => mapRef.current?.resize());
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, mapEverOpened]);
+
   // Dynamic screen positions for popovers
   const [markerPositions, setMarkerPositions] = useState<{
     d14?: { x: number; y: number } | null;
@@ -116,7 +120,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   // Map Controls State
   const [layerConfig, setLayerConfig] = useState<MapLayerConfig>({
     mode: 'map',
-    traffic: true,
+    traffic: false,
     labels: true
   });
 
@@ -142,7 +146,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   }, []);
 
   // Selecting driver: Opens primary popover, ensures child menu is CLOSED on-demand
-  const handleSelectDriver = useCallback((id: string) => {
+  const handleSelectDriver = useCallback((id: string, markerPosition?: [number, number]) => {
     setSelectedDriverId(id);
     setShowDriverPopover(true);
     setShowDriverActions(false); // Child only displayed on-demand
@@ -151,13 +155,14 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
     setDrivers((prev) => {
       const found = prev.find((d) => d.id === id);
       if (found && mapRef.current) {
-        mapRef.current.flyTo({
-          center: [found.lng, found.lat],
+        const [lng, lat] = markerPosition ?? [found.lng, found.lat];
+        if (!markerPosition) mapRef.current.flyTo({
+          center: [lng, lat],
           zoom: 13.5,
           duration: 800,
           essential: true
         });
-        const pt = mapRef.current.project([found.lng, found.lat]);
+        const pt = mapRef.current.project([lng, lat]);
         if (pt && (pt.x !== 0 || pt.y !== 0)) {
           setMarkerPositions((curr) => ({
             ...curr,
@@ -172,7 +177,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   }, []);
 
   // Selecting job: Opens primary popover, ensures child and grandchild are CLOSED on-demand
-  const handleSelectJob = useCallback((jobNumber: string) => {
+  const handleSelectJob = useCallback((jobNumber: string, markerPosition?: [number, number]) => {
     setSelectedJobId(jobNumber);
     setShowJobDetail(true);
     setShowAssignDriver(false); // Child only displayed on-demand
@@ -182,13 +187,14 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
     setJobs((prev) => {
       const found = prev.find((j) => j.jobNumber === jobNumber);
       if (found && mapRef.current) {
-        mapRef.current.flyTo({
-          center: [found.lng, found.lat],
+        const [lng, lat] = markerPosition ?? [found.lng, found.lat];
+        if (!markerPosition) mapRef.current.flyTo({
+          center: [lng, lat],
           zoom: 13.5,
           duration: 800,
           essential: true
         });
-        const pt = mapRef.current.project([found.lng, found.lat]);
+        const pt = mapRef.current.project([lng, lat]);
         if (pt && (pt.x !== 0 || pt.y !== 0)) {
           setMarkerPositions((curr) => ({
             ...curr,
@@ -201,6 +207,32 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
     });
     showToast(`Selected Job ${jobNumber}`);
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'monitor' || (!showDriverPopover && !showJobDetail)) return;
+    const dismissOutside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const overlay = target.closest<HTMLElement>('[data-map-detail-overlay]');
+      if (overlay) {
+        if (overlay.dataset.mapDetailOverlay === 'job') {
+          if (!target.closest('[data-map-detail-toggle="assignment"]')) setShowAssignDriver(false);
+          if (!target.closest('[data-map-detail-toggle="recommendation"]')) setShowAiRecommendation(false);
+        } else if (overlay.dataset.mapDetailOverlay === 'assignment' && !target.closest('[data-map-detail-toggle="recommendation"]')) {
+          setShowAiRecommendation(false);
+        }
+        return;
+      }
+      if (target.closest('[data-slot="popover-content"][aria-label="Driver actions"]')) return;
+      setShowDriverPopover(false);
+      setShowDriverActions(false);
+      setShowJobDetail(false);
+      setShowAssignDriver(false);
+      setShowAiRecommendation(false);
+    };
+    document.addEventListener('pointerdown', dismissOutside, true);
+    return () => document.removeEventListener('pointerdown', dismissOutside, true);
+  }, [activeTab, showDriverPopover, showJobDetail]);
 
   const handleMapBackgroundClick = useCallback(() => {
     setShowDriverPopover(false);
@@ -284,8 +316,13 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
     const apply = () => {
       const pt = mapRef.current?.project?.(VANCOUVER_CENTER_LNG_LAT);
       const mapReady = !!pt && (pt.x !== 0 || pt.y !== 0);
-      if (!mapReady && attempts < 40) {
+      if (!mapReady) {
         attempts += 1;
+        if (attempts >= 80) {
+          showToast('Map is unavailable. Check the Google Maps configuration and try again.');
+          setPendingLocate(null);
+          return true;
+        }
         return false;
       }
       if (pendingLocate.type === 'job') {
@@ -300,19 +337,19 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
     if (apply()) return;
     const timer = window.setInterval(() => {
       if (apply()) window.clearInterval(timer);
-    }, 100);
+    }, 250);
     return () => window.clearInterval(timer);
   }, [activeTab, pendingLocate, handleSelectJob, handleSelectDriver]);
 
   // Job & Driver mutations coming from the Jobs / Drivers pages
   const handleUpdateJob = useCallback((updatedJob: Job) => {
-    setJobs((prev) => prev.map((j) => (j.id === updatedJob.id ? updatedJob : j)));
-  }, []);
+    setJobs((prev) => prev.map((j) => (j.id === updatedJob.id ? freezeCompletedOrder(j, updatedJob, drivers) : j)));
+  }, [drivers]);
 
   const handleCreateJob = useCallback((newJob: Job) => {
-    setJobs((prev) => [newJob, ...prev]);
+    setJobs((prev) => [freezeCompletedOrder(undefined, newJob, drivers), ...prev]);
     setActiveJobsCount((prev) => prev + 1);
-  }, []);
+  }, [drivers]);
 
   const handleUpdateDriver = useCallback((updatedDriver: Driver) => {
     bindDriverVehicle(updatedDriver);
@@ -451,7 +488,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
           <PanelLeft className="w-4.5 h-4.5" strokeWidth={1.5} />
         </button>
 
-        {activeTab === 'rate-cards' ? (
+        {activeTab !== 'monitor' && (activeTab === 'rate-cards' ? (
           <RateCardsPage
             onNotification={showToast}
           />
@@ -499,10 +536,11 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
           <ReportsPage
             onNotification={showToast}
           />
-        ) : (
-          <MonitorStage ready={monitorMapReady} skipIntro={pendingLocate !== null} brief={{ name: loadUserProfile().name, orders: activeJobsCount, driversOnDuty: drivers.filter(d => d.status !== 'offline').length, attention: needsAttentionItems.length }}>
-            {/* MAPLIBRE GL / LEAFLET INTERACTIVE MAP CANVAS */}
-            <TorontoMap
+        ) : null)}
+
+        {mapEverOpened && <div className={`absolute inset-0 z-0 ${activeTab === 'monitor' ? '' : 'hidden'}`} aria-label="Monitor map">
+            {/* GOOGLE INTERACTIVE MAP CANVAS */}
+            <GoogleMonitorMap
               mapRef={mapRef}
               mapInstanceRef={mapRef}
               drivers={drivers}
@@ -517,9 +555,10 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
               onUpdatePositions={handleMarkerPositionsUpdate}
               onDriverTelemetry={handleDriverTelemetryUpdate}
               onDriverTelemetryUpdate={handleDriverTelemetryUpdate}
-              onReady={onMonitorMapReady}
+              active={activeTab === 'monitor'}
             />
 
+            {activeTab === 'monitor' && <>
             {/* TOP METRICS (Active Jobs, Available Drivers, Needs Attention) */}
             <TopMetrics
               offsetForMenu={!sidebarOpen}
@@ -624,8 +663,8 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
               <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
               <span>Vancouver Overview</span>
             </button>
-          </MonitorStage>
-        )}
+            </>}
+          </div>}
 
         {/* NOTIFICATION TOAST */}
         <AnimatePresence>

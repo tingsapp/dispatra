@@ -54,11 +54,29 @@ test('customer locations and defaults persist while booking snapshot remains unc
   assert.equal(snapshot.phone,DEFAULT_CUSTOMERS[0].phone); assert.equal(loadCustomers()[0].addresses![0].address,'200 Main St');
   const input=applyCustomerDefaults(facts(),c); assert.equal(input.serviceId,'srv_direct'); assert.equal(input.stops[0].instructions,'Call receiving');
 });
+test('legacy shipper city becomes part of the warehouse and default pickup without duplication', () => {
+  const legacy = normalizeCustomer(DEFAULT_CUSTOMERS[0]);
+  assert.equal(legacy.address, '1420 Derwent Way, Annacis Island, Delta, BC');
+  assert.equal(legacy.addresses?.find(item => item.id === `${legacy.id}-primary`)?.address, legacy.address);
+  assert.equal(normalizeCustomer(legacy).address, legacy.address);
+  const updated = normalizeCustomer({ ...legacy, address: '20 Main St, Surrey, BC V3T 1X1', city: '', addresses: [...(legacy.addresses ?? []), { id: 'secondary', type: 'DELIVERY', label: 'Secondary', address: '30 Side St' }] });
+  assert.equal(updated.addresses?.find(item => item.id === `${legacy.id}-primary`)?.address, updated.address);
+  assert.equal(updated.addresses?.find(item => item.id === 'secondary')?.address, '30 Side St');
+  const blankPickup = facts(); blankPickup.stops[0].label = '';
+  const input = applyCustomerDefaults(blankPickup, updated);
+  assert.equal(input.stops[0].label, updated.address);
+  assert.equal(input.stops[0].provinceCode, 'BC');
+  const custom = applyCustomerDefaults({ ...input, stops: input.stops.map((stop, index) => index === 0 ? { ...stop, label: 'Manual pickup' } : stop) }, legacy, updated);
+  assert.equal(custom.stops[0].label, 'Manual pickup');
+  assert.equal(applyCustomerDefaults(input, legacy, updated).stops[0].label, legacy.address);
+});
+
 test('new properties survive vehicle save and an intentionally empty fleet remains empty', () => {
   const v=syncVehicle({...fleetVehicle(),equipment:['Dolly','Liftgate'],cargoVolumeM3:2,unavailableReason:'Reserved'}); saveVehicles([v]); assert.deepEqual(loadVehicles()[0],JSON.parse(JSON.stringify(v))); assert.equal(v.hasLiftgate,true); saveVehicles([]); assert.deepEqual(loadVehicles(),[]);
 });
 test('profile validation rejects duplicates, invalid capacity, blank availability and missing required data', () => {
-  const d=normalizeDriver({...INITIAL_DRIVERS[0],shiftStart:undefined,driverNumber:'DUP',phone:'6041234567'}); assert.match(validateDriver({...d,id:'new'},[d]).join(' '),/already exists/);
+  const d=normalizeDriver({...INITIAL_DRIVERS[0],shiftStart:undefined,driverNumber:'DUP',phone:'6041234567',email:'driver@example.ca',address:'100 Main St, Vancouver, BC V6A 2S5'}); assert.match(validateDriver({...d,id:'new'},[d]).join(' '),/already exists/);
+  assert.match(validateDriver({...d,address:''},[]).join(' '),/address is required/);
   assert.match(validateDriver({...d,availabilitySchedule:[{id:'a',start:'',end:'',available:false}]},[]).join(' '),/start and end/);
   assert.match(validateVehicle({...fleetVehicle(),payloadCapacityKg:-1},[]).join(' '),/nonnegative/);
   assert.match(validateCustomer({...DEFAULT_CUSTOMERS[0],code:DEFAULT_CUSTOMERS[1].code},DEFAULT_CUSTOMERS,DEFAULT_CUSTOMERS[0].id).join(' '),/already exists/);
@@ -103,7 +121,7 @@ test('customer payment terms determine invoice due dates and stay frozen after l
 
 
 test('driver limits validate whole positive counts and preserve legacy defaults on load', () => {
-  const driver = normalizeDriver(INITIAL_DRIVERS[0]);
+  const driver = normalizeDriver({ ...INITIAL_DRIVERS[0], email:'driver@example.ca', address: '100 Main St, Vancouver, BC V6A 2S5' });
   assert.equal(driver.maxActiveOrders, undefined);
   for (const maxActiveOrders of [0, -1, 1.5, Infinity, NaN]) {
     assert.match(validateDriver({ ...driver, maxActiveOrders }, [driver])[0], /Maximum active orders/);

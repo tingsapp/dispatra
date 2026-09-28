@@ -65,6 +65,7 @@ test('default order fields accept fractional inches and pounds and store canonic
   assert.ok(screen.getByRole('columnheader', { name: 'L × W × H (in)' }));
   const length = screen.getByLabelText('Package 1 length') as HTMLInputElement;
   assert.equal(length.value, '15.7');
+  assert.equal((screen.getByLabelText('Package 1 weight') as HTMLInputElement).value, '22.0');
   assert.equal(length.validity.stepMismatch, false);
   assert.deepEqual(current, original, 'Displaying converted values must not rewrite stored measurements');
   await user.clear(length); await user.type(length, '12.5');
@@ -83,8 +84,8 @@ test('vehicle type limits display in company units and stored cargo dimensions s
   let saved: typeof vehicle | undefined;
   const user = userEvent.setup({ document });
   render(React.createElement(VehicleEditor, { vehicle, vehicles: [vehicle], onCancel: () => {}, onSave: next => { saved = next as typeof vehicle; } }));
-  assert.match(screen.getByText(/payload ·/).textContent!, /\blb payload/);
-  assert.equal(screen.queryByLabelText(/Cargo length/), null);
+  assert.ok(Number((screen.getByLabelText('Max payload') as HTMLInputElement).value) > 0);
+  assert.equal((screen.getByLabelText('Cargo length (in)') as HTMLInputElement).value, '100');
   await user.click(screen.getByRole('button', { name: 'Save vehicle' }));
   assert.ok(saved);
   assert.equal(saved.cargoLengthCm, vehicle.cargoLengthCm);
@@ -108,6 +109,7 @@ test('converted zone dimensional divisors accept fractional values without chang
 
 test('zone weight fields use default pounds and preserve weight-price pairing in canonical units', async () => {
   const { ZoneMatrixEditor } = await import('../src/components/pricing/ZoneMatrixEditor');
+  const { CENTRAL_PICKUP_ZONE_ID } = await import('../src/lib/centralZoneRates');
   const units = loadBillingConfig().general;
   const zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['00501'] }];
   const initial = [{ id: 'aa', originZoneId: 'a', destinationZoneId: 'a', serviceId: null, amount: 40, weightBands: [{ id: 'band', maxWeightKg: 45.359237, amount: 40 }] }];
@@ -117,10 +119,11 @@ test('zone weight fields use default pounds and preserve weight-price pairing in
     return React.createElement(ZoneMatrixEditor, { rates: draft, zones, units, currency: 'CAD', onChange: next => { rates = next as typeof initial; setDraft(rates); } });
   }
   const user = userEvent.setup({ document }); render(React.createElement(Form));
-  const weight = screen.getByLabelText('Central to Central weight limit (lb)') as HTMLInputElement;
+  const weight = screen.getByLabelText('Weight to (lb)') as HTMLInputElement;
   assert.equal(weight.value, '100');
   assert.deepEqual(rates, initial);
   await user.clear(weight); await user.type(weight, '200'); await user.tab();
-  assert.equal(rates[0].weightBands[0].maxWeightKg, 200 * 0.45359237);
-  assert.equal(rates[0].weightBands[0].amount, 40);
+  const central = rates.find(rate => rate.originZoneId === CENTRAL_PICKUP_ZONE_ID)!;
+  assert.equal(central.weightBands[0].maxWeightKg, 200 * 0.45359237);
+  assert.equal(central.weightBands[0].amount, 40);
 });

@@ -1,4 +1,4 @@
-import { CENTRAL_PICKUP_ZONE_ID } from '../lib/centralZoneRates';
+import { DriverAvatar } from '../components/DriverAvatar';
 import { ListSummary } from '../components/layout/ListSummary';
 import { DriverAssignmentMenu } from '../components/entities/DriverAssignmentMenu';
 import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
@@ -43,7 +43,7 @@ import { validateAssignment,validateBooking } from '../lib/organizationWorkflows
 import { formatDimension,formatWeight } from '../lib/units';
 import { Driver,Job } from '../types';
 import { PricingOrderInput, PricingStopInput } from '../types/pricing';
-import { PricingContext } from '../lib/pricingEngine';
+import { defaultRateCard, PricingContext } from '../lib/pricingEngine';
 
 const priorityLabel = (p: Job['priority'] | undefined) => ({ NORMAL: 'Normal', HIGH: 'High', URGENT: 'Urgent' } as Record<string, string>)[p ?? 'NORMAL'] ?? 'Normal';
 const trimUnit = (s: string) => s.replace(/\s\S+$/, '');
@@ -78,10 +78,11 @@ export function JobsPage({
   onNotification
 }: JobsPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'on_time' | 'at_risk' | 'late_start' | 'no_driver' | 'completed'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'on_time' | 'at_risk'>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<OrderDateSelection>({ kind: 'all' });
+  const [createMode, setCreateMode] = useState<'order' | 'quote'>('order');
   const today = formatDateValue(new Date());
   
   // Selected job for detail drawer
@@ -101,11 +102,12 @@ export function JobsPage({
   const newOrderSnapshot = useMemo(() => priceOrder(newOrderInput, pricingCtx), [newOrderInput, pricingCtx]);
   const selectedCustomer = pricingCtx.customers.find((c) => c.id === newOrderInput.customerId);
 
-  const openCreateModal = () => {
+  const openCreateModal = (mode: 'order' | 'quote') => {
     const ctx = loadPricingContext();
-    setEditingOrder(null); setOrderFields({}); setFormErrors([]);
+    setCreateMode(mode); setEditingOrder(null); setOrderFields({}); setFormErrors([]);
     setPricingCtx(ctx);
-    setNewOrderInput(applyDriverVehicle(createDefaultOrderInput(ctx), undefined, []));
+    const initial = createDefaultOrderInput(ctx);
+    setNewOrderInput(applyDriverVehicle({ ...initial, customerId: null, rateCardOverrideId: mode === 'quote' ? defaultRateCard(ctx.pricing.rateCards)?.id ?? null : null, stops: initial.stops.map(stop => ({ ...stop, zoneId: null })) }, undefined, []));
     setNewInstructions('');
     setNewDriverId('unassigned');
     setShowCreateModal(true);
@@ -113,7 +115,7 @@ export function JobsPage({
 
   const openEditOrder = (job: Job) => {
     if (!orderEditable(job) || !job.pricingInput) return;
-    setPricingCtx(loadPricingContext()); setEditingOrder(job); setOrderFields({ ...job }); setFormErrors([]);
+    setCreateMode('order'); setPricingCtx(loadPricingContext()); setEditingOrder(job); setOrderFields({ ...job }); setFormErrors([]);
     setNewOrderInput(normalizeOrderInput({ ...structuredClone(job.pricingInput), taxCalculation: 'COMPANY' }));
     setNewInstructions(job.handlingInstructions ?? '');
     setNewScheduledTime(job.scheduledTime); setNewDriverId(job.assignedDriverId ?? 'unassigned'); setActiveJobDossier(null); setShowCreateModal(true);
@@ -136,7 +138,7 @@ export function JobsPage({
         (job.assignedDriverId && job.assignedDriverId.toLowerCase().includes(q)) || [job.referenceNumbers, ...(job.tags ?? []), ...(job.pricingInput?.stops.map(s => [s.label, s.contactName, s.contactPhone].join(' ')) ?? [])].join(' ').toLowerCase().includes(q);
 
       const matchesStatus =
-        statusFilter === 'all' || (statusFilter === 'at_risk' ? job.status === 'at_risk' || job.status === 'late_start' : statusFilter === 'no_driver' ? !job.assignedDriverId && job.status !== 'completed' : job.status === statusFilter);
+        statusFilter === 'all' || (statusFilter === 'at_risk' ? job.status === 'at_risk' || job.status === 'late_start' : job.status === statusFilter);
 
       const matchesType =
         typeFilter === 'all' || job.serviceId === typeFilter;
@@ -198,12 +200,6 @@ export function JobsPage({
     // Order numbers are assigned in the background; the API will own the sequence later.
     const normalizedNumber = editingOrder?.jobNumber ?? nextJobNumber(jobs);
     const factsErrors = validateOrderFacts(newOrderInput);
-    const zoneCard = pricingCtx.pricing.rateCards.find(c => c.id === selectedCustomer.rateCardId && c.status === 'ACTIVE') ?? pricingCtx.pricing.rateCards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
-    if (zoneCard?.pricingMethod === 'ZONE') {
-      const centralPickup = zoneCard.zoneRates?.some(rate => rate.originZoneId === CENTRAL_PICKUP_ZONE_ID);
-      if (newOrderInput.stops.some(st => (st.type === 'DROPOFF' || !centralPickup) && !st.zoneId))
-        factsErrors.push(centralPickup ? 'Choose a delivery zone for every drop-off.' : 'Choose a zone for every stop — this shipper is priced zone to zone.');
-    }
     if (selectedCustomer && ['Inactive','On Hold'].includes(selectedCustomer.status)) factsErrors.push('Choose an active shipper.');
     const latest = editingOrder && jobs.find(j => j.id === editingOrder.id);
     if (editingOrder && (!latest || !orderEditable(latest) || (latest.version ?? 1) !== (editingOrder.version ?? 1))) factsErrors.push('Order changed while editing. Close and reopen it before saving.');
@@ -216,10 +212,12 @@ export function JobsPage({
     const snapshot = priceOrder(newOrderInput, pricingCtx);
     if (assignedDriver) { const errors = validateAssignment({ ...orderFields, version: (editingOrder?.version ?? 0) + 1, id: editingOrder?.id ?? 'new', status: 'no_driver', pricing: snapshot, pricingInput: newOrderInput }, assignedDriver, jobs, pricingCtx); if (errors.length) { onNotification(errors.join(' ')); return; } }
     const totalKg = newOrderInput.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
+    const mapStop = drops[drops.length - 1];
 
     const newJob: Job = {
       ...editingOrder,
       ...orderFields,
+      priority: editingOrder?.priority ?? 'NORMAL',
       id: editingOrder?.id ?? crypto.randomUUID(),
       lifecycleStatus: assignedDriver ? 'ASSIGNED' : 'NEW',
       version: (editingOrder?.version ?? 0) + 1,
@@ -245,8 +243,8 @@ export function JobsPage({
       palletCount: newOrderInput.packages.reduce((n, p) => n + p.quantity, 0),
       handlingInstructions: newInstructions || undefined,
       stopsCount: newOrderInput.stops.length,
-      lat: editingOrder?.lat ?? 49.2827,
-      lng: editingOrder?.lng ?? -123.1207,
+      lat: mapStop?.latitude ?? editingOrder?.lat ?? 49.2827,
+      lng: mapStop?.longitude ?? editingOrder?.lng ?? -123.1207,
       customerId: newOrderInput.customerId,
       serviceId: newOrderInput.serviceId,
       vehicleId: newOrderInput.vehicleId,
@@ -277,10 +275,10 @@ export function JobsPage({
     <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
       <PageHeader title="Orders" description="Order details, shipper pricing, time windows and assignments." actions={<>
-          <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={today} />
+          <Button type="button" variant="outline" onClick={() => openCreateModal('quote')} className="app-action app-secondary"><Plus className="w-3.5 h-3.5" />New Quote</Button>
           <Button
             type="button"
-            onClick={openCreateModal}
+            onClick={() => openCreateModal('order')}
             className="app-action app-primary flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -330,15 +328,9 @@ export function JobsPage({
               >
                 At Risk
               </button>
-              <button
-                onClick={() => setStatusFilter('no_driver')}
-                aria-pressed={statusFilter === 'no_driver'}
-                className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
-              >
-                Unassigned
-              </button>
             </div>
 
+            <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={today} />
             <Select aria-label="Filter by order status" value={lifecycleFilter} onValueChange={setLifecycleFilter} options={[{ value: 'all', label: 'All order statuses' }, ...ORDER_LIFECYCLES.map(value => ({ value, label: ORDER_LIFECYCLE_LABELS[value] })), { value: 'attention', label: 'Needs attention' }]} />
             {/* Service Type Filter */}
             <Select
@@ -390,6 +382,7 @@ export function JobsPage({
               <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
                 {filteredJobs.map((job) => {
                   const assignedDriver = drivers.find((d) => d.id === job.assignedDriverId);
+                  const readyToInvoice = invoiceState(job) === 'READY';
 
                   return (
                     <tr
@@ -403,6 +396,7 @@ export function JobsPage({
                           <span className="font-medium text-slate-900">{job.jobNumber}</span>
                           <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>
                           {orderAttention(job).map(a => <span key={a.flag} className="text-xs text-amber-700" title={a.detail}>{a.label}</span>)}
+                          {readyToInvoice && <span className="text-xs text-amber-700" title="Completed order ready for invoicing">Invoice</span>}
                         </div>
                         {job.riskText && (
                           <div className="text-xs text-slate-500 mt-0.5 font-normal">
@@ -447,11 +441,7 @@ export function JobsPage({
                       <td className="py-3.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         {assignedDriver ? (
                           <div className="flex items-center gap-2">
-                            <img
-                              src={assignedDriver.avatar}
-                              alt={assignedDriver.name}
-                              className="w-6 h-6 rounded-full object-cover border border-slate-200"
-                            />
+                            <DriverAvatar name={assignedDriver.name} avatar={assignedDriver.avatar} alt={assignedDriver.name} className="w-6 h-6 rounded-full object-cover border border-slate-200" />
                             <div>
                               <div className="font-medium text-slate-800 flex items-center gap-1">
                                 {assignedDriver.name}
@@ -495,7 +485,7 @@ export function JobsPage({
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center gap-1">
-                          {invoiceState(job) === 'READY' && <Button type="button" size="xs" variant="outline" onClick={() => handleInvoice(job)}><FileText /> Invoice</Button>}
+                          {readyToInvoice && <Button type="button" size="xs" variant="outline" onClick={() => handleInvoice(job)}><FileText /> Invoice</Button>}
                           <button
                             onClick={() => onSelectJob(job.jobNumber)}
                             title="Locate on Monitor"
@@ -563,8 +553,8 @@ export function JobsPage({
               <section className="rounded-xl border border-slate-200 p-5">
                 <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Package className="w-3.5 h-3.5 text-slate-700" /><span>Packages</span></h4>
                 {activeJobDossier.pricingInput?.packages.length ? <div className="rounded-lg bg-slate-50 p-4 overflow-x-auto"><table aria-label="Order packages" className="app-table app-table-plain w-full">
-                  <thead><tr><th scope="col" className="text-left">Qty</th><th scope="col" className="text-left">Weight ({pricingCtx.billing.general.weightUnit})</th><th scope="col" className="text-left">L × W × H ({pricingCtx.billing.general.dimensionUnit})</th><th scope="col" className="text-left">Fragile</th></tr></thead>
-                  <tbody>{activeJobDossier.pricingInput.packages.map(p => <tr key={p.id}><td>{p.quantity}</td><td>{trimUnit(formatWeight(p.weightKg, pricingCtx.billing.general))}</td><td>{[p.lengthCm, p.widthCm, p.heightCm].map(cm => trimUnit(formatDimension(cm, pricingCtx.billing.general))).join(' × ')}</td><td>{p.fragile ? 'Yes' : '—'}</td></tr>)}</tbody>
+                  <thead><tr><th scope="col" className="text-left">Qty</th><th scope="col" className="text-left">Weight ({pricingCtx.billing.general.weightUnit})</th><th scope="col" className="text-left">L × W × H ({pricingCtx.billing.general.dimensionUnit})</th><th scope="col" className="text-left">Fragile</th><th scope="col" className="text-left">DG</th></tr></thead>
+                  <tbody>{activeJobDossier.pricingInput.packages.map(p => <tr key={p.id}><td>{p.quantity}</td><td>{trimUnit(formatWeight(p.weightKg, pricingCtx.billing.general))}</td><td>{[p.lengthCm, p.widthCm, p.heightCm].map(cm => trimUnit(formatDimension(cm, pricingCtx.billing.general))).join(' × ')}</td><td>{p.fragile ? 'Yes' : '—'}</td><td>{p.handlingTags?.includes('DANGEROUS_GOODS') ? 'Yes' : '—'}</td></tr>)}</tbody>
                 </table></div> : <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">{activeJobDossier.cargoWeight ? `Cargo ${activeJobDossier.cargoWeight}` : 'No package details recorded.'}</p>}
               </section>
 
@@ -594,7 +584,7 @@ export function JobsPage({
               <section className="rounded-xl border border-slate-200 p-5">
                 <h4 className="app-section-title mb-3">Price</h4>
                 {activeJobDossier.pricing
-                  ? <PriceBreakdown snapshot={activeJobDossier.pricing} variant="inline" title={activeJobDossier.pricing.stage === 'FINAL' ? 'Final price' : 'Quoted estimate'} />
+                  ? <PriceBreakdown snapshot={activeJobDossier.pricing} variant="inline" showCalculationSection={false} title={activeJobDossier.pricing.stage === 'FINAL' ? 'Final price' : 'Quoted estimate'} />
                   : <p className="text-sm text-slate-500">This order predates the pricing model and has no snapshot.</p>}
               </section>
           </DialogBody>
@@ -608,14 +598,15 @@ export function JobsPage({
       {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (
         <Dialog size="xl" onClose={() => setShowCreateModal(false)}>
-          <DialogHeader onClose={() => setShowCreateModal(false)} title={editingOrder ? 'Edit Order' : 'New Order'} description="Enter the order details on the left to see its live price estimate on the right." />
-            <form onSubmit={handleCreateSubmit} className="app-dialog-body bg-slate-50 pt-5">
+          <DialogHeader onClose={() => setShowCreateModal(false)} title={editingOrder ? 'Edit Order' : createMode === 'quote' ? 'New Quote' : 'New Order'} description={createMode === 'quote' ? 'Enter shipment details to prepare a quotation without creating an order.' : 'Enter the order details on the left to see its live price estimate on the right.'} />
+            <form onSubmit={createMode === 'quote' ? event => event.preventDefault() : handleCreateSubmit} className="app-dialog-body bg-slate-50 pt-5">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-7 space-y-5 text-xs">
                   {!!formErrors.length && <p role="alert" className="text-xs text-rose-700">{formErrors.join(" ")}</p>}
 
                   <OrderPricingForm
                     showVehicleSelection={!!editingOrder}
+                    customerMode={createMode === 'quote' ? 'rateCard' : 'shipper'}
                     value={newOrderInput}
                     onChange={v => { if (v.customerId !== newOrderInput.customerId) { const c = pricingCtx.customers.find(c => c.id === v.customerId); setOrderFields({ ...orderFields, notificationPreferences: c?.communicationPreferences }); setNewInstructions(c?.instructions ?? ''); } setNewOrderInput(v); }}
                     ctx={pricingCtx}
@@ -624,13 +615,8 @@ export function JobsPage({
                     startIndex={1}
                   />
 
-                  <div className="app-panel">
-                    <label className="app-label">Priority</label>
-                    <Select aria-label="Priority" className="w-full" value={orderFields.priority ?? 'NORMAL'} onValueChange={v => setOrderFields({ ...orderFields, priority: v as Job['priority'] })} options={[{ value: 'NORMAL', label: 'Normal' }, { value: 'HIGH', label: 'High' }, { value: 'URGENT', label: 'Urgent' }]} />
-                  </div>
-
-                  {/* Dispatch */}
-                  <div className="app-panel space-y-3">
+                  {/* Dispatch applies only when creating or editing an order. */}
+                  {createMode === 'order' && <div className="app-panel space-y-3">
                     <h4 className="app-section-title text-slate-500">Dispatch</h4>
                     <div>
                       <label className="block font-medium text-slate-700 mb-1">Assign Driver (Optional)</label>
@@ -659,21 +645,24 @@ export function JobsPage({
                         className="app-input w-full"
                       />
                     </div>
-                  </div>
+                  </div>}
                 </div>
 
                 <div className="lg:col-span-5 lg:sticky lg:top-0">
                   <PriceBreakdown
                     snapshot={newOrderSnapshot}
-                    title="Live estimate"
-                    headerAction={newOrderSnapshot.status === 'PRICED' && selectedCustomer ? <QuotationMenu buildQuotation={() => buildQuotation(newOrderInput, newOrderSnapshot, pricingCtx)} onNotification={onNotification} /> : undefined}
+                    title={createMode === 'quote' ? 'Live quote' : 'Live estimate'}
                   />
                 </div>
               </div>
             </form>
 
-            <DialogFooter note={newOrderSnapshot.status === 'PRICED' ? 'The estimate is frozen on the order as a Pricing Snapshot.' : 'The order can be created, but it will land in Needs Attention until it can be priced.'}>
-              <Button type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>
+            <DialogFooter note={createMode === 'quote' ? 'Sending a quote does not create an order.' : newOrderSnapshot.status === 'PRICED' ? 'The estimate is frozen on the order as a Pricing Snapshot.' : 'The order can be created, but it will land in Needs Attention until it can be priced.'}>
+              {createMode === 'quote'
+                ? newOrderSnapshot.status === 'PRICED' && !!newOrderInput.rateCardOverrideId
+                  ? <QuotationMenu buildQuotation={() => buildQuotation(newOrderInput, newOrderSnapshot, pricingCtx)} onNotification={onNotification} triggerLabel="Send Quote" prominent allowRecipientEntry />
+                  : <Button type="button" disabled>Send Quote</Button>
+                : <Button type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
             </DialogFooter>
         </Dialog>
       )}

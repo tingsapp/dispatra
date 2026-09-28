@@ -1,3 +1,4 @@
+import { scopedStorageKey } from './scopedStorage';
 export interface UserProfile {
   name: string;
   email: string;
@@ -35,7 +36,7 @@ export const PROFILE_STORAGE_KEY = 'dispatra_user_profile_v1';
 
 export function loadUserProfile(): UserProfile {
   try {
-    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    const raw = localStorage.getItem(scopedStorageKey(PROFILE_STORAGE_KEY));
     if (raw) {
       const parsed = JSON.parse(raw);
       // Organization-level fields are edited in Profile → Company; drop stale copies from personal profiles.
@@ -50,7 +51,7 @@ export function loadUserProfile(): UserProfile {
 
 export function saveUserProfile(profile: UserProfile): void {
   try {
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    localStorage.setItem(scopedStorageKey(PROFILE_STORAGE_KEY), JSON.stringify(profile));
   } catch (err) {
     console.warn('Could not save profile to localStorage:', err);
   }

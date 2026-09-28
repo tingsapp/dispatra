@@ -6,9 +6,8 @@ import { PricingSnapshot } from '../../types/pricing';
 
 /**
  * Renders a PricingSnapshot exactly as the engine produced it: resolved card,
- * method, status, ChargeLines, tax, total, "View calculation", and the
- * internal margin (dispatcher-only). Used by Order creation,
- * and Order details so every surface reads the same numbers.
+ * method, status, ChargeLines, tax, total, and the internal margin
+ * (dispatcher-only). The calculation disclosure is optional for details.
  */
 interface PriceBreakdownProps {
   snapshot: PricingSnapshot;
@@ -16,6 +15,8 @@ interface PriceBreakdownProps {
   variant?: 'card' | 'inline';
   /** Hide the internal cost/margin block (e.g. shipper-facing previews). */
   showMargin?: boolean;
+  /** Hide the detailed calculation disclosure while retaining the price breakdown. */
+  showCalculationSection?: boolean;
   headerAction?: React.ReactNode;
   title?: string;
 }
@@ -27,6 +28,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
   snapshot,
   variant = 'card',
   showMargin = true,
+  showCalculationSection = true,
   headerAction,
   title
 }) => {
@@ -106,7 +108,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
       {snapshot.lines.length === 0 ? (
         <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
           {snapshot.status === 'NEEDS_ATTENTION' || !snapshot.rateCard
-            ? 'No live estimate yet. Complete the route and stop details for a valid shipper to price this order.'
+            ? 'No live estimate yet. Complete the route and stop details to price this shipment.'
             : 'Nothing priced yet.'}
         </div>
       ) : (
@@ -150,15 +152,17 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
         </span>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setShowCalculation((v) => !v)}
-        className="w-full flex items-center justify-between text-xs font-medium text-slate-600 hover:text-slate-900 py-1"
-      >
-        <span>View calculation</span>
-        {showCalculation ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-      </button>
-      {showCalculation && (
+      {showCalculationSection && (
+        <button
+          type="button"
+          onClick={() => setShowCalculation((v) => !v)}
+          className="w-full flex items-center justify-between text-xs font-medium text-slate-600 hover:text-slate-900 py-1"
+        >
+          <span>View calculation</span>
+          {showCalculation ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+      )}
+      {showCalculationSection && showCalculation && (
         <div className="space-y-3 text-xs">
           <div className="p-3 rounded-lg bg-slate-50">
             <div className="font-medium text-slate-700 mb-1.5">Rate Card resolution</div>

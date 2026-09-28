@@ -59,7 +59,7 @@ export const buildQuotation = (input: PricingOrderInput, snapshot: PricingSnapsh
     scheduledAt: input.scheduledAt,
     distance: input.routeKm == null ? null : formatDistance(input.routeKm, units),
     stops: input.stops.map(s => ({ type: s.type, address: s.label ?? '', contactName: s.contactName ?? '', contactPhone: s.contactPhone ?? '' })),
-    items: input.packages.map((p, i) => ({ description: p.description || `Package ${i + 1}`, quantity: p.quantity, weight: formatWeight(p.weightKg, units), dimensions: `${[p.lengthCm, p.widthCm, p.heightCm].map(cm => Number(toDisplayDimension(cm, units).toFixed(1))).join(' × ')} ${units.dimensionUnit}` })),
+    items: input.packages.map((p, i) => ({ description: [p.description || `Package ${i + 1}`, p.fragile && 'Fragile', p.handlingTags?.includes('DANGEROUS_GOODS') && 'Dangerous goods'].filter(Boolean).join(' · '), quantity: p.quantity, weight: formatWeight(p.weightKg, units), dimensions: `${[p.lengthCm, p.widthCm, p.heightCm].map(cm => Number(toDisplayDimension(cm, units).toFixed(1))).join(' × ')} ${units.dimensionUnit}` })),
     lines: snapshot.lines.map(l => ({ key: l.key, label: l.label, detail: l.detail && customerFacing(l.detail, input), amount: l.amount })),
     subtotal: snapshot.subtotal,
     taxLines: snapshot.taxExempt ? [] : snapshot.taxLines.map(l => ({ key: l.key, label: l.label, detail: l.detail, amount: l.amount })),

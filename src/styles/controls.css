@@ -257,6 +257,17 @@ svg.lucide { stroke-width: 1.75; }
 .app-table-plain .app-input[type="number"] { padding-inline: .5rem; appearance: textfield; -moz-appearance: textfield; }
 .app-table-plain .app-input[type="number"]::-webkit-inner-spin-button, .app-table-plain .app-input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .app-table-editable input[type="number"] { min-width: 4rem; }
+/* Package inputs fill their columns and retain a usable 50px minimum.
+   The table scrolls as one row when its columns cannot fit the form. */
+.app-package-table-shell { overflow-x: auto; }
+.app-package-table { --app-table-cell-padding: .25rem; width: 100%; table-layout: auto; font-size: .75rem; }
+.app-package-table thead th { font-size: .6875rem; }
+.app-package-table .app-input[type="number"] { min-width: 50px; width: 100%; min-height: 2rem; height: 2rem; padding: .25rem .25rem; font-size: .75rem; line-height: 1rem; }
+.app-package-table .package-dimensions > div { width: 100%; min-width: 0; }
+.app-package-table .package-dimensions .app-input { flex: 1 1 0; min-width: 50px; width: 100%; }
+.app-package-table .package-stop-select { width: 100%; min-width: 76px; min-height: 2rem; height: 2rem; padding-inline: .3rem; gap: .15rem; font-size: .75rem; }
+.app-package-table .package-stop-select svg { width: .75rem; height: .75rem; }
+.app-package-table .package-remove button { padding: .25rem; }
 .app-table-input { min-height: 2rem; border: 1px solid transparent; border-radius: .5rem; background: transparent; padding: .25rem .5rem; color: var(--color-app-text); font-size: var(--text-sm); }
 .app-table-input:hover { background: var(--color-app-hover); }
 .app-table-input:focus { background: var(--color-app-surface); border-color: var(--color-app-muted); outline: 1px solid var(--color-app-muted); outline-offset: -1px; }

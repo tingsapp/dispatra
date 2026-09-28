@@ -47,6 +47,8 @@ test('quotation mirrors the priced snapshot in company units and renders text an
   assert.equal(q.subtotal, snapshot.subtotal);
   assert.deepEqual(q.lines.map(l => l.amount), snapshot.lines.map(l => l.amount));
   assert.deepEqual(q.items, [{ description: 'Crate', quantity: 2, weight: '100 lb', dimensions: '20 × 10 × 10 in' }]);
+  const flagged = buildQuotation({ ...input, packages: [{ ...input.packages[0], fragile: true, handlingTags: ['DANGEROUS_GOODS'] }] }, snapshot, ctx, now);
+  assert.equal(flagged.items[0].description, 'Crate · Fragile · Dangerous goods');
   assert.equal(q.stops[0].address, '100 Main St, Vancouver');
   const blank = { ...input, stops: input.stops.map(s => ({ ...s, label: '' })) };
   const idDetail = buildQuotation(blank, { ...snapshot, lines: [{ ...snapshot.lines[0], detail: `${blank.stops[0].id} -> ${blank.stops[1].id}; 10 lb` }] }, ctx, now);
@@ -64,25 +66,58 @@ test('quotation mirrors the priced snapshot in company units and renders text an
   assert.throws(() => buildQuotation(input, { ...snapshot, status: 'NEEDS_ATTENTION' }, ctx), /priced/);
 });
 
-test('Send as quote appears only for a priced order with a customer and opens a menu with the customer email, Email and Download', async () => {
-  const { customer } = setup();
+test('New Quote uses the order facts form, offers Send Quote, and does not create an order', async () => {
+  const { ctx } = setup();
+  const prospectCard = createEmptyRateCard({ id: 'prospect-card', name: 'Prospect fixed', scope: 'CUSTOMER_GROUP', status: 'ACTIVE', effectiveFrom: '2020-01-01', pricingMethod: 'FIXED', fixedAmount: 180 });
+  savePricingConfig({ ...ctx.pricing, rateCards: [...ctx.pricing.rateCards, prospectCard] });
   const user = userEvent.setup({ document });
-  const notices: string[] = [];
-  render(React.createElement(JobsPage, { jobs: [], drivers: [], onSelectJob: () => {}, onUpdateJob: () => {}, onCreateJob: () => {}, onNotification: m => notices.push(m) }));
+  const notices: string[] = []; const created: unknown[] = [];
+  render(React.createElement(JobsPage, { jobs: [], drivers: [], onSelectJob: () => {}, onUpdateJob: () => {}, onCreateJob: job => created.push(job), onNotification: m => notices.push(m) }));
   await user.click(screen.getByRole('button', { name: 'New Order' }));
-  assert.equal(screen.queryByRole('button', { name: /Send as quote/ }), null);
-  await user.click(screen.getByRole('combobox', { name: 'Shipper' }));
-  await user.click(screen.getByRole('option', { name: new RegExp(customer.name) }));
-  await user.click(screen.getByRole('button', { name: /Send as quote/ }));
-  const menu = screen.getByRole('dialog', { name: 'Send as quote' });
-  assert.ok(within(menu).getByText(customer.name));
-  assert.ok(within(menu).getByText('billing@example.com'));
-  assert.ok(within(menu).getByRole('button', { name: /Email/ }));
+  assert.equal(screen.queryByRole('button', { name: 'Send Quote' }), null);
+  await user.click(screen.getByRole('button', { name: 'Close dialog' }));
+  await user.click(screen.getByRole('button', { name: 'New Quote' }));
+  assert.ok(screen.getByText('Enter shipment details to prepare a quotation without creating an order.'));
+  assert.equal(screen.queryByRole('button', { name: 'Create Order' }), null);
+  assert.equal((screen.getByRole('button', { name: 'Send Quote' }) as HTMLButtonElement).disabled, false);
+  await user.type(screen.getAllByLabelText('Stop address')[0], '100 Main St{Enter}');
+  assert.equal(created.length, 0);
+  assert.equal(screen.queryByRole('combobox', { name: 'Shipper' }), null);
+  const cardSelect = screen.getByRole('combobox', { name: 'Rate Card' });
+  assert.ok(cardSelect.textContent?.includes(ctx.pricing.rateCards[0].name));
+  await user.click(cardSelect);
+  assert.ok(screen.getByRole('option', { name: ctx.pricing.rateCards[0].name }));
+  await user.click(screen.getByRole('option', { name: prospectCard.name }));
+  assert.ok(screen.getByText(/Prospect fixed · v1/));
+  await user.click(screen.getByRole('button', { name: 'Send Quote' }));
+  const menu = screen.getByRole('dialog', { name: 'Send Quote' });
+  assert.equal((within(menu).getByRole('button', { name: /Email/ }) as HTMLButtonElement).disabled, true);
+  await user.type(within(menu).getByRole('textbox', { name: 'Shipper name' }), 'Prospect Co');
+  await user.type(within(menu).getByRole('textbox', { name: 'Recipient email' }), 'prospect@example.com');
+  assert.equal((within(menu).getByRole('button', { name: /Email/ }) as HTMLButtonElement).disabled, false);
   assert.ok(within(menu).getByRole('button', { name: /Download/ }));
-  assert.equal(within(menu).queryByRole('article'), null, 'no quotation preview is shown');
+  assert.equal(created.length, 0);
   await user.keyboard('{Escape}');
-  assert.equal(screen.queryByRole('dialog', { name: 'Send as quote' }), null);
-  assert.ok(screen.getByRole('button', { name: /Send as quote/ }), 'Escape closes only the menu, not the order form');
+  assert.equal(screen.queryByRole('dialog', { name: 'Send Quote' }), null);
+  assert.ok(screen.getByRole('button', { name: 'Send Quote' }));
+});
+
+test('a prospect quote can be emailed with details entered in the Send Quote menu', async () => {
+  const { ctx, input, snapshot } = setup();
+  const prospectInput = { ...input, customerId: null, rateCardOverrideId: ctx.pricing.rateCards[0].id };
+  const prospectSnapshot = priceOrder(prospectInput, ctx);
+  assert.equal(prospectSnapshot.status, 'PRICED');
+  const quote = buildQuotation(prospectInput, prospectSnapshot, ctx);
+  assert.deepEqual(quote.customer, { name: '', contactName: '', email: '' });
+  const user = userEvent.setup({ document }); let href = ''; const saved: Blob[] = [];
+  render(React.createElement(QuotationMenu, { buildQuotation: () => quote, allowRecipientEntry: true, onNotification: () => {}, openMail: v => { href = v; }, saveFile: (_name, file) => { saved.push(file); }, logoFor: async () => undefined }));
+  await user.click(screen.getByRole('button', { name: /Send as quote/ }));
+  assert.equal((screen.getByRole('button', { name: /Email/ }) as HTMLButtonElement).disabled, true);
+  await user.type(screen.getByRole('textbox', { name: 'Shipper name' }), 'Prospect Co');
+  await user.type(screen.getByRole('textbox', { name: 'Recipient email' }), 'prospect@example.com');
+  await user.click(screen.getByRole('button', { name: /Email/ }));
+  assert.equal(saved.length, 1);
+  assert.ok(href.startsWith('mailto:prospect%40example.com?subject='));
 });
 
 test('Email saves the PDF and hands the message to the mail client; Download saves the same PDF', async () => {

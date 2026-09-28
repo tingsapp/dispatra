@@ -1,3 +1,4 @@
+import { DriverAvatar } from './DriverAvatar';
 import { SearchInput } from './ui/SearchInput';
 import { MetricTrigger } from './ui/MetricTrigger';
 import { FloatingPanel } from './ui/FloatingPanel';
@@ -342,11 +343,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     >
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <img
-                            src={driver.avatar}
-                            alt={driver.name}
-                            className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100"
-                          />
+                          <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100" />
                           <span
                             className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white ${
                               driver.status === 'available'

@@ -1,8 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
+import { AddressAutocomplete } from '../components/ui/AddressAutocomplete';
 import { Button } from '../components/ui/button';
 export { Button };
 export function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return <label className="grid gap-1.5 text-sm font-medium text-slate-700">{label}<input {...props} className="app-input font-normal" /></label>;
+}
+export function AddressField({ label, value, onChange, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & { label: string; value: string; onChange: (address: string) => void }) {
+  const id = useId();
+  return <div className="grid gap-1.5 text-sm font-medium text-slate-700"><label htmlFor={id}>{label}</label><AddressAutocomplete {...props} id={id} value={value} onChange={onChange} className="app-input font-normal" /></div>;
 }
 export function Notice({ error, success }: { error?: unknown; success?: string }) {
   if (error) return <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error instanceof Error ? error.message : 'Unable to complete this request.'}</p>;

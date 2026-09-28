@@ -1,3 +1,4 @@
+import { scopedStorageKey } from './scopedStorage';
 import { loadBillingConfig } from './billingStorage';
 import { CENTRAL_PICKUP_ZONE_ID } from './centralZoneRates';
 import { fromDisplayWeight, Units } from './units';
@@ -232,7 +233,7 @@ const normaliseDefault = (cards: RateCard[]): RateCard[] => {
 
 export const loadPricingConfig = (): PricingConfig => {
   try {
-    const raw = localStorage.getItem(PRICING_STORAGE_KEY);
+    const raw = localStorage.getItem(scopedStorageKey(PRICING_STORAGE_KEY));
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PricingConfig> & { schemaVersion?: number };
       // Retire untouched demo zones once; renamed/custom zones and historical contexts survive.
@@ -289,7 +290,7 @@ export const loadPricingConfig = (): PricingConfig => {
 
 export const savePricingConfig = (config: PricingConfig): void => {
   try {
-    localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify({ ...config, discountSource: 'SHIPPER', customerGroups: [], rateCards: normaliseDefault(config.rateCards.map(card => normaliseCard(card, config.zoneRates))), zoneRates: normaliseZoneRates(config.zoneRates), schemaVersion: PRICING_SCHEMA_VERSION }));
+    localStorage.setItem(scopedStorageKey(PRICING_STORAGE_KEY), JSON.stringify({ ...config, discountSource: 'SHIPPER', customerGroups: [], rateCards: normaliseDefault(config.rateCards.map(card => normaliseCard(card, config.zoneRates))), zoneRates: normaliseZoneRates(config.zoneRates), schemaVersion: PRICING_SCHEMA_VERSION }));
   } catch {
     // Storage unavailable — settings stay in memory.
   }

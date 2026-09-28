@@ -1,7 +1,7 @@
 import { Select } from '../ui/Select';
 import { cardClass, labelClass } from './BillingFields';
 import { BillingEditor } from './useBillingSettings';
-export function RegionalSettings({ editor }: { editor: BillingEditor }) {
+export function RegionalSettings({ editor }: { editor: Pick<BillingEditor, 'config' | 'patch'> }) {
   const { config, patch } = editor;
   return <section className={`${cardClass} app-panel-plain`} aria-labelledby="regional-settings-heading">
     <h2 id="regional-settings-heading" className="app-section-title text-slate-900">Regional Preferences</h2>

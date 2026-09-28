@@ -38,6 +38,7 @@ async function openOrder(drivers: ReturnType<typeof setup>['drivers']) {
   assert.equal(screen.queryByRole('combobox', { name: 'Vehicle' }), null);
   await user.click(screen.getByRole('combobox', { name: 'Shipper' }));
   await user.click(screen.getAllByRole('option')[1]);
+  await user.clear(screen.getAllByLabelText('Stop address')[0]);
   await user.type(screen.getAllByLabelText('Stop address')[0], '100 Main St, Vancouver BC');
   await user.type(screen.getAllByLabelText('Stop address')[1], '200 Main St, Vancouver BC');
   return { user, created: () => created, notices };

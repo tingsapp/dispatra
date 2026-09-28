@@ -1,0 +1,94 @@
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+import { randomUUID } from 'node:crypto';
+const origin = process.env.E2E_ORIGIN || 'http://localhost:3000';
+assert.ok(['localhost', '127.0.0.1'].includes(new URL(origin).hostname), 'Use a local demo server');
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
+const page = await context.newPage();
+page.setDefaultTimeout(60000);
+const headers = { Origin: origin, 'X-Requested-With': 'Dispatra' };
+const settingsUrl = `${origin}/api/v1/companies/demo/settings`;
+let original;
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+// No paid map or Places requests during this profile test.
+await page.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+await context.addInitScript(() => {
+  localStorage.setItem('dispatra_user_profile_v1:company:demo', JSON.stringify({ name: 'Wrong local person', email: 'dispatcher@dispatra.com' }));
+  localStorage.setItem('dispatra_billing_v2:company:demo', JSON.stringify({ company: { name: 'Wrong local company' }, companyTax: { enabled: true, ratePercent: 99 } }));
+});
+async function saveSettings(data) {
+  const latest = await (await context.request.get(settingsUrl)).json();
+  const response = await context.request.put(settingsUrl, { headers: { ...headers, 'Idempotency-Key': randomUUID() }, data: { version: latest.version, data } });
+  assert.equal(response.status(), 200, await response.text());
+}
+try {
+  const login = await context.request.post(`${origin}/api/v1/auth/login`, { headers, data: { portal: 'dispatch', organization: 'demo', login_id: 'dispatcher@example.com', password: '123456' } });
+  assert.equal(login.status(), 200, await login.text());
+  original = (await (await context.request.get(settingsUrl)).json()).data;
+  await page.goto(`${origin}/demo/profile`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.getByLabel('Email', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Email', { exact: true }).inputValue(), 'dispatcher@example.com');
+  assert.equal(await page.getByLabel('Email', { exact: true }).getAttribute('readonly'), '');
+  assert.equal(await page.getByLabel('Role', { exact: true }).inputValue(), 'Dispatcher');
+  assert.equal(await page.getByLabel('Company name', { exact: true }).inputValue(), original.company_name);
+  assert.equal(await page.getByText('Wrong local person', { exact: true }).count(), 0);
+  await page.getByLabel('Company name', { exact: true }).fill('Dispatra Demo verification');
+  await page.getByLabel('Contact Full Name', { exact: true }).fill('Profile Verification');
+  await page.getByLabel('Phone', { exact: true }).fill('6045550155');
+  await page.getByLabel('Company address', { exact: true }).fill('123 Demo Street, Vancouver, BC V5Y 1V4');
+  await page.getByRole('button', { name: 'Save Company', exact: true }).click();
+  await page.getByText('Changes saved.', { exact: true }).waitFor();
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.getByLabel('Email', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Contact Full Name', { exact: true }).inputValue(), 'Profile Verification');
+  assert.equal(await page.getByLabel('Company address', { exact: true }).inputValue(), '123 Demo Street, Vancouver, BC V5Y 1V4');
+  const me = await (await context.request.get(`${origin}/api/v1/auth/me`)).json();
+  assert.equal(me.organization.name, 'Dispatra Demo verification');
+  await page.getByRole('button', { name: 'Taxes & Preferences', exact: true }).click();
+  await page.getByLabel('GST/HST rate', { exact: true }).fill('7.25');
+  await page.getByLabel('GST/HST Registration Number', { exact: true }).fill('123456789 RT0001');
+  await page.getByRole('combobox', { name: 'Weight unit', exact: true }).click();
+  await page.getByRole('option', { name: 'kg — Kilograms', exact: true }).click();
+  await page.getByRole('button', { name: 'Save Settings', exact: true }).click();
+  await page.getByText('Changes saved.', { exact: true }).waitFor();
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.getByRole('button', { name: 'Taxes & Preferences', exact: true }).click();
+  assert.equal(await page.getByLabel('GST/HST rate', { exact: true }).inputValue(), '7.25');
+  const preview = await page.evaluate(async () => (await import('/src/lib/billingStorage.ts')).loadBillingConfig());
+  assert.equal(preview.companyTax.ratePercent, 7.25);
+  assert.equal(preview.general.weightUnit, 'kg');
+  assert.equal(preview.company.name, 'Dispatra Demo verification');
+  // Simulate a failed save and verify the draft is retained, never reported as saved.
+  await page.getByRole('button', { name: 'Company', exact: true }).click();
+  await page.getByLabel('Phone', { exact: true }).fill('6045550166');
+  const fail = route => route.request().method() === 'PUT' ? route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Temporary test failure' } }) }) : route.fallback();
+  await page.route('**/api/v1/companies/demo/settings', fail);
+  await page.getByRole('button', { name: 'Save Company', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'Temporary test failure' }).waitFor();
+  assert.equal(await page.getByLabel('Phone', { exact: true }).inputValue(), '6045550166');
+  await page.unroute('**/api/v1/companies/demo/settings', fail);
+  // Another tab saves; stale draft must fail without overwriting it.
+  const latest = (await (await context.request.get(settingsUrl)).json()).data;
+  await saveSettings({ ...latest, phone: '6045550177' });
+  await page.getByRole('button', { name: 'Save Company', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'Record changed' }).waitFor();
+  await page.getByRole('button', { name: 'Reload saved settings', exact: true }).click();
+  await page.waitForFunction(() => [...document.querySelectorAll('input')].some(input => input.value === '6045550177'));
+  await page.getByRole('button', { name: 'Security & Sessions', exact: true }).click();
+  assert.equal(await page.getByText('Enforced & Active', { exact: true }).count(), 0);
+  await page.getByLabel('Current password', { exact: true }).fill('incorrect-password');
+  await page.getByLabel('New password', { exact: true }).fill('Unused-test-password-123');
+  await page.getByLabel('Confirm new password', { exact: true }).fill('Unused-test-password-123');
+  await page.getByRole('button', { name: 'Change password', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'Current password is incorrect' }).waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Company', exact: true }).click();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  assert.deepEqual(errors, []);
+  console.log('PASS: authenticated identity, server reload persistence, tax/unit preview consistency, failed/stale saves, real password validation, mobile width.');
+} finally {
+  if (original) await saveSettings(original);
+  await browser.close();
+}

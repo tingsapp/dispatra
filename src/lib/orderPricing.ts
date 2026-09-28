@@ -1,3 +1,4 @@
+import { scopedStorageKey } from './scopedStorage';
 import { normalizeFuelSurcharge } from './billingEngine';
 import { normalizeOrderInput } from '../domain/orderAdapters';
 import { normalizeLifecycle } from '../domain/operations';
@@ -229,7 +230,7 @@ export const describePrice = (job: Job): { text: string; tone: 'ok' | 'warn' | '
 const ORDER_STORAGE_KEY = 'dispatra_orders_v1';
 export const loadSavedOrders = (fallback: Job[]): Job[] => {
   try {
-    const raw = localStorage.getItem(ORDER_STORAGE_KEY);
+    const raw = localStorage.getItem(scopedStorageKey(ORDER_STORAGE_KEY));
     if (raw) {
       const parsed = JSON.parse(raw);
       // Retry only the retired migration blocker; successful/final prices stay frozen.
@@ -239,5 +240,5 @@ export const loadSavedOrders = (fallback: Job[]): Job[] => {
   return enrichJobsWithPricing(fallback);
 };
 export const saveOrders = (jobs: Job[]): void => {
-  localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(jobs));
+  localStorage.setItem(scopedStorageKey(ORDER_STORAGE_KEY), JSON.stringify(jobs));
 };

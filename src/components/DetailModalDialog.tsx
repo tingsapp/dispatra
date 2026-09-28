@@ -1,3 +1,5 @@
+import { DriverAvatar } from './DriverAvatar';
+import { DriverActivity } from './entities/DriverActivity';
 import { SearchInput } from './ui/SearchInput';
 import { loadBillingConfig } from '../lib/billingStorage';
 import { formatWeight } from '../lib/units';
@@ -152,6 +154,7 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
           {effectiveType === 'driver_detail' && (
             <DriverDetailView
               driver={effectiveData as Driver}
+              jobs={effectiveJobs}
               onClose={onClose}
               onSelectJob={onSelectJob}
               onActionNotification={onActionNotification}
@@ -528,21 +531,17 @@ const JobDetailView: React.FC<{
 /* -------------------------------------------------------------------------- */
 const DriverDetailView: React.FC<{
   driver: Driver;
+  jobs: Job[];
   onClose: () => void;
   onSelectJob?: (jobNumber: string) => void;
   onActionNotification: (msg: string) => void;
-}> = ({ driver, onClose, onSelectJob, onActionNotification }) => {
+}> = ({ driver, jobs, onClose, onSelectJob, onActionNotification }) => {
   return (
     <>
       {/* Header */}
       <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-4 shrink-0">
         <div className="flex items-center gap-3">
-          <img
-            src={driver.avatar}
-            alt={driver.name}
-            className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-sm shrink-0"
-            referrerPolicy="no-referrer"
-          />
+          <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-sm shrink-0" referrerPolicy="no-referrer" />
           <div>
             <div className="flex items-center gap-2">
               <h2 className="app-section-title text-slate-900 tracking-tight">
@@ -572,7 +571,9 @@ const DriverDetailView: React.FC<{
       </div>
 
       {/* Body */}
-      <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+      <div className="p-6 overflow-y-auto space-y-6 text-xs flex-1">
+        <section aria-label="Current driver status" className="space-y-4">
+          <h3 className="app-section-title">Current status</h3>
         {/* Telemetry & Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
@@ -640,15 +641,13 @@ const DriverDetailView: React.FC<{
               <div className="font-medium text-slate-800">07:30 AM (PST)</div>
             </div>
             <div>
-              <span className="text-slate-400 text-xs">Completed Drops</span>
-              <div className="font-medium text-slate-800">3 of 4 Deliveries</div>
-            </div>
-            <div>
               <span className="text-slate-400 text-xs">License Class</span>
               <div className="font-medium text-slate-800">Class 3 Commercial (BC)</div>
             </div>
           </div>
         </div>
+        </section>
+        <DriverActivity driver={driver} jobs={jobs} />
       </div>
 
       {/* Footer */}
@@ -931,12 +930,7 @@ const AllDriversRosterView: React.FC<{
             className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 cursor-pointer transition-all flex items-center justify-between gap-3 text-xs group"
           >
             <div className="flex items-center gap-3">
-              <img
-                src={d.avatar}
-                alt={d.name}
-                className="w-10 h-10 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
-                referrerPolicy="no-referrer"
-              />
+              <DriverAvatar name={d.name} avatar={d.avatar} alt={d.name} className="w-10 h-10 rounded-full object-cover ring-1 ring-slate-200 shrink-0" referrerPolicy="no-referrer" />
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-slate-900 text-xs group-hover:text-slate-950">

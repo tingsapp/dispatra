@@ -1,7 +1,7 @@
 import { cardClass, checkboxClass, fieldClass, labelClass } from './BillingFields';
 import { BillingEditor } from './useBillingSettings';
 
-export function TaxSettings({ editor }: { editor: BillingEditor }) {
+export function TaxSettings({ editor }: { editor: Pick<BillingEditor, 'config' | 'patch'> }) {
   const { config, patch } = editor;
   const { companyTax } = config;
   return <>

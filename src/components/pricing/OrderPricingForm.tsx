@@ -1,4 +1,5 @@
 import { addressChange, resolveStopLocation } from '../../lib/taxAddress';
+import { zoneForAddress } from '../../lib/zoneAddress';
 import { hasCentralZoneRates } from '../../lib/centralZoneRates';
 import { applyCustomerDefaults, removeOrderStop } from '../../domain/orderAdapters';
 import React from 'react';
@@ -6,10 +7,10 @@ import { Trash2, Package, MapPin, AlertTriangle, Building2, Layers, Route, Tag, 
 import { PricingOrderInput, PricingPackageInput, PricingSnapshot, PricingStopInput } from '../../types/pricing';
 import { defaultRateCard, PricingContext } from '../../lib/pricingEngine';
 import { createStop } from '../../lib/orderPricing';
-import { fromDisplayDimension, fromDisplayDistance, toDisplayDimension, toDisplayDistance, toDisplayWeight } from '../../lib/units';
+import { fromDisplayDimension, fromDisplayDistance, fromDisplayWeight, toDisplayDimension, toDisplayDistance, toDisplayWeight, Units } from '../../lib/units';
 import { Select } from '../ui/Select';
-import { WeightInput } from './WeightInput';
 import { DateTimePicker } from '../ui/DateTimePicker';
+import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 
 /**
  * Order-facts editor for Order creation. It only edits a `PricingOrderInput`; the caller runs
@@ -26,6 +27,7 @@ interface OrderPricingFormProps {
   startIndex?: number;
   /** New orders derive their vehicle from the selected driver's fleet asset. */
   showVehicleSelection?: boolean;
+  customerMode?: 'shipper' | 'rateCard';
 }
 
 const fieldClass = 'app-input';
@@ -40,7 +42,27 @@ const newPackage = (): PricingPackageInput => ({
   quantity: 1, weightKg: 10, lengthCm: 40, widthCm: 30, heightCm: 30, declaredValue: 0
 });
 
-export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, startIndex = 1, showVehicleSelection = true }) => {
+/** Keep a typed decimal intact until blur; display stored package measurements to one decimal. */
+function PackageMeasurementInput({ value, units, kind, label, onChange }: {
+  value: number;
+  units: Units;
+  kind: 'weight' | 'dimension';
+  label: string;
+  onChange: (canonicalValue: number) => void;
+}) {
+  const [draft, setDraft] = React.useState<string | null>(null);
+  const display = kind === 'weight' ? toDisplayWeight : toDisplayDimension;
+  const canonical = kind === 'weight' ? fromDisplayWeight : fromDisplayDimension;
+  return <input type="number" min={0} step="any" aria-label={label} className="app-input"
+    value={draft ?? display(value, units).toFixed(1)}
+    onChange={event => {
+      setDraft(event.target.value);
+      if (event.target.value !== '') onChange(Math.max(0, canonical(Number(event.target.value), units)));
+    }}
+    onBlur={() => setDraft(null)} />;
+}
+
+export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, startIndex = 1, showVehicleSelection = true, customerMode = 'shipper' }) => {
   const { catalogue, pricing, customers, billing } = ctx;
   const units = billing.general;
   const timeZone = billing.general.timeZone ?? 'America/Vancouver';
@@ -48,8 +70,9 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   const activeVehicles = catalogue.vehicles.filter((v) => v.active);
   const activeAccessorials = catalogue.accessorials.filter((a) => a.active);
   const customer = customers.find(c => c.id === value.customerId);
-  // The shipper's card (or the Default) decides whether stops need zones.
-  const card = pricing.rateCards.find(c => c.id === customer?.rateCardId && c.status === 'ACTIVE') ?? defaultRateCard(pricing.rateCards);
+  const card = pricing.rateCards.find(c => c.id === value.rateCardOverrideId && c.status === 'ACTIVE')
+    ?? pricing.rateCards.find(c => c.id === customer?.rateCardId && c.status === 'ACTIVE')
+    ?? defaultRateCard(pricing.rateCards);
   const zonePriced = card?.pricingMethod === 'ZONE';
   const centralPickup = zonePriced && hasCentralZoneRates(card.zoneRates ?? []);
   const pickups = value.stops.filter(s => s.type === 'PICKUP');
@@ -58,7 +81,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   const patch = (changes: Partial<PricingOrderInput>) => onChange({ ...value, ...changes });
   /** Stop edits; pickup ready times and delivery deadlines also set the order's schedule. */
   const updateStop = (id: string, changes: Partial<PricingStopInput>) => {
-    const stops = value.stops.map((s) => (s.id === id ? { ...s, ...('label' in changes ? addressChange(changes.label ?? '') : {}), ...changes } : s));
+    const stops = value.stops.map((s) => (s.id === id ? { ...s, ...('label' in changes ? { ...addressChange(changes.label ?? ''), zoneId: zoneForAddress(changes.label ?? '', pricing.zones) } : {}), ...changes } : s));
     const readyTimes = stops.filter(s => s.type === 'PICKUP' && s.windowStart).map(s => s.windowStart!).sort();
     const deadlines = stops.filter(s => s.type === 'DROPOFF' && s.windowEnd).map(s => s.windowEnd!).sort();
     patch({ stops, scheduledAt: readyTimes[0] ?? null, scheduledEndAt: deadlines[deadlines.length - 1] ?? null });
@@ -82,13 +105,22 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
       {/* Shipper, service, vehicle */}
       <div className={sectionClass}>
         <div className="flex items-center justify-between mb-3">
-          <h4 className={sectionTitle}><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{num()} {showVehicleSelection ? 'Shipper, Service & Vehicle' : 'Shipper & Service'}</span></h4>
+          <h4 className={sectionTitle}><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{num()} {customerMode === 'rateCard' ? 'Rate Card & Service' : showVehicleSelection ? 'Shipper, Service & Vehicle' : 'Shipper & Service'}</span></h4>
         </div>
         <div className={`grid grid-cols-1 ${showVehicleSelection ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
           <div>
-            <label className={labelClass}>Shipper</label>
-            <Select aria-label="Shipper" className="w-full" value={value.customerId ?? ''} onValueChange={(v) => onChange(applyCustomerDefaults(value, customers.find(c => c.id === v)))}
+            {customerMode === 'rateCard' ? <>
+              <label className={labelClass}>Rate Card</label>
+              <Select aria-label="Rate Card" className="w-full" value={value.rateCardOverrideId ?? ''} onValueChange={(v) => patch({ customerId: null, rateCardOverrideId: v || null })}
+                options={[{ value: '', label: 'Choose a rate card…' }, ...pricing.rateCards.filter(c => c.status === 'ACTIVE').map(c => ({ value: c.id, label: c.name }))]} />
+            </> : <>
+              <label className={labelClass}>Shipper</label>
+              <Select aria-label="Shipper" className="w-full" value={value.customerId ?? ''} onValueChange={(v) => {
+              const next = applyCustomerDefaults(value, customers.find(c => c.id === v), customer);
+              onChange(showStopAddresses ? { ...next, stops: next.stops.map(stop => ({ ...stop, zoneId: zoneForAddress(stop.label ?? '', pricing.zones) })) } : next);
+            }}
               options={[{ value: '', label: 'Choose a shipper…' }, ...customers.filter(c => c.status !== 'Inactive' && c.status !== 'On Hold').map((c) => ({ value: c.id, label: c.name }))]} />
+            </>}
           </div>
           <div>
             <label className={labelClass}>Service</label>
@@ -119,16 +151,16 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             return <div key={stop.id} className="rounded-lg border border-slate-200 p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{i + 1} · {stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
-                <label className="ml-auto inline-flex items-center gap-1.5 cursor-pointer text-sm text-slate-600"><input type="checkbox" checked={stop.residential} onChange={(e) => updateStop(stop.id, { residential: e.target.checked })} className={checkbox} />Residential</label>
-                <button type="button" disabled={value.stops.length <= 2} onClick={() => onChange(removeOrderStop(value, stop.id))} className="p-1.5 -mr-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 shrink-0" title="Remove stop" aria-label={`Remove stop ${i + 1}`}><Trash2 className="w-4 h-4" /></button>
+                <button type="button" disabled={value.stops.length <= 2} onClick={() => onChange(removeOrderStop(value, stop.id))} className="ml-auto p-1.5 -mr-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 shrink-0" title="Remove stop" aria-label={`Remove stop ${i + 1}`}><Trash2 className="w-4 h-4" /></button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {showStopAddresses && <div className={zonePriced && (!centralPickup || stop.type === 'DROPOFF') ? '' : 'sm:col-span-2'}>
+                {showStopAddresses && <div className="sm:col-span-2">
                   <label htmlFor={`${sid}-address`} className={labelClass}>{stop.type === 'PICKUP' ? 'Pickup address' : 'Delivery address'}</label>
-                  <input id={`${sid}-address`} type="text" value={stop.label ?? ''} placeholder="Street, city, province, postal code" onChange={(e) => updateStop(stop.id, { label: e.target.value })} className={`${fieldClass} w-full`} aria-label="Stop address" />
+                  <AddressAutocomplete id={`${sid}-address`} value={stop.label ?? ''} includeCoordinates placeholder="Street, city, province, postal code" onChange={(address, selected) => updateStop(stop.id, { label: address, ...(selected ? { latitude: selected.latitude, longitude: selected.longitude, normalizedAddress: address } : {}) })} className={`${fieldClass} w-full`} aria-label="Stop address" />
                   {unresolved && <p className="mt-1 text-xs text-amber-700">Include the province and postal code so tax can be calculated for this stop.</p>}
+                  {zonePriced && (!centralPickup || stop.type === 'DROPOFF') && !!stop.label?.trim() && <p className={`mt-1 text-xs ${stop.zoneId ? 'text-slate-500' : 'text-amber-700'}`}>{stop.zoneId ? `Pricing zone: ${pricing.zones.find(zone => zone.id === stop.zoneId)?.name ?? 'Matched'}` : 'No pricing zone matches this postal code. Add it under Pricing → Zones.'}</p>}
                 </div>}
-                {zonePriced && (!centralPickup || stop.type === 'DROPOFF') && <div className={showStopAddresses ? '' : 'sm:col-span-2'}>
+                {zonePriced && !showStopAddresses && (!centralPickup || stop.type === 'DROPOFF') && <div className="sm:col-span-2">
                   <label className={labelClass}>{centralPickup ? 'Delivery zone' : 'Zone'}</label>
                   <Select aria-label={centralPickup ? 'Delivery zone' : 'Zone'} className="w-full" value={stop.zoneId ?? ''} onValueChange={(v) => updateStop(stop.id, { zoneId: v || null })} options={[{ value: '', label: centralPickup ? 'Delivery zone (required)' : 'Zone (required)' }, ...pricing.zones.map((z) => ({ value: z.id, label: z.name }))]} />
                 </div>}
@@ -164,8 +196,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
           <h4 className={sectionTitle}><Package className="w-3.5 h-3.5 text-slate-700" /><span>{num()} Packages</span></h4>
           <button type="button" onClick={() => patch({ packages: [...value.packages, { ...newPackage(), pickupStopId: pickups.length === 1 ? pickups[0].id : undefined, deliveryStopId: drops.length === 1 ? drops[0].id : undefined }] })} className={smallBtn}>+ Package</button>
         </div>
-        <div className="rounded-lg border border-slate-200 p-4 overflow-x-auto">
-          <table aria-label="Packages" className="app-table app-table-editable app-table-plain w-full">
+        <div className="app-package-table-shell rounded-lg border border-slate-200 p-3">
+          <table aria-label="Packages" className="app-table app-table-editable app-table-plain app-package-table w-full">
             <thead><tr>
               <th scope="col" className="text-left">Qty</th>
               <th scope="col" className="text-left">Weight ({units.weightUnit})</th>
@@ -173,18 +205,20 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
               {pickups.length > 1 && <th scope="col" className="text-left">From</th>}
               {drops.length > 1 && <th scope="col" className="text-left">To</th>}
               <th scope="col" className="text-center">Fragile</th>
+              <th scope="col" className="text-center"><abbr title="Dangerous goods">DG</abbr></th>
               <th scope="col"><span className="sr-only">Remove</span></th>
             </tr></thead>
             <tbody>
               {value.packages.map((p, index) => <tr key={p.id}>
-                <td className="w-16"><input type="number" min={1} step={1} value={p.quantity} onChange={(e) => updatePackage(p.id, { quantity: Math.max(1, Math.round(Number(e.target.value) || 1)) })} className={`${fieldClass} w-16`} aria-label={`Package ${index + 1} quantity`} /></td>
-                <td className="w-28"><WeightInput value={p.weightKg} units={units} label={`Package ${index + 1} weight`}
-                  onChange={weightKg => updatePackage(p.id, { weightKg: Math.max(0, weightKg ?? 0) })} className={`${fieldClass} w-24`} /></td>
-                <td><div className="flex items-center gap-1.5">{(['lengthCm', 'widthCm', 'heightCm'] as const).map((k, d) => <React.Fragment key={k}>{d > 0 && <span className="text-slate-400">×</span>}<input type="number" min={0} step="any" value={Number(toDisplayDimension(p[k], units).toFixed(1))} onChange={(e) => updatePackage(p.id, { [k]: fromDisplayDimension(Math.max(0, Number(e.target.value) || 0), units) })} className={`${fieldClass} w-16`} aria-label={`Package ${index + 1} ${k === 'lengthCm' ? 'length' : k === 'widthCm' ? 'width' : 'height'}`} /></React.Fragment>)}</div></td>
-                {pickups.length > 1 && <td><Select aria-label={`Package ${index + 1} pickup`} className="w-28" value={p.pickupStopId ?? ''} onValueChange={pickupStopId => updatePackage(p.id, { pickupStopId: pickupStopId || undefined })} options={[{ value: '', label: 'Pickup…' }, ...pickups.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
-                {drops.length > 1 && <td><Select aria-label={`Package ${index + 1} delivery`} className="w-28" value={p.deliveryStopId ?? ''} onValueChange={deliveryStopId => updatePackage(p.id, { deliveryStopId: deliveryStopId || undefined })} options={[{ value: '', label: 'Delivery…' }, ...drops.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
-                <td className="w-14 text-center"><input type="checkbox" checked={!!p.fragile} onChange={(e) => updatePackage(p.id, { fragile: e.target.checked })} className={checkbox} aria-label={`Package ${index + 1} fragile`} /></td>
-                <td className="w-10 text-right"><button type="button" disabled={value.packages.length <= 1} onClick={() => patch({ packages: value.packages.filter((x) => x.id !== p.id) })} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30" title="Remove package" aria-label={`Remove package ${index + 1}`}><Trash2 className="w-4 h-4" /></button></td>
+                <td className="package-qty"><input type="number" min={1} step={1} value={p.quantity} onChange={(e) => updatePackage(p.id, { quantity: Math.max(1, Math.round(Number(e.target.value) || 1)) })} className={fieldClass} aria-label={`Package ${index + 1} quantity`} /></td>
+                <td className="package-weight"><PackageMeasurementInput key={units.weightUnit} value={p.weightKg} units={units} kind="weight" label={`Package ${index + 1} weight`}
+                  onChange={weightKg => updatePackage(p.id, { weightKg })} /></td>
+                <td className="package-dimensions"><div className="flex items-center gap-1">{(['lengthCm', 'widthCm', 'heightCm'] as const).map((k, d) => <React.Fragment key={`${k}-${units.dimensionUnit}`}>{d > 0 && <span className="text-slate-400">×</span>}<PackageMeasurementInput value={p[k]} units={units} kind="dimension" onChange={dimension => updatePackage(p.id, { [k]: dimension })} label={`Package ${index + 1} ${k === 'lengthCm' ? 'length' : k === 'widthCm' ? 'width' : 'height'}`} /></React.Fragment>)}</div></td>
+                {pickups.length > 1 && <td className="package-stop"><Select aria-label={`Package ${index + 1} pickup`} className="package-stop-select" value={p.pickupStopId ?? ''} onValueChange={pickupStopId => updatePackage(p.id, { pickupStopId: pickupStopId || undefined })} options={[{ value: '', label: 'Pickup…' }, ...pickups.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
+                {drops.length > 1 && <td className="package-stop"><Select aria-label={`Package ${index + 1} delivery`} className="package-stop-select" value={p.deliveryStopId ?? ''} onValueChange={deliveryStopId => updatePackage(p.id, { deliveryStopId: deliveryStopId || undefined })} options={[{ value: '', label: 'Delivery…' }, ...drops.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
+                <td className="package-flag text-center"><input type="checkbox" aria-label={`Package ${index + 1} fragile`} checked={!!p.fragile} onChange={(e) => updatePackage(p.id, { fragile: e.target.checked })} className={checkbox} /></td>
+                <td className="package-flag text-center"><input type="checkbox" aria-label={`Package ${index + 1} dangerous goods`} checked={(p.handlingTags ?? []).includes('DANGEROUS_GOODS')} onChange={(e) => updatePackage(p.id, { handlingTags: e.target.checked ? [...(p.handlingTags ?? []), 'DANGEROUS_GOODS'] : (p.handlingTags ?? []).filter(tag => tag !== 'DANGEROUS_GOODS') })} className={checkbox} /></td>
+                <td className="package-remove text-right"><button type="button" disabled={value.packages.length <= 1} onClick={() => patch({ packages: value.packages.filter((x) => x.id !== p.id) })} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30" title="Remove package" aria-label={`Remove package ${index + 1}`}><Trash2 className="w-4 h-4" /></button></td>
               </tr>)}
             </tbody>
           </table>

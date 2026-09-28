@@ -1,3 +1,5 @@
+import { withServerCompanySettings } from './serverCompanySettings';
+import { scopedStorageKey } from './scopedStorage';
 import { normalizeFuelSurcharge } from './billingEngine';
 import { isValidTaxRate } from './taxRate';
 import { BillingConfig, TaxRate, TaxProfileConfig } from '../types/billing';
@@ -165,16 +167,16 @@ const withDefaults = (stored: StoredBillingConfig | null): BillingConfig => {
 
 export const loadBillingConfig = (): BillingConfig => {
   try {
-    const raw = localStorage.getItem(BILLING_STORAGE_KEY);
-    return withDefaults(raw ? JSON.parse(raw) : null);
+    const raw = localStorage.getItem(scopedStorageKey(BILLING_STORAGE_KEY));
+    return withServerCompanySettings(withDefaults(raw ? JSON.parse(raw) : null));
   } catch {
-    return clone(INITIAL_BILLING_CONFIG);
+    return withServerCompanySettings(clone(INITIAL_BILLING_CONFIG));
   }
 };
 
 export const saveBillingConfig = (config: BillingConfig): void => {
   try {
-    localStorage.setItem(BILLING_STORAGE_KEY, JSON.stringify({ ...config, fuelDefaultVersion: FUEL_DEFAULT_VERSION, unitsDefaultVersion: UNITS_DEFAULT_VERSION, fuelSurcharge: normalizeFuelSurcharge(config.fuelSurcharge) }));
+    localStorage.setItem(scopedStorageKey(BILLING_STORAGE_KEY), JSON.stringify({ ...config, fuelDefaultVersion: FUEL_DEFAULT_VERSION, unitsDefaultVersion: UNITS_DEFAULT_VERSION, fuelSurcharge: normalizeFuelSurcharge(config.fuelSurcharge) }));
   } catch {
     // Storage unavailable (private mode / quota) — settings stay in memory.
   }

@@ -4,7 +4,7 @@ import { afterEach, test } from 'node:test';
 import React, { useState } from 'react';
 import { PAGE_PATHS, pageForPath, pathForPage } from '../src/lib/pageRoutes';
 
-const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/orders' });
+const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/acme/orders' });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'Event', 'CustomEvent']) {
   Object.defineProperty(globalThis, name, { configurable: true, value: dom.window[name as keyof Window] });
 }
@@ -34,18 +34,18 @@ async function at(path: string, page: string) {
     assert.equal(screen.getByLabelText('Current page').textContent, page);
   });
 }
-afterEach(() => { cleanup(); window.history.replaceState(null, '', '/orders'); });
+afterEach(() => { cleanup(); window.history.replaceState(null, '', '/acme/orders'); });
 
 test('all operational destinations resolve directly, including prototype URLs; tenant routes stay separate', () => {
   for (const [page, path] of Object.entries(PAGE_PATHS)) {
-    assert.equal(pageForPath(path), page);
+    assert.equal(pageForPath(`/acme${path}`), page);
     assert.equal(pageForPath(`/prototype${path}`), page);
-    assert.equal(pathForPage(page, '/orders'), path);
+    assert.equal(pathForPage(page, '/acme/orders'), `/acme${path}`);
     assert.equal(pathForPage(page, '/prototype/orders'), `/prototype${path === '/' ? '' : path}`);
   }
-  assert.equal(pageForPath('/settings/company'), 'profile');
-  assert.equal(pathForPage('company-settings', '/'), undefined);
-  for (const path of ['/platform', '/acme/dispatch', '/acme/customer/settings', '/prototype-company/dispatch', '/orders/customer', '/settings/services', '/prototype/settings/services', '/unknown']) {
+  assert.equal(pageForPath('/acme/settings/company'), 'profile');
+  assert.equal(pathForPage('company-settings', '/acme/'), undefined);
+  for (const path of ['/platform', '/acme/dispatch', '/acme/customer/settings', '/prototype-company/dispatch', '/acme/orders/customer', '/acme/settings/services', '/prototype/settings/services', '/acme/unknown']) {
     assert.equal(pageForPath(path), undefined);
   }
 });
@@ -57,29 +57,29 @@ test('removed services page has no navigation entry or legacy page alias', () =>
 
 test('navigation updates the URL, avoids duplicate entries, restores Back/Forward and survives remount', async () => {
   const view = render(React.createElement(React.StrictMode, null, React.createElement(Navigation)));
-  await at('/orders', 'jobs');
-  click('drivers'); await at('/drivers', 'drivers');
+  await at('/acme/orders', 'jobs');
+  click('drivers'); await at('/acme/drivers', 'drivers');
   const length = window.history.length;
   click('drivers'); assert.equal(window.history.length, length);
-  click('vehicles'); await at('/vehicles', 'vehicles');
-  window.history.back(); await at('/drivers', 'drivers');
-  window.history.back(); await at('/orders', 'jobs');
-  window.history.forward(); await at('/drivers', 'drivers');
-  view.unmount(); render(React.createElement(Navigation)); await at('/drivers', 'drivers');
-  window.history.forward(); await at('/vehicles', 'vehicles');
+  click('vehicles'); await at('/acme/vehicles', 'vehicles');
+  window.history.back(); await at('/acme/drivers', 'drivers');
+  window.history.back(); await at('/acme/orders', 'jobs');
+  window.history.forward(); await at('/acme/drivers', 'drivers');
+  view.unmount(); render(React.createElement(Navigation)); await at('/acme/drivers', 'drivers');
+  window.history.forward(); await at('/acme/vehicles', 'vehicles');
 });
 
 test('sidebar navigation preserves draft and URL on cancel, then leaves on confirmation', async () => {
-  window.history.replaceState(null, '', '/profile');
+  window.history.replaceState(null, '', '/acme/profile');
   render(React.createElement(Navigation));
   fireEvent.change(screen.getByLabelText('Draft'), { target: { value: 'Unsaved company' } });
   click('drivers');
   assert.ok(screen.getByRole('alertdialog'));
-  await at('/profile', 'profile');
+  await at('/acme/profile', 'profile');
   click('Keep editing');
   assert.equal((screen.getByLabelText('Draft') as HTMLInputElement).value, 'Unsaved company');
   click('drivers'); click('Discard changes');
-  await at('/drivers', 'drivers');
+  await at('/acme/drivers', 'drivers');
 });
 
 test('Back cancellation restores URL and draft; confirmed Back and Forward retain the history stack', async () => {
@@ -88,14 +88,14 @@ test('Back cancellation restores URL and draft; confirmed Back and Forward retai
   fireEvent.change(screen.getByLabelText('Draft'), { target: { value: 'Unsaved company' } });
   window.history.back();
   await screen.findByRole('alertdialog');
-  await at('/profile', 'profile');
+  await at('/acme/profile', 'profile');
   click('Keep editing');
   assert.equal((screen.getByLabelText('Draft') as HTMLInputElement).value, 'Unsaved company');
   window.history.back();
   await screen.findByRole('alertdialog');
   click('Discard changes');
-  await at('/orders', 'jobs');
-  window.history.forward(); await at('/profile', 'profile');
+  await at('/acme/orders', 'jobs');
+  window.history.forward(); await at('/acme/profile', 'profile');
   assert.equal((screen.getByLabelText('Draft') as HTMLInputElement).value, '');
 });
 

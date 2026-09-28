@@ -1,3 +1,4 @@
+import { scopedStorageKey } from './scopedStorage';
 import { SimplePricingConfig, DeliveryService, VehicleType, AccessorialItem } from '../types/simplePricing';
 
 export const SIMPLE_PRICING_STORAGE_KEY = 'dispatra_simple_pricing_v4';
@@ -156,7 +157,7 @@ export const INITIAL_ACCESSORIALS: AccessorialItem[] = [
 
 export function loadSimplePricingConfig(): SimplePricingConfig {
   try {
-    const raw = localStorage.getItem(SIMPLE_PRICING_STORAGE_KEY);
+    const raw = localStorage.getItem(scopedStorageKey(SIMPLE_PRICING_STORAGE_KEY));
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed.services) && Array.isArray(parsed.accessorials)) {
@@ -180,7 +181,7 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
 
 export function saveSimplePricingConfig(config: SimplePricingConfig): void {
   try {
-    localStorage.setItem(SIMPLE_PRICING_STORAGE_KEY, JSON.stringify({ ...config, services: config.services.map(normalizeService), accessorials: config.accessorials.map(normalizeAccessorial), schemaVersion: 4 }));
+    localStorage.setItem(scopedStorageKey(SIMPLE_PRICING_STORAGE_KEY), JSON.stringify({ ...config, services: config.services.map(normalizeService), accessorials: config.accessorials.map(normalizeAccessorial), schemaVersion: 4 }));
   } catch (err) {
     console.error('Could not save pricing config:', err);
   }

@@ -1,6 +1,7 @@
 // Invoicing step for completed orders. Local prototype: finalises the frozen price, records the
 // invoice preview and marks the order INVOICED. Issuing/emailing the invoice belongs to the billing API.
 import { Job } from '../types';
+import { payoutAtFinalPrice } from './driverPayout';
 import { orderLifecycle } from '../domain/validation';
 import { PricingContext } from './pricingEngine';
 import { finalizeOrderPrice, loadPricingContext } from './orderPricing';
@@ -21,5 +22,5 @@ export const invoiceOrder = (job: Job, ctx: PricingContext = loadPricingContext(
   const { input, snapshot } = finalizeOrderPrice(job.pricingInput, job.pricingInput.actualHourlyBillableMinutes ?? null, ctx, job.pricing);
   if (snapshot.status !== 'PRICED') throw new Error(snapshot.errors.map(e => e.message).join(' ') || 'The order cannot be priced for invoicing.');
   const invoicePreview = job.invoicePreview ?? createInvoicePreview(job.id, snapshot, ctx, now);
-  return { ...job, pricingInput: input, pricing: snapshot, invoicePreview, lifecycleStatus: 'INVOICED', invoicedAt: now.toISOString(), version: (job.version ?? 1) + 1 };
+  return { ...job, pricingInput: input, pricing: snapshot, invoicePreview, lifecycleStatus: 'INVOICED', invoicedAt: now.toISOString(), driverPayout: payoutAtFinalPrice(job.driverPayout, snapshot, now), version: (job.version ?? 1) + 1 };
 };

@@ -1,3 +1,4 @@
+import { DriverAvatar } from '../components/DriverAvatar';
 import { ListSummary } from '../components/layout/ListSummary';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
@@ -12,6 +13,9 @@ Trash2
 } from 'lucide-react';
 import { useMemo,useState } from 'react';
 import { DriverEditor } from '../components/entities/DriverEditor';
+import { DriverActivity } from '../components/entities/DriverActivity';
+import { VehicleEditor } from '../components/entities/VehicleEditor';
+import { loadVehicles, saveVehicleProfile, type VehicleAsset, type VehicleProfile } from '../lib/vehicleStorage';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { PageHeader } from '../components/layout/PageHeader';
@@ -45,6 +49,15 @@ export function DriversPage({
 
   // Add Driver Modal
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [createdVehicle, setCreatedVehicle] = useState<VehicleAsset | null>(null);
+  const openVehicleModal = () => { setCreatedVehicle(null); setShowVehicleModal(true); };
+  const openDriverDetails = (driver: Driver) => { setCreatedVehicle(null); setActiveDriverDrawer(driver); };
+  const handleRegisterVehicle = (vehicle: VehicleAsset, profile: VehicleProfile) => {
+    try { saveVehicleProfile(vehicle, profile, loadVehicles()); }
+    catch { onNotification('Vehicle could not be saved in this browser.'); return; }
+    setCreatedVehicle(vehicle); setShowVehicleModal(false); onNotification('Vehicle registered');
+  };
   // Filtered drivers
   const filteredDrivers = useMemo(() => {
     return drivers.filter((driver) => {
@@ -55,7 +68,7 @@ export function DriversPage({
         driver.id.toLowerCase().includes(q) ||
         (driver.phone && driver.phone.toLowerCase().includes(q)) ||
         driver.vehicle.toLowerCase().includes(q) ||
-        driver.nextStop.toLowerCase().includes(q) || [...(driver.skills ?? []), ...(driver.serviceAreaIds ?? []), driver.driverNumber ?? ''].join(' ').toLowerCase().includes(q);
+        driver.nextStop.toLowerCase().includes(q) || driver.address?.toLowerCase().includes(q) || [...(driver.skills ?? []), ...(driver.serviceAreaIds ?? []), driver.driverNumber ?? ''].join(' ').toLowerCase().includes(q);
 
       const matchesStatus =
         statusFilter === 'all' || driver.status === statusFilter;
@@ -79,13 +92,14 @@ export function DriversPage({
     onNotification(`Removed driver "${driver.name}".`);
   };
   useEntityDialog(!!activeDriverDrawer || showAddModal, () => { setActiveDriverDrawer(null); setShowAddModal(false); });
+  useEntityDialog(showVehicleModal, () => setShowVehicleModal(false));
 
   return (
     <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
       <PageHeader title="Drivers" description="Driver profiles, employment, attached vehicles and service areas." actions={<>
         <Button
           type="button"
-          onClick={() => setShowAddModal(true)}
+          onClick={() => { setCreatedVehicle(null); setShowAddModal(true); }}
           className="app-action app-primary flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -180,15 +194,11 @@ export function DriversPage({
                     <tr
                       key={driver.id}
                       className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                      onClick={() => setActiveDriverDrawer(driver)}
+                      onClick={() => openDriverDetails(driver)}
                     >
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-2.5">
-                          <img
-                            src={driver.avatar}
-                            alt={driver.name}
-                            className="w-8 h-8 rounded-full object-cover border border-slate-200"
-                          />
+                          <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="w-8 h-8 rounded-full object-cover border border-slate-200" />
                           <div>
                             <div className="font-medium text-slate-900 flex items-center gap-1.5">
                               {driver.name}
@@ -231,7 +241,7 @@ export function DriversPage({
                       </td>
 
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" aria-label={`Details for ${driver.name}`} onClick={() => setActiveDriverDrawer(driver)} className="mr-2 rounded-md px-2 py-1.5 font-medium text-slate-700 hover:bg-slate-100">Details</button>
+                        <button type="button" aria-label={`Details for ${driver.name}`} onClick={() => openDriverDetails(driver)} className="mr-2 rounded-md px-2 py-1.5 font-medium text-slate-700 hover:bg-slate-100">Details</button>
                         <button
                           onClick={() => onSelectDriver(driver.id)}
                           title="Locate on Map"
@@ -255,11 +265,14 @@ export function DriversPage({
       {activeDriverDrawer && (
         <Dialog size="md" onClose={() => setActiveDriverDrawer(null)}>
           <DialogHeader onClose={() => setActiveDriverDrawer(null)}
-            leading={<img src={activeDriverDrawer.avatar} alt={activeDriverDrawer.name} className="w-10 h-10 rounded-full object-cover border border-slate-200" />}
+            leading={<DriverAvatar name={activeDriverDrawer.name} avatar={activeDriverDrawer.avatar} alt={activeDriverDrawer.name} className="w-10 h-10 rounded-full object-cover border border-slate-200" />}
             title={<>{activeDriverDrawer.name}<span className="text-xs font-mono font-medium bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">{activeDriverDrawer.id}</span></>}
             description={activeDriverDrawer.phone} />
-          <DialogBody>
-            <DriverEditor driver={activeDriverDrawer} drivers={drivers} formId="driver-details-form" hideActions onCancel={() => setActiveDriverDrawer(null)} onSave={d => { onUpdateDriver(d); setActiveDriverDrawer(null); onNotification('Driver saved'); }} />
+          <DialogBody className="space-y-6">
+            <section aria-label="Driver profile">
+              <DriverEditor driver={activeDriverDrawer} drivers={drivers} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onCancel={() => setActiveDriverDrawer(null)} onSave={d => { onUpdateDriver(d); setActiveDriverDrawer(null); onNotification('Driver saved'); }} />
+            </section>
+            <DriverActivity driver={activeDriverDrawer} jobs={jobs} />
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { onSelectDriver(activeDriverDrawer.id); setActiveDriverDrawer(null); }}><MapPin /> Locate on Monitor</Button>
@@ -272,8 +285,15 @@ export function DriversPage({
       {showAddModal && (
         <Dialog size="form" onClose={() => setShowAddModal(false)}>
             <DialogHeader onClose={() => setShowAddModal(false)} title="Add Driver" />
-          <DialogBody><DriverEditor drivers={drivers} formId="driver-add-form" hideActions onCancel={() => setShowAddModal(false)} onSave={d => { onCreateDriver(d); setShowAddModal(false); onNotification('Driver created'); }} /></DialogBody>
+          <DialogBody><DriverEditor drivers={drivers} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-add-form" hideActions onCancel={() => setShowAddModal(false)} onSave={d => { onCreateDriver(d); setShowAddModal(false); onNotification('Driver created'); }} /></DialogBody>
           <DialogFooter><Button type="submit" form="driver-add-form">Save driver</Button></DialogFooter>
+        </Dialog>
+      )}
+      {showVehicleModal && (
+        <Dialog size="md" zIndex="z-[60]" onClose={() => setShowVehicleModal(false)}>
+          <DialogHeader onClose={() => setShowVehicleModal(false)} title="Register Vehicle" />
+          <DialogBody><VehicleEditor vehicles={loadVehicles()} formId="driver-vehicle-add-form" hideActions onCancel={() => setShowVehicleModal(false)} onSave={handleRegisterVehicle} /></DialogBody>
+          <DialogFooter><Button type="submit" form="driver-vehicle-add-form">Save vehicle</Button></DialogFooter>
         </Dialog>
       )}
     </div>

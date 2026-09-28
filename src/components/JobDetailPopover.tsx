@@ -1,3 +1,4 @@
+import { DriverAvatar } from './DriverAvatar';
 import { useOverlayMotion } from './ui/useOverlayMotion';
 import { lifecycleLabel } from '../domain/validation';
 import React, { useState } from 'react';
@@ -20,6 +21,7 @@ import {
 import { Job, EligibleDriver } from '../types';
 import { ELIGIBLE_DRIVERS } from '../data/mockData';
 import { describePrice } from '../lib/orderPricing';
+import { useMapPopupPlacement } from './monitor/useMapPopupPlacement';
 
 interface JobDetailPopoverProps {
   job: Job;
@@ -56,15 +58,15 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   const [selectedDriverCode, setSelectedDriverCode] = useState<string>('D09');
   const [eligibleDrivers, setEligibleDrivers] = useState<EligibleDriver[]>(ELIGIBLE_DRIVERS);
 
-  // Compute smooth anchored positions
-  const baseLeft = position ? Math.max(30, Math.min(window.innerWidth - 680, position.x - 170)) : 690;
-  const baseTop = position ? Math.max(70, Math.min(window.innerHeight - 440, position.y + 26)) : 470;
+  const { ref, placement } = useMapPopupPlacement(position);
+  const baseLeft = placement?.x ?? 0;
+  const baseTop = placement?.y ?? 0;
 
-  const assignDriverLeft = baseLeft + 255;
-  const assignDriverTop = baseTop + 130;
+  const assignDriverLeft = Math.max(12, Math.min((placement?.width ?? 0) - 280 - 12, baseLeft + 255));
+  const assignDriverTop = Math.max(12, Math.min((placement?.height ?? 0) - 12, baseTop + 130));
 
-  const aiRecLeft = Math.min(window.innerWidth - 320, baseLeft + 360);
-  const aiRecTop = Math.max(60, baseTop - 50);
+  const aiRecLeft = Math.max(12, Math.min((placement?.width ?? 0) - 310 - 12, baseLeft + 360));
+  const aiRecTop = Math.max(12, Math.min((placement?.height ?? 0) - 12, baseTop - 50));
 
   const filteredDrivers = eligibleDrivers.filter(d =>
     d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -94,10 +96,13 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
       {/* 1. MAIN JOB DETAIL POPOVER - Anchored with arrow pointing toward Job marker */}
       <motion.div
         {...overlayMotion}
+        ref={ref}
+        data-map-detail-overlay="job"
         className="absolute z-40 pointer-events-auto select-none"
         style={{
           left: `${baseLeft}px`,
-          top: `${baseTop}px`
+          top: `${baseTop}px`,
+          visibility: placement ? 'visible' : 'hidden'
         }}
       >
         {/* Directional arrow pointing up toward Job marker on the map */}
@@ -229,6 +234,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                 <span className="text-xs truncate max-w-[170px]">{job.riskText}</span>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
+                    data-map-detail-toggle="recommendation"
                     onClick={() => setShowAiRecommendation((prev) => !prev)}
                     className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium shadow-xs transition-colors"
                     title="Toggle AI Recommendation Fix"
@@ -300,6 +306,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
           {/* Primary Action Button: "Find Driver" (Only toggles child on-demand, does NOT force grandchild) */}
           <div className="pt-3.5 mt-2 flex items-center gap-1.5 relative">
             <button
+              data-map-detail-toggle="assignment"
               onClick={() => setShowAssignDriver((prev) => !prev)}
               className={`flex-1 font-semibold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 ${
                 showAssignDriver
@@ -311,6 +318,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               <span>{showAssignDriver ? 'Hide Drivers' : 'Find Driver'}</span>
             </button>
             <button
+              data-map-detail-toggle="assignment"
               onClick={() => setShowAssignDriver((prev) => !prev)}
               className={`p-2.5 rounded-xl border transition-colors ${
                 showAssignDriver
@@ -330,6 +338,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
         {showAssignDriver && (
           <motion.div
             {...overlayMotion}
+            data-map-detail-overlay="assignment"
             className="absolute z-50 pointer-events-auto select-none"
             style={{
               left: `${assignDriverLeft}px`,
@@ -356,6 +365,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
 
               {/* On-Demand AI Smart Recommendation trigger banner */}
               <div
+                data-map-detail-toggle="recommendation"
                 onClick={() => setShowAiRecommendation((prev) => !prev)}
                 className={`mb-2.5 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
                   showAiRecommendation
@@ -411,12 +421,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <img
-                          src={driver.avatar}
-                          alt={driver.name}
-                          className="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
-                          referrerPolicy="no-referrer"
-                        />
+                        <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-slate-200" referrerPolicy="no-referrer" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1">
                             <span className="text-xs font-medium text-slate-900">
@@ -481,6 +486,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
         {showAiRecommendation && (
           <motion.div
             {...overlayMotion}
+            data-map-detail-overlay="recommendation"
             className="absolute z-[60] pointer-events-auto select-none"
             style={{
               left: `${aiRecLeft}px`,

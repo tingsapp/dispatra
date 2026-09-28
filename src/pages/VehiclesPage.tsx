@@ -1,7 +1,6 @@
 import { ListSummary } from '../components/layout/ListSummary';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
-import { Tabs } from '../components/ui/Tabs';
 import {
 Route,
 CircleCheck,
@@ -10,17 +9,16 @@ Wrench,
 Plus,
 Truck
 } from 'lucide-react';
-import { useEffect,useMemo,useState } from 'react';
+import { useMemo,useState } from 'react';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { VehicleEditor } from '../components/entities/VehicleEditor';
 import { VehicleTable } from '../components/entities/VehicleTable';
-import { CatalogueSection } from '../components/settings/CatalogueSection';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
 import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
-import { VehicleAsset,loadVehicles,saveVehicles } from '../lib/vehicleStorage';
+import { VehicleAsset,loadVehicles,saveVehicles,saveVehicleProfile,archiveVehicleProfile,type VehicleProfile } from '../lib/vehicleStorage';
 import { Driver } from '../types';
 
 interface VehiclesPageProps {
@@ -34,9 +32,8 @@ export function VehiclesPage({
   onNotification,
   onSelectDriver
 }: VehiclesPageProps) {
-  const [typesRevision, setTypesRevision] = useState(0);
-  const vehicleTypes = useMemo(() => loadSimplePricingConfig().vehicles, [typesRevision]);
   const [vehicles, setVehicles] = useState<VehicleAsset[]>(loadVehicles);
+  const vehicleTypes = useMemo(() => loadSimplePricingConfig().vehicles, [vehicles]);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -46,9 +43,6 @@ export function VehiclesPage({
 
   // Register Vehicle Modal
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  useEffect(() => {
-    try { saveVehicles(vehicles); } catch { onNotification('Vehicle changes could not be saved in this browser.'); }
-  }, [vehicles]);
 
   const filteredVehicles = useMemo(() => {
     return vehicles.filter((v) => {
@@ -79,15 +73,16 @@ export function VehiclesPage({
   const maintenanceCount = vehicles.filter(v => v.availability === 'UNAVAILABLE').length;
   const standbyCount = vehicles.filter(v => v.recordStatus === 'INACTIVE').length;
 
-  const handleSaveVehicle = (vehicle: VehicleAsset) => {
-    const next = vehicles.some(v => v.id === vehicle.id) ? vehicles.map(v => v.id === vehicle.id ? vehicle : v) : [vehicle, ...vehicles];
+  const handleSaveVehicle = (vehicle: VehicleAsset, profile: VehicleProfile) => {
+    const next = saveVehicleProfile(vehicle, profile, vehicles);
     setVehicles(next); setActiveVehicleDrawer(null); setShowRegisterModal(false); onNotification('Vehicle saved');
   };
   const handleDeleteVehicle = async (vehicle: VehicleAsset) => {
     const driver = drivers.find(d => d.id === vehicle.currentDriverId) ?? (vehicle.currentDriverName ? { name: vehicle.currentDriverName } : null);
     if (driver) { onNotification(`${vehicle.unitNumber} is attached to ${driver.name}. Release it on the driver profile before deleting.`); return; }
     if (!(await confirmDialog({ title: `Delete vehicle "${vehicle.unitNumber}"?`, message: 'This removes the fleet record. Completed orders keep their history. This cannot be undone.', confirmLabel: 'Delete vehicle', tone: 'danger' }))) return;
-    setVehicles(vehicles.filter(v => v.id !== vehicle.id));
+    const next = vehicles.filter(v => v.id !== vehicle.id);
+    saveVehicles(next); archiveVehicleProfile(vehicle); setVehicles(next);
     if (activeVehicleDrawer?.id === vehicle.id) setActiveVehicleDrawer(null);
     onNotification(`Removed vehicle "${vehicle.unitNumber}".`);
   };
@@ -96,14 +91,13 @@ export function VehiclesPage({
   return (
     <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <PageHeader title="Vehicles" description="Manage your fleet, vehicle types, capacity and availability." actions={<>
+      <PageHeader title="Vehicles" description="Manage fleet vehicles, capacity, pricing and availability." actions={<>
           <Button type="button" onClick={() => setShowRegisterModal(true)}><Plus /> Register Vehicle</Button>
       </>} />
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
-        <Tabs label="Vehicle sections" items={[
-          { id: 'fleet', label: 'Vehicles', content: <div className="space-y-6">
+        <div className="space-y-6">
             <ListSummary label="Vehicles summary" items={[
               { label: 'Total', value: totalVehicles, icon: Truck },
               { label: 'In service', value: inServiceCount, icon: Route },
@@ -169,9 +163,7 @@ export function VehiclesPage({
                 <VehicleTable vehicles={filteredVehicles} drivers={drivers} vehicleTypes={vehicleTypes} onDetails={setActiveVehicleDrawer} onDelete={handleDeleteVehicle} />
               )}
             </div>
-          </div> },
-          { id: 'types', label: 'Vehicle Types', content: <CatalogueSection section="vehicles" onNotification={onNotification} onChanged={() => setTypesRevision(value => value + 1)} /> }
-        ]} />
+        </div>
       </div>
 
       {/* VEHICLE DOSSIER DIALOG */}
@@ -186,7 +178,7 @@ export function VehiclesPage({
 
       {/* REGISTER VEHICLE MODAL */}
       {showRegisterModal && (
-        <Dialog size="form" onClose={() => setShowRegisterModal(false)}>
+        <Dialog size="md" onClose={() => setShowRegisterModal(false)}>
           <DialogHeader onClose={() => setShowRegisterModal(false)} title="Register Vehicle" />
           <DialogBody><VehicleEditor vehicles={vehicles} formId="vehicle-add-form" hideActions onCancel={() => setShowRegisterModal(false)} onSave={handleSaveVehicle} /></DialogBody>
           <DialogFooter><Button type="submit" form="vehicle-add-form">Save vehicle</Button></DialogFooter>

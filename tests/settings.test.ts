@@ -141,6 +141,8 @@ test('driver details save an individual limit without changing company defaults 
     assert.equal(saved.maxActiveOrders, undefined);
   }
   await user.clear(limit); await user.type(limit, '8');
+  await user.type(screen.getByRole('combobox', { name: 'Address' }), '100 Main St, Vancouver, BC V6A 2S5');
+  await user.type(screen.getByLabelText('Email'), 'driver@example.ca');
   const changedBilling = loadBillingConfig(); changedBilling.fuelSurcharge.percent = 17; saveBillingConfig(changedBilling);
   await user.click(screen.getByRole('button', { name: 'Save driver' }));
   assert.equal(saved.maxActiveOrders, 8);
@@ -254,7 +256,9 @@ test('customer payment terms create, reload and edit independently of company se
   await user.click(screen.getByRole('combobox', { name: 'Default payment terms' }));
   assert.deepEqual(screen.getAllByRole('option').map(option => option.textContent), ['COD — Due on delivery', 'Net 15 days', 'Net 30 days', 'Net 45 days']);
   await user.click(screen.getByRole('option', { name: 'Net 45 days' }));
-  await user.type(screen.getByPlaceholderText('e.g. Pacific Fresh Logistics'), 'Terms Shipper');
+  await user.type(screen.getByRole('textbox', { name: 'Shipper name' }), 'Terms Shipper');
+  await user.type(screen.getByRole('textbox', { name: 'Company name' }), 'Terms Logistics');
+  await user.type(screen.getByRole('textbox', { name: /^Email / }), 'terms@example.ca');
   await user.click(screen.getByRole('button', { name: 'Create Shipper' }));
   assert.equal(loadCustomers().find(customer => customer.name === 'Terms Shipper')?.paymentTerms, 'NET45');
   page.unmount();
@@ -701,8 +705,7 @@ test('Vehicles tab shows type pricing columns and retains search and registratio
   const billing = loadBillingConfig(); billing.operatingCost.costPerKmByVehicleId[type.id] = 1.25; saveBillingConfig(billing);
   const before = loadSimplePricingConfig();
   render(React.createElement(VehiclesPage, { drivers: [], onNotification: noop }));
-  assert.deepEqual(screen.getAllByRole('tab').map(tab => tab.textContent), ['Vehicles', 'Vehicle Types']);
-  assert.equal(screen.getByRole('tab', { name: 'Vehicles' }).getAttribute('aria-selected'), 'true');
+  assert.equal(screen.queryByRole('tab', { name: 'Vehicle Types' }), null);
   const table = within(screen.getByRole('table', { name: 'Vehicles' }));
   for (const name of ['Surcharge', 'Type limits', 'Cost / km', 'Capacity']) assert.ok(table.getByRole('columnheader', { name }));
   await user.type(screen.getByRole('searchbox'), asset.unitNumber);
@@ -719,19 +722,34 @@ test('Vehicles tab shows type pricing columns and retains search and registratio
   assert.deepEqual(loadSimplePricingConfig(), before);
 });
 
-test('Vehicle Types tab manages the type catalogue from the Vehicles page', async () => {
-  const { VehiclesPage } = await import('../src/pages/VehiclesPage');
+test('registering a vehicle saves equipment and running cost without changing the starting type', async () => {
   const user = userEvent.setup({ document });
+  const seed = loadSimplePricingConfig().vehicles[0];
   render(React.createElement(VehiclesPage, { drivers: [], onNotification: noop }));
-  await user.click(screen.getByRole('tab', { name: 'Vehicle Types' }));
-  const region = within(screen.getByRole('region', { name: 'Vehicle types' }));
-  assert.ok(region.getByRole('button', { name: 'Add Vehicle type' }));
-  const first = loadSimplePricingConfig().vehicles[0];
-  await user.click(region.getByRole('button', { name: `Edit ${first.name}` }));
-  assert.ok(screen.getByRole('heading', { name: 'Edit Vehicle Type' }));
-  await user.keyboard('{Escape}');
-  assert.equal(screen.queryByRole('heading', { name: 'Edit Vehicle Type' }), null);
-  assert.ok(screen.getByRole('tab', { name: 'Vehicle Types' }), 'Escape closes only the type form');
+  await user.click(screen.getByRole('button', { name: 'Register Vehicle' }));
+  await user.type(screen.getByLabelText('Unit number'), 'V99'); await user.type(screen.getByLabelText('Licence plate'), 'TEST-99');
+  await select(user, 'Vehicle type', seed.name);
+  for (const [label, value] of [['Cargo length (in)', '100'], ['Cargo width (in)', '60'], ['Cargo height (in)', '55']]) await user.type(screen.getByLabelText(label), value);
+  assert.equal(screen.queryByLabelText('Vehicle upgrade surcharge ($)'), null);
+  await user.clear(screen.getByLabelText('Running cost / km (internal)')); await user.type(screen.getByLabelText('Running cost / km (internal)'), '1.25');
+  await user.click(screen.getByRole('checkbox', { name: 'Liftgate' }));
+  await user.click(screen.getByRole('button', { name: 'Save vehicle' }));
+  const asset = loadVehicles().find(vehicle => vehicle.unitNumber === 'V99')!;
+  const config = loadSimplePricingConfig(); const profile = config.vehicles.find(type => type.id === asset.vehicleTypeId)!;
+  assert.equal(profile.baseSurcharge, seed.baseSurcharge); assert.equal(profile.hasLiftgate, true);
+  assert.equal(config.vehicles.find(type => type.id === seed.id)?.baseSurcharge, seed.baseSurcharge);
+  assert.equal(loadBillingConfig().operatingCost.costPerKmByVehicleId[profile.id], 1.25);
+  assert.ok(asset.cargoLengthCm && asset.cargoWidthCm && asset.cargoHeightCm);
+  const row = screen.getByRole('button', { name: 'Details for V99' }).closest('tr')!;
+  assert.ok(within(row).getByText(`$${seed.baseSurcharge.toFixed(2)}`));
+  await user.click(screen.getByRole('button', { name: 'Details for V99' }));
+  assert.equal(screen.queryByLabelText('Vehicle upgrade surcharge ($)'), null);
+  await user.clear(screen.getByLabelText('Running cost / km (internal)')); await user.type(screen.getByLabelText('Running cost / km (internal)'), '1.5');
+  await user.click(screen.getByRole('button', { name: 'Save vehicle' }));
+  assert.equal(loadVehicles().find(vehicle => vehicle.unitNumber === 'V99')?.vehicleTypeId, profile.id);
+  assert.equal(loadSimplePricingConfig().vehicles.find(type => type.id === profile.id)?.baseSurcharge, seed.baseSurcharge);
+  assert.equal(loadBillingConfig().operatingCost.costPerKmByVehicleId[profile.id], 1.5);
+  assert.equal(loadSimplePricingConfig().vehicles.find(type => type.id === seed.id)?.baseSurcharge, seed.baseSurcharge);
 });
 
 test('vehicle type columns follow company units and preserve zero and default cost semantics', async () => {
@@ -802,13 +820,15 @@ test('discount moves from every card to shipper creation and editing, and persis
   const { loadCustomers } = await import('../src/lib/customerStorage');
   render(React.createElement(CustomersPage, { onBackToMonitor: noop }));
   await user.click(screen.getByRole('button', { name: 'New Shipper' }));
-  await user.type(screen.getByPlaceholderText('e.g. Pacific Fresh Logistics'), 'Discount Shipper');
+  await user.type(screen.getByRole('textbox', { name: 'Shipper name' }), 'Discount Shipper');
+  await user.type(screen.getByRole('textbox', { name: 'Company name' }), 'Discount Logistics');
+  await user.type(screen.getByRole('textbox', { name: /^Email / }), 'discount@example.ca');
   assert.equal(screen.queryByRole('combobox', { name: 'Discount scope' }), null);
   await user.click(screen.getByRole('combobox', { name: 'Discount type' }));
   assert.deepEqual(screen.getAllByRole('option').map(o => o.textContent), ['No discount', 'Percentage', 'Fixed amount']);
   await user.click(screen.getByRole('option', { name: 'Percentage' }));
   await user.clear(screen.getByRole('spinbutton', { name: 'Percentage' })); await user.type(screen.getByRole('spinbutton', { name: 'Percentage' }), '12.5');
-  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Create|Save|Add/ }));
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create Shipper' }));
   assert.deepEqual(loadCustomers().find(c => c.name === 'Discount Shipper')!.discount, { type: 'PERCENT', value: 12.5, scope: 'TRANSPORT_ONLY' });
   await user.click(screen.getAllByTitle('Edit shipper account')[0]);
   assert.equal((screen.getByRole('spinbutton', { name: 'Percentage' }) as HTMLInputElement).value, '12.5');
@@ -831,7 +851,7 @@ test('Company saves logo, contact and address while Taxes & Preferences saves re
   assert.ok(screen.getByRole('heading', { name: 'Company Identity' }));
   assert.equal(screen.queryByRole('img', { name: 'Sam' }), null);
   assert.equal(page.container.querySelectorAll('input[type="file"]').length, 1);
-  const address = screen.getByRole('textbox', { name: 'Company address' }) as HTMLInputElement;
+  const address = screen.getByRole('combobox', { name: 'Company address' }) as HTMLInputElement;
   assert.equal(address.tagName, 'INPUT');
   assert.equal(address.type, 'text');
   await user.clear(screen.getByRole('textbox', { name: 'Company name' }));
@@ -843,7 +863,7 @@ test('Company saves logo, contact and address while Taxes & Preferences saves re
   assert.equal(screen.queryByRole('textbox', { name: 'Company address' }), null);
   assert.equal(loadBillingConfig().company.name, initialBilling.company.name);
   await user.click(screen.getByRole('button', { name: 'Company' }));
-  assert.equal((screen.getByRole('textbox', { name: 'Company address' }) as HTMLInputElement).value, '100 Main St, Vancouver');
+  assert.equal((screen.getByRole('combobox', { name: 'Company address' }) as HTMLInputElement).value, '100 Main St, Vancouver');
   assert.equal((screen.getByRole('textbox', { name: 'Contact Full Name' }) as HTMLInputElement).value, 'Alex Morgan');
   assert.equal(window.dispatchEvent(new CustomEvent(SETTINGS_NAVIGATION_EVENT, { cancelable: true, detail: { proceed: noop } })), false);
   await user.click(await screen.findByRole('button', { name: 'Keep editing' }));
@@ -871,7 +891,7 @@ test('Company saves logo, contact and address while Taxes & Preferences saves re
   assert.equal(loadBillingConfig().companyTax.enabled, false);
   page.unmount();
   render(React.createElement(ProfilePage, {}));
-  assert.equal((screen.getByRole('textbox', { name: 'Company address' }) as HTMLInputElement).value, '100 Main St, Vancouver');
+  assert.equal((screen.getByRole('combobox', { name: 'Company address' }) as HTMLInputElement).value, '100 Main St, Vancouver');
   await user.click(screen.getByRole('button', { name: 'Taxes & Preferences' }));
   assert.equal((screen.getByRole('textbox', { name: 'GST/HST registration number' }) as HTMLInputElement).value, 'REG-123');
 });
@@ -1042,6 +1062,7 @@ test('a current-schema empty Zone to zone card shows the starter fields and form
   assert.equal((screen.getByLabelText('Weight to (lb)') as HTMLInputElement).value, '99');
   assert.equal((screen.getByLabelText('Zone 1 price') as HTMLInputElement).value, '20');
   assert.match(screen.getByLabelText('Pricing values').textContent!, /\$20\.00/);
+  assert.match(screen.getByLabelText('Example calculation').textContent!, /\$20\.00/);
   assert.equal(loadPricingConfig().rateCards.find(card => card.id === zoneCard.id)!.zoneRates![0].amount, 20);
 });
 
@@ -1055,13 +1076,13 @@ test('customer create form is flat and minimal; status appears only on edit and 
   assert.equal(dialog.querySelector('details'), null);
   for (const gone of ['Account / Code', 'Account Tier', 'Status', 'Default Accessorials / Requirements', 'Legal name', 'Saved locations & delivery defaults', 'Communication preferences']) assert.equal(within(dialog).queryByText(gone), null, gone);
   assert.equal(within(dialog).queryByRole('checkbox', { name: /tax exemption/ }), null); assert.equal(within(dialog).queryByRole('combobox', { name: 'Shipper status' }), null);
-  assert.ok(within(dialog).getByRole('combobox', { name: 'Shipper type' })); assert.ok(within(dialog).getByPlaceholderText('e.g. Elena Rostova')); assert.ok(within(dialog).getByText('Dispatch & Receiving Instructions'));
-  await user.type(within(dialog).getByPlaceholderText('e.g. Pacific Fresh Logistics'), 'Harbour Bakery'); await user.type(within(dialog).getByPlaceholderText('e.g. Elena Rostova'), 'Mo Lee');
-  await user.click(within(dialog).getByRole('button', { name: /Create|Save|Add/ }));
-  const created = loadCustomers().find(c => c.name === 'Harbour Bakery')!;
-  assert.match(created.code, /^CUST-\d{4}$/); assert.equal(created.contactName, 'Mo Lee'); assert.equal(created.customerType, 'BUSINESS'); assert.equal(created.status, 'Active');
+  assert.ok(within(dialog).getByRole('combobox', { name: 'Shipper type' })); assert.ok(within(dialog).getByRole('textbox', { name: 'Company name' })); assert.equal(within(dialog).queryByRole('textbox', { name: 'Contact name' }), null); assert.ok(within(dialog).getByText('Dispatch & Receiving Instructions'));
+  await user.type(within(dialog).getByRole('textbox', { name: 'Shipper name' }), 'Mo Lee'); await user.type(within(dialog).getByRole('textbox', { name: 'Company name' }), 'Harbour Bakery'); await user.type(within(dialog).getByRole('textbox', { name: /^Email / }), 'mo@example.ca');
+  await user.click(within(dialog).getByRole('button', { name: 'Create Shipper' }));
+  const created = loadCustomers().find(c => c.name === 'Mo Lee')!;
+  assert.match(created.code, /^CUST-\d{4}$/); assert.equal(created.name, 'Mo Lee'); assert.equal(created.legalName, 'Harbour Bakery'); assert.equal(created.contactName, 'Mo Lee'); assert.equal(created.customerType, 'BUSINESS'); assert.equal(created.status, 'Active');
   await user.click(screen.getAllByTitle('Edit shipper account')[0]);
-  const edit = screen.getByRole('dialog'); assert.ok(within(edit).getByRole('combobox', { name: 'Shipper status' })); assert.equal(within(edit).queryByText('Account / Code'), null);
+  const edit = screen.getByRole('dialog'); assert.ok(within(edit).getByRole('combobox', { name: 'Shipper status' })); assert.equal((within(edit).getByRole('textbox', { name: 'Company name' }) as HTMLInputElement).value, 'Harbour Bakery'); assert.equal(within(edit).queryByRole('textbox', { name: 'Contact name' }), null); assert.equal(within(edit).queryByText('Account / Code'), null);
 });
 
 test('custom confirm dialog replaces the browser confirm: archive, discard-changes guard, Escape and cancel', async () => {

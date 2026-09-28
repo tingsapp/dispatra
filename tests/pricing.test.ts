@@ -122,7 +122,7 @@ test('central-pickup zone card prices by destination and weight without a pickup
   assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION');
 });
 
-test('central-pickup order form asks for delivery zones only', async () => {
+test('central-pickup order form has address fields without manual zone selectors', async () => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
@@ -131,8 +131,8 @@ test('central-pickup order form asks for delivery zones only', async () => {
   s.order.stops[0].zoneId = null; s.order.stops[1].zoneId = 'b'; s.order.stops[1].pickupIds = [s.order.stops[0].id];
   const markup = renderToStaticMarkup(React.createElement(OrderPricingForm, { value: s.order, onChange: () => {}, ctx: s.ctx,
     snapshot: calculatePricing(s.order, s.ctx), showStopAddresses: true }));
-  assert.equal(markup.match(/aria-label="Delivery zone"/g)?.length, 1);
-  assert.doesNotMatch(markup, /aria-label="Zone"/);
+  assert.equal(markup.match(/aria-label="Stop address"/g)?.length, 2);
+  assert.doesNotMatch(markup, /aria-label="Delivery zone"|aria-label="Zone"/);
 });
 
 test('a pair missing from a card\'s own zone prices is no match; organization prices are never used silently', () => {

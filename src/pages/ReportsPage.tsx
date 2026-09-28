@@ -3,7 +3,7 @@ import { Button } from '../components/ui/button';
 import {
 PackageCheck,
 Timer,
-Route,
+ClipboardCheck,
 Wallet,
 Truck,
 Snowflake,
@@ -11,43 +11,40 @@ HandHeart,
 AlertTriangle,
 CheckCircle2,
 Clock,
-Download,
-Printer
+Download
 } from 'lucide-react';
 import { useMemo,useState } from 'react';
 import { PageHeader } from '../components/layout/PageHeader';
+import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
+import { formatDateValue, parseDateValue } from '../lib/dateValues';
+import { format } from 'date-fns';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
-import {
-AUDIT_LOG_ITEMS,
-HOURLY_VOLUMES,
-SEVEN_DAYS_PERFORMANCE
-} from '../lib/reportStorage';
+import { AUDIT_LOG_ITEMS, summarizeAuditLogs } from '../lib/reportStorage';
 
 interface ReportsPageProps {
   onNotification: (message: string) => void;
+  today?: string;
 }
 
-export function ReportsPage({ onNotification }: ReportsPageProps) {
-  const [dateRange, setDateRange] = useState<'today' | '7days' | 'month' | 'quarter'>('7days');
+export function ReportsPage({ onNotification, today: todayValue }: ReportsPageProps) {
+  const [dateFilter, setDateFilter] = useState<OrderDateSelection>({ kind: 'all' });
+  const today = todayValue ?? formatDateValue(new Date());
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
   const [slaFilter, setSlaFilter] = useState<'all' | 'on_time' | 'late' | 'ahead'>('all');
 
-  const filteredAuditLogs = useMemo(() => {
-    return AUDIT_LOG_ITEMS.filter((item) => {
-      const q = auditSearchQuery.toLowerCase().trim();
-      const matchesSearch =
-        !q ||
-        item.jobNumber.toLowerCase().includes(q) ||
-        item.customerName.toLowerCase().includes(q) ||
-        item.driverName.toLowerCase().includes(q) ||
-        item.serviceType.toLowerCase().includes(q);
-
-      const matchesSla = slaFilter === 'all' || item.slaStatus === slaFilter;
-
-      return matchesSearch && matchesSla;
-    });
-  }, [auditSearchQuery, slaFilter]);
+  const datedAuditLogs = useMemo(() => AUDIT_LOG_ITEMS.filter(item => {
+    const date = item.timestamp.slice(0, 10);
+    return dateFilter.kind === 'all' || (dateFilter.kind === 'day'
+      ? date === dateFilter.date : date >= dateFilter.from && date <= dateFilter.to);
+  }), [dateFilter]);
+  const analytics = useMemo(() => summarizeAuditLogs(datedAuditLogs), [datedAuditLogs]);
+  const filteredAuditLogs = useMemo(() => datedAuditLogs.filter(item => {
+    const q = auditSearchQuery.toLowerCase().trim();
+    const matchesSearch = !q || [item.jobNumber, item.customerName, item.driverName, item.serviceType]
+      .some(value => value.toLowerCase().includes(q));
+    return matchesSearch && (slaFilter === 'all' || item.slaStatus === slaFilter);
+  }), [datedAuditLogs, auditSearchQuery, slaFilter]);
 
   const handleExportCSV = () => {
     const headers = [
@@ -83,63 +80,18 @@ export function ReportsPage({ onNotification }: ReportsPageProps) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `dispatra_sla_audit_report_${dateRange}.csv`);
+    link.setAttribute('download', `dispatra_sla_audit_report_${dateFilter.kind === 'all' ? 'all_dates' : dateFilter.kind === 'day' ? dateFilter.date : `${dateFilter.from}_to_${dateFilter.to}`}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     onNotification(`Downloaded SLA Audit Log report (${filteredAuditLogs.length} records)`);
   };
 
-  const handlePrintSummary = () => {
-    onNotification('Preparing printable PDF operational summary report...');
-    setTimeout(() => {
-      window.print();
-    }, 400);
-  };
-
   return (
     <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
       {/* TOP BAR */}
-      <PageHeader title="Analytics" description="Delivery performance, driver utilization and billing summaries." actions={<>
-          {/* Date Range Selector */}
-          <div className="app-list-status">
-            <button
-              aria-pressed={dateRange === 'today'}
-              onClick={() => setDateRange('today')}
-              className={`px-2.5 py-1 rounded-md transition-colors ${
-                dateRange === 'today' ? 'bg-app-selected text-app-text' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Today
-            </button>
-            <button
-              aria-pressed={dateRange === '7days'}
-              onClick={() => setDateRange('7days')}
-              className={`px-2.5 py-1 rounded-md transition-colors ${
-                dateRange === '7days' ? 'bg-app-selected text-app-text' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Last 7 Days
-            </button>
-            <button
-              aria-pressed={dateRange === 'month'}
-              onClick={() => setDateRange('month')}
-              className={`px-2.5 py-1 rounded-md transition-colors ${
-                dateRange === 'month' ? 'bg-app-selected text-app-text' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Month to Date
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={handlePrintSummary}
-            className="app-action app-secondary"
-          >
-            <Printer className="w-3.5 h-3.5 text-slate-500" />
-            <span>Print PDF</span>
-          </button>
+      <PageHeader title="Analytics" description="Delivery performance, audit activity and billing summaries." actions={<>
+          <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={today} subject="analytics" />
           <Button
             type="button"
             onClick={handleExportCSV}
@@ -155,33 +107,33 @@ export function ReportsPage({ onNotification }: ReportsPageProps) {
         <div className="space-y-6">
           {/* TOP KPI PERFORMANCE TILES */}
           <ListSummary label="Analytics summary" items={[
-            { label: 'On-time SLA', value: '96.8%', icon: CheckCircle2, description: '+1.4% · Target 95.0%' },
-            { label: 'Dispatches completed', value: 306, icon: PackageCheck, description: '44 completed today' },
-            { label: 'Average stop dwell', value: '8.4 min', icon: Timer, description: '1.2 min faster vs avg' },
-            { label: 'Fleet distance', value: '1,840 km', icon: Route, description: 'Across 8 active units' },
-            { label: 'Dispatched revenue', value: '$28,270', icon: Wallet, description: 'Avg $92.40 per stop' },
+            { label: 'On-time SLA', value: analytics.onTimePercent == null ? '—' : `${analytics.onTimePercent}%`, icon: CheckCircle2, description: `${analytics.onTime} of ${analytics.total} dispatches` },
+            { label: 'Dispatches completed', value: analytics.total, icon: PackageCheck, description: 'In selected dates' },
+            { label: 'Average arrival variance', value: analytics.averageVariance == null ? '—' : `${analytics.averageVariance.toFixed(1)} min`, icon: Timer, description: 'From scheduled arrival' },
+            { label: 'POD verified', value: analytics.podVerified, icon: ClipboardCheck, description: `${analytics.podVerified} of ${analytics.total} dispatches` },
+            { label: 'Dispatched revenue', value: `$${analytics.revenue.toLocaleString('en-CA', { maximumFractionDigits: 2 })}`, icon: Wallet, description: analytics.total ? `Avg $${(analytics.revenue / analytics.total).toFixed(2)} per stop` : 'No dispatches in selected dates' },
           ]} />
 
-          {/* VISUAL ANALYTICS: HOURLY THROUGHPUT & 7-DAY COMPLIANCE */}
+          {/* VISUAL ANALYTICS: HOURLY THROUGHPUT & DAILY COMPLIANCE */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Chart 1: Hourly Dispatch Volume */}
             <div className="app-panel min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
-                  <h3 className="app-section-title text-slate-900">Hourly Dispatch Volume & Rush Peaks</h3>
-                  <p className="text-xs text-slate-500">Metro Vancouver delivery volume distribution throughout shift</p>
+                  <h3 className="app-section-title text-slate-900">Hourly Dispatch Volume</h3>
+                  <p className="text-xs text-slate-500">Dispatches by hour in the selected dates</p>
                 </div>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700">
-                  Peak: 10:00 AM (42 jobs)
+                  {analytics.peakHour ? `Peak: ${analytics.peakHour.hour} (${analytics.peakHour.volume} jobs)` : 'No dispatches'}
                 </span>
               </div>
 
               {/* Bar Chart Visualization */}
               <div className="overflow-x-auto"><div className="h-44 min-w-[30rem] flex items-end gap-1 pt-6 pb-2">
-                {HOURLY_VOLUMES.map((item) => {
-                  const heightPercent = Math.round((item.volume / 45) * 100);
+                {analytics.hourlyVolumes.map((item) => {
+                  const heightPercent = Math.round((item.volume / (analytics.peakHour?.volume || 1)) * 100);
                   return (
-                    <div key={item.hour} className="flex-1 h-full flex flex-col items-center gap-1 group">
+                    <div key={item.hour} role="img" aria-label={`${item.hour}: ${item.volume} dispatches`} className="flex-1 h-full flex flex-col items-center gap-1 group">
                       <div className="text-xs font-mono text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
                         {item.volume}
                       </div>
@@ -202,42 +154,43 @@ export function ReportsPage({ onNotification }: ReportsPageProps) {
                 })}
               </div>
               </div>
+              {analytics.hourlyVolumes.length === 0 && <p className="text-sm text-slate-500">No hourly activity for the selected dates.</p>}
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mt-3">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-slate-900 rounded-xs" /> Priority Peak Windows (09:00 - 11:00, 14:00)
+                  <span className="w-2.5 h-2.5 bg-slate-900 rounded-xs" /> Peak hour
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-slate-200 rounded-xs" /> Standard Flow
+                  <span className="w-2.5 h-2.5 bg-slate-200 rounded-xs" /> Other hours
                 </span>
               </div>
             </div>
 
-            {/* Chart 2: 7-Day Performance & SLA Trend */}
+            {/* Chart 2: Daily Performance & SLA Trend */}
             <div className="app-panel min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
-                  <h3 className="app-section-title text-slate-900">7-Day SLA Trend & Revenue</h3>
+                  <h3 className="app-section-title text-slate-900">Daily SLA Trend & Revenue</h3>
                   <p className="text-xs text-slate-500">Daily dispatches and on-time SLA fulfillment rates</p>
                 </div>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
-                  96.8% Average
+                  {analytics.onTimePercent == null ? 'No data' : `${analytics.onTimePercent}% Average`}
                 </span>
               </div>
 
               {/* Trend table/bars */}
               <div className="space-y-2.5 pt-2">
-                {SEVEN_DAYS_PERFORMANCE.map((day) => {
+                {analytics.dailyPerformance.map((day) => {
                   const onTimePercent = Math.round((day.onTimeJobs / day.totalJobs) * 100);
                   return (
                     <div key={day.day} className="flex items-center gap-3 text-xs">
-                      <span className="w-20 font-medium text-slate-700 text-xs">{day.day}</span>
+                      <span className="w-20 font-medium text-slate-700 text-xs">{format(parseDateValue(day.day)!, 'MMM d')}</span>
                       <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden flex">
                         <div
                           className="bg-emerald-500 h-full rounded-l-full"
                           style={{ width: `${onTimePercent}%` }}
                           title={`On Time: ${day.onTimeJobs}`}
                         />
-                        {day.lateJobs > 0 && (
+                        {day.lateJobs + day.exceptionJobs > 0 && (
                           <div
                             className="bg-rose-400 h-full"
                             style={{ width: `${100 - onTimePercent}%` }}
@@ -254,6 +207,7 @@ export function ReportsPage({ onNotification }: ReportsPageProps) {
                     </div>
                   );
                 })}
+                {analytics.dailyPerformance.length === 0 && <p className="text-sm text-slate-500">No daily activity for the selected dates.</p>}
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mt-4 pt-3">
@@ -273,10 +227,10 @@ export function ReportsPage({ onNotification }: ReportsPageProps) {
             <p className="text-xs text-slate-500 mb-4">Value-add billing captured during dispatch and offload</p>
 
             <ListSummary label="Accessorial summary" items={[
-              { label: 'Liftgate services', value: 48, icon: Truck, description: 'Dispatches · $1,680 billed ($35 ea)' },
-              { label: 'Reefer temp controlled', value: 26, icon: Snowflake, description: 'Dispatches · $1,170 billed ($45 ea)' },
-              { label: 'Inside / white glove', value: 32, icon: HandHeart, description: 'Dispatches · $1,280 billed ($40 ea)' },
-              { label: 'Waiting time / demurrage', value: 14, icon: Timer, description: 'Dispatches · $630 billed ($1.50/min)' },
+              { label: 'Liftgate services', value: analytics.accessorialCounts.liftgate, icon: Truck, description: 'Recorded charges' },
+              { label: 'Reefer temp controlled', value: analytics.accessorialCounts.reefer, icon: Snowflake, description: 'Recorded charges' },
+              { label: 'Inside / white glove', value: analytics.accessorialCounts.inside, icon: HandHeart, description: 'Recorded charges' },
+              { label: 'Waiting time / demurrage', value: analytics.accessorialCounts.waiting, icon: Timer, description: 'Recorded charges' },
             ]} />
           </div>
 
@@ -391,6 +345,7 @@ export function ReportsPage({ onNotification }: ReportsPageProps) {
                       </td>
                     </tr>
                   ))}
+                  {filteredAuditLogs.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">No audit records for these filters.</td></tr>}
                 </tbody>
               </table>
             </div>

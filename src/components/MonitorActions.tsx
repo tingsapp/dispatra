@@ -1,3 +1,4 @@
+import { DriverAvatar } from './DriverAvatar';
 import { SearchInput } from './ui/SearchInput';
 import { FloatingPanel } from './ui/FloatingPanel';
 import React, { useState } from 'react';
@@ -246,11 +247,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
                             className="p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer flex items-center justify-between"
                           >
                             <div className="flex items-center gap-2">
-                              <img
-                                src={driver.avatar}
-                                alt={driver.name}
-                                className="w-5 h-5 rounded-full object-cover"
-                              />
+                              <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="w-5 h-5 rounded-full object-cover" />
                               <div>
                                 <span className="font-medium text-slate-800">{driver.name}</span>{' '}
                                 <span className="text-xs text-slate-400">({driver.id})</span>

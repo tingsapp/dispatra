@@ -1,3 +1,4 @@
+import { DriverAvatar } from './DriverAvatar';
 import { FloatingPanel } from './ui/FloatingPanel';
 import { MenuItem, MenuList, MenuSeparator } from './ui/Menu';
 import { useOverlayMotion } from './ui/useOverlayMotion';
@@ -16,6 +17,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { Driver } from '../types';
+import { useMapPopupPlacement } from './monitor/useMapPopupPlacement';
 
 interface DriverPopoverProps {
   driver: Driver;
@@ -37,9 +39,7 @@ export const DriverPopover: React.FC<DriverPopoverProps> = ({
   position
 }) => {
   const overlayMotion = useOverlayMotion();
-  // Compute clamped smooth position anchoring the arrow directly to the driver marker
-  const left = position ? Math.max(20, Math.min(window.innerWidth - 380, position.x - 24)) : 260;
-  const top = position ? Math.max(70, Math.min(window.innerHeight - 380, position.y + 26)) : 460;
+  const { ref, placement } = useMapPopupPlacement(position);
 
   // Closing parent must also close all children
   const handleParentClose = () => {
@@ -50,10 +50,13 @@ export const DriverPopover: React.FC<DriverPopoverProps> = ({
   return (
     <motion.div
       {...overlayMotion}
+      ref={ref}
+      data-map-detail-overlay="driver"
       className="absolute z-40 pointer-events-auto select-none"
       style={{
-        left: `${left}px`,
-        top: `${top}px`,
+        left: `${placement?.x ?? 0}px`,
+        top: `${placement?.y ?? 0}px`,
+        visibility: placement ? 'visible' : 'hidden',
       }}
     >
       {/* Directional arrow pointing toward the driver marker (top-left) */}
@@ -63,12 +66,7 @@ export const DriverPopover: React.FC<DriverPopoverProps> = ({
         {/* Header with avatar, name, status, close button */}
         <div className="flex items-start justify-between pb-4">
           <div className="flex items-center gap-3">
-            <img
-              src={driver.avatar}
-              alt={driver.name}
-              className="w-12 h-12 rounded-full object-cover ring-2 ring-slate-100 shrink-0"
-              referrerPolicy="no-referrer"
-            />
+            <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-slate-100 shrink-0" referrerPolicy="no-referrer" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-medium text-slate-900 text-base">

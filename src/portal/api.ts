@@ -22,6 +22,8 @@ function unwrap<T>(result: { data?: T; error?: unknown; response: Response }): T
   return result.data as T;
 }
 export const api = {
+  companySettings: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/settings', { params: { path: { slug } } })),
+  saveCompanySettings: async (slug: string, body: components['schemas']['SettingsUpdate'], key: string) => unwrap(await client.PUT('/api/v1/companies/{slug}/settings', { body, params: { path: { slug }, header: { 'Idempotency-Key': key } } })),
   me: async () => unwrap(await client.GET('/api/v1/auth/me')),
   login: async (body: LoginInput) => unwrap(await client.POST('/api/v1/auth/login', { body })),
   logout: async () => unwrap(await client.POST('/api/v1/auth/logout')),

@@ -1,13 +1,13 @@
 # Dispatra Web Client Agent Instructions
 
-Last updated: **2026-09-18**
+Last updated: **2026-09-27**
 
 Read `spec.md` and `state.md` before work. `spec.md` is normative; `state.md` is verified status.
 
 ## Fixed stack and priority
 
-- Use React, strict TypeScript, shadcn/ui, Inter, light theme, black primary actions, blue accent, and `react-map-gl`/`maplibre-gl`.
-- Current priority is the user-approved authenticated company/customer access milestone. Existing dispatch operations remain a local prototype until their own API integration.
+- Use React, strict TypeScript, shadcn/ui, Inter, light theme, black primary actions, blue accent, and Google Maps JavaScript API through `@vis.gl/react-google-maps` for the operational Monitor.
+- The original dispatcher workspace currently uses company-scoped browser demo stores after API authentication. Preserve its existing visual components and layout when connecting operational records later. Keep `/prototype` isolated.
 - Static models and statuses MUST mirror the intended FastAPI OpenAPI contract. Do not invent a second domain.
 
 ## Authority and architecture
@@ -28,7 +28,7 @@ Read `spec.md` and `state.md` before work. `spec.md` is normative; `state.md` is
 
 Preserve the Monitor decisions: full-height Vancouver map, one compact sidebar, no permanent map header, floating white top-right search/notifications, an Orders list date filter, bottom-right settings/zoom, hidden layer menu, active routes, contextual popovers, concise Needs Attention, and one account menu. Use shadcn primitives, accessible non-map alternatives, loading/empty/error states, and no permanent dense TMS dashboard. Confirmations go through `confirmDialog` from `src/components/ui/ConfirmDialog.tsx`, never `window.confirm`.
 
-Expose a clear Manual/Auto switch and simulate both modes in static data. Settings must include the max-active-orders dispatch policy under Services & Dispatch. Keep exactly four Organization Settings destinations in this order: Company (company details and logo, GST/HST number, currency, units, time zone), Services & Dispatch (services, vehicle types, dispatch rule), Pricing (Rate Cards, Zones, Accessorials, Extras, Vehicle & Labour Costs), Billing (Invoicing, Taxes). Accessorials belong to Pricing; vehicle types belong to Services & Dispatch with their surcharge and internal running cost on the type form; no inner rate-card method tabs. Rate cards are one flat form (no collapsible sections): name, rates, method terms, Minimum Charge and Discount. Every card applies to every service, vehicle and customer; one card is the Default, others are attached to customers or chosen on the order (no override reason). A card is the base delivery price only (plus its own zone grid for zone cards); Accessorials, extras and vehicle surcharges are organization-wide and never per card — do not reintroduce per-contract override tables. Background contract terms (scope, status, service, code, dates, priority, vehicle restriction, currency, notes, piece/stop rates, per-service rates, fuel/wait/dimensional overrides, vehicle/Accessorial overrides, service charge, minimum freight) stay in the data model with fixed V1 values and are normalised on load, never edited. Zone prices have no service column. The Order form and pricing previews must call the centralized local pricing function. The standalone Pricing Simulator was removed at the user’s request; do not reintroduce its page or navigation.
+Expose a clear Manual/Auto switch. Follow the latest `spec.md` and verified `state.md` for current navigation and forms: Profile contains Company, Security & Sessions, and Taxes & Preferences; Pricing contains Rate Cards, Fuel Surcharge, Service Level, and Accessorials; Vehicles contains one fleet view. Do not restore removed Organization Settings pages or controls. The latest client pricing, tax, zone, shipper, driver, and vehicle decisions are the V1 target for API contract reconciliation; retain old fields only to read historical records. Demo fixtures must become explicit company-owned database seed data during API integration, never a silent browser-to-database import. Driver and shipper creation must create the corresponding least-privilege account transactionally once the API supports those roles. The public website owns `/`, platform administration owns `/admin`, and company workspaces use their slug as the first path segment.
 
 ## Security and quality
 
@@ -40,4 +40,8 @@ Read relevant code and tests, make the smallest complete slice, add focused comp
 
 ## Company/customer access
 
-Use the generated OpenAPI contract in `src/portal/schema.d.ts`, centralized `src/portal/api.ts` transport and TanStack Query for authenticated pages. Never mount the local prototype or read its browser stores on a company/customer route. No public signup or forced initial password change. Customer writes are limited to allowed profile fields; tenant, role and customer identity come from the API session. Initial/reset credentials are transient and must not enter persisted browser state, logs or query keys. Keep company URLs separate from individual dispatchers. Regenerate contracts after API changes and exercise the account browser journey.
+Use the generated OpenAPI contract in `src/portal/schema.d.ts`, centralized `src/portal/api.ts` transport and TanStack Query for authenticated pages. The authenticated dispatcher workspace renders the original `App` prototype; company Profile is API backed. Shipper and Driver operational portals must not read dispatcher browser stores. Connect operations later with typed API records and commands while preserving the original UI. No public signup or forced initial password change. Customer writes are limited to allowed profile fields; tenant, role and customer identity come from the API session. Initial/reset credentials are transient and must not enter persisted browser state, logs or query keys. Keep company URLs separate from individual dispatchers. Regenerate contracts after API changes and exercise the account browser journey.
+
+## Cross-project change impact
+
+For every code or behavior change, use the `changes-detector` skill at `.agents/skills/changes-detector/SKILL.md`. Trace affected code and update connected parts across this project and the other Dispatra projects when the change reaches them.
