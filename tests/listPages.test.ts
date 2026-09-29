@@ -7,7 +7,9 @@ for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInput
   Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: dom.window[name as keyof Window] });
 }
 HTMLElement.prototype.scrollIntoView = () => {};
-const { render, screen, cleanup, within } = await import('@testing-library/react');
+const { render: rawRender, screen, cleanup, within } = await import('@testing-library/react');
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+const render = (ui: React.ReactElement) => rawRender(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { gcTime: 0 }, mutations: { gcTime: 0 } } }) }, ui));
 const { default: userEvent } = await import('@testing-library/user-event');
 const { JobsPage } = await import('../src/pages/JobsPage');
 const { DriversPage } = await import('../src/pages/DriversPage');

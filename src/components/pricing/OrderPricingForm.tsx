@@ -27,7 +27,10 @@ interface OrderPricingFormProps {
   startIndex?: number;
   /** New orders derive their vehicle from the selected driver's fleet asset. */
   showVehicleSelection?: boolean;
-  customerMode?: 'shipper' | 'rateCard';
+  /** `self`: the signed-in shipper books for their own account, so no shipper or rate card is chosen. */
+  customerMode?: 'shipper' | 'rateCard' | 'self';
+  /** Extra fields for the caller's own concerns (e.g. a shipper's driver preference), placed after Service. */
+  serviceExtras?: React.ReactNode;
 }
 
 const fieldClass = 'app-input';
@@ -62,7 +65,7 @@ function PackageMeasurementInput({ value, units, kind, label, onChange }: {
     onBlur={() => setDraft(null)} />;
 }
 
-export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, startIndex = 1, showVehicleSelection = true, customerMode = 'shipper' }) => {
+export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, startIndex = 1, showVehicleSelection = true, customerMode = 'shipper', serviceExtras }) => {
   const { catalogue, pricing, customers, billing } = ctx;
   const units = billing.general;
   const timeZone = billing.general.timeZone ?? 'America/Vancouver';
@@ -105,10 +108,10 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
       {/* Shipper, service, vehicle */}
       <div className={sectionClass}>
         <div className="flex items-center justify-between mb-3">
-          <h4 className={sectionTitle}><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{num()} {customerMode === 'rateCard' ? 'Rate Card & Service' : showVehicleSelection ? 'Shipper, Service & Vehicle' : 'Shipper & Service'}</span></h4>
+          <h4 className={sectionTitle}><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{num()} {customerMode === 'rateCard' ? 'Rate Card & Service' : customerMode === 'self' ? showVehicleSelection ? 'Service & Vehicle' : 'Service' : showVehicleSelection ? 'Shipper, Service & Vehicle' : 'Shipper & Service'}</span></h4>
         </div>
-        <div className={`grid grid-cols-1 ${showVehicleSelection ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
-          <div>
+        <div className={`grid grid-cols-1 ${showVehicleSelection && customerMode !== 'self' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
+          {customerMode !== 'self' && <div>
             {customerMode === 'rateCard' ? <>
               <label className={labelClass}>Rate Card</label>
               <Select aria-label="Rate Card" className="w-full" value={value.rateCardOverrideId ?? ''} onValueChange={(v) => patch({ customerId: null, rateCardOverrideId: v || null })}
@@ -121,7 +124,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             }}
               options={[{ value: '', label: 'Choose a shipper…' }, ...customers.filter(c => c.status !== 'Inactive' && c.status !== 'On Hold').map((c) => ({ value: c.id, label: c.name }))]} />
             </>}
-          </div>
+          </div>}
           <div>
             <label className={labelClass}>Service</label>
             <Select aria-label="Service" className="w-full" value={value.serviceId} onValueChange={(v) => patch({ serviceId: v })} options={activeServices.map((s) => ({ value: s.id, label: s.name }))} />
@@ -130,6 +133,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             <label className={labelClass}>Vehicle</label>
             <Select aria-label="Vehicle" className="w-full" value={value.vehicleId ?? ''} onValueChange={(v) => patch({ vehicleId: v || null })} options={activeVehicles.map((v) => ({ value: v.id, label: v.name }))} />
           </div>}
+          {serviceExtras}
         </div>
         {capacityWarning && <p className="mt-3 p-2 rounded-lg text-xs flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200"><AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />{capacityWarning}</p>}
       </div>
@@ -156,7 +160,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {showStopAddresses && <div className="sm:col-span-2">
                   <label htmlFor={`${sid}-address`} className={labelClass}>{stop.type === 'PICKUP' ? 'Pickup address' : 'Delivery address'}</label>
-                  <AddressAutocomplete id={`${sid}-address`} value={stop.label ?? ''} includeCoordinates placeholder="Street, city, province, postal code" onChange={(address, selected) => updateStop(stop.id, { label: address, ...(selected ? { latitude: selected.latitude, longitude: selected.longitude, normalizedAddress: address } : {}) })} className={`${fieldClass} w-full`} aria-label="Stop address" />
+                  <AddressAutocomplete id={`${sid}-address`} value={stop.label ?? ''} includeCoordinates placeholder="Street, city, province, postal code" onChange={(address, selected) => updateStop(stop.id, { label: address, ...(selected ? { latitude: selected.latitude, longitude: selected.longitude, city: selected.city, provinceCode: selected.province, postalCode: selected.postalCode, countryCode: selected.country, normalizedAddress: address } : {}) })} className={`${fieldClass} w-full`} aria-label="Stop address" />
                   {unresolved && <p className="mt-1 text-xs text-amber-700">Include the province and postal code so tax can be calculated for this stop.</p>}
                   {zonePriced && (!centralPickup || stop.type === 'DROPOFF') && !!stop.label?.trim() && <p className={`mt-1 text-xs ${stop.zoneId ? 'text-slate-500' : 'text-amber-700'}`}>{stop.zoneId ? `Pricing zone: ${pricing.zones.find(zone => zone.id === stop.zoneId)?.name ?? 'Matched'}` : 'No pricing zone matches this postal code. Add it under Pricing → Zones.'}</p>}
                 </div>}

@@ -82,7 +82,7 @@ export const resolveRateCard = (order: PricingOrderInput, ctx: PricingContext): 
   }
   const levels: { source: RateCardSource; label: string; card: RateCard | undefined }[] = [
     { source: 'OVERRIDE', label: 'Chosen on order', card: ctx.pricing.rateCards.find((c) => c.id === order.rateCardOverrideId) },
-    { source: 'CUSTOMER', label: 'Attached to customer', card: ctx.pricing.rateCards.find((c) => c.id === customer?.rateCardId) },
+    { source: 'SHIPPER', label: 'Attached to customer', card: ctx.pricing.rateCards.find((c) => c.id === customer?.rateCardId) },
     { source: 'ORGANIZATION_DEFAULT', label: 'Default', card: defaultRateCard(ctx.pricing.rateCards) }
   ];
   for (const { source, label, card } of levels) {

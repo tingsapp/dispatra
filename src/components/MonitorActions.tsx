@@ -1,7 +1,13 @@
 import { DriverAvatar } from './DriverAvatar';
 import { SearchInput } from './ui/SearchInput';
 import { FloatingPanel } from './ui/FloatingPanel';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { allOperations } from '../operations/api';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
+import { loadVehicles } from '../lib/vehicleStorage';
+import { formatPhone } from '../lib/phone';
+import { lifecycleLabel } from '../domain/validation';
 import {
   Search,
   Bell,
@@ -9,8 +15,6 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  Truck,
-  User,
   MapPin
 } from 'lucide-react';
 import { Driver, Job } from '../types';
@@ -25,6 +29,10 @@ interface MonitorActionsProps {
   onActionNotification: (msg: string) => void;
   drivers?: Driver[];
   jobs?: Job[];
+}
+
+function SearchGroup({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return <section aria-label={title}><h4 className="text-xs font-medium text-slate-400 px-1 pb-1">{title} ({count})</h4>{children}</section>;
 }
 
 interface DispatchAlert {
@@ -58,6 +66,12 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   const setIsNotificationOpen = externalSetShowNotification || setInternalNotificationOpen;
 
   const [searchQuery, setSearchQuery] = useState('');
+  const slug = companySlugForCurrentPath();
+  const vehicleQuery = useQuery({ queryKey: ['operations', slug, 'vehicles'], queryFn: () => allOperations.vehicles(slug!), enabled: !!slug && isSearchOpen });
+  const vehicles = useMemo(() => slug
+    ? (vehicleQuery.data ?? []).filter(row => row.active).map(row => ({ id: row.id, number: row.number, plate: row.plate, detail: [row.data.unit_number, row.data.make_model].filter(Boolean).join(' · ') }))
+    : loadVehicles().map(row => ({ id: row.id, number: row.vehicleNumber ?? row.unitNumber, plate: row.plateNumber, detail: [row.unitNumber, row.makeModel].filter(Boolean).join(' · ') })),
+    [slug, vehicleQuery.data]);
   const [alerts, setAlerts] = useState<DispatchAlert[]>([
     {
       id: 'alt-1',
@@ -106,25 +120,21 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
     onActionNotification('Marked all alerts as read');
   };
 
-  // Search filtered results updated.
-  const filteredJobs = searchQuery.trim()
-    ? jobs.filter(
-        (j) =>
-          j.jobNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          j.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          j.pickupAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          j.dropoffAddress.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
-
-  const filteredDrivers = searchQuery.trim()
-    ? drivers.filter(
-        (d) =>
-          d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          d.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          d.vehicle.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+  // One query across orders, drivers, vehicles and stop addresses.
+  const q = searchQuery.toLowerCase().trim();
+  const has = (...values: (string | undefined | null)[]) => values.some(value => value?.toLowerCase().includes(q));
+  const digits = q.replace(/\D/g, '');
+  const phoneHas = (phone?: string) => digits.length >= 3 && !!phone && phone.replace(/\D/g, '').includes(digits);
+  const street = (address: string) => address.split(',')[0].trim();
+  const stopsOf = (job: Job) => job.pricingInput?.stops ?? [];
+  const filteredJobs = q ? jobs.filter(j => has(j.jobNumber, j.customerName, j.pickupAddress, j.dropoffAddress, ...stopsOf(j).flatMap(stop => [stop.label, stop.contactName]))) : [];
+  const filteredDrivers = q ? drivers.filter(d => has(d.name, d.driverNumber ?? d.id, d.email) || phoneHas(d.phone)) : [];
+  const filteredVehicles = q ? vehicles.filter(v => has(v.number, v.plate, v.detail)) : [];
+  const filteredAddresses = q ? [...jobs.flatMap(job => (stopsOf(job).length ? stopsOf(job).map(stop => stop.label ?? '') : [job.pickupAddress, job.dropoffAddress]).filter(text => text && has(text)).map(text => ({ text, job })))
+    .reduce((map, { text, job }) => map.set(text, [...(map.get(text) ?? []), job].filter((row, i, all) => all.indexOf(row) === i)), new Map<string, Job[]>())]
+    .map(([text, rows]) => ({ text, jobs: rows })) : [];
+  const resultCount = filteredJobs.length + filteredDrivers.length + filteredVehicles.length + filteredAddresses.length;
+  const pick = (select: () => void) => { select(); setIsSearchOpen(false); };
 
   return (
     <div className="absolute top-5 right-6 z-30 pointer-events-auto flex items-center gap-2.5 select-none">
@@ -134,7 +144,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
         <button
           aria-expanded={isSearchOpen}
           className="app-metric app-map-icon relative"
-          title="Search jobs, drivers, or Vancouver addresses"
+          title="Search orders, drivers, vehicles or addresses"
         >
           <Search className="w-4 h-4 stroke-[2.2]" />
         </button>
@@ -143,7 +153,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
 
               <div className="flex items-center justify-between pb-2.5">
                 <span className="font-medium text-sm text-slate-900">
-                  Quick Search
+                  Search
                 </span>
                 <button
                   onClick={() => setIsSearchOpen(false)}
@@ -154,114 +164,29 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
                 </button>
               </div>
 
-              <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search job #, driver, Vancouver address..." className="mt-3" />
+              <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search orders, drivers, vehicles or addresses..." className="mt-3" />
 
-              {/* Results */}
-              <div className="mt-2.5 max-h-64 overflow-y-auto text-xs">
-                {searchQuery.trim() === '' ? (
-                  <div className="py-3 px-1 text-slate-500 space-y-2">
-                    <div className="text-xs font-medium text-slate-400">
-                      Quick shortcuts
-                    </div>
-                    <div className="space-y-1">
-                      <button
-                        onClick={() => {
-                          setSearchQuery('D14');
-                        }}
-                        className="w-full text-left px-2 py-1.5 hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Truck className="w-3.5 h-3.5 text-slate-600" />
-                          Driver D14 (Arles Morgan)
-                        </span>
-                        <span className="text-xs text-slate-400">On route</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSearchQuery('#461');
-                        }}
-                        className="w-full text-left px-2 py-1.5 hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between"
-                      >
-                        <span className="flex items-center gap-2">
-                          <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                          Job #461 (Vancouver Gastown)
-                        </span>
-                        <span className="text-xs text-rose-500 font-medium">At risk</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSearchQuery('Robson');
-                        }}
-                        className="w-full text-left px-2 py-1.5 hover:bg-slate-50 rounded-lg text-slate-700 flex items-center justify-between"
-                      >
-                        <span className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                          Robson Street corridor
-                        </span>
-                        <span className="text-xs text-slate-400">Zone</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : filteredJobs.length === 0 && filteredDrivers.length === 0 ? (
-                  <div className="py-6 text-center text-slate-400 text-xs">
-                    No results for "{searchQuery}"
-                  </div>
-                ) : (
-                  <div className="space-y-3 py-1">
-                    {filteredJobs.length > 0 && (
-                      <div>
-                        <div className="text-xs font-medium text-slate-400 px-1 pb-1">
-                          Jobs ({filteredJobs.length})
-                        </div>
-                        {filteredJobs.map((job) => (
-                          <div
-                            key={job.id}
-                            onClick={() => {
-                              if (onSelectJob) onSelectJob(job.jobNumber);
-                              setIsSearchOpen(false);
-                            }}
-                            className="p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer flex items-center justify-between"
-                          >
-                            <div>
-                              <span className="font-medium text-slate-900">{job.jobNumber}</span>{' '}
-                              <span className="text-slate-600">• {job.customerName}</span>
-                            </div>
-                            <span className="text-xs text-slate-500">{job.statusLabel}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {filteredDrivers.length > 0 && (
-                      <div>
-                        <div className="text-xs font-medium text-slate-400 px-1 pb-1">
-                          Drivers ({filteredDrivers.length})
-                        </div>
-                        {filteredDrivers.map((driver) => (
-                          <div
-                            key={driver.id}
-                            onClick={() => {
-                              if (onSelectDriver) onSelectDriver(driver.id);
-                              setIsSearchOpen(false);
-                            }}
-                            className="p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-2">
-                              <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="w-5 h-5 rounded-full object-cover" />
-                              <div>
-                                <span className="font-medium text-slate-800">{driver.name}</span>{' '}
-                                <span className="text-xs text-slate-400">({driver.id})</span>
-                              </div>
-                            </div>
-                            <span className="text-xs font-medium text-emerald-600">
-                              {driver.statusLabel}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+              <div className="mt-2.5 max-h-72 overflow-y-auto text-xs">
+                {!q ? <p className="py-3 px-1 text-slate-500">Search by order number, shipper, driver name or phone, vehicle number or plate, or any pickup or delivery address.</p>
+                : !resultCount ? <p className="py-6 text-center text-slate-400">No results for "{searchQuery}"</p>
+                : <div className="space-y-3 py-1">
+                  {filteredJobs.length > 0 && <SearchGroup title="Orders" count={filteredJobs.length}>{filteredJobs.map(job => <button type="button" key={job.id} onClick={() => pick(() => onSelectJob?.(job.jobNumber))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
+                    <span className="min-w-0"><span className="font-medium text-slate-900">{job.jobNumber}</span> <span className="text-slate-600">· {job.customerName}</span><span className="block text-slate-500 truncate">{street(job.pickupAddress)} → {street(job.dropoffAddress)}</span></span>
+                    <span className="text-slate-500 shrink-0">{lifecycleLabel(job)}</span>
+                  </button>)}</SearchGroup>}
+                  {filteredDrivers.length > 0 && <SearchGroup title="Drivers" count={filteredDrivers.length}>{filteredDrivers.map(driver => <button type="button" key={driver.id} onClick={() => pick(() => onSelectDriver?.(driver.id))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 min-w-0"><DriverAvatar name={driver.name} avatar={driver.avatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" /><span className="min-w-0"><span className="font-medium text-slate-800">{driver.name}</span> <span className="text-slate-400">{driver.driverNumber ?? driver.id}</span>{driver.phone && <span className="block text-slate-500">{formatPhone(driver.phone)}</span>}</span></span>
+                    <span className={`shrink-0 font-medium ${driver.status === 'available' ? 'text-emerald-600' : 'text-slate-500'}`}>{driver.statusLabel}</span>
+                  </button>)}</SearchGroup>}
+                  {filteredVehicles.length > 0 && <SearchGroup title="Vehicles" count={filteredVehicles.length}>{filteredVehicles.map(vehicle => { const driver = drivers.find(row => row.currentVehicleId === vehicle.id); return <button type="button" key={vehicle.id} onClick={() => pick(() => driver ? onSelectDriver?.(driver.id) : onActionNotification(`${vehicle.number} is not attached to a driver.`))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
+                    <span className="min-w-0"><span className="font-medium text-slate-900">{vehicle.number}</span> <span className="text-slate-600">· {vehicle.plate}</span>{vehicle.detail && <span className="block text-slate-500 truncate">{vehicle.detail}</span>}</span>
+                    <span className="text-slate-500 shrink-0">{driver ? driver.name : 'No driver'}</span>
+                  </button>; })}</SearchGroup>}
+                  {filteredAddresses.length > 0 && <SearchGroup title="Addresses" count={filteredAddresses.length}>{filteredAddresses.map(address => <button type="button" key={address.text} onClick={() => pick(() => onSelectJob?.(address.jobs[0].jobNumber))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
+                    <span className="flex items-start gap-2 min-w-0"><MapPin className="w-3.5 h-3.5 mt-px text-slate-400 shrink-0" /><span className="min-w-0 truncate text-slate-800">{address.text}</span></span>
+                    <span className="text-slate-500 shrink-0">{address.jobs.map(job => job.jobNumber).join(', ')}</span>
+                  </button>)}</SearchGroup>}
+                </div>}
               </div>
       </FloatingPanel>
 

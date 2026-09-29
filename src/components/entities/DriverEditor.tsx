@@ -12,12 +12,13 @@ import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 function PercentField({ label, value, onChange, hint }: { label: string; value?: number; onChange: (v: number | undefined) => void; hint: string }) {
   return <label className="block"><span className="app-label">{label}</span><div className="relative"><input className="app-input w-full pr-8" type="number" min={0} max={100} step="any" required value={value ?? ''} onChange={e => onChange(e.target.value === '' ? undefined : Number(e.target.value))} /><span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500">%</span></div><span className="mt-1 block text-xs text-slate-500">{hint}</span></label>;
 }
-export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehicle, createdVehicle, formId, hideActions = false }: { driver?: Driver; drivers: Driver[]; onSave: (d: Driver) => void; onCancel: () => void; onRegisterVehicle?: () => void; createdVehicle?: VehicleAsset | null; formId?: string; hideActions?: boolean }) {
+export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehicle, createdVehicle, formId, hideActions = false, vehicleOptions }: { driver?: Driver; drivers: Driver[]; onSave: (d: Driver) => void; onCancel: () => void; onRegisterVehicle?: () => void; createdVehicle?: VehicleAsset | null; formId?: string; hideActions?: boolean; vehicleOptions?: VehicleAsset[] }) {
   const isEditing = !!driver;
   const [draft, setDraft] = useState<Driver>(() => normalizeDriver(driver ?? { id: crypto.randomUUID(), name: '', avatar: '', status: 'offline', statusLabel: 'Off duty', vehicle: 'Unassigned', nextStop: '', eta: '', distance: '', lastUpdate: 'No GPS sample', lat: 49.2827, lng: -123.1207, driverNumber: '', phone: '', accountStatus: 'ACTIVE', dutyStatus: 'OFF_DUTY', createdAt: new Date().toISOString() }));
   const [orderLimit, setOrderLimit] = useState<number | undefined>(() => driver ? driverOrderLimit(driver, loadBillingConfig().dispatch.maxActiveOrdersPerDriver) : undefined);
   const [errors, setErrors] = useState<string[]>([]);
-  const [vehicles, setVehicles] = useState(loadVehicles);
+  const [localVehicles, setVehicles] = useState(loadVehicles);
+  const vehicles = vehicleOptions ?? localVehicles;
   useEffect(() => {
     if (!createdVehicle) return;
     setVehicles(loadVehicles());
@@ -32,7 +33,7 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
       <TextField label="Email" type="email" required value={draft.email} onChange={email => patch({ email })} placeholder="driver@company.com" />
       <div className="sm:col-span-2">
         <label htmlFor="driver-address" className="app-label">Address <span aria-hidden="true">*</span></label>
-        <AddressAutocomplete id="driver-address" aria-label="Address" value={draft.address ?? ''} onChange={address => patch({ address })} required placeholder="Street, city, province, postal code" className="app-input w-full" />
+        <AddressAutocomplete id="driver-address" aria-label="Address" value={draft.address ?? ''} includeCoordinates onChange={(address, selected) => patch({ address, addressCoordinates: selected })} required placeholder="Street, city, province, postal code" className="app-input w-full" />
         <span className="mt-1 block text-xs text-slate-500">The city in this address defines the driver’s service area.</span>
       </div>
     </FormSection>
@@ -47,14 +48,14 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" aria-label="Attached vehicle" className="app-combobox flex h-10 w-full items-center justify-between gap-2 whitespace-nowrap px-3 text-slate-800">
-              <span className="truncate">{selectedVehicle ? `${selectedVehicle.unitNumber} · ${selectedVehicle.plateNumber}` : 'None yet'}</span>
+              <span className="truncate">{selectedVehicle ? `${selectedVehicle.vehicleNumber ?? selectedVehicle.unitNumber} · ${selectedVehicle.plateNumber}` : 'None yet'}</span>
               <ChevronDown aria-hidden="true" className="w-4 h-4 shrink-0 text-slate-500" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" size="trigger">
             {onRegisterVehicle && <DropdownMenuItem icon={Plus} onSelect={onRegisterVehicle}>Register new vehicle</DropdownMenuItem>}
             <DropdownMenuItem onSelect={() => patch({ currentVehicleId: null, vehicle: 'Unassigned' })}>None yet</DropdownMenuItem>
-            {vehicles.map(v => <DropdownMenuItem key={v.id} onSelect={() => patch({ currentVehicleId: v.id, vehicle: `${v.unitNumber} · ${v.plateNumber}` })}>{v.unitNumber} · {v.plateNumber}</DropdownMenuItem>)}
+            {vehicles.map(v => <DropdownMenuItem key={v.id} onSelect={() => patch({ currentVehicleId: v.id, vehicle: `${v.vehicleNumber ?? v.unitNumber} · ${v.plateNumber}` })}>{v.unitNumber} · {v.plateNumber}</DropdownMenuItem>)}
           </DropdownMenuContent>
         </DropdownMenu>
         <span className="mt-1 block text-xs text-slate-500">Owner-operator trucks are registered under Vehicles too.</span>

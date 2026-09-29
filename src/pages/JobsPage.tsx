@@ -4,7 +4,7 @@ import { DriverAssignmentMenu } from '../components/entities/DriverAssignmentMen
 import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
 import { formatDateValue } from '../lib/dateValues';
 import { Button } from '../components/ui/button';
-import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
+import { Dialog, DialogFooter, DialogHeader } from '../components/ui/Dialog';
 import {
 CircleCheck,
 UserRoundSearch,
@@ -15,11 +15,16 @@ MapPin,
 Package,
 Phone,
 Plus,
-FileText,
-Building2,
-Tag
+FileText
 } from 'lucide-react';
-import React,{ useMemo,useState } from 'react';
+import React,{ useEffect,useMemo,useRef,useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
+import { allOperations, operations } from '../operations/api';
+import { inputToBooking } from '../operations/orderAdapters';
+import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
+import { useCompanyPricingContext, useOrderAssignment } from '../components/orders/useOrderDetails';
+import { useOrderPreview } from '../components/orders/useOrderPreview';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
@@ -29,34 +34,23 @@ import { buildQuotation } from '../lib/quotation';
 import { invoiceOrder, invoiceState } from '../lib/invoicing';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
+import { companyRateRows, travelRows } from '../lib/companyTax';
 import { applyDriverVehicle,normalizeOrderInput,snapshotCustomer } from '../domain/orderAdapters';
 import { loadVehicles } from '../lib/vehicleStorage';
 import { lifecycleLabel,orderAttention,orderEditable,orderLifecycle,validateOrderFacts } from '../domain/validation';
 import { ORDER_LIFECYCLES, ORDER_LIFECYCLE_LABELS } from '../domain/operations';
 import {
+createBookingInput,
 createDefaultOrderInput,
 describePrice,
 loadPricingContext,
 priceOrder
 } from '../lib/orderPricing';
 import { validateAssignment,validateBooking } from '../lib/organizationWorkflows';
-import { formatDimension,formatWeight } from '../lib/units';
+import { formatWeight } from '../lib/units';
 import { Driver,Job } from '../types';
-import { PricingOrderInput, PricingStopInput } from '../types/pricing';
-import { defaultRateCard, PricingContext } from '../lib/pricingEngine';
-
-const priorityLabel = (p: Job['priority'] | undefined) => ({ NORMAL: 'Normal', HIGH: 'High', URGENT: 'Urgent' } as Record<string, string>)[p ?? 'NORMAL'] ?? 'Normal';
-const trimUnit = (s: string) => s.replace(/\s\S+$/, '');
-const formatWhen = (iso: string | undefined, timeZone: string) => iso ? new Date(iso).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short', timeZone }) : '';
-const dossierStops = (job: Job): PricingStopInput[] => job.pricingInput?.stops ?? [
-  { id: 'pu', type: 'PICKUP', label: job.pickupAddress, zoneId: null, residential: false, waitMinutes: 0 },
-  { id: 'do', type: 'DROPOFF', label: job.dropoffAddress, zoneId: null, residential: false, waitMinutes: 0 }
-];
-const dossierAccessorials = (job: Job, ctx: PricingContext) => (job.pricingInput?.accessorials ?? []).flatMap(a => { const item = ctx.catalogue.accessorials.find(c => c.id === a.accessorialId); return item ? [item] : []; });
-/** Read-only field styled like the form's label + value pairs. */
-function Detail({ label, value, hint, className = '' }: { label: string; value?: string | null; hint?: string | null; className?: string }) {
-  return <div className={className}><dt className="text-xs text-slate-500">{label}</dt><dd className="text-sm text-slate-900 break-words">{value?.trim() ? value : '—'}{hint && <span className="block text-xs text-slate-500">{hint}</span>}</dd></div>;
-}
+import { PricingOrderInput } from '../types/pricing';
+import { defaultRateCard } from '../lib/pricingEngine';
 
 interface JobsPageProps {
   jobs: Job[];
@@ -65,6 +59,9 @@ interface JobsPageProps {
   onUpdateJob: (updatedJob: Job) => void;
   onCreateJob: (newJob: Job) => void;
   onNotification: (message: string) => void;
+  /** Opens this order's edit form once data is ready (e.g. "Edit order" from the Monitor). */
+  editJobId?: string | null;
+  onEditHandled?: () => void;
 }
 
 /** Next order number: one past the highest existing #number. */
@@ -75,8 +72,15 @@ export function JobsPage({
   onSelectJob,
   onUpdateJob,
   onCreateJob,
-  onNotification
+  onNotification,
+  editJobId,
+  onEditHandled
 }: JobsPageProps) {
+  const slug = companySlugForCurrentPath();
+  const queryClient = useQueryClient();
+  const { ctx: livePricingCtx, settings: settingsQuery, catalog: catalogQuery, rates: rateQuery, shippers: shipperQuery } = useCompanyPricingContext(slug);
+  const orderQuery = useQuery({ queryKey: ['operations', slug, 'orders'], queryFn: () => allOperations.orders(slug!), enabled: !!slug });
+  const invoiceQuery = useQuery({ queryKey: ['operations', slug, 'invoices'], queryFn: () => allOperations.invoices(slug!), enabled: !!slug });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'on_time' | 'at_risk'>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState('all');
@@ -97,17 +101,19 @@ export function JobsPage({
   const [editingOrder, setEditingOrder] = useState<Job | null>(null);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   // Pricing context is read fresh each time the modal opens so settings edits apply.
-  const [pricingCtx, setPricingCtx] = useState(() => loadPricingContext());
+  const [localPricingCtx, setPricingCtx] = useState(() => loadPricingContext());
+  const pricingCtx = livePricingCtx ?? localPricingCtx;
   const [newOrderInput, setNewOrderInput] = useState<PricingOrderInput>(() => createDefaultOrderInput(pricingCtx));
-  const newOrderSnapshot = useMemo(() => priceOrder(newOrderInput, pricingCtx), [newOrderInput, pricingCtx]);
+  const newOrderSnapshot = useOrderPreview({ slug, input: newOrderInput, ctx: pricingCtx, enabled: showCreateModal, toBooking: input => inputToBooking(input, '', pricingCtx.billing.general.timeZone), rates: rateQuery.data });
+  const pendingQuote = useRef<{ key: string; quote: Awaited<ReturnType<typeof operations.createQuote>> } | null>(null);
   const selectedCustomer = pricingCtx.customers.find((c) => c.id === newOrderInput.customerId);
 
   const openCreateModal = (mode: 'order' | 'quote') => {
-    const ctx = loadPricingContext();
-    setCreateMode(mode); setEditingOrder(null); setOrderFields({}); setFormErrors([]);
+    const ctx = slug ? livePricingCtx : loadPricingContext();
+    if (!ctx) { onNotification('Pricing data is still loading. Try again in a moment.'); return; }
+    setCreateMode(mode); setEditingOrder(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null;
     setPricingCtx(ctx);
-    const initial = createDefaultOrderInput(ctx);
-    setNewOrderInput(applyDriverVehicle({ ...initial, customerId: null, rateCardOverrideId: mode === 'quote' ? defaultRateCard(ctx.pricing.rateCards)?.id ?? null : null, stops: initial.stops.map(stop => ({ ...stop, zoneId: null })) }, undefined, []));
+    setNewOrderInput(applyDriverVehicle({ ...createBookingInput(ctx), rateCardOverrideId: mode === 'quote' ? defaultRateCard(ctx.pricing.rateCards)?.id ?? null : null }, undefined, []));
     setNewInstructions('');
     setNewDriverId('unassigned');
     setShowCreateModal(true);
@@ -115,11 +121,18 @@ export function JobsPage({
 
   const openEditOrder = (job: Job) => {
     if (!orderEditable(job) || !job.pricingInput) return;
-    setCreateMode('order'); setPricingCtx(loadPricingContext()); setEditingOrder(job); setOrderFields({ ...job }); setFormErrors([]);
+    setCreateMode('order'); setPricingCtx(slug && livePricingCtx ? livePricingCtx : loadPricingContext()); setEditingOrder(job); setOrderFields({ ...job }); setFormErrors([]);
     setNewOrderInput(normalizeOrderInput({ ...structuredClone(job.pricingInput), taxCalculation: 'COMPANY' }));
     setNewInstructions(job.handlingInstructions ?? '');
     setNewScheduledTime(job.scheduledTime); setNewDriverId(job.assignedDriverId ?? 'unassigned'); setActiveJobDossier(null); setShowCreateModal(true);
   };
+
+  useEffect(() => {
+    if (!editJobId || (slug && !livePricingCtx)) return;
+    const job = jobs.find(row => row.id === editJobId);
+    if (!job) return;
+    openEditOrder(job); onEditHandled?.();
+  }, [editJobId, jobs, livePricingCtx]);
 
   // Reassignment popover
   const [reassigningJobId, setReassigningJobId] = useState<string | null>(null);
@@ -161,30 +174,38 @@ export function JobsPage({
   const noDriverCount = jobs.filter(j => !j.assignedDriverId && j.status !== 'completed').length;
   const completedCount = jobs.filter((j) => j.status === 'completed').length;
 
-  const handleReassignDriver = (job: Job, driverId: string) => {
-    if (!orderEditable(job)) { onNotification('This order is locked for operational or billing changes.'); return; }
-    const driver = drivers.find((d) => d.id === driverId);
-    if (driver) { const errors = validateAssignment(job, driver, jobs, loadPricingContext()); if (errors.length) { onNotification(errors.join(' ')); return; } }
-    const updated: Job = {
-      ...job,
-      assignedDriverId: driverId === 'unassigned' ? undefined : driverId,
-      driverName: driver ? driver.name : undefined,
-      lifecycleStatus: driverId === 'unassigned' ? 'NEW' : 'ASSIGNED',
-      version: (job.version ?? 1) + 1,
-      status: driverId === 'unassigned' ? 'no_driver' : 'on_time',
-      statusLabel: driverId === 'unassigned' ? 'No Driver' : 'On Time',
-      riskText: driver ? `Assigned to ${driver.name} (${driver.id})` : 'Needs dispatch'
-    };
-    onUpdateJob(updated);
-    if (activeJobDossier && activeJobDossier.id === job.id) {
-      setActiveJobDossier(updated);
-    }
+  const reassign = useOrderAssignment({ slug, jobs, drivers, onUpdateJob, onNotification });
+  const handleReassignDriver = async (job: Job, driverId: string) => {
+    const result = await reassign(job, driverId);
+    if (!result) return;
     setReassigningJobId(null);
-    onNotification(`Job ${job.jobNumber} reassigned to ${driver ? `${driver.name} (${driver.id})` : 'Unassigned'}`);
+    if (!result.updated) setActiveJobDossier(null);
+    else if (activeJobDossier?.id === job.id) setActiveJobDossier(result.updated);
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (slug) {
+      try {
+        const booking = inputToBooking(newOrderInput, newInstructions, pricingCtx.billing.general.timeZone);
+        const previous = editingOrder ? orderQuery.data?.find(row => row.id === editingOrder.id) : undefined;
+        const saved = previous ? await operations.updateOrder(slug, previous, booking) : await operations.createOrder(slug, booking);
+        setShowCreateModal(false);
+        try {
+          if (newDriverId !== 'unassigned' && saved.status === 'NEW') {
+            const driver = drivers.find(row => row.id === newDriverId);
+            if (!driver?.currentVehicleId) throw new Error('The selected driver needs an attached vehicle before assignment.');
+            await operations.assignOrder(slug, saved, driver.id, driver.currentVehicleId);
+          }
+          onNotification(`${previous ? 'Updated' : 'Created'} ${saved.number}.`);
+        } catch (assignmentError) {
+          onNotification(`${saved.number} saved without an assignment. ${assignmentError instanceof Error ? assignmentError.message : 'Assignment failed.'}`);
+        } finally {
+          await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'routes'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]);
+        }
+      } catch (error) { const message = error instanceof Error ? error.message : 'Could not save order.'; setFormErrors([message]); onNotification(message); }
+      return;
+    }
     const customerName = selectedCustomer?.name ?? '';
     const pickups = newOrderInput.stops.filter((st) => st.type === 'PICKUP');
     const drops = newOrderInput.stops.filter((st) => st.type === 'DROPOFF');
@@ -261,13 +282,38 @@ export function JobsPage({
     );
   };
 
-  const handleInvoice = (job: Job) => {
+  const handleInvoice = async (job: Job) => {
+    if (slug) {
+      const record = orderQuery.data?.find(row => row.id === job.id);
+      if (!record) return;
+      try { const invoice = await operations.createInvoice(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }); onNotification(`${job.jobNumber} invoiced — $${Number(invoice.total).toFixed(2)}.`); }
+      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not create invoice.'); }
+      return;
+    }
     try {
       const updated = invoiceOrder(job, loadPricingContext());
       onUpdateJob(updated);
       if (activeJobDossier?.id === job.id) setActiveJobDossier(updated);
       onNotification(`${job.jobNumber} invoiced — $${updated.pricing!.total.toFixed(2)} ${updated.pricing!.currency} to ${updated.invoicePreview?.billingEmail || 'the shipper'}`);
     } catch (error) { onNotification(error instanceof Error ? error.message : 'The order could not be invoiced.'); }
+  };
+  const handleSendInvoice = async (job: Job) => {
+    if (!slug) return;
+    const invoice = invoiceQuery.data?.find(row => row.order_id === job.id);
+    if (!invoice) { onNotification('Invoice is still loading. Try again.'); return; }
+    try { const delivery = await operations.sendInvoice(slug, invoice); onNotification(`Invoice ${invoice.number} queued for ${delivery.recipient}.`); }
+    catch (error) { onNotification(error instanceof Error ? error.message : 'Could not send invoice.'); }
+  };
+  const sendLiveQuote = async (recipient: string) => {
+    if (!slug) return;
+    const booking = inputToBooking(newOrderInput, '', pricingCtx.billing.general.timeZone);
+    const key = JSON.stringify(booking);
+    const quote = pendingQuote.current?.key === key ? pendingQuote.current.quote : await operations.createQuote(slug, booking);
+    pendingQuote.current = { key, quote };
+    await operations.sendQuote(slug, quote, recipient);
+    pendingQuote.current = null;
+    await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'quotes'] });
+    setShowCreateModal(false); onNotification(`Quote queued for ${recipient}.`);
   };
   useEntityDialog(!!activeJobDossier || showCreateModal, () => { setActiveJobDossier(null); setShowCreateModal(false); });
 
@@ -288,6 +334,8 @@ export function JobsPage({
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
+        {slug && (orderQuery.isPending || !livePricingCtx) && <p role="status" className="text-sm text-slate-500">Loading orders and pricing…</p>}
+        {slug && (orderQuery.error || settingsQuery.error || catalogQuery.error || rateQuery.error || shipperQuery.error) && <p role="alert" className="text-sm text-rose-700">Could not load order data. Retry from the workspace.</p>}
         <ListSummary label="Orders summary" items={[
           { label: 'Total', value: totalCount, icon: Package },
           { label: 'On schedule', value: onTimeCount, icon: Clock },
@@ -446,7 +494,7 @@ export function JobsPage({
                               <div className="font-medium text-slate-800 flex items-center gap-1">
                                 {assignedDriver.name}
                                 <span className="text-xs font-mono bg-slate-100 text-slate-600 px-1 py-0.2 rounded">
-                                  {assignedDriver.id}
+                                  {assignedDriver.driverNumber ?? assignedDriver.id}
                                 </span>
                               </div>
                               <div className="text-xs text-slate-400">
@@ -455,7 +503,7 @@ export function JobsPage({
                             </div>
                           </div>
                         ) : (
-                          <DriverAssignmentMenu drivers={drivers} open={reassigningJobId === job.id}
+                          <DriverAssignmentMenu drivers={drivers} requestedId={job.pricingInput?.preferredDriverId} open={reassigningJobId === job.id}
                             onOpenChange={open => setReassigningJobId(open ? job.id : null)}
                             onSelect={driverId => handleReassignDriver(job, driverId)} />
                         )}
@@ -486,6 +534,7 @@ export function JobsPage({
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center gap-1">
                           {readyToInvoice && <Button type="button" size="xs" variant="outline" onClick={() => handleInvoice(job)}><FileText /> Invoice</Button>}
+                          {slug && job.lifecycleStatus === 'INVOICED' && <Button type="button" size="xs" variant="outline" onClick={() => handleSendInvoice(job)}><FileText /> Send invoice</Button>}
                           <button
                             onClick={() => onSelectJob(job.jobNumber)}
                             title="Locate on Monitor"
@@ -512,88 +561,9 @@ export function JobsPage({
         </div>
       </div>
 
-      {/* JOB DOSSIER DIALOG */}
-      {activeJobDossier && (
-        <Dialog size="md" onClose={() => setActiveJobDossier(null)}>
-          <DialogHeader onClose={() => setActiveJobDossier(null)} title={<>
-            <span>{activeJobDossier.jobNumber}</span>
-            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">{activeJobDossier.serviceLevel || activeJobDossier.jobType}</span>
-            {activeJobDossier.pricing?.status === 'PRICED' && <span className="text-sm font-normal text-slate-600">${activeJobDossier.pricing.total.toFixed(2)} {activeJobDossier.pricing.currency}</span>}
-          </>} />
-          {/* One bordered section per New Order form section; inner groups are borderless grey */}
-          <DialogBody className="space-y-5">
-              <section className="rounded-xl border border-slate-200 p-5">
-                <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>Shipper & Service</span></h4>
-                <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
-                  <Detail label="Shipper" value={activeJobDossier.customerName} hint={activeJobDossier.customerPhone} />
-                  <Detail label="Service" value={activeJobDossier.serviceLevel || activeJobDossier.jobType} />
-                  <Detail label="Priority" value={priorityLabel(activeJobDossier.priority)} />
-                </dl>
-              </section>
-
-              <section className="rounded-xl border border-slate-200 p-5">
-                <h4 className="app-section-title flex items-center gap-1.5 mb-3"><MapPin className="w-3.5 h-3.5 text-slate-700" /><span>Stops</span></h4>
-                <div className="space-y-3">
-                  {dossierStops(activeJobDossier).map((stop, i) => <div key={stop.id} className="rounded-lg bg-slate-50 p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{i + 1} · {stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
-                      {stop.residential && <span className="text-xs text-slate-500">Residential</span>}
-                    </div>
-                    <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
-                      <Detail label={stop.type === 'PICKUP' ? 'Pickup address' : 'Delivery address'} value={stop.label} className={stop.zoneId ? 'sm:col-span-2' : 'sm:col-span-3'} />
-                      {stop.zoneId && <Detail label="Zone" value={pricingCtx.pricing.zones.find(z => z.id === stop.zoneId)?.name ?? '—'} />}
-                      <Detail label="Contact name" value={stop.contactName} />
-                      <Detail label="Phone" value={stop.contactPhone} />
-                      <Detail label={stop.type === 'PICKUP' ? 'Ready at' : 'Deliver by'} value={formatWhen(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd, pricingCtx.billing.general.timeZone)} />
-                    </dl>
-                  </div>)}
-                </div>
-              </section>
-
-              <section className="rounded-xl border border-slate-200 p-5">
-                <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Package className="w-3.5 h-3.5 text-slate-700" /><span>Packages</span></h4>
-                {activeJobDossier.pricingInput?.packages.length ? <div className="rounded-lg bg-slate-50 p-4 overflow-x-auto"><table aria-label="Order packages" className="app-table app-table-plain w-full">
-                  <thead><tr><th scope="col" className="text-left">Qty</th><th scope="col" className="text-left">Weight ({pricingCtx.billing.general.weightUnit})</th><th scope="col" className="text-left">L × W × H ({pricingCtx.billing.general.dimensionUnit})</th><th scope="col" className="text-left">Fragile</th><th scope="col" className="text-left">DG</th></tr></thead>
-                  <tbody>{activeJobDossier.pricingInput.packages.map(p => <tr key={p.id}><td>{p.quantity}</td><td>{trimUnit(formatWeight(p.weightKg, pricingCtx.billing.general))}</td><td>{[p.lengthCm, p.widthCm, p.heightCm].map(cm => trimUnit(formatDimension(cm, pricingCtx.billing.general))).join(' × ')}</td><td>{p.fragile ? 'Yes' : '—'}</td><td>{p.handlingTags?.includes('DANGEROUS_GOODS') ? 'Yes' : '—'}</td></tr>)}</tbody>
-                </table></div> : <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">{activeJobDossier.cargoWeight ? `Cargo ${activeJobDossier.cargoWeight}` : 'No package details recorded.'}</p>}
-              </section>
-
-              <section className="rounded-xl border border-slate-200 p-5">
-                <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Tag className="w-3.5 h-3.5 text-slate-700" /><span>Accessorials</span></h4>
-                {dossierAccessorials(activeJobDossier, pricingCtx).length ? <dl className="rounded-lg bg-slate-50 p-4 space-y-2">{dossierAccessorials(activeJobDossier, pricingCtx).map(a => <div key={a.id} className="flex items-center justify-between gap-3 text-sm"><dt className="text-slate-800">{a.name}</dt><dd className="text-slate-500 tabular-nums">${a.rate.toFixed(2)}</dd></div>)}</dl> : <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No extra charges added.</p>}
-              </section>
-
-              <section className="rounded-xl border border-slate-200 p-5 space-y-3">
-                <h4 className="app-section-title">Dispatch</h4>
-                <div>
-                  <label className="app-label">Assigned driver</label>
-                  <Select
-                    aria-label="Reassign driver"
-                    className="w-full"
-                    value={activeJobDossier.assignedDriverId || 'unassigned'}
-                    onValueChange={(v) => handleReassignDriver(activeJobDossier, v)}
-                    options={[
-                      { value: 'unassigned', label: '— Unassigned (Needs Dispatch) —' },
-                      ...drivers.map((d) => ({ value: d.id, label: `${d.name} (${d.id}) · ${d.statusLabel} (${d.vehicle.split(' ')[0]})` }))
-                    ]}
-                  />
-                </div>
-                <dl><Detail label="Handling instructions" value={activeJobDossier.handlingInstructions} /></dl>
-              </section>
-
-              <section className="rounded-xl border border-slate-200 p-5">
-                <h4 className="app-section-title mb-3">Price</h4>
-                {activeJobDossier.pricing
-                  ? <PriceBreakdown snapshot={activeJobDossier.pricing} variant="inline" showCalculationSection={false} title={activeJobDossier.pricing.stage === 'FINAL' ? 'Final price' : 'Quoted estimate'} />
-                  : <p className="text-sm text-slate-500">This order predates the pricing model and has no snapshot.</p>}
-              </section>
-          </DialogBody>
-          <DialogFooter>
-            {orderEditable(activeJobDossier) && <Button variant="outline" onClick={() => openEditOrder(activeJobDossier)}>Edit order</Button>}
-            <Button onClick={() => { onSelectJob(activeJobDossier.jobNumber); setActiveJobDossier(null); }}><MapPin /> Locate on Monitor</Button>
-          </DialogFooter>
-        </Dialog>
-      )}
+      {/* ORDER DETAILS DIALOG */}
+      {activeJobDossier && <OrderDetailsDialog job={activeJobDossier} ctx={pricingCtx} drivers={drivers} onClose={() => setActiveJobDossier(null)}
+        onReassign={handleReassignDriver} onEdit={openEditOrder} onLocate={job => { onSelectJob(job.jobNumber); setActiveJobDossier(null); }} />}
 
       {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (
@@ -626,11 +596,11 @@ export function JobsPage({
                         value={newDriverId}
                         onValueChange={driverId => {
                           setNewDriverId(driverId);
-                          if (!editingOrder) setNewOrderInput(input => applyDriverVehicle(input, drivers.find(driver => driver.id === driverId), loadVehicles()));
+                          if (!editingOrder) setNewOrderInput(input => applyDriverVehicle(input, drivers.find(driver => driver.id === driverId), slug ? [] : loadVehicles()));
                         }}
                         options={[
                           { value: 'unassigned', label: '— Leave Unassigned (Staged for Dispatch) —' },
-                          ...drivers.map((d) => ({ value: d.id, label: `${d.name} (${d.id}) · ${d.statusLabel}` }))
+                          ...drivers.map((d) => ({ value: d.id, label: `${d.name} (${d.driverNumber ?? d.id}) · ${d.statusLabel}` }))
                         ]}
                       />
                       <p className="text-xs text-slate-500 mt-1">{editingOrder ? 'Driver choice never changes the shipper price.' : 'Uses the vehicle attached to the selected driver.'}</p>
@@ -652,6 +622,8 @@ export function JobsPage({
                   <PriceBreakdown
                     snapshot={newOrderSnapshot}
                     title={createMode === 'quote' ? 'Live quote' : 'Live estimate'}
+                    showPricingDetail={false}
+                    rateRows={[...companyRateRows(pricingCtx.billing), ...(newOrderSnapshot.status === 'PRICED' ? travelRows(newOrderSnapshot, pricingCtx.billing.general) : [])]}
                   />
                 </div>
               </div>
@@ -660,7 +632,7 @@ export function JobsPage({
             <DialogFooter note={createMode === 'quote' ? 'Sending a quote does not create an order.' : newOrderSnapshot.status === 'PRICED' ? 'The estimate is frozen on the order as a Pricing Snapshot.' : 'The order can be created, but it will land in Needs Attention until it can be priced.'}>
               {createMode === 'quote'
                 ? newOrderSnapshot.status === 'PRICED' && !!newOrderInput.rateCardOverrideId
-                  ? <QuotationMenu buildQuotation={() => buildQuotation(newOrderInput, newOrderSnapshot, pricingCtx)} onNotification={onNotification} triggerLabel="Send Quote" prominent allowRecipientEntry />
+                  ? <QuotationMenu buildQuotation={() => buildQuotation(newOrderInput, newOrderSnapshot, pricingCtx)} sendEmail={slug ? sendLiveQuote : undefined} onNotification={onNotification} triggerLabel="Send Quote" prominent allowRecipientEntry />
                   : <Button type="button" disabled>Send Quote</Button>
                 : <Button type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
             </DialogFooter>

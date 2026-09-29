@@ -1,0 +1,51 @@
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { operations } from '../operations/api';
+import { ClipboardList, CreditCard, Receipt, UserRound, Shield, Plus } from 'lucide-react';
+import { PortalShell } from './PortalShell';
+import { CustomerProfile } from './ProfilePage';
+import { PasswordPage } from './PasswordPage';
+import { ShipperOrders } from './ShipperOrders';
+import { ShipperInvoices } from './ShipperInvoices';
+import { ShipperPaymentMethods } from './ShipperPaymentMethods';
+import { Button, Notice } from './ui';
+
+export const shipperPages = [
+  { path: 'orders', label: 'Orders', icon: ClipboardList },
+  { path: 'profile', label: 'Profile', icon: UserRound },
+  { path: 'invoices', label: 'Invoices', icon: Receipt },
+  { path: 'payment-methods', label: 'Payment Methods', icon: CreditCard },
+];
+export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logoutError }: {
+  slug: string; company: string; login: string; onLogout: () => void; loggingOut: boolean; logoutError: unknown;
+}) {
+  const [profileSection, setProfileSection] = useState<'details' | 'security'>('details');
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [pathname, setPathname] = useState(() => location.pathname);
+  useEffect(() => { const sync = () => setPathname(location.pathname); window.addEventListener('popstate', sync); return () => window.removeEventListener('popstate', sync); }, []);
+  const go = (href: string) => { if (href !== location.pathname) history.pushState(null, '', href); setPathname(href); window.scrollTo(0, 0); };
+  const profile = useQuery({ queryKey: ['shipper-profile', slug], queryFn: () => operations.ownShipper(slug) });
+  const base = `/${slug}/shipper-portal`;
+  const suffix = pathname.replace(/\/+$/, '').split('/')[3];
+  const page = shipperPages.find(item => item.path === suffix) ?? shipperPages[0];
+  return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false}
+    actions={page.path === 'orders' ? <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button> : undefined}
+    reading={page.path !== 'orders'}
+    account={{ name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}
+    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'orders' ? 'Create and track your deliveries.' : page.path === 'invoices' ? 'View invoices for your deliveries.' : 'Invoice terms and saved credit cards.'}
+    navigation={shipperPages.filter(item => item.path !== 'profile').map(item => ({ ...item, href: `${base}/${item.path}`, current: item.path === page.path }))}
+    onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
+    <Notice error={logoutError} />
+    {page.path === 'profile' && <>
+      <div className="flex items-center gap-2" aria-label="Profile sections">
+        <button type="button" className="app-tab inline-flex items-center gap-2" aria-pressed={profileSection === 'details'} onClick={() => setProfileSection('details')}><UserRound size={14} />Details</button>
+        <button type="button" className="app-tab inline-flex items-center gap-2" aria-pressed={profileSection === 'security'} onClick={() => setProfileSection('security')}><Shield size={14} />Security</button>
+      </div>
+      <div hidden={profileSection !== 'details'}><CustomerProfile slug={slug} /></div>
+      {profileSection === 'security' && <PasswordPage plain />}
+    </>}
+    {page.path === 'orders' && <ShipperOrders slug={slug} open={newOrderOpen} onClose={() => setNewOrderOpen(false)} />}
+    {page.path === 'invoices' && <ShipperInvoices slug={slug} />}
+    {page.path === 'payment-methods' && <ShipperPaymentMethods slug={slug} />}
+  </PortalShell>;
+}

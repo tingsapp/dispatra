@@ -10,6 +10,10 @@ Plus,
 Truck
 } from 'lucide-react';
 import { useMemo,useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
+import { allOperations, operations } from '../operations/api';
+import { catalogToVehicleType, vehicleFromUi, vehicleToUi } from '../operations/adapters';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { VehicleEditor } from '../components/entities/VehicleEditor';
@@ -32,8 +36,14 @@ export function VehiclesPage({
   onNotification,
   onSelectDriver
 }: VehiclesPageProps) {
-  const [vehicles, setVehicles] = useState<VehicleAsset[]>(loadVehicles);
-  const vehicleTypes = useMemo(() => loadSimplePricingConfig().vehicles, [vehicles]);
+  const slug = companySlugForCurrentPath();
+  const queryClient = useQueryClient();
+  const fleetQuery = useQuery({ queryKey: ['operations', slug, 'vehicles'], queryFn: () => allOperations.vehicles(slug!), enabled: !!slug });
+  const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
+  const driversQuery = useQuery({ queryKey: ['operations', slug, 'drivers'], queryFn: () => allOperations.drivers(slug!), enabled: !!slug });
+  const [localVehicles, setVehicles] = useState<VehicleAsset[]>(() => slug ? [] : loadVehicles());
+  const vehicles = slug ? (fleetQuery.data ?? []).map(row => vehicleToUi(row, catalogQuery.data?.find(type => type.id === row.type_id), driversQuery.data?.find(driver => driver.vehicle_id === row.id))) : localVehicles;
+  const vehicleTypes = slug ? (catalogQuery.data ?? []).filter(type => type.kind === 'VEHICLE_TYPE').map(catalogToVehicleType) : loadSimplePricingConfig().vehicles;
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -49,7 +59,7 @@ export function VehiclesPage({
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        v.unitNumber.toLowerCase().includes(q) ||
+        v.unitNumber.toLowerCase().includes(q) || (v.vehicleNumber?.toLowerCase().includes(q) ?? false) ||
         v.plateNumber.toLowerCase().includes(q) ||
         v.makeModel.toLowerCase().includes(q) ||
         v.category.toLowerCase().includes(q) ||
@@ -73,7 +83,19 @@ export function VehiclesPage({
   const maintenanceCount = vehicles.filter(v => v.availability === 'UNAVAILABLE').length;
   const standbyCount = vehicles.filter(v => v.recordStatus === 'INACTIVE').length;
 
-  const handleSaveVehicle = (vehicle: VehicleAsset, profile: VehicleProfile) => {
+  const handleSaveVehicle = async (vehicle: VehicleAsset, profile: VehicleProfile) => {
+    if (slug) {
+      try {
+        const previous = fleetQuery.data?.find(row => row.id === vehicle.id);
+        const input = vehicleFromUi(vehicle, previous);
+        if (previous) await operations.updateVehicle(slug, previous, input);
+        else await operations.createVehicle(slug, input);
+        await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'vehicles'] });
+        setActiveVehicleDrawer(null); setShowRegisterModal(false); onNotification('Vehicle saved');
+      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not save vehicle.'); }
+      return;
+    }
+
     const next = saveVehicleProfile(vehicle, profile, vehicles);
     setVehicles(next); setActiveVehicleDrawer(null); setShowRegisterModal(false); onNotification('Vehicle saved');
   };
@@ -81,6 +103,13 @@ export function VehiclesPage({
     const driver = drivers.find(d => d.id === vehicle.currentDriverId) ?? (vehicle.currentDriverName ? { name: vehicle.currentDriverName } : null);
     if (driver) { onNotification(`${vehicle.unitNumber} is attached to ${driver.name}. Release it on the driver profile before deleting.`); return; }
     if (!(await confirmDialog({ title: `Delete vehicle "${vehicle.unitNumber}"?`, message: 'This removes the fleet record. Completed orders keep their history. This cannot be undone.', confirmLabel: 'Delete vehicle', tone: 'danger' }))) return;
+    if (slug) {
+      const record = fleetQuery.data?.find(row => row.id === vehicle.id);
+      if (!record) return;
+      try { await operations.archiveVehicle(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'vehicles'] }); setActiveVehicleDrawer(null); onNotification(`Removed vehicle "${vehicle.unitNumber}".`); }
+      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not remove vehicle.'); }
+      return;
+    }
     const next = vehicles.filter(v => v.id !== vehicle.id);
     saveVehicles(next); archiveVehicleProfile(vehicle); setVehicles(next);
     if (activeVehicleDrawer?.id === vehicle.id) setActiveVehicleDrawer(null);
@@ -97,6 +126,8 @@ export function VehiclesPage({
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
+        {slug && fleetQuery.isPending && <p role="status" className="text-sm text-slate-500">Loading vehicles…</p>}
+        {slug && fleetQuery.error && <p role="alert" className="text-sm text-rose-700">{fleetQuery.error.message}</p>}
         <div className="space-y-6">
             <ListSummary label="Vehicles summary" items={[
               { label: 'Total', value: totalVehicles, icon: Truck },
@@ -170,8 +201,8 @@ export function VehiclesPage({
       {activeVehicleDrawer && (
         <Dialog size="md" onClose={() => setActiveVehicleDrawer(null)}>
           <DialogHeader onClose={() => setActiveVehicleDrawer(null)}
-            title={<><span className="font-mono">{activeVehicleDrawer.unitNumber}</span><span className="text-xs font-medium px-2 py-0.5 bg-slate-200 text-slate-800 rounded">{activeVehicleDrawer.plateNumber}</span></>} />
-          <DialogBody><VehicleEditor vehicle={activeVehicleDrawer} vehicles={vehicles} formId="vehicle-details-form" hideActions onCancel={() => setActiveVehicleDrawer(null)} onSave={handleSaveVehicle} /></DialogBody>
+            title={<><span className="font-mono">{activeVehicleDrawer.vehicleNumber ?? activeVehicleDrawer.unitNumber}</span><span className="text-xs font-medium px-2 py-0.5 bg-slate-200 text-slate-800 rounded">{activeVehicleDrawer.plateNumber}</span></>} />
+          <DialogBody><VehicleEditor vehicle={activeVehicleDrawer} vehicles={vehicles} vehicleTypes={vehicleTypes} live={!!slug} formId="vehicle-details-form" hideActions onCancel={() => setActiveVehicleDrawer(null)} onSave={handleSaveVehicle} /></DialogBody>
           <DialogFooter><Button type="submit" form="vehicle-details-form">Save vehicle</Button></DialogFooter>
         </Dialog>
       )}
@@ -180,7 +211,7 @@ export function VehiclesPage({
       {showRegisterModal && (
         <Dialog size="md" onClose={() => setShowRegisterModal(false)}>
           <DialogHeader onClose={() => setShowRegisterModal(false)} title="Register Vehicle" />
-          <DialogBody><VehicleEditor vehicles={vehicles} formId="vehicle-add-form" hideActions onCancel={() => setShowRegisterModal(false)} onSave={handleSaveVehicle} /></DialogBody>
+          <DialogBody><VehicleEditor vehicles={vehicles} vehicleTypes={vehicleTypes} live={!!slug} formId="vehicle-add-form" hideActions onCancel={() => setShowRegisterModal(false)} onSave={handleSaveVehicle} /></DialogBody>
           <DialogFooter><Button type="submit" form="vehicle-add-form">Save vehicle</Button></DialogFooter>
         </Dialog>
       )}

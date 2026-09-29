@@ -29,5 +29,5 @@ export function resolveStopLocation(stop: Pick<PricingStopInput, 'label' | 'coun
 
 export function addressChange(label: string): Partial<PricingStopInput> {
   const location = resolveStopLocation({ label });
-  return { label, countryCode: location.conflict ? undefined : location.country, provinceCode: location.conflict ? undefined : location.province, postalCode: location.postalCode, normalizedAddress: undefined, latitude: null, longitude: null };
+  return { label, city: undefined, countryCode: location.conflict ? undefined : location.country, provinceCode: location.conflict ? undefined : location.province, postalCode: location.postalCode, normalizedAddress: undefined, latitude: null, longitude: null };
 }

@@ -17,7 +17,11 @@ const login = async (path,id,password) => {
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
 };
 const logout = async () => {
-  await page.getByRole('button',{name:'Sign out',exact:true}).click();
+  // The owner workspace signs out from its account menu; legacy portal pages keep a Sign out button.
+  if (await page.getByRole('button',{name:'Platform owner account',exact:true}).count()) {
+    await page.getByRole('button',{name:'Platform owner account',exact:true}).click();
+    await page.getByRole('menuitem',{name:'Logout'}).click();
+  } else await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();
 };
 try {

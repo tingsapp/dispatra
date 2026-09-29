@@ -1,6 +1,12 @@
 import { hasDimensionalWeightSetting } from '../lib/dimensionalWeight';
 import { sortWeightBands, zoneRateIssue } from '../lib/zoneWeightBands';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
+import { allOperations, operations } from '../operations/api';
+import { api } from '../portal/api';
+import { companySettingsKey } from '../portal/WorkspaceAccount';
+import { apiPricingContext, rateFromUi, rateToUi } from '../operations/pricingAdapters';
 import { loadBillingConfig } from '../lib/billingStorage';
 import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
 import { loadCustomers } from '../lib/customerStorage';
@@ -28,7 +34,18 @@ import { SettingsLayout, SettingsPageProps } from '../components/settings/Settin
 import { DISCARD_CHANGES, useSettingsGuard } from '../components/settings/useSettingsGuard';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 export function RateCardsPage({ onNotification }: SettingsPageProps) {
-  const [config, setConfig] = useState<PricingConfig>(() => loadPricingConfig());
+  const slug = companySlugForCurrentPath();
+  const queryClient = useQueryClient();
+  const rateQuery = useQuery({ queryKey: ['operations', slug, 'rates'], queryFn: () => allOperations.rates(slug!), enabled: !!slug });
+  const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
+  const shipperQuery = useQuery({ queryKey: ['operations', slug, 'shippers'], queryFn: () => allOperations.shippers(slug!), enabled: !!slug });
+  const settingsQuery = useQuery({ queryKey: companySettingsKey(slug!), queryFn: () => api.companySettings(slug!), enabled: !!slug });
+  const liveCtx = useMemo(() => settingsQuery.data && catalogQuery.data && rateQuery.data && shipperQuery.data
+    ? apiPricingContext(settingsQuery.data, catalogQuery.data, rateQuery.data, shipperQuery.data) : null,
+    [settingsQuery.data, catalogQuery.data, rateQuery.data, shipperQuery.data]);
+
+  const [config, setConfig] = useState<PricingConfig>(() => slug ? { ...loadPricingConfig(), rateCards: [], zones: [], zoneRates: [] } : loadPricingConfig());
+  useEffect(() => { if (liveCtx) { setConfig(liveCtx.pricing); setDraft(current => current && liveCtx.pricing.rateCards.find(card => card.id === current.id) || liveCtx.pricing.rateCards.find(card => card.status === 'ACTIVE') || null); } }, [liveCtx]);
   const [revision, setRevision] = useState(0);
   const [isNew, setIsNew] = useState(false);
   const [search, setSearch] = useState('');
@@ -44,13 +61,13 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     }
   }, [draft?.id]);
 
-  const catalogue = useMemo(() => loadSimplePricingConfig(), [revision]);
-  const billing = useMemo(() => loadBillingConfig(), [revision]);
-  const customers = useMemo(() => loadCustomers(), []);
+  const catalogue = liveCtx?.catalogue ?? loadSimplePricingConfig();
+  const billing = liveCtx?.billing ?? loadBillingConfig();
+  const customers = liveCtx?.customers ?? loadCustomers();
 
   const persist = (next: PricingConfig) => {
     setConfig(next);
-    savePricingConfig(next);
+    if (!slug) savePricingConfig(next);
   };
   const isDefault = (card: RateCard) => card.scope === 'ORGANIZATION';
   const stamp = (card: RateCard, changes: Partial<RateCard>): RateCard => ({ ...card, ...changes, version: card.version + 1, updatedAt: new Date().toISOString() });
@@ -77,7 +94,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     setIsSaved(false);
   };
 
-  const saveCard = () => {
+  const saveCard = async () => {
     if (!draft) return;
     if (!draft.name.trim()) {
       onNotification?.('Rate Card needs a name.');
@@ -111,6 +128,18 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
       version: exists ? draft.version + 1 : 1,
       updatedAt: new Date().toISOString()
     };
+    if (slug) {
+      try {
+        const previous = rateQuery.data?.find(row => row.id === draft.id);
+        const result = previous
+          ? await operations.updateRate(slug, previous, rateFromUi(saved, config.zones), saved.scope === 'ORGANIZATION')
+          : await operations.createRate(slug, saved.code, rateFromUi(saved, config.zones), saved.scope === 'ORGANIZATION');
+        await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] });
+        setDraft(rateToUi(result)); setIsNew(false); setIsSaved(true);
+        onNotification?.(`Saved "${result.data.name}" (v${result.version}).`);
+      } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save rate card.'); }
+      return;
+    }
     persist({
       ...config,
       rateCards: exists ? config.rateCards.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...config.rateCards]
@@ -124,7 +153,13 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
 
 
 
-  const makeDefault = (card: RateCard) => {
+  const makeDefault = async (card: RateCard) => {
+    if (slug) {
+      const record = rateQuery.data?.find(row => row.id === card.id); if (!record) return;
+      try { await operations.updateRate(slug, record, record.data, true); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] }); onNotification?.(`"${card.name}" is now the Default rate card.`); }
+      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not set default rate card.'); }
+      return;
+    }
     const rateCards = config.rateCards.map(c => c.id === card.id ? stamp(c, { scope: 'ORGANIZATION' }) : isDefault(c) ? stamp(c, { scope: 'ORDER' }) : c);
     persist({ ...config, rateCards });
     if (draft?.id === card.id) setDraft(rateCards.find(c => c.id === card.id)!);
@@ -137,6 +172,12 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     const attached = customers.filter(c => c.rateCardId === card.id).length;
     const impact = attached ? `${attached} shipper${attached === 1 ? '' : 's'} attached to it will use the Default card for new orders.` : 'No shippers are attached to it.';
     if (!(await confirmDialog({ title: `Archive "${card.name}"?`, message: `It leaves the list and every selector; orders already priced with it are unchanged. ${impact}`, confirmLabel: 'Archive card', tone: 'danger' }))) return;
+    if (slug) {
+      const record = rateQuery.data?.find(row => row.id === card.id); if (!record) return;
+      try { await operations.archiveRate(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] }); onNotification?.(`Archived "${card.name}".`); }
+      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not archive rate card.'); }
+      return;
+    }
     const rateCards = config.rateCards.map(c => c.id === card.id ? stamp(c, { status: 'ARCHIVED' }) : c);
     persist({ ...config, rateCards });
     if (draft?.id === card.id) { setIsNew(false); setDraft(rateCards.find(c => c.status === 'ACTIVE') ?? null); }
@@ -181,6 +222,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
   const refreshDefaults = (message: string) => { setRevision(value => value + 1); onNotification?.(message); };
   const zoneActions = { addZone, patchZone, deleteZone };
   const methodFilterControl = <Select aria-label="Filter pricing method" value={methodFilter} onValueChange={setMethodFilter} options={[{ value: '', label: 'All pricing methods' }, ...Object.entries(METHOD_LABELS).filter(([value]) => value !== 'IMPORTED').map(([value, label]) => ({ value, label }))]} />;
+  if (slug && !liveCtx) return <SettingsLayout><p role={rateQuery.error || catalogQuery.error || shipperQuery.error || settingsQuery.error ? 'alert' : 'status'} className="text-sm text-slate-500">{rateQuery.error || catalogQuery.error || shipperQuery.error || settingsQuery.error ? 'Could not load pricing data.' : 'Loading pricing…'}</p></SettingsLayout>;
   return <SettingsLayout>
     <PricingTabs tabs={[
       { id: 'cards', label: 'Rate Cards', content: <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">

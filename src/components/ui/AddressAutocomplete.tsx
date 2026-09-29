@@ -5,6 +5,10 @@ import { loadPlacesLibrary } from '../../lib/googlePlaces';
 export interface SelectedAddress {
   latitude: number | null;
   longitude: number | null;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  country?: string;
 }
 
 type Prediction = google.maps.places.PlacePrediction;
@@ -103,12 +107,17 @@ export function AddressAutocomplete({ value, onChange, includeCoordinates = fals
     tokenRef.current = null;
     try {
       const place = prediction.toPlace();
-      await place.fetchFields({ fields: ['formattedAddress', ...(includeCoordinates ? ['location'] : [])] });
+      await place.fetchFields({ fields: ['formattedAddress', 'addressComponents', ...(includeCoordinates ? ['location'] : [])] });
       if (selectionId !== selectionRef.current) return;
       const address = place.formattedAddress || prediction.text.toString();
+      const component = (...types: string[]) => place.addressComponents?.find(item => types.some(type => item.types.includes(type)));
       onChange(address, {
         latitude: place.location?.lat() ?? null,
         longitude: place.location?.lng() ?? null,
+        city: component('locality', 'postal_town', 'sublocality', 'administrative_area_level_2')?.longText,
+        province: component('administrative_area_level_1')?.shortText,
+        postalCode: component('postal_code')?.longText,
+        country: component('country')?.shortText,
       });
     } catch {
       if (selectionId !== selectionRef.current) return;

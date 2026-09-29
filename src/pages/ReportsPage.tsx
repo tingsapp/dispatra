@@ -14,6 +14,12 @@ Clock,
 Download
 } from 'lucide-react';
 import { useMemo,useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
+import { companySettingsKey } from '../portal/WorkspaceAccount';
+import { api } from '../portal/api';
+import { operations } from '../operations/api';
+import { analyticsBounds, analyticsDisplay, analyticsRows } from '../operations/analyticsAdapters';
 import { PageHeader } from '../components/layout/PageHeader';
 import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
 import { formatDateValue, parseDateValue } from '../lib/dateValues';
@@ -28,17 +34,24 @@ interface ReportsPageProps {
 }
 
 export function ReportsPage({ onNotification, today: todayValue }: ReportsPageProps) {
+  const slug = companySlugForCurrentPath();
+  const settingsQuery = useQuery({ queryKey: companySettingsKey(slug!), queryFn: () => api.companySettings(slug!), enabled: !!slug });
   const [dateFilter, setDateFilter] = useState<OrderDateSelection>({ kind: 'all' });
   const today = todayValue ?? formatDateValue(new Date());
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
   const [slaFilter, setSlaFilter] = useState<'all' | 'on_time' | 'late' | 'ahead'>('all');
 
-  const datedAuditLogs = useMemo(() => AUDIT_LOG_ITEMS.filter(item => {
+  const timeZone = settingsQuery.data?.data.time_zone ?? 'America/Vancouver';
+  const bounds = analyticsBounds(dateFilter, timeZone);
+  const analyticsQuery = useQuery({ queryKey: ['operations', slug, 'analytics', bounds.start, bounds.end], queryFn: () => operations.analytics(slug!, bounds.start, bounds.end), enabled: !!slug && !!settingsQuery.data });
+  const sourceAuditLogs = slug ? analyticsQuery.data ? analyticsRows(analyticsQuery.data) : [] : AUDIT_LOG_ITEMS;
+  const datedAuditLogs = useMemo(() => sourceAuditLogs.filter(item => {
     const date = item.timestamp.slice(0, 10);
-    return dateFilter.kind === 'all' || (dateFilter.kind === 'day'
+    return !!slug || dateFilter.kind === 'all' || (dateFilter.kind === 'day'
       ? date === dateFilter.date : date >= dateFilter.from && date <= dateFilter.to);
-  }), [dateFilter]);
-  const analytics = useMemo(() => summarizeAuditLogs(datedAuditLogs), [datedAuditLogs]);
+  }), [dateFilter, sourceAuditLogs, slug]);
+  const localAnalytics = useMemo(() => summarizeAuditLogs(datedAuditLogs), [datedAuditLogs]);
+  const analytics = slug && analyticsQuery.data ? analyticsDisplay(analyticsQuery.data) : slug ? summarizeAuditLogs([]) : localAnalytics;
   const filteredAuditLogs = useMemo(() => datedAuditLogs.filter(item => {
     const q = auditSearchQuery.toLowerCase().trim();
     const matchesSearch = !q || [item.jobNumber, item.customerName, item.driverName, item.serviceType]
@@ -72,7 +85,7 @@ export function ReportsPage({ onNotification, today: todayValue }: ReportsPagePr
       log.actualArrival,
       log.slaStatus,
       log.varianceMinutes,
-      log.totalBilled,
+      Number.isFinite(log.totalBilled) ? log.totalBilled : '',
       `"${log.accessorialsCharged.join(', ')}"`
     ]);
     const csvContent =
@@ -104,10 +117,12 @@ export function ReportsPage({ onNotification, today: todayValue }: ReportsPagePr
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6">
+        {slug && analyticsQuery.isPending && <p role="status" className="text-sm text-slate-500">Loading analytics…</p>}
+        {slug && analyticsQuery.error && <p role="alert" className="text-sm text-rose-700">{analyticsQuery.error.message}</p>}
         <div className="space-y-6">
           {/* TOP KPI PERFORMANCE TILES */}
           <ListSummary label="Analytics summary" items={[
-            { label: 'On-time SLA', value: analytics.onTimePercent == null ? '—' : `${analytics.onTimePercent}%`, icon: CheckCircle2, description: `${analytics.onTime} of ${analytics.total} dispatches` },
+            { label: 'On-time SLA', value: analytics.onTimePercent == null ? '—' : `${analytics.onTimePercent}%`, icon: CheckCircle2, description: `${analytics.onTime} of ${"slaKnown" in analytics ? analytics.slaKnown : analytics.total} measured dispatches` },
             { label: 'Dispatches completed', value: analytics.total, icon: PackageCheck, description: 'In selected dates' },
             { label: 'Average arrival variance', value: analytics.averageVariance == null ? '—' : `${analytics.averageVariance.toFixed(1)} min`, icon: Timer, description: 'From scheduled arrival' },
             { label: 'POD verified', value: analytics.podVerified, icon: ClipboardCheck, description: `${analytics.podVerified} of ${analytics.total} dispatches` },
@@ -180,26 +195,26 @@ export function ReportsPage({ onNotification, today: todayValue }: ReportsPagePr
               {/* Trend table/bars */}
               <div className="space-y-2.5 pt-2">
                 {analytics.dailyPerformance.map((day) => {
-                  const onTimePercent = Math.round((day.onTimeJobs / day.totalJobs) * 100);
+                  const onTimePercent = day.totalJobs ? Math.round((day.onTimeJobs / day.totalJobs) * 100) : null;
                   return (
                     <div key={day.day} className="flex items-center gap-3 text-xs">
                       <span className="w-20 font-medium text-slate-700 text-xs">{format(parseDateValue(day.day)!, 'MMM d')}</span>
                       <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden flex">
                         <div
                           className="bg-emerald-500 h-full rounded-l-full"
-                          style={{ width: `${onTimePercent}%` }}
+                          style={{ width: `${onTimePercent ?? 0}%` }}
                           title={`On Time: ${day.onTimeJobs}`}
                         />
                         {day.lateJobs + day.exceptionJobs > 0 && (
                           <div
                             className="bg-rose-400 h-full"
-                            style={{ width: `${100 - onTimePercent}%` }}
+                            style={{ width: `${onTimePercent == null ? 0 : 100 - onTimePercent}%` }}
                             title={`Late: ${day.lateJobs}`}
                           />
                         )}
                       </div>
                       <span className="w-12 text-right font-mono font-medium text-slate-800 text-xs">
-                        {onTimePercent}%
+                        {onTimePercent == null ? '—' : `${onTimePercent}%`}
                       </span>
                       <span className="w-16 text-right text-slate-500 text-xs font-mono">
                         ${day.revenue.toLocaleString()}
@@ -319,6 +334,7 @@ export function ReportsPage({ onNotification, today: todayValue }: ReportsPagePr
                             Late (+{log.varianceMinutes}m)
                           </span>
                         )}
+                        {log.slaStatus === 'exception' && <span className="text-slate-500">Not measured</span>}
                         {log.slaStatus === 'ahead' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                             <Clock className="w-3 h-3 text-blue-600" />
@@ -328,7 +344,7 @@ export function ReportsPage({ onNotification, today: todayValue }: ReportsPagePr
                       </td>
 
                       <td className="py-3 px-4">
-                        <div className="font-medium text-slate-900">${log.totalBilled.toFixed(2)}</div>
+                        <div className="font-medium text-slate-900">${Number.isFinite(log.totalBilled) ? log.totalBilled.toFixed(2) : '—'}</div>
                         <div className="text-xs text-slate-500 truncate max-w-xs">
                           {log.accessorialsCharged.join(', ')}
                         </div>
@@ -337,7 +353,7 @@ export function ReportsPage({ onNotification, today: todayValue }: ReportsPagePr
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         {log.podVerified ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Signature
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Verified
                           </span>
                         ) : (
                           <span className="text-xs text-slate-400">Pending</span>

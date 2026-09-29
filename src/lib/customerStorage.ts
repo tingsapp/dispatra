@@ -46,7 +46,7 @@ export const EMPTY_PRICING_RELATIONSHIP: Pick<
   taxExempt: false
 };
 
-export const DEFAULT_CUSTOMERS: Customer[] = [
+export const DEFAULT_SHIPPERS: Customer[] = [
   {
     id: 'cust-1',
     code: 'CUST-1049',
@@ -225,11 +225,11 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
   }
 ];
 
-export const CUSTOMERS_STORAGE_KEY = 'dispatra_customers_v2';
+export const SHIPPERS_STORAGE_KEY = 'dispatra_customers_v2';
 
 export function loadCustomers(): Customer[] {
   try {
-    const raw = localStorage.getItem(scopedStorageKey(CUSTOMERS_STORAGE_KEY));
+    const raw = localStorage.getItem(scopedStorageKey(SHIPPERS_STORAGE_KEY));
     if (raw) {
       const parsed = JSON.parse(raw);
       const records = Array.isArray(parsed) ? parsed : parsed.customers;
@@ -254,7 +254,7 @@ export function loadCustomers(): Customer[] {
     console.warn('Could not load customers from localStorage:', err);
   }
   const pricing = loadPricingConfig();
-  const customers = DEFAULT_CUSTOMERS.map(customer => {
+  const customers = DEFAULT_SHIPPERS.map(customer => {
     const card = pricing.rateCards.find(card => card.id === customer.rateCardId && card.status === 'ACTIVE')
       ?? pricing.rateCards.find(card => card.scope === 'ORGANIZATION' && card.status === 'ACTIVE');
     return normalizeCustomer({ ...customer, discount: { ...(card?.discount ?? NO_DISCOUNT), scope: 'TRANSPORT_ONLY' } });
@@ -264,7 +264,7 @@ export function loadCustomers(): Customer[] {
 }
 
 export function saveCustomers(customers: Customer[]): void {
-  localStorage.setItem(scopedStorageKey(CUSTOMERS_STORAGE_KEY), JSON.stringify({ schemaVersion: 3, customers }));
+  localStorage.setItem(scopedStorageKey(SHIPPERS_STORAGE_KEY), JSON.stringify({ schemaVersion: 3, customers }));
 }
 
 /** Keep the city from older two-field shipper records without duplicating a complete address. */

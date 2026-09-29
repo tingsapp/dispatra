@@ -1,15 +1,23 @@
 import { useState, type ReactNode } from 'react';
 import { LogOut, PanelLeft, Settings, type LucideIcon } from 'lucide-react';
 import { SidebarHeader } from '../components/layout/SidebarHeader';
+import { AccountMenu } from '../components/layout/AccountMenu';
 import { useSidebarDrawer } from '../components/layout/useSidebarDrawer';
 
+const initials = (name: string) => name.trim().split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('') || '?';
+
 /** Presentational workspace shell. Authentication and customer data remain in PortalApp. */
-export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, children }: {
+export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, reading = false, children }: {
+  description?: string; reading?: boolean; actions?: ReactNode; onNavigate?: (href: string) => void;
+  /** Dispatcher-style account card with a Profile / Logout menu instead of the plain sign-out control. */
+  account?: { name: string; role: string; profileCurrent: boolean };
+  navigation?: { label: string; href: string; icon: LucideIcon; current: boolean }[];
   company: string; login: string; primary: string; icon: LucideIcon; settings: boolean;
   onHome: () => void; onSettings: () => void; onLogout: () => void; loggingOut: boolean; children: ReactNode;
 }) {
   const [open, setOpen] = useState(() => typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 768px)').matches : true);
   const { mobile, panelRef } = useSidebarDrawer(open, () => setOpen(false), '(max-width: 767px)');
+  const [menuOpen, setMenuOpen] = useState(false);
   const collapsed = !open && !mobile;
   const hidden = !open && mobile;
   const navigate = (action: () => void) => {
@@ -24,20 +32,34 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
       <SidebarHeader collapsed={collapsed} mobile={mobile} label={`Dispatra — ${primary}`} current={!settings} onHome={() => navigate(onHome)} onToggle={() => setOpen(value => !value)} />
       <p className={collapsed ? 'sr-only' : 'truncate px-5 pb-4 text-xs text-app-muted'} title={company}>{company}</p>
       <nav aria-label="Portal navigation" className="space-y-0.5 px-2">
+        {navigation ? navigation.map(({ label, href, icon: NavIcon, current }) => <a key={href} href={href} onClick={event => { if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(() => onNavigate(href)); }} className="app-nav-item" aria-label={label} title={collapsed ? label : undefined} aria-current={current ? 'page' : undefined}><NavIcon size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>{label}</span></a>) : <>
         <button type="button" className="app-nav-item" aria-label={primary} title={collapsed ? primary : undefined} aria-current={!settings ? 'page' : undefined} onClick={() => navigate(onHome)}><Icon size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>{primary}</span></button>
         <button type="button" className="app-nav-item" aria-label="Account settings" title={collapsed ? 'Account settings' : undefined} aria-current={settings ? 'page' : undefined} onClick={() => navigate(onSettings)}><Settings size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Account settings</span></button>
+        </>}
+
       </nav>
-      <div className={`mt-auto space-y-2 ${collapsed ? 'p-2' : 'p-3'}`}>
+      {account ? <div className="mt-auto p-2">
+        <AccountMenu open={menuOpen} onOpenChange={setMenuOpen} modal={mobile} collapsed={collapsed} activeTab={account.profileCurrent ? 'profile' : ''}
+          onProfile={() => navigate(onSettings)} onLogout={() => { if (!loggingOut) onLogout(); }}
+          trigger={<button type="button" aria-expanded={menuOpen} aria-label={`${account.role} account`} title={`${account.role} account`} className="app-account-card group">
+            <span className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-medium text-xs flex items-center justify-center shrink-0 uppercase">{initials(account.name)}</span>
+            <span className={collapsed ? 'sr-only' : 'min-w-0 flex-1 text-left'}>
+              <span className="app-account-name block text-sm font-medium text-slate-900 leading-snug truncate">{account.name}</span>
+              <span className="block text-xs text-slate-500 truncate">{loggingOut ? 'Signing out…' : account.role}</span>
+            </span>
+          </button>} />
+      </div> : <div className={`mt-auto space-y-2 ${collapsed ? 'p-2' : 'p-3'}`}>
         <p className={collapsed ? 'sr-only' : 'truncate px-2 text-xs text-app-muted'} title={login}>{login}</p>
         <button type="button" className="app-nav-item disabled:opacity-50" aria-label="Sign out" title={collapsed ? 'Sign out' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Sign out</span></button>
-      </div>
+      </div>}
     </aside>
-    <div className={settings ? "app-page app-page-reading min-w-0 flex-1 flex flex-col min-h-dvh" : "app-page min-w-0 flex-1 flex flex-col min-h-dvh"}>
+    <div className={settings || reading ? "app-page app-page-reading min-w-0 flex-1 flex flex-col min-h-dvh" : "app-page min-w-0 flex-1 flex flex-col min-h-dvh"}>
       <header className="app-page-header page-content">
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" className={hidden ? 'app-icon-button' : 'hidden'} aria-hidden={!hidden} tabIndex={hidden ? 0 : -1} aria-label="Open menu" onClick={() => setOpen(true)}><PanelLeft className="h-4.5 w-4.5" strokeWidth={1.5} /></button>
-          <div className="min-w-0"><h1 className="app-page-title">{settings ? 'Account settings' : primary}</h1><p className="mt-2 truncate text-base text-app-muted">{company}</p></div>
+          <div className="min-w-0"><h1 className="app-page-title">{settings ? 'Account settings' : primary}</h1><p className="mt-2 truncate text-base text-app-muted">{description ?? company}</p></div>
         </div>
+        {actions && <div className="flex items-center gap-2">{actions}</div>}
       </header>
       <main className="page-content space-y-6 py-6">{children}</main>
     </div>

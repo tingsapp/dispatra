@@ -11,7 +11,11 @@ Plus,
 Users,
 Trash2
 } from 'lucide-react';
-import { useMemo,useState } from 'react';
+import { useEffect,useMemo,useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
+import { allOperations, operations } from '../operations/api';
+import { catalogToVehicleType, driverFromUi, driverToUi, vehicleFromUi, vehicleToUi } from '../operations/adapters';
 import { DriverEditor } from '../components/entities/DriverEditor';
 import { DriverActivity } from '../components/entities/DriverActivity';
 import { VehicleEditor } from '../components/entities/VehicleEditor';
@@ -30,22 +34,42 @@ interface DriversPageProps {
   onCreateDriver: (newDriver: Driver) => void;
   onDeleteDriver?: (driver: Driver) => void;
   onNotification: (message: string) => void;
+  /** Opens this driver's details once loaded (e.g. "Edit driver" from the Monitor). */
+  openDriverId?: string | null;
+  onOpenHandled?: () => void;
 }
 
 export function DriversPage({
-  drivers,
+  drivers: suppliedDrivers,
   jobs,
   onSelectDriver,
   onUpdateDriver,
   onCreateDriver,
   onDeleteDriver,
-  onNotification
+  onNotification,
+  openDriverId,
+  onOpenHandled
 }: DriversPageProps) {
+  const slug = companySlugForCurrentPath();
+  const queryClient = useQueryClient();
+  const driverQuery = useQuery({ queryKey: ['operations', slug, 'drivers'], queryFn: () => allOperations.drivers(slug!), enabled: !!slug });
+  const vehicleQuery = useQuery({ queryKey: ['operations', slug, 'vehicles'], queryFn: () => allOperations.vehicles(slug!), enabled: !!slug });
+  const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
+  const vehicleOptions = slug ? (vehicleQuery.data ?? []).map(row => vehicleToUi(row, catalogQuery.data?.find(type => type.id === row.type_id), driverQuery.data?.find(driver => driver.vehicle_id === row.id))) : undefined;
+  const vehicleTypes = slug ? (catalogQuery.data ?? []).filter(type => type.kind === 'VEHICLE_TYPE').map(catalogToVehicleType) : undefined;
+  const drivers = slug ? (driverQuery.data ?? []).map(row => driverToUi(row, vehicleQuery.data?.find(v => v.id === row.vehicle_id))) : suppliedDrivers;
+  const [initialCredential, setInitialCredential] = useState<{ name: string; email: string; password: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'on_route' | 'available' | 'offline'>('all');
 
   // Selected driver for slide-over drawer
   const [activeDriverDrawer, setActiveDriverDrawer] = useState<Driver | null>(null);
+  useEffect(() => {
+    if (!openDriverId) return;
+    const driver = drivers.find(row => row.id === openDriverId);
+    if (!driver) return;
+    setActiveDriverDrawer(driver); onOpenHandled?.();
+  }, [openDriverId, drivers]);
 
   // Add Driver Modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -53,10 +77,34 @@ export function DriversPage({
   const [createdVehicle, setCreatedVehicle] = useState<VehicleAsset | null>(null);
   const openVehicleModal = () => { setCreatedVehicle(null); setShowVehicleModal(true); };
   const openDriverDetails = (driver: Driver) => { setCreatedVehicle(null); setActiveDriverDrawer(driver); };
-  const handleRegisterVehicle = (vehicle: VehicleAsset, profile: VehicleProfile) => {
+  const handleRegisterVehicle = async (vehicle: VehicleAsset, profile: VehicleProfile) => {
+    if (slug) {
+      try {
+        const saved = await operations.createVehicle(slug, vehicleFromUi(vehicle));
+        await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'vehicles'] });
+        setCreatedVehicle(vehicleToUi(saved, catalogQuery.data?.find(type => type.id === saved.type_id)));
+        setShowVehicleModal(false); onNotification('Vehicle registered');
+      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not register vehicle.'); }
+      return;
+    }
     try { saveVehicleProfile(vehicle, profile, loadVehicles()); }
     catch { onNotification('Vehicle could not be saved in this browser.'); return; }
     setCreatedVehicle(vehicle); setShowVehicleModal(false); onNotification('Vehicle registered');
+  };
+  const saveDriver = async (form: Driver) => {
+    if (slug) {
+      try {
+        const previous = driverQuery.data?.find(row => row.id === form.id);
+        const saved = previous ? await operations.updateDriver(slug, previous, driverFromUi(form, previous, form.addressCoordinates), form.dutyStatus) : await operations.createDriver(slug, driverFromUi(form, undefined, form.addressCoordinates));
+        await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'drivers'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]);
+        setActiveDriverDrawer(null); setShowAddModal(false);
+        if (saved.initial_password) setInitialCredential({ name: saved.name, email: saved.email, password: saved.initial_password });
+        else onNotification('Driver saved');
+      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not save driver.'); }
+      return;
+    }
+    if (drivers.some(d => d.id === form.id)) onUpdateDriver(form); else onCreateDriver(form);
+    setActiveDriverDrawer(null); setShowAddModal(false); onNotification('Driver saved');
   };
   // Filtered drivers
   const filteredDrivers = useMemo(() => {
@@ -87,7 +135,12 @@ export function DriversPage({
     const active = jobs.filter(j => j.assignedDriverId === driver.id && j.status !== 'completed').length;
     if (active) { onNotification(`${driver.name} has ${active} active order${active === 1 ? '' : 's'}. Reassign them before deleting the driver.`); return; }
     if (!(await confirmDialog({ title: `Delete driver "${driver.name}"?`, message: `This removes the driver profile${driver.currentVehicleId ? ' and releases their vehicle' : ''}. Completed orders keep their history. This cannot be undone.`, confirmLabel: 'Delete driver', tone: 'danger' }))) return;
-    try { onDeleteDriver?.(driver); } catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be deleted.'); return; }
+    if (slug) {
+      const record = driverQuery.data?.find(row => row.id === driver.id);
+      if (!record) return;
+      try { await operations.archiveDriver(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'drivers'] }); }
+      catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be deleted.'); return; }
+    } else { try { onDeleteDriver?.(driver); } catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be deleted.'); return; } }
     if (activeDriverDrawer?.id === driver.id) setActiveDriverDrawer(null);
     onNotification(`Removed driver "${driver.name}".`);
   };
@@ -109,6 +162,8 @@ export function DriversPage({
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
+        {slug && driverQuery.isPending && <p role="status" className="text-sm text-slate-500">Loading drivers…</p>}
+        {slug && driverQuery.error && <p role="alert" className="text-sm text-rose-700">{driverQuery.error.message}</p>}
         <ListSummary label="Drivers summary" items={[
           { label: 'Total', value: totalDrivers, icon: Users },
           { label: 'On route', value: onRouteCount, icon: Route },
@@ -192,7 +247,7 @@ export function DriversPage({
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
                   {filteredDrivers.map((driver) => (
                     <tr
-                      key={driver.id}
+                      key={driver.driverNumber ?? driver.id}
                       className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                       onClick={() => openDriverDetails(driver)}
                     >
@@ -203,7 +258,7 @@ export function DriversPage({
                             <div className="font-medium text-slate-900 flex items-center gap-1.5">
                               {driver.name}
                               <span className="text-xs font-mono bg-slate-100 text-slate-600 px-1 py-0.2 rounded">
-                                {driver.id}
+                                {driver.driverNumber ?? driver.id}
                               </span>
                             </div>
                             <div className="text-xs text-slate-400">{driver.phone}</div>
@@ -266,11 +321,11 @@ export function DriversPage({
         <Dialog size="md" onClose={() => setActiveDriverDrawer(null)}>
           <DialogHeader onClose={() => setActiveDriverDrawer(null)}
             leading={<DriverAvatar name={activeDriverDrawer.name} avatar={activeDriverDrawer.avatar} alt={activeDriverDrawer.name} className="w-10 h-10 rounded-full object-cover border border-slate-200" />}
-            title={<>{activeDriverDrawer.name}<span className="text-xs font-mono font-medium bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">{activeDriverDrawer.id}</span></>}
+            title={<>{activeDriverDrawer.name}<span className="text-xs font-mono font-medium bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">{activeDriverDrawer.driverNumber ?? activeDriverDrawer.id}</span></>}
             description={activeDriverDrawer.phone} />
           <DialogBody className="space-y-6">
             <section aria-label="Driver profile">
-              <DriverEditor driver={activeDriverDrawer} drivers={drivers} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onCancel={() => setActiveDriverDrawer(null)} onSave={d => { onUpdateDriver(d); setActiveDriverDrawer(null); onNotification('Driver saved'); }} />
+              <DriverEditor driver={activeDriverDrawer} drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onCancel={() => setActiveDriverDrawer(null)} onSave={saveDriver} />
             </section>
             <DriverActivity driver={activeDriverDrawer} jobs={jobs} />
           </DialogBody>
@@ -281,18 +336,20 @@ export function DriversPage({
         </Dialog>
       )}
 
+      {initialCredential && <Dialog size="md" onClose={() => setInitialCredential(null)}><DialogHeader title="Driver account created" onClose={() => setInitialCredential(null)} /><DialogBody className="space-y-3 text-sm"><p>Give these login details to {initialCredential.name}. The password is shown only once.</p><p><strong>Email:</strong> {initialCredential.email}</p><p><strong>Initial password:</strong> <code>{initialCredential.password}</code></p></DialogBody><DialogFooter><Button type="button" onClick={() => setInitialCredential(null)}>Done</Button></DialogFooter></Dialog>}
+
       {/* ADD DRIVER MODAL */}
       {showAddModal && (
         <Dialog size="form" onClose={() => setShowAddModal(false)}>
             <DialogHeader onClose={() => setShowAddModal(false)} title="Add Driver" />
-          <DialogBody><DriverEditor drivers={drivers} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-add-form" hideActions onCancel={() => setShowAddModal(false)} onSave={d => { onCreateDriver(d); setShowAddModal(false); onNotification('Driver created'); }} /></DialogBody>
+          <DialogBody><DriverEditor drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-add-form" hideActions onCancel={() => setShowAddModal(false)} onSave={saveDriver} /></DialogBody>
           <DialogFooter><Button type="submit" form="driver-add-form">Save driver</Button></DialogFooter>
         </Dialog>
       )}
       {showVehicleModal && (
         <Dialog size="md" zIndex="z-[60]" onClose={() => setShowVehicleModal(false)}>
           <DialogHeader onClose={() => setShowVehicleModal(false)} title="Register Vehicle" />
-          <DialogBody><VehicleEditor vehicles={loadVehicles()} formId="driver-vehicle-add-form" hideActions onCancel={() => setShowVehicleModal(false)} onSave={handleRegisterVehicle} /></DialogBody>
+          <DialogBody><VehicleEditor vehicles={vehicleOptions ?? (slug ? [] : loadVehicles())} vehicleTypes={vehicleTypes} live={!!slug} formId="driver-vehicle-add-form" hideActions onCancel={() => setShowVehicleModal(false)} onSave={handleRegisterVehicle} /></DialogBody>
           <DialogFooter><Button type="submit" form="driver-vehicle-add-form">Save vehicle</Button></DialogFooter>
         </Dialog>
       )}

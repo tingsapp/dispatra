@@ -7,7 +7,9 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http:
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'HTMLButtonElement', 'Element', 'Node', 'NodeFilter', 'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'MutationObserver', 'getComputedStyle', 'localStorage', 'FileReader']) Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: dom.window[name as keyof Window] });
 HTMLElement.prototype.scrollIntoView = () => { };
 window.confirm = () => true;
-const { render, screen, cleanup, within, waitFor } = await import('@testing-library/react');
+const { render: rawRender, screen, cleanup, within, waitFor } = await import('@testing-library/react');
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+const render = (ui: React.ReactElement) => rawRender(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { gcTime: 0 }, mutations: { gcTime: 0 } } }) }, ui));
 const { default: userEvent } = await import('@testing-library/user-event');
 const { RateCardsPage } = await import('../src/pages/RateCardsPage');
 const { VehiclesPage } = await import('../src/pages/VehiclesPage');
@@ -427,8 +429,8 @@ test('customer groups are absent from Pricing tabs and the customer form attache
   assert.equal(screen.queryByRole('combobox', { name: 'Applies to' }), null);
   cleanup();
   const { CustomersPage } = await import('../src/pages/CustomersPage');
-  const { normalizeCustomer, DEFAULT_CUSTOMERS } = await import('../src/lib/customerStorage');
-  assert.equal(normalizeCustomer({ ...DEFAULT_CUSTOMERS[0], customerGroupId: 'old-group' }).customerGroupId, undefined);
+  const { normalizeCustomer, DEFAULT_SHIPPERS } = await import('../src/lib/customerStorage');
+  assert.equal(normalizeCustomer({ ...DEFAULT_SHIPPERS[0], customerGroupId: 'old-group' }).customerGroupId, undefined);
   render(React.createElement(CustomersPage, { onBackToMonitor: noop }));
   await user.click(screen.getByRole('button', { name: 'New Shipper' }));
   assert.equal(screen.queryByRole('combobox', { name: 'Customer group' }), null);
@@ -1170,17 +1172,17 @@ test('untouched legacy preset zones retire while active cards receive the starte
 });
 
 test('existing effective card discounts migrate to shippers once, including Default, without altering the card history', async () => {
-  const { CUSTOMERS_STORAGE_KEY, DEFAULT_CUSTOMERS, loadCustomers, saveCustomers } = await import('../src/lib/customerStorage');
+  const { SHIPPERS_STORAGE_KEY, DEFAULT_SHIPPERS, loadCustomers, saveCustomers } = await import('../src/lib/customerStorage');
   const card = seedCard({ discount: { type: 'PERCENT', value: 12.5, scope: 'TRANSPORT_ONLY' } });
-  const old = structuredClone(DEFAULT_CUSTOMERS.slice(0, 2));
+  const old = structuredClone(DEFAULT_SHIPPERS.slice(0, 2));
   old[0].rateCardId = card.id; old[1].rateCardId = null;
-  localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 2, customers: old }));
+  localStorage.setItem(SHIPPERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 2, customers: old }));
   const migrated = loadCustomers();
   assert.ok(migrated.every(c => c.discount.type === 'PERCENT' && c.discount.value === 12.5));
   assert.deepEqual(loadPricingConfig().rateCards[0].discount, card.discount);
   migrated[0].discount = { type: 'NONE', value: 0, scope: 'TRANSPORT_ONLY' }; saveCustomers(migrated);
   assert.deepEqual(loadCustomers(), migrated);
-  assert.equal(JSON.parse(localStorage.getItem(CUSTOMERS_STORAGE_KEY)!).schemaVersion, 3);
+  assert.equal(JSON.parse(localStorage.getItem(SHIPPERS_STORAGE_KEY)!).schemaVersion, 3);
 });
 
 test('Zone retains editable dimensional divisors and validation', async () => {

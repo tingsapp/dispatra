@@ -16,10 +16,14 @@ Plus,
 Trash2
 } from 'lucide-react';
 import React,{ useMemo,useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
+import { allOperations, operations } from '../operations/api';
+import { customerToShipper, shipperToCustomer } from '../operations/adapters';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
-import { AddressAutocomplete } from '../components/ui/AddressAutocomplete';
+import { AddressAutocomplete, type SelectedAddress } from '../components/ui/AddressAutocomplete';
 import { Select } from '../components/ui/Select';
 import { validateCustomer } from '../domain/validation';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
@@ -42,11 +46,18 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   onNotification,
   onSelectJob
 }) => {
-  const [customers, setCustomers] = useState<Customer[]>(() => loadCustomers());
+  const slug = companySlugForCurrentPath();
+  const queryClient = useQueryClient();
+  const shipperQuery = useQuery({ queryKey: ['operations', slug, 'shippers'], queryFn: () => allOperations.shippers(slug!), enabled: !!slug });
+  const ratesQuery = useQuery({ queryKey: ['operations', slug, 'rates'], queryFn: () => allOperations.rates(slug!), enabled: !!slug });
+  const [localCustomers, setCustomers] = useState<Customer[]>(() => slug ? [] : loadCustomers());
+  const customers = slug ? (shipperQuery.data ?? []).map(shipperToCustomer) : localCustomers;
+  const [warehouseCoordinates, setWarehouseCoordinates] = useState<SelectedAddress | undefined>();
+  const [initialCredential, setInitialCredential] = useState<{ name: string; email: string; password: string } | null>(null);
   // Pricing lookups for the relationship section — read-only here, edited under Organization Settings.
   const [pricing] = useState(() => loadPricingConfig());
-  const customerCards = useMemo(() => pricing.rateCards.filter((c) => c.status === 'ACTIVE'), [pricing.rateCards]);
-  const defaultCard = pricing.rateCards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
+  const customerCards = slug ? (ratesQuery.data ?? []).filter(c => c.active).map(c => ({ id: c.id, name: c.data.name })) : pricing.rateCards.filter(c => c.status === 'ACTIVE');
+  const defaultCard = slug ? customerCards.find(c => c.id === ratesQuery.data?.find(r => r.active && r.is_default)?.id) : pricing.rateCards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
   const defaultCardName = defaultCard?.name ?? 'Default';
   // A deleted card no longer names the customer's pricing; the Default applies.
   const cardName = (id: string | null) => customerCards.find((c) => c.id === id)?.name ?? null;
@@ -103,6 +114,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
   const handleOpenAddModal = () => {
     setEditingCustomer(null);
+    setWarehouseCoordinates(undefined);
     setFormData({
       name: '',
       customerType: 'BUSINESS',
@@ -124,11 +136,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
   const handleOpenEditModal = (c: Customer) => {
     setEditingCustomer(c);
+    setWarehouseCoordinates(undefined);
     setFormData({ ...c, city: '', paymentTerms: resolvePaymentTerms(c.paymentTerms, loadBillingConfig().invoicing.defaultPaymentTerms) });
     setIsModalOpen(true);
   };
 
-  const handleSaveCustomer = (e: React.FormEvent) => {
+  const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name?.trim()) {
       onNotification?.('Shipper name is required.');
@@ -137,6 +150,20 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
     const legalName = formData.customerType === 'INDIVIDUAL' ? formData.name.trim() : formData.legalName?.trim() ?? '';
     if (formData.customerType !== 'INDIVIDUAL' && !legalName) { onNotification?.('Company name is required.'); return; }
+    if (slug) {
+      try {
+        const previous = editingCustomer ? shipperQuery.data?.find(row => row.id === editingCustomer.id) : undefined;
+        const input = customerToShipper({ ...formData, legalName }, previous, warehouseCoordinates);
+        const saved = previous
+          ? await operations.updateShipper(slug, previous, input, formData.status === 'On Hold' ? 'ON_HOLD' : formData.status === 'Inactive' ? 'INACTIVE' : 'ACTIVE')
+          : await operations.createShipper(slug, input);
+        await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'shippers'] });
+        setIsModalOpen(false);
+        if (saved.initial_password) setInitialCredential({ name: saved.name, email: saved.email, password: saved.initial_password });
+        else onNotification?.(`Saved shipper "${saved.name}".`);
+      } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save shipper.'); }
+      return;
+    }
 
     // The account code is assigned in the background; the API will own it later.
     const code = formData.code || editingCustomer?.code || `CUST-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -199,6 +226,13 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const handleDeleteCustomer = async (id: string, name: string) => {
     const linked = jobs.filter(j => j.customerId === id).length;
     if (!(await confirmDialog({ title: `Delete shipper "${name}"?`, message: linked ? `${linked} order${linked === 1 ? '' : 's'} reference this shipper; they keep their saved details but lose the link. This cannot be undone.` : 'This removes the shipper account and its saved details. This cannot be undone.', confirmLabel: 'Delete shipper', tone: 'danger' }))) return;
+    if (slug) {
+      const record = shipperQuery.data?.find(row => row.id === id);
+      if (!record) return;
+      try { await operations.archiveShipper(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'shippers'] }); setSelectedCustomerForView(null); onNotification?.(`Removed shipper "${name}".`); }
+      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not remove shipper.'); }
+      return;
+    }
     const updated = customers.filter((c) => c.id !== id);
     if (!persistCustomers(updated)) return;
     if (selectedCustomerForView?.id === id) {
@@ -225,6 +259,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
       {/* BODY CONTENT */}
       <div className="page-content flex-1 overflow-y-auto py-6 space-y-6">
+        {slug && shipperQuery.isPending && <p role="status" className="text-sm text-slate-500">Loading shippers…</p>}
+        {slug && shipperQuery.error && <p role="alert" className="text-sm text-rose-700">{shipperQuery.error.message}</p>}
         <ListSummary label="Shippers summary" items={[
           { label: 'Total', value: stats.total, icon: Building2 },
           { label: 'With active orders', value: stats.activeWithJobs, icon: Truck },
@@ -508,6 +544,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         </Dialog>
       )}
 
+      {initialCredential && <Dialog size="md" onClose={() => setInitialCredential(null)}><DialogHeader title="Shipper account created" onClose={() => setInitialCredential(null)} /><DialogBody className="space-y-3 text-sm"><p>Give these login details to {initialCredential.name}. The password is shown only once.</p><p><strong>Email:</strong> {initialCredential.email}</p><p><strong>Initial password:</strong> <code>{initialCredential.password}</code></p></DialogBody><DialogFooter><Button type="button" onClick={() => setInitialCredential(null)}>Done</Button></DialogFooter></Dialog>}
+
       {/* ADD / EDIT SHIPPER MODAL */}
       {isModalOpen && (
         <Dialog size="form" onClose={() => setIsModalOpen(false)}>
@@ -524,7 +562,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </FormSection>
 
               <FormSection title="Location">
-                <div className="sm:col-span-2"><label htmlFor="shipper-warehouse-address" className="app-label">Warehouse Address</label><AddressAutocomplete id="shipper-warehouse-address" aria-label="Warehouse Address" placeholder="e.g. 1420 Derwent Way, Delta, BC V3M 6M7" value={formData.address || ''} onChange={address => setFormData(current => ({ ...current, address }))} className="app-input w-full" /><span className="mt-1 block text-xs text-slate-500">Include street, city, province and postal code. Used as the default pickup address.</span></div>
+                <div className="sm:col-span-2"><label htmlFor="shipper-warehouse-address" className="app-label">Warehouse Address</label><AddressAutocomplete id="shipper-warehouse-address" aria-label="Warehouse Address" placeholder="e.g. 1420 Derwent Way, Delta, BC V3M 6M7" value={formData.address || ''} includeCoordinates onChange={(address, selected) => { setFormData(current => ({ ...current, address })); setWarehouseCoordinates(selected); }} className="app-input w-full" /><span className="mt-1 block text-xs text-slate-500">Include street, city, province and postal code. Used as the default pickup address.</span></div>
               </FormSection>
 
               <FormSection title="Billing">

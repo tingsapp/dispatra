@@ -13,6 +13,7 @@ import { useSettingsGuard } from '../components/settings/useSettingsGuard';
 import { INITIAL_BILLING_CONFIG } from '../lib/billingStorage';
 import { companyAddress, companySettingsBilling } from '../lib/serverCompanySettings';
 import type { BillingConfig } from '../types/billing';
+import { canadianAddress } from '../operations/adapters';
 
 function useSettingsDraft() {
   const workspace = useWorkspaceAccount()!;
@@ -56,7 +57,7 @@ function CompanyEditor() {
     <fieldset disabled={editor.pending} className="contents">
       <CompanyIdentity value={{ name: data.company_name, address: companyAddress(data), logoDataUrl: data.logo_url }} onChange={change => editor.patch({
         ...(change.name !== undefined ? { company_name: change.name } : {}),
-        ...(change.address !== undefined ? { address: change.address || null } : {}),
+        ...(change.address !== undefined ? { address: change.selectedAddress ? canadianAddress(change.address, undefined, change.selectedAddress) : change.address || null } : {}),
         ...(change.logoDataUrl !== undefined ? { logo_url: change.logoDataUrl } : {}),
       })}>
         <div><h4 className="app-section-title text-slate-900 mb-4">Contact Information</h4>

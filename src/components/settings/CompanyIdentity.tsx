@@ -2,7 +2,7 @@ import { ImagePlus, X } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '../ui/button';
 import { fieldClass, labelClass } from './BillingFields';
-import { AddressAutocomplete } from '../ui/AddressAutocomplete';
+import { AddressAutocomplete, type SelectedAddress } from '../ui/AddressAutocomplete';
 
 export interface CompanyIdentityValue {
   name: string;
@@ -10,9 +10,11 @@ export interface CompanyIdentityValue {
   logoDataUrl: string;
 }
 
+export type CompanyIdentityChange = Partial<CompanyIdentityValue> & { selectedAddress?: SelectedAddress };
+
 const MAX_LOGO_BYTES = 200 * 1024;
 
-export function CompanyIdentity({ value, onChange, children }: { value: CompanyIdentityValue; onChange: (change: Partial<CompanyIdentityValue>) => void; children?: ReactNode }) {
+export function CompanyIdentity({ value, onChange, children }: { value: CompanyIdentityValue; onChange: (change: CompanyIdentityChange) => void; children?: ReactNode }) {
   const input = useRef<HTMLInputElement>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
   const readLogo = (file: File | undefined) => {
@@ -54,7 +56,7 @@ export function CompanyIdentity({ value, onChange, children }: { value: CompanyI
     {children}
     <div>
       <label htmlFor="company-address" className={labelClass}>Company Address</label>
-      <AddressAutocomplete id="company-address" aria-label="Company address" className={fieldClass} value={value.address} placeholder="Street, city, province, postal code" onChange={address => onChange({ address })} />
+      <AddressAutocomplete id="company-address" aria-label="Company address" className={fieldClass} value={value.address} includeCoordinates placeholder="Street, city, province, postal code" onChange={(address, selectedAddress) => onChange({ address, selectedAddress })} />
     </div>
   </section>;
 }

@@ -7,7 +7,7 @@ import { createDefaultOrderInput, createStop, finalizeOrderPrice, priceOrder } f
 import { createInvoicePreview } from '../src/lib/organizationWorkflows';
 import { calculatePricing, PricingContext } from '../src/lib/pricingEngine';
 import { addressChange, resolveStopLocation } from '../src/lib/taxAddress';
-import { DEFAULT_CUSTOMERS } from '../src/lib/customerStorage';
+import { DEFAULT_SHIPPERS } from '../src/lib/customerStorage';
 
 function setup() {
   const billing = structuredClone(INITIAL_BILLING_CONFIG);
@@ -76,7 +76,7 @@ test('destination tax applies without registration setup and ignores legacy regi
 });
 test('destination rates ignore manually configured profiles and review customer exemptions', () => {
   const s = setup(); s.billing.taxProfiles[0].taxes[0].ratePercent = 99;
-  const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), id: 'customer', customerGroupId: null, rateCardId: null, taxProfileId: 'not-a-profile', taxExempt: false };
+  const customer = { ...structuredClone(DEFAULT_SHIPPERS[0]), id: 'customer', customerGroupId: null, rateCardId: null, taxProfileId: 'not-a-profile', taxExempt: false };
   s.ctx.customers = [customer]; s.order.customerId = customer.id; assert.equal(priceOrder(s.order, s.ctx).taxTotal, 5);
   customer.taxExempt = true; assertReview(s, /exemption documents/);
 });

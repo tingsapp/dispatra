@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { VehicleAsset, normalizeVehicle, syncVehicle, type VehicleProfile } from '../../lib/vehicleStorage';
+import type { VehicleType } from '../../types/simplePricing';
 import { loadSimplePricingConfig } from '../../lib/simplePricingStorage';
 import { validateVehicle } from '../../domain/validation';
 import { loadBillingConfig } from '../../lib/billingStorage';
@@ -18,8 +19,9 @@ function CargoDimension({ label, value, onChange, unit }: { label: string; value
     onChange={event => onChange(event.target.value === '' ? undefined : fromDisplayDimension(Number(event.target.value), units))} /></label>;
 }
 
-export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hideActions = false }: { vehicle?: VehicleAsset; vehicles: VehicleAsset[]; onSave: (v: VehicleAsset, profile: VehicleProfile) => void; onCancel: () => void; formId?: string; hideActions?: boolean }) {
-  const [types] = useState(() => loadSimplePricingConfig().vehicles);
+export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hideActions = false, vehicleTypes, live = false }: { vehicle?: VehicleAsset; vehicles: VehicleAsset[]; onSave: (v: VehicleAsset, profile: VehicleProfile) => void; onCancel: () => void; formId?: string; hideActions?: boolean; vehicleTypes?: VehicleType[]; live?: boolean }) {
+  const [localTypes] = useState(() => loadSimplePricingConfig().vehicles);
+  const types = vehicleTypes ?? localTypes;
   const [units] = useState(() => loadBillingConfig().general);
   const [draft, setDraft] = useState<VehicleAsset>(() => normalizeVehicle(vehicle ?? { id: crypto.randomUUID(), unitNumber: '', plateNumber: '', vin: '', category: '1 Tonne Van', vehicleTypeId: '', makeModel: '', year: new Date().getFullYear(), status: 'available', statusLabel: 'Available', payloadCapacityKg: 0, palletCapacity: 0, hasLiftgate: false, hasReefer: false, fuelType: 'Diesel', fuelBatteryPercent: 0, odometerKm: 0, lastInspectionDate: '', nextServiceKm: 0, createdAt: new Date().toISOString() }));
   const originalType = types.find(type => type.id === vehicle?.vehicleTypeId);
@@ -53,7 +55,7 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
     if ([length, width, height].some(value => value == null || !Number.isFinite(value) || value <= 0)) {
       setErrors(['Enter positive cargo length, width and height.']); return;
     }
-    const typeId = vehicle?.vehicleTypeId?.startsWith('fleet_') ? vehicle.vehicleTypeId : `fleet_${draft.id}`;
+    const typeId = live ? selectedType.id : vehicle?.vehicleTypeId?.startsWith('fleet_') ? vehicle.vehicleTypeId : `fleet_${draft.id}`;
     const volume = length! * width! * height! / 1e6;
     const next = syncVehicle({ ...draft, vehicleTypeId: typeId, payloadCapacityKg, palletCapacity, cargoVolumeM3: volume });
     const problems = validateVehicle(next, vehicles);

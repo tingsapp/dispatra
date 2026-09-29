@@ -6,6 +6,7 @@ import { loadBillingConfig, saveBillingConfig } from './billingStorage';
 export interface VehicleAsset extends VehicleOperations {
   id: string;
   unitNumber: string;
+  vehicleNumber?: string;
   plateNumber: string;
   vin: string;
   category: '1 Tonne Van' | '2 Tonne Cube' | '3 Tonne Box' | '5 Tonne Freight' | 'Flatbed' | 'Refrigerated Reefer';

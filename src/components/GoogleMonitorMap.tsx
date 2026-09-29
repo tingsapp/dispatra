@@ -1,6 +1,6 @@
-import { APIProvider, Map, Polyline, useMap } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, Marker, Polyline, useMap } from '@vis.gl/react-google-maps';
 import { Clock3, Package, Plane, Truck, UserX } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { BLUE_ROUTE_WAYPOINTS, GREEN_ROUTE_WAYPOINTS, ORANGE_ROUTE_WAYPOINTS, INITIAL_DRIVERS, INITIAL_JOBS } from '../data/mockData';
 import type { Driver, Job, MapLayerConfig } from '../types';
 import { GoogleOverlayMarker } from './monitor/GoogleOverlayMarker';
@@ -24,8 +24,10 @@ export interface MapController {
 
 interface GoogleMonitorMapProps {
   active?: boolean;
+  demo?: boolean;
   drivers?: Driver[];
   jobs?: Job[];
+  routes?: { id: string; stops: { position: number; stop: { address: { latitude?: number | null; longitude?: number | null } } }[] }[];
   selectedDriverId?: string | null;
   selectedJobId?: string | null;
   onSelectDriver: (id: string, markerPosition?: [number, number]) => void;
@@ -45,6 +47,9 @@ const path = (waypoints: [number, number][]): google.maps.LatLngLiteral[] =>
 const BLUE_PATH = path(BLUE_ROUTE_WAYPOINTS);
 const GREEN_PATH = path(GREEN_ROUTE_WAYPOINTS);
 const ORANGE_PATH = path(ORANGE_ROUTE_WAYPOINTS);
+
+/** Order and driver route lines on the live map. */
+const ROUTE_COLOR = '#000000';
 
 function routePosition(progress: number) {
   const waypoints = BLUE_ROUTE_WAYPOINTS;
@@ -100,17 +105,17 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
       frame.current = null;
       if (!projection.current) return;
       const current = propsRef.current;
-      const jobs = current.jobs?.length ? current.jobs : INITIAL_JOBS;
-      const drivers = current.drivers?.length ? current.drivers : INITIAL_DRIVERS;
-      const d14 = project([movingDriverRef.current.lng, movingDriverRef.current.lat]);
-      const job461 = jobs.find(job => job.jobNumber === '#461') ?? INITIAL_JOBS[0];
+      const jobs = current.demo === false ? current.jobs ?? [] : current.jobs?.length ? current.jobs : INITIAL_JOBS;
+      const drivers = current.demo === false ? current.drivers ?? [] : current.drivers?.length ? current.drivers : INITIAL_DRIVERS;
+      const d14 = current.demo === false ? null : project([movingDriverRef.current.lng, movingDriverRef.current.lat]);
+      const job461 = jobs.find(job => job.jobNumber === '#461') ?? (current.demo === false ? undefined : INITIAL_JOBS[0]);
       const selectedDriver = drivers.find(driver => driver.id === current.selectedDriverId);
       const selectedJob = jobs.find(job => job.jobNumber === current.selectedJobId);
       const positions: MarkerScreenPositions = {
         d14,
-        job461: project([job461.lng, job461.lat]),
-        driver: selectedDriver ? project([selectedDriver.id === 'D14' ? movingDriverRef.current.lng : selectedDriver.lng, selectedDriver.id === 'D14' ? movingDriverRef.current.lat : selectedDriver.lat]) : d14,
-        job: selectedJob ? project([selectedJob.lng, selectedJob.lat]) : project([job461.lng, job461.lat])
+        job461: job461 && Number.isFinite(job461.lng) && Number.isFinite(job461.lat) ? project([job461.lng, job461.lat]) : null,
+        driver: selectedDriver && Number.isFinite(selectedDriver.lng) && Number.isFinite(selectedDriver.lat) ? project([selectedDriver.lng, selectedDriver.lat]) : d14,
+        job: selectedJob && Number.isFinite(selectedJob.lng) && Number.isFinite(selectedJob.lat) ? project([selectedJob.lng, selectedJob.lat]) : null
       };
       (current.onPositionsUpdate ?? current.onUpdatePositions)?.(positions);
     });
@@ -155,7 +160,7 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
   useEffect(() => { updatePositions(); }, [props.selectedDriverId, props.selectedJobId, props.jobs, props.drivers, updatePositions]);
 
   useEffect(() => {
-    if (props.active === false) return;
+    if (props.active === false || props.demo === false) return;
     let animationFrame = 0;
     let lastTime = performance.now();
     let lastPosition = 0;
@@ -185,19 +190,26 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
     };
     animationFrame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationFrame);
-  }, [updatePositions, props.active]);
+  }, [updatePositions, props.active, props.demo]);
 
-  const visibleJobs = (props.jobs?.length ? props.jobs : INITIAL_JOBS).filter(job => {
-    if (job.status === 'completed') return false;
-    if (INITIAL_JOBS.some(seed => seed.id === job.id)) return true;
+  // Each open order keeps its status marker; its located pickups and drop-offs get default map pins joined by a black line.
+  const located = (lat?: number | null, lng?: number | null): lat is number => lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng);
+  const orderStops = (job: Job) => {
+    const stops = (job.pricingInput?.stops ?? []).filter(stop => located(stop.latitude, stop.longitude))
+      .map(stop => ({ id: stop.id, type: stop.type, label: stop.label ?? '', lat: stop.latitude!, lng: stop.longitude! }));
+    return stops;
+  };
+  const visibleJobs = (props.demo === false ? props.jobs ?? [] : props.jobs?.length ? props.jobs : INITIAL_JOBS).filter(job => {
+    if (job.status === 'completed' || !Number.isFinite(job.lat) || !Number.isFinite(job.lng)) return false;
+    if (props.demo !== false && INITIAL_JOBS.some(seed => seed.id === job.id)) return true;
     const drops = job.pricingInput?.stops.filter(stop => stop.type === 'DROPOFF') ?? [];
     const destination = drops[drops.length - 1];
     return destination?.latitude != null && destination.longitude != null;
-  });
+  }).map(job => ({ job, stops: orderStops(job) }));
 
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />
-    <Polyline path={BLUE_PATH} strokeColor="#1d4ed8" strokeOpacity={0.8} strokeWeight={7} clickable={false} />
+    {props.demo !== false && <><Polyline path={BLUE_PATH} strokeColor="#1d4ed8" strokeOpacity={0.8} strokeWeight={7} clickable={false} />
     <Polyline path={BLUE_PATH} strokeColor="#60a5fa" strokeWeight={4} clickable={false} />
     <Polyline path={GREEN_PATH} strokeColor="#047857" strokeOpacity={0.7} strokeWeight={5} clickable={false} />
     <Polyline path={GREEN_PATH} strokeColor="#34d399" strokeWeight={3} clickable={false} />
@@ -209,23 +221,40 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
         <Plane className="w-3.5 h-3.5" /> Vancouver Airport (YVR Cargo)
       </div>
     </GoogleOverlayMarker>
-    {visibleJobs.map(job => {
+    </>}
+    {props.demo === false && props.routes?.map(route => {
+      const points = [...route.stops].sort((a, b) => a.position - b.position)
+        .map(visit => ({ lat: visit.stop.address.latitude, lng: visit.stop.address.longitude }))
+        .filter((point): point is { lat: number; lng: number } => point.lat != null && point.lng != null && Number.isFinite(point.lat) && Number.isFinite(point.lng));
+      return points.length > 1 ? <Polyline key={route.id} path={points} strokeColor={ROUTE_COLOR} strokeOpacity={0.85} strokeWeight={4} clickable={false} /> : null;
+    })}
+    {visibleJobs.map(({ job, stops }) => {
       const risk = job.status === 'at_risk';
       const late = job.status === 'late_start';
       const unassigned = job.status === 'no_driver';
       const color = risk ? 'bg-rose-600' : late ? 'bg-amber-500' : unassigned ? 'bg-slate-700' : 'bg-blue-600';
       const label = risk ? 'At Risk' : late ? 'Late Start' : unassigned ? 'No Driver' : job.statusLabel;
       const Icon = risk ? Package : late ? Clock3 : unassigned ? UserX : Package;
-      return <GoogleOverlayMarker key={job.id} position={{ lat: job.lat, lng: job.lng }}
-        label={`Order ${job.jobNumber}, ${label}`} onSelect={() => props.onSelectJob(job.jobNumber, [job.lng, job.lat])}>
-        <div className="relative flex items-center justify-center w-9 h-9 group">
-          {risk && <div className="absolute inset-0 rounded-full bg-rose-500/30 animate-radar-ping-fast pointer-events-none" />}
-          <div className={`relative w-8 h-8 rounded-full ${color} text-white ring-2 ring-white shadow-lg grid place-items-center group-hover:scale-110 transition-transform`}><Icon className="w-4 h-4" /></div>
-          <div className={`absolute -top-6 left-1/2 -translate-x-1/2 ${color} text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none`}>{job.jobNumber} • {label}</div>
-        </div>
-      </GoogleOverlayMarker>;
+      // Orders on a planned route are already joined by the route line.
+      const onRoute = props.demo === false && !!job.routeId && props.routes?.some(route => route.id === job.routeId);
+      return <Fragment key={job.id}>
+        {!onRoute && stops.length > 1 && <Polyline path={stops.map(stop => ({ lat: stop.lat, lng: stop.lng }))} strokeColor={ROUTE_COLOR} strokeOpacity={0.85} strokeWeight={3} clickable={false} />}
+        {stops.map(stop => {
+          const pickup = stop.type === 'PICKUP';
+          return <Marker key={stop.id} position={{ lat: stop.lat, lng: stop.lng }} label={pickup ? 'P' : 'D'}
+            title={`${job.jobNumber} · ${pickup ? 'Pickup' : 'Drop-off'}\n${stop.label}`} onClick={() => props.onSelectJob(job.jobNumber, [stop.lng, stop.lat])} />;
+        })}
+        <GoogleOverlayMarker position={{ lat: job.lat, lng: job.lng }}
+          label={`Order ${job.jobNumber}, ${label}`} onSelect={() => props.onSelectJob(job.jobNumber, [job.lng, job.lat])}>
+          <div className="relative flex items-center justify-center w-9 h-9 group">
+            {risk && <div className="absolute inset-0 rounded-full bg-rose-500/30 animate-radar-ping-fast pointer-events-none" />}
+            <div className={`relative w-8 h-8 rounded-full ${color} text-white ring-2 ring-white shadow-lg grid place-items-center group-hover:scale-110 transition-transform`}><Icon className="w-4 h-4" /></div>
+            <div className={`absolute -top-6 left-1/2 -translate-x-1/2 ${color} text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none`}>{job.jobNumber} • {label}</div>
+          </div>
+        </GoogleOverlayMarker>
+      </Fragment>;
     })}
-    <GoogleOverlayMarker id="d14-marker-container" position={{ lat: movingDriver.lat, lng: movingDriver.lng }} label="Driver D14, Arles" onSelect={() => props.onSelectDriver('D14', [movingDriverRef.current.lng, movingDriverRef.current.lat])}>
+    {props.demo !== false && <GoogleOverlayMarker id="d14-marker-container" position={{ lat: movingDriver.lat, lng: movingDriver.lng }} label="Driver D14, Arles" onSelect={() => props.onSelectDriver('D14', [movingDriverRef.current.lng, movingDriverRef.current.lat])}>
       <div className="relative group flex items-center justify-center w-[46px] h-[46px]">
         <div className="absolute inset-0 rounded-full bg-blue-500/25 animate-radar-ping pointer-events-none" />
         <div className="absolute inset-1.5 rounded-full bg-blue-400/20 animate-radar-ping-fast pointer-events-none" />
@@ -233,14 +262,15 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none">D14 • Arles</div>
       </div>
     </GoogleOverlayMarker>
-    {(props.drivers?.length ? props.drivers : INITIAL_DRIVERS).filter(driver => driver.id !== 'D14').map(driver => {
+    }
+    {(props.demo === false ? props.drivers ?? [] : props.drivers?.length ? props.drivers : INITIAL_DRIVERS).filter(driver => (props.demo === false || driver.id !== 'D14') && Number.isFinite(driver.lat) && Number.isFinite(driver.lng)).map(driver => {
       const available = driver.status === 'available';
-      const label = driver.id === 'D28' ? 'Driver D28, Marcus' : driver.id === 'D09' ? 'Driver D09, available' : `Driver ${driver.id}, ${driver.name}`;
+      const label = props.demo === false ? `Driver ${driver.driverNumber ?? driver.name}, ${driver.name}` : driver.id === 'D28' ? 'Driver D28, Marcus' : driver.id === 'D09' ? 'Driver D09, available' : `Driver ${driver.id}, ${driver.name}`;
       return <GoogleOverlayMarker key={driver.id} position={{ lat: driver.lat, lng: driver.lng }} label={label}
         onSelect={() => props.onSelectDriver(driver.id, [driver.lng, driver.lat])}>
         <div className="flex items-center gap-2 bg-white rounded-full px-2.5 py-1 shadow-lg border border-slate-200/90 hover:border-emerald-300 transition-all whitespace-nowrap">
           <div className={`w-6 h-6 rounded-full ${available ? 'bg-emerald-500' : driver.status === 'offline' ? 'bg-slate-400' : 'bg-blue-600'} text-white grid place-items-center shrink-0`}><Truck className="w-3.5 h-3.5" /></div>
-          <div className="pr-1 leading-none"><div className="text-xs font-bold text-slate-800">{driver.id} • {driver.name.split(' ')[0]}</div><div className="text-xs text-slate-500 font-medium">{driver.statusLabel}</div></div>
+          <div className="pr-1 leading-none"><div className="text-xs font-bold text-slate-800">{driver.driverNumber ?? driver.id} • {driver.name.split(' ')[0]}</div><div className="text-xs text-slate-500 font-medium">{driver.statusLabel}</div></div>
         </div>
       </GoogleOverlayMarker>;
     })}

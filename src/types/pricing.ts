@@ -14,7 +14,7 @@ import { StopOperations, ItemOperations } from '../domain/operations';
 
 export type PricingMethod = 'BASE_PLUS_DISTANCE' | 'FIXED' | 'ZONE' | 'HOURLY' | 'IMPORTED';
 
-export type RateCardScope = 'ORGANIZATION' | 'ORDER' | 'CUSTOMER' | 'CUSTOMER_GROUP';
+export type RateCardScope = 'ORGANIZATION' | 'ORDER' | 'SHIPPER' | 'SHIPPER_GROUP';
 
 export type RateCardStatus = 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
 
@@ -242,7 +242,7 @@ export interface PricingOrderInput {
   /** ISO datetime the service window starts — drives after-hours / weekend rules. */
   scheduledAt: string | null;
   /** Order source — customer portal bookings can carry a channel discount later. */
-  source: 'DISPATCHER' | 'CUSTOMER_PORTAL' | 'IMPORT';
+  source: 'DISPATCHER' | 'SHIPPER_PORTAL' | 'IMPORT';
   importedPrice: number | null;
   importedTaxTreatment?: 'INCLUDED' | 'EXEMPT' | 'SUPPLIED';
   importedTaxAmount?: number | null;
@@ -251,6 +251,8 @@ export interface PricingOrderInput {
   adjustments: OrderPriceAdjustment[];
   /** Explicit Rate Card override chosen by an authorized dispatcher. */
   rateCardOverrideId: string | null;
+  /** Optional driver the shipper would like; a dispatch preference, never an assignment. */
+  preferredDriverId?: string | null;
   /** ESTIMATE prices from estimates; FINAL uses actuals where available. */
   stage: 'ESTIMATE' | 'FINAL';
 }
@@ -307,8 +309,8 @@ export interface PricingError {
 
 export type RateCardSource =
   | 'OVERRIDE'
-  | 'CUSTOMER'
-  | 'CUSTOMER_GROUP'
+  | 'SHIPPER'
+  | 'SHIPPER_GROUP'
   | 'ORGANIZATION_SERVICE'
   | 'ORGANIZATION_DEFAULT';
 

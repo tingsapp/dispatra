@@ -71,7 +71,6 @@ export interface NeedsAttentionItem {
   subtitle: string;
   pickupAddress: string;
   badgeColor: 'red' | 'amber';
-  bulletColor: 'green' | 'red' | 'orange';
 }
 
 export interface EligibleDriver {
@@ -92,7 +91,6 @@ export interface MapLayerConfig {
 }
 
 export type ModalDialogType =
-  | 'job_detail'
   | 'driver_detail'
   | 'all_jobs'
   | 'all_drivers'

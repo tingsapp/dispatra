@@ -422,3 +422,13 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
   .app-list-filters { flex-basis: 100%; justify-content: flex-start; }
   .app-list-filters > .app-combobox { flex: 1 1 10rem; min-width: 0; }
 }
+
+/* Compact map card tabs must fit all four labels inside their container. */
+.monitor-order-tabs .app-tab {
+  min-width: 0;
+  padding: .375rem .25rem;
+  font-size: .75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

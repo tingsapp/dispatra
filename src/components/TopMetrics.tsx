@@ -80,7 +80,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
   const filteredDrivers = drivers.filter((d) => {
     const matchesSearch =
       d.name.toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
-      d.id.toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
+      (d.driverNumber ?? d.id).toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
       d.vehicle.toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
       (d.nextStop && d.nextStop.toLowerCase().includes(driverSearchQuery.toLowerCase()));
 
@@ -132,7 +132,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     <Truck className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
                   <h3 className="font-semibold text-slate-900 text-sm">
-                    Active Dispatch Orders
+                    Active Orders
                   </h3>
                   <span className="text-xs bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded-full">
                     {jobs.length}
@@ -148,7 +148,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
               </div>
 
               {/* Search Input */}
-              <SearchInput value={jobSearchQuery} onChange={setJobSearchQuery} placeholder="Search job #, shipper, address..." className="mt-3" />
+              <SearchInput value={jobSearchQuery} onChange={setJobSearchQuery} placeholder="Search orders, shippers or addresses..." className="mt-3" />
 
               {/* Tabs */}
               <div className="flex items-center gap-1.5 mt-2.5 pb-2.5 text-xs">
@@ -277,10 +277,10 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     <UserCheck className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
                   <h3 className="font-semibold text-slate-900 text-sm">
-                    Vancouver Fleet Drivers
+                    Available Drivers
                   </h3>
                   <span className="text-xs bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded-full">
-                    {drivers.length}
+                    {availableDriversCount}
                   </span>
                 </div>
                 <button
@@ -298,6 +298,17 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
               {/* Tabs */}
               <div className="flex items-center gap-1.5 mt-2.5 pb-2.5 text-xs">
                 <button
+                  onClick={() => setDriverFilterTab('all')}
+                  aria-pressed={driverFilterTab === 'all'}
+                  className={`app-tab ${
+                    driverFilterTab === 'all'
+                      ? 'bg-app-selected text-app-text'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  All ({drivers.length})
+                </button>
+                <button
                   onClick={() => setDriverFilterTab('available')}
                   aria-pressed={driverFilterTab === 'available'}
                   className={`app-tab ${
@@ -307,17 +318,6 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                   }`}
                 >
                   Available ({availableDriversCount})
-                </button>
-                <button
-                  onClick={() => setDriverFilterTab('all')}
-                  aria-pressed={driverFilterTab === 'all'}
-                  className={`app-tab ${
-                    driverFilterTab === 'all'
-                      ? 'bg-app-selected text-app-text'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  All Fleet ({drivers.length})
                 </button>
               </div>
 
@@ -337,7 +337,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                       onClick={() => {
                         onSelectDriver(driver.id);
                         setShowAvailableDriversMenu(false);
-                        onActionNotification(`Selected driver ${driver.name} (${driver.id})`);
+                        onActionNotification(`Selected driver ${driver.name} (${driver.driverNumber ?? driver.id})`);
                       }}
                       className="py-2.5 px-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors group flex items-center justify-between"
                     >
@@ -358,7 +358,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                               {driver.name}
                             </span>
                             <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
-                              {driver.id}
+                              {driver.driverNumber ?? driver.id}
                             </span>
                           </div>
                           <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
@@ -424,24 +424,13 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     Needs Attention ({needsAttentionItems.length})
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setShowNeedsAttentionPopover(false);
-                      onActionNotification('Viewing all operational exceptions');
-                    }}
-                    className="text-xs font-medium text-slate-700 hover:text-slate-950 transition-colors"
-                  >
-                    View all
-                  </button>
-                  <button
-                    onClick={() => setShowNeedsAttentionPopover(false)}
-                    className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
-                    title="Close Needs Attention"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowNeedsAttentionPopover(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                  title="Close Needs Attention"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
               {/* Items List */}
@@ -457,55 +446,25 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                       setShowNeedsAttentionPopover(false);
                       onActionNotification(`Selected ${item.jobNumber}: ${item.subtitle}`);
                     }}
-                    className="py-3 hover:bg-slate-50/80 -mx-2 px-2 rounded-xl cursor-pointer transition-colors group"
+                    className="py-2.5 hover:bg-slate-50/80 -mx-2 px-2 rounded-xl cursor-pointer transition-colors group"
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-sm">
-                          {item.jobNumber}
-                        </span>
-                        <span
-                          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                            item.badgeColor === 'red'
-                              ? 'bg-rose-50 text-rose-600 border border-rose-200/60'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                          }`}
-                        >
-                          {item.statusLabel}
-                        </span>
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-900 text-sm whitespace-nowrap">{item.jobNumber}</span>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${item.badgeColor === 'red' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{item.statusLabel}</span>
+                        </div>
+                        <p className="text-xs text-slate-700">{item.subtitle}</p>
+                        {item.pickupAddress && <p className="text-xs text-slate-500 truncate">Pickup · {item.pickupAddress.split(',')[0]}</p>}
                       </div>
-                      <span className="text-xs font-semibold text-rose-600">
-                        {item.subtitle}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-slate-600">
-                      <div className="flex items-center gap-2 truncate pr-2">
-                        <span
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            item.bulletColor === 'green'
-                              ? 'bg-emerald-500'
-                              : item.bulletColor === 'red'
-                              ? 'bg-rose-500'
-                              : 'bg-amber-500'
-                          }`}
-                        />
-                        <span className="truncate">
-                          <strong className="font-medium text-slate-700">Pickup</strong>{' '}
-                          {item.pickupAddress}
-                        </span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all shrink-0" />
+                      <ChevronRight className="w-4 h-4 mt-0.5 text-slate-400 group-hover:text-slate-700 transition-colors shrink-0" />
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* Footer */}
-              <div className="mt-3 pt-2.5 flex items-center justify-between text-xs">
-                <span className="text-slate-500 text-xs">
-                  Priority dispatch actions
-                </span>
+              <div className="mt-2 pt-2.5 flex items-center justify-end text-xs border-t border-slate-100">
                 <button
                   onClick={() => {
                     setShowNeedsAttentionPopover(false);

@@ -5,7 +5,9 @@ import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'NodeFilter', 'Event', 'CustomEvent', 'MutationObserver', 'getComputedStyle', 'localStorage']) Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: dom.window[name as keyof Window] });
 HTMLElement.prototype.scrollIntoView = () => {};
-const { render, screen, cleanup, within } = await import('@testing-library/react');
+const { render: rawRender, screen, cleanup, within } = await import('@testing-library/react');
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+const render = (ui: React.ReactElement) => rawRender(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { gcTime: 0 }, mutations: { gcTime: 0 } } }) }, ui));
 const { default: userEvent } = await import('@testing-library/user-event');
 const { JobsPage } = await import('../src/pages/JobsPage');
 const { QuotationMenu } = await import('../src/components/pricing/QuotationMenu');
@@ -68,7 +70,7 @@ test('quotation mirrors the priced snapshot in company units and renders text an
 
 test('New Quote uses the order facts form, offers Send Quote, and does not create an order', async () => {
   const { ctx } = setup();
-  const prospectCard = createEmptyRateCard({ id: 'prospect-card', name: 'Prospect fixed', scope: 'CUSTOMER_GROUP', status: 'ACTIVE', effectiveFrom: '2020-01-01', pricingMethod: 'FIXED', fixedAmount: 180 });
+  const prospectCard = createEmptyRateCard({ id: 'prospect-card', name: 'Prospect fixed', scope: 'SHIPPER_GROUP', status: 'ACTIVE', effectiveFrom: '2020-01-01', pricingMethod: 'FIXED', fixedAmount: 180 });
   savePricingConfig({ ...ctx.pricing, rateCards: [...ctx.pricing.rateCards, prospectCard] });
   const user = userEvent.setup({ document });
   const notices: string[] = []; const created: unknown[] = [];
@@ -88,7 +90,7 @@ test('New Quote uses the order facts form, offers Send Quote, and does not creat
   await user.click(cardSelect);
   assert.ok(screen.getByRole('option', { name: ctx.pricing.rateCards[0].name }));
   await user.click(screen.getByRole('option', { name: prospectCard.name }));
-  assert.ok(screen.getByText(/Prospect fixed · v1/));
+  assert.equal(screen.getByText('Rate Card', { selector: 'span' }).nextElementSibling!.textContent, 'Prospect fixed');
   await user.click(screen.getByRole('button', { name: 'Send Quote' }));
   const menu = screen.getByRole('dialog', { name: 'Send Quote' });
   assert.equal((within(menu).getByRole('button', { name: /Email/ }) as HTMLButtonElement).disabled, true);

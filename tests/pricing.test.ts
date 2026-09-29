@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyDistanceRules, roundMoney } from '../src/lib/billingEngine';
 import { INITIAL_BILLING_CONFIG } from '../src/lib/billingStorage';
-import { DEFAULT_CUSTOMERS } from '../src/lib/customerStorage';
+import { DEFAULT_SHIPPERS } from '../src/lib/customerStorage';
 import { createDefaultOrderInput, createStop, finalizeOrderPrice, priceOrder } from '../src/lib/orderPricing';
 import { createInvoicePreview, organizationTime, validateAssignment, validateBooking } from '../src/lib/organizationWorkflows';
 import { calculatePricing, estimateInternalCost, PricingContext } from '../src/lib/pricingEngine';
@@ -87,7 +87,7 @@ test('freight minimum is enforced after service multiplier', () => {
   assert.equal(priced(s).serviceFreight, 90);
 });
 test('historical contexts retain card discounts and ignore legacy customer and group values', () => {
-  const s = setup(); const customer = structuredClone(DEFAULT_CUSTOMERS[0]); customer.customerGroupId = 'g'; customer.discount = { type: 'PERCENT', value: 50, scope: 'SUBTOTAL' };
+  const s = setup(); const customer = structuredClone(DEFAULT_SHIPPERS[0]); customer.customerGroupId = 'g'; customer.discount = { type: 'PERCENT', value: 50, scope: 'SUBTOTAL' };
   s.ctx.customers = [customer]; s.order.customerId = customer.id;
   s.ctx.pricing.customerGroups = [{ id: 'g', name: 'Group', description: '', rateCardId: null, discount: { type: 'PERCENT', value: 10, scope: 'SUBTOTAL' } }];
   s.card.discount = { type: 'PERCENT', value: 20, scope: 'TRANSPORT_ONLY' };
@@ -220,7 +220,8 @@ test('revised settings and shared order form render without a browser', async ()
   const noop = () => { };
   const company = renderToStaticMarkup(React.createElement(TaxesPreferencesPage, {}));
   assert.match(company, /Regional Preferences/); assert.doesNotMatch(company, /Vehicle Running Cost|Invoicing Basics|Fuel surcharge/);
-  const rates = renderToStaticMarkup(React.createElement(RateCardsPage, {}));
+  const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+  const rates = renderToStaticMarkup(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { gcTime: 0 }, mutations: { gcTime: 0 } } }) }, React.createElement(RateCardsPage, {})));
   assert.match(rates, /Accessorials/); assert.match(rates, /Add card/); assert.doesNotMatch(rates, /Minute Rate|Included Minutes|Additional settings|Minimum Freight|Vehicle Restriction/);
   const s = setup(); const form = renderToStaticMarkup(React.createElement(OrderPricingForm, { value: s.order, onChange: noop, ctx: s.ctx, snapshot: priced(s) }));
   assert.match(form, /aria-label="Stop 1 ready at date:/); assert.match(form, /Contact name/); assert.doesNotMatch(form, /Supplying pickups|Driving only|Freight tax treatment|Move stop|Pricing Adjustments|Rate Card override/);
@@ -364,17 +365,17 @@ test('unit rates preserve exclusive and non-taxable amounts and contract overrid
     assert.equal(priced(s).total, inclusive ? 100 : 105);
     acc.taxable = false; assert.equal(priced(s).total, 100);
     acc.taxable = true;
-    const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), taxExempt: true, rateCardId: null, customerGroupId: null };
+    const customer = { ...structuredClone(DEFAULT_SHIPPERS[0]), taxExempt: true, rateCardId: null, customerGroupId: null };
     s.ctx.customers = [customer]; s.order.customerId = customer.id;
     assert.equal(priced(s).total, 100);
   }
 });
 
-const assignedCardSetup = (scope: 'CUSTOMER' | 'CUSTOMER_GROUP') => {
+const assignedCardSetup = (scope: 'SHIPPER' | 'SHIPPER_GROUP') => {
   const s = setup();
-  const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), id: 'customer', customerGroupId: 'group', rateCardId: scope === 'CUSTOMER' ? 'selected' : null, taxExempt: false };
+  const customer = { ...structuredClone(DEFAULT_SHIPPERS[0]), id: 'customer', customerGroupId: 'group', rateCardId: scope === 'SHIPPER' ? 'selected' : null, taxExempt: false };
   s.ctx.customers = [customer]; s.order.customerId = customer.id;
-  s.ctx.pricing.customerGroups = [{ id: 'group', name: 'Group', description: '', rateCardId: scope === 'CUSTOMER_GROUP' ? 'selected' : null, discount: { type: 'NONE', value: 0, scope: 'SUBTOTAL' } }];
+  s.ctx.pricing.customerGroups = [{ id: 'group', name: 'Group', description: '', rateCardId: scope === 'SHIPPER_GROUP' ? 'selected' : null, discount: { type: 'NONE', value: 0, scope: 'SUBTOTAL' } }];
   s.card.fixedAmount = 200;
   const selected = createEmptyRateCard({ ...s.card, id: 'selected', scope: 'ORDER', fixedAmount: 50 });
   s.ctx.pricing.rateCards.push(selected);
@@ -382,20 +383,20 @@ const assignedCardSetup = (scope: 'CUSTOMER' | 'CUSTOMER_GROUP') => {
 };
 
 test('the card attached to a customer applies whatever its service, vehicle or dates; deleted or missing cards fall back to the Default', () => {
-  const s = assignedCardSetup('CUSTOMER');
+  const s = assignedCardSetup('SHIPPER');
   assert.equal(priced(s).rateCard?.id, s.selected.id); assert.equal(priced(s).freight, 50);
   for (const changes of [{ effectiveTo: '2020-01-02' }, { effectiveFrom: '2099-01-01' }, { serviceId: 'other-service' }, { vehicleId: 'other-vehicle' }] as Partial<RateCard>[]) {
-    const t = assignedCardSetup('CUSTOMER'); Object.assign(t.selected, changes);
+    const t = assignedCardSetup('SHIPPER'); Object.assign(t.selected, changes);
     assert.equal(priced(t).rateCard?.id, t.selected.id, JSON.stringify(changes));
   }
   for (const changes of [{ status: 'ARCHIVED' }, { id: 'no-longer-selected' }] as Partial<RateCard>[]) {
-    const t = assignedCardSetup('CUSTOMER'); Object.assign(t.selected, changes);
+    const t = assignedCardSetup('SHIPPER'); Object.assign(t.selected, changes);
     assert.equal(priced(t).rateCard?.id, t.card.id, JSON.stringify(changes)); assert.equal(priced(t).freight, 200);
   }
 });
 
 test('the card chosen on the order wins over the customer card; a deleted or missing choice is an error', () => {
-  const s = assignedCardSetup('CUSTOMER_GROUP');
+  const s = assignedCardSetup('SHIPPER_GROUP');
   const customerCard = createEmptyRateCard({ ...s.card, id: 'customer-specific', scope: 'ORDER', fixedAmount: 75 });
   s.ctx.pricing.rateCards.push(customerCard); s.ctx.customers[0].rateCardId = customerCard.id;
   assert.equal(priced(s).rateCard?.id, customerCard.id);
@@ -408,7 +409,7 @@ test('the card chosen on the order wins over the customer card; a deleted or mis
 });
 
 test('without an attached card the Default applies; without a Default pricing is unavailable', () => {
-  const s = assignedCardSetup('CUSTOMER'); s.ctx.customers[0].rateCardId = null;
+  const s = assignedCardSetup('SHIPPER'); s.ctx.customers[0].rateCardId = null;
   assert.equal(priced(s).rateCard?.id, s.card.id); assert.equal(priced(s).candidates[0].reason, 'Default');
   s.card.scope = 'ORDER';
   const result = calculatePricing(s.order, s.ctx); assert.equal(result.status, 'UNAVAILABLE'); assert.equal(result.errors[0]?.code, 'NO_RATE_CARD');
@@ -455,7 +456,7 @@ test('legacy group cards migrate to explicit order selection without becoming or
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
   try {
     const s = setup();
-    const groupCard = createEmptyRateCard({ ...s.card, id: 'old-group', scope: 'CUSTOMER_GROUP', customerGroupId: 'group', fixedAmount: 42, version: 7 });
+    const groupCard = createEmptyRateCard({ ...s.card, id: 'old-group', scope: 'SHIPPER_GROUP', customerGroupId: 'group', fixedAmount: 42, version: 7 });
     data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, rateCards: [s.card, groupCard], customerGroups: [{ id: 'group', name: 'Old group', rateCardId: groupCard.id }], schemaVersion: 3 }));
     const loaded = loadPricingConfig(); const migrated = loaded.rateCards[1];
     assert.deepEqual(loaded.customerGroups, []); assert.equal(migrated.scope, 'ORDER'); assert.equal(migrated.customerGroupId, undefined); assert.equal(migrated.version, 8); assert.equal(migrated.fixedAmount, 42);
@@ -467,15 +468,15 @@ test('legacy group cards migrate to explicit order selection without becoming or
   } finally { if (original) Object.defineProperty(globalThis, 'localStorage', original); else Reflect.deleteProperty(globalThis, 'localStorage'); }
 });
 test('historical hourly group quotes settle their frozen discounts without reviving group pricing', () => {
-  const s = setup(); const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), customerGroupId: 'legacy', discount: { type: 'INHERIT' as const, value: 0, scope: 'SUBTOTAL' as const } };
+  const s = setup(); const customer = { ...structuredClone(DEFAULT_SHIPPERS[0]), customerGroupId: 'legacy', discount: { type: 'INHERIT' as const, value: 0, scope: 'SUBTOTAL' as const } };
   s.ctx.customers = [customer]; s.order.customerId = customer.id;
   const groupDiscount = { type: 'PERCENT' as const, value: 10, scope: 'SUBTOTAL' as const };
   Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true, discount: groupDiscount }); s.order.hourlyBillableMinutes = 60;
   const quote = JSON.parse(JSON.stringify(priced(s)));
-  quote.context.pricing.rateCards[0].scope = 'CUSTOMER_GROUP';
+  quote.context.pricing.rateCards[0].scope = 'SHIPPER_GROUP';
   quote.context.pricing.rateCards[0].discount = { type: 'INHERIT', value: 0, scope: 'SUBTOTAL' };
   quote.context.pricing.customerGroups = [{ id: 'legacy', name: 'Old group', description: '', rateCardId: s.card.id, discount: groupDiscount }];
-  quote.rateCard.scope = 'CUSTOMER_GROUP';
+  quote.rateCard.scope = 'SHIPPER_GROUP';
   const unchanged = JSON.stringify(quote);
   const settled = finalizeOrderPrice(s.order, 120, s.ctx, quote);
   assert.equal(settled.snapshot.status, 'PRICED'); assert.equal(settled.snapshot.discount, 20); assert.equal(settled.snapshot.subtotal, 180);
@@ -514,7 +515,7 @@ test('zone cards that inherited the organization matrix receive only the first Z
 
 test('shipper discounts apply across rate cards, do not stack and exclude fuel and fees', () => {
   const s = setup(); s.ctx.pricing.discountSource = 'SHIPPER';
-  const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), rateCardId: s.card.id, discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' } as Discount };
+  const customer = { ...structuredClone(DEFAULT_SHIPPERS[0]), rateCardId: s.card.id, discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' } as Discount };
   s.ctx.customers = [customer]; s.order.customerId = customer.id;
   s.card.discount = { type: 'PERCENT', value: 50, scope: 'TRANSPORT_ONLY' };
   s.billing.fuelSurcharge.enabled = true; s.billing.fuelSurcharge.percent = 20;
@@ -530,7 +531,7 @@ test('shipper discounts apply across rate cards, do not stack and exclude fuel a
 
 test('hourly settlement freezes the shipper discount while legacy quotes retain the card discount', () => {
   const s = setup(); s.ctx.pricing.discountSource = 'SHIPPER';
-  const customer = { ...structuredClone(DEFAULT_CUSTOMERS[0]), rateCardId: s.card.id, discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' } as Discount };
+  const customer = { ...structuredClone(DEFAULT_SHIPPERS[0]), rateCardId: s.card.id, discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' } as Discount };
   s.ctx.customers = [customer]; s.order.customerId = customer.id;
   Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true, discount: { type: 'PERCENT', value: 50, scope: 'TRANSPORT_ONLY' } });
   s.order.hourlyBillableMinutes = 60;

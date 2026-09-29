@@ -66,6 +66,12 @@ export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput 
   stage: 'ESTIMATE'
 });
 
+/** Blank booking shared by the dispatcher and shipper New Order forms: no shipper, vehicle (it follows the assigned driver), rate card or zone guesses. */
+export const createBookingInput = (ctx: PricingContext): PricingOrderInput => {
+  const initial = createDefaultOrderInput(ctx);
+  return { ...initial, customerId: null, vehicleId: null, rateCardOverrideId: null, stops: initial.stops.map(stop => ({ ...stop, zoneId: null })) };
+};
+
 export const priceOrder = (input: PricingOrderInput, ctx: PricingContext = loadPricingContext()): PricingSnapshot =>
   calculatePricing(input, {
     ...ctx,
@@ -102,7 +108,7 @@ export const finalizeOrderPrice = (
     if (legacyGroup && (!customer?.discount || customer.discount.type === 'INHERIT') && (!card.discount || card.discount.type === 'INHERIT')) {
       card.discount = structuredClone(legacyGroup.discount);
     }
-    if (card.scope === 'CUSTOMER_GROUP') finalInput.rateCardOverrideId = card.id;
+    if (card.scope === 'SHIPPER_GROUP') finalInput.rateCardOverrideId = card.id;
   }
   return { input: finalInput, snapshot: quoted?.context ? calculatePricing(finalInput, frozenContext) : priceOrder(finalInput, ctx) };
 };
@@ -214,8 +220,7 @@ export const pricingAttentionItems = (jobs: Job[]): NeedsAttentionItem[] =>
         statusLabel: j.pricing!.status === 'NEEDS_ATTENTION' ? 'Pricing Needs Attention' : 'Price Unavailable',
         subtitle: error?.message ?? 'The order could not be priced.',
         pickupAddress: j.pickupAddress,
-        badgeColor: 'amber',
-        bulletColor: 'orange'
+        badgeColor: 'amber'
       };
     });
 

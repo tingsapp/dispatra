@@ -1,7 +1,45 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3000 },
-    { "name": "attach", "url": "http://localhost:3000" }
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd ../api && exec .venv/bin/uvicorn app.main:app --env-file .env --host 127.0.0.1 --port 8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "attach",
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "e2e-api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd ../api && set -a && . ./.env && set +a && DATABASE_URL=\"${DATABASE_URL%/*}/dispatra_admin_e2e_test\" WEB_ORIGINS=http://127.0.0.1:3001,http://localhost:3001 COOKIE_SECURE=false ROUTING_PROVIDER=demo exec .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001"
+      ],
+      "port": 8001
+    },
+    {
+      "name": "e2e-web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "API_PROXY_TARGET=http://127.0.0.1:8001 exec npx vite --port=3001 --host=127.0.0.1"
+      ],
+      "port": 3001
+    }
   ]
 }

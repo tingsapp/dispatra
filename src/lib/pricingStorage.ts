@@ -170,7 +170,7 @@ const normaliseZoneRates = (rates: ZoneRate[]): ZoneRate[] => {
 
 /** V1 cards are flat: every card applies to every service, vehicle and customer, with no background contract terms. */
 const isSimple = (card: RateCard): boolean =>
-  card.status !== 'DRAFT' && card.scope !== 'CUSTOMER' && card.serviceId === null && card.customerId === null && card.currency === loadBillingConfig().invoicing.currency &&
+  card.status !== 'DRAFT' && card.scope !== 'SHIPPER' && card.serviceId === null && card.customerId === null && card.currency === loadBillingConfig().invoicing.currency &&
   (Object.keys(RATE_CARD_BACKGROUND_DEFAULTS) as (keyof typeof RATE_CARD_BACKGROUND_DEFAULTS)[]).every(key => JSON.stringify(card[key]) === JSON.stringify(RATE_CARD_BACKGROUND_DEFAULTS[key]));
 
 /** Retire obsolete routine time rates and background contract terms; saved quote contexts remain untouched. */

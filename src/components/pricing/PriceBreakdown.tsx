@@ -1,13 +1,11 @@
-import { loadBillingConfig } from '../../lib/billingStorage';
-import { formatWeight, formatDistance } from '../../lib/units';
-import React, { useState } from 'react';
-import { AlertTriangle, TrendingUp, ChevronDown, ChevronUp, Lock } from 'lucide-react';
+import React from 'react';
+import { AlertTriangle, TrendingUp, Lock } from 'lucide-react';
 import { PricingSnapshot } from '../../types/pricing';
 
 /**
  * Renders a PricingSnapshot exactly as the engine produced it: resolved card,
  * method, status, ChargeLines, tax, total, and the internal margin
- * (dispatcher-only). The calculation disclosure is optional for details.
+ * (dispatcher-only). Charge Lines are the full explanation; there is no separate calculation disclosure.
  */
 interface PriceBreakdownProps {
   snapshot: PricingSnapshot;
@@ -15,8 +13,10 @@ interface PriceBreakdownProps {
   variant?: 'card' | 'inline';
   /** Hide the internal cost/margin block (e.g. shipper-facing previews). */
   showMargin?: boolean;
-  /** Hide the detailed calculation disclosure while retaining the price breakdown. */
-  showCalculationSection?: boolean;
+  /** Show the card version, how it was resolved and the pricing method (dispatcher detail). Shippers see only the card name. */
+  showPricingDetail?: boolean;
+  /** Extra label/value rows under Rate Card, e.g. the company's enabled tax and fuel rates. */
+  rateRows?: { label: string; value: string }[];
   headerAction?: React.ReactNode;
   title?: string;
 }
@@ -28,12 +28,11 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
   snapshot,
   variant = 'card',
   showMargin = true,
-  showCalculationSection = true,
+  showPricingDetail = true,
+  rateRows = [],
   headerAction,
   title
 }) => {
-  const units = loadBillingConfig().general;
-  const [showCalculation, setShowCalculation] = useState(false);
   const priced = snapshot.status === 'PRICED';
   const dark = variant === 'card';
 
@@ -71,9 +70,14 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
         <div className="flex justify-between gap-2">
           <span className={dark ? 'text-slate-400' : 'text-slate-400'}>Rate Card</span>
           <span className={`font-medium text-right truncate ${dark ? 'text-white' : 'text-slate-900'}`}>
-            {snapshot.rateCard ? `${snapshot.rateCard.name} · v${snapshot.rateCard.version}` : '—'}
+            {snapshot.rateCard ? `${snapshot.rateCard.name}${showPricingDetail && snapshot.rateCard.version ? ` · v${snapshot.rateCard.version}` : ''}` : '—'}
           </span>
         </div>
+        {rateRows.map(row => <div key={row.label} className="flex justify-between gap-2">
+          <span className="text-slate-400">{row.label}</span>
+          <span className={`font-medium ${dark ? 'text-white' : 'text-slate-900'}`}>{row.value}</span>
+        </div>)}
+        {showPricingDetail && <>
         <div className="flex justify-between gap-2">
           <span className="text-slate-400">Resolved via</span>
           <span className={`font-medium ${dark ? 'text-white' : 'text-slate-900'}`}>{snapshot.rateCard ? lower(snapshot.rateCard.source) : '—'}</span>
@@ -82,9 +86,10 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
           <span className="text-slate-400">Method</span>
           <span className={`font-medium ${dark ? 'text-white' : 'text-slate-900'}`}>{snapshot.method ? lower(snapshot.method) : '—'}</span>
         </div>
+        </>}
       </div>
 
-      {snapshot.taxDecision && <p className={`mt-3 text-xs ${dark ? 'text-slate-300' : 'text-slate-600'}`}>{snapshot.taxDecision.description}</p>}
+      {showPricingDetail && snapshot.taxDecision && <p className={`mt-3 text-xs ${dark ? 'text-slate-300' : 'text-slate-600'}`}>{snapshot.taxDecision.description}</p>}
       {snapshot.errors.length > 0 && (
         <div className={`mt-3 rounded-lg px-3 py-2 text-xs space-y-1 ${dark ? 'bg-white/10' : 'bg-amber-50 border border-amber-200'}`}>
           {snapshot.errors.map((e) => (
@@ -151,53 +156,6 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
           {priced ? `$${snapshot.total.toFixed(2)}` : '—'} {snapshot.currency || 'CAD'}
         </span>
       </div>
-
-      {showCalculationSection && (
-        <button
-          type="button"
-          onClick={() => setShowCalculation((v) => !v)}
-          className="w-full flex items-center justify-between text-xs font-medium text-slate-600 hover:text-slate-900 py-1"
-        >
-          <span>View calculation</span>
-          {showCalculation ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-        </button>
-      )}
-      {showCalculationSection && showCalculation && (
-        <div className="space-y-3 text-xs">
-          <div className="p-3 rounded-lg bg-slate-50">
-            <div className="font-medium text-slate-700 mb-1.5">Rate Card resolution</div>
-            {snapshot.candidates.length === 0 ? (
-              <p className="text-slate-500">No cards considered.</p>
-            ) : (
-              <ul className="space-y-1">
-                {snapshot.candidates.map((c) => (
-                  <li key={`${c.source}_${c.id}`} className="flex items-center justify-between gap-2">
-                    <span className={c.eligible ? 'text-slate-800' : 'text-slate-400 line-through'}>
-                      {c.name} <span className="text-slate-400">· {lower(c.source)}</span>
-                    </span>
-                    <span className={`shrink-0 ${c.id === snapshot.rateCard?.id ? 'text-emerald-700 font-medium' : 'text-slate-400'}`}>
-                      {c.id === snapshot.rateCard?.id ? 'selected' : c.reason}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <p className="text-slate-500">Fuel uses eligible charge lines before contract discounts. Minimums and fixed discounts exclude tax.</p>
-          <div className="p-3 rounded-lg bg-slate-50 grid grid-cols-2 gap-x-3 gap-y-1 text-slate-600">
-            <span>Billable distance</span><span className="text-right font-mono">{formatDistance(snapshot.inputs.billableKm, units)}</span>
-            <span>Duration (cost / hourly contract)</span><span className="text-right font-mono">{snapshot.inputs.estimatedMinutes ?? '—'}</span>
-            <span>Chargeable weight</span><span className="text-right font-mono">{formatWeight(snapshot.inputs.chargeableWeightKg, units)}</span>
-            <span>Pieces / stops</span><span className="text-right font-mono">{snapshot.inputs.pieces} / {snapshot.inputs.stopCount}</span>
-            <span>{snapshot.inputs.serviceCharge == null ? 'Service multiplier' : 'Service charge'}</span><span className="text-right font-mono">{snapshot.inputs.serviceCharge == null ? `×${snapshot.inputs.serviceMultiplier.toFixed(2)}` : `$${snapshot.inputs.serviceCharge.toFixed(2)}`}</span>
-            <span>Fuel</span><span className="text-right font-mono">{snapshot.inputs.fuelPercent}% of ${snapshot.inputs.fuelBase.toFixed(2)}</span>
-            <span>Wait allowance</span><span className="text-right font-mono">{snapshot.inputs.waitFreeMinutes} free / {snapshot.inputs.waitIncrementMinutes} min blocks</span>
-            <span>Tax profile</span><span className="text-right font-mono">{snapshot.taxExempt ? 'exempt' : snapshot.taxProfile?.name ?? '—'}</span>
-            <span>Priced</span><span className="text-right font-mono">{new Date(snapshot.pricedAt).toLocaleString()}</span>
-            <span>Engine</span><span className="text-right font-mono">{snapshot.engineVersion}</span>
-          </div>
-        </div>
-      )}
 
       {showMargin && snapshot.cost?.complete === false && priced && <p className="p-3 bg-amber-50 text-amber-900 rounded-lg text-xs">Incomplete cost estimate — missing {snapshot.cost.missingInputs?.join(', ')}. Profit and margin are unavailable.</p>}
       {showMargin && snapshot.cost && snapshot.cost.complete !== false && priced && (

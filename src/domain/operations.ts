@@ -11,6 +11,7 @@ export interface DriverOperations extends AuditFields {
   employmentType?: 'EMPLOYEE' | 'CONTRACTOR' | 'TEMPORARY'; homeDepotId?: string; serviceAreaIds?: string[]; skills?: string[];
   /** Contact address; optional in older saved driver records, required when saving the form. */
   address?: string;
+  addressCoordinates?: import('../components/ui/AddressAutocomplete').SelectedAddress;
   /** Owner-operator payout terms: share of the order's freight/service price and of its fuel surcharge (0–100). Internal only; never affects shipper price. */
   revenueSharePercent?: number; fuelSurchargeSharePercent?: number;
   vehicleTypeQualifications?: string[]; currentVehicleId?: string | null; shiftEnd?: string; maximumWorkMinutes?: number;
@@ -60,7 +61,7 @@ export interface OrderOperations extends AuditFields {
   notificationPreferences?: Communications; version?: number; cancellationReason?: string; cancelledAt?: string; invoicedAt?: string; metadata?: Record<string, unknown>;
 }
 export interface StopOperations {
-  countryCode?: string; provinceCode?: string; postalCode?: string;
+  countryCode?: string; city?: string; provinceCode?: string; postalCode?: string;
   contactName?: string; contactPhone?: string; contactEmail?: string; normalizedAddress?: string; latitude?: number | null; longitude?: number | null;
   windowStart?: string; windowEnd?: string; instructions?: string; accessRequirements?: string; referenceNumber?: string;
   podRequirement?: 'NONE' | 'PHOTO' | 'SIGNATURE' | 'PHOTO_AND_SIGNATURE'; stopStatus?: 'PENDING' | 'ARRIVED' | 'COMPLETED' | 'FAILED';

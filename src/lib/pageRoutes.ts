@@ -40,3 +40,5 @@ export function pathForPage(page: string, pathname: string): string | undefined 
   const prefix = slug ? `/${slug}` : pathname === '/prototype' || pathname.startsWith('/prototype/') ? '/prototype' : undefined;
   return prefix ? path === '/' && !slug ? prefix : `${prefix}${path}` : undefined;
 }
+
+export const companySlugForCurrentPath = () => companySlugForPath(typeof location === 'undefined' ? '' : location.pathname);

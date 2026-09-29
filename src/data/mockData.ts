@@ -256,8 +256,7 @@ export const INITIAL_NEEDS_ATTENTION: NeedsAttentionItem[] = [
     statusLabel: 'At Risk',
     subtitle: 'ETA: 22 min late',
     pickupAddress: '2105 W 4th Ave, Kitsilano, Vancouver, BC',
-    badgeColor: 'red',
-    bulletColor: 'green'
+    badgeColor: 'red'
   },
   {
     id: 'att-2',
@@ -266,8 +265,7 @@ export const INITIAL_NEEDS_ATTENTION: NeedsAttentionItem[] = [
     statusLabel: 'Late Start',
     subtitle: 'Start 15 min late',
     pickupAddress: '285 E 1st Ave, Mount Pleasant, Vancouver, BC',
-    badgeColor: 'red',
-    bulletColor: 'red'
+    badgeColor: 'red'
   },
   {
     id: 'att-3',
@@ -276,8 +274,7 @@ export const INITIAL_NEEDS_ATTENTION: NeedsAttentionItem[] = [
     statusLabel: 'No Driver',
     subtitle: 'Unassigned load',
     pickupAddress: '1055 W Georgia St, Vancouver, BC',
-    badgeColor: 'amber',
-    bulletColor: 'orange'
+    badgeColor: 'amber'
   }
 ];
 

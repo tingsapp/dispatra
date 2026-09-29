@@ -1,6 +1,10 @@
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { confirmDialog } from '../ui/ConfirmDialog';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { companySlugForCurrentPath } from '../../lib/pageRoutes';
+import { allOperations, operations } from '../../operations/api';
+import { catalogFromUi, catalogueFromApi } from '../../operations/pricingAdapters';
 import { loadBillingConfig, saveBillingConfig } from '../../lib/billingStorage';
 import { loadSimplePricingConfig, saveSimplePricingConfig } from '../../lib/simplePricingStorage';
 import { toDisplayDistanceRate, formatWeight } from '../../lib/units';
@@ -19,7 +23,11 @@ const descriptions = {
 const button = 'inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shrink-0';
 
 export function CatalogueSection({ section, onNotification, onChanged }: { section: Section; onNotification?: (message: string) => void; onChanged?: () => void }) {
-  const [config, setConfig] = useState(loadSimplePricingConfig);
+  const slug = companySlugForCurrentPath();
+  const queryClient = useQueryClient();
+  const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
+  const [config, setConfig] = useState(() => slug ? { services: [], vehicles: [], accessorials: [] } as SimplePricingConfig : loadSimplePricingConfig());
+  useEffect(() => { if (slug && catalogQuery.data) { const all = catalogueFromApi(catalogQuery.data); setConfig({ ...all, services: all.services.filter(row => row.active), accessorials: all.accessorials.filter(row => row.active) }); } }, [slug, catalogQuery.data]);
   const [editing, setEditing] = useState<Item | null | undefined>(undefined);
   const [search, setSearch] = useState('');
   const [billing, setBilling] = useState(loadBillingConfig);
@@ -36,11 +44,21 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
   const items = config[section].filter(item => `${item.name} ${item.description}`.toLowerCase().includes(search.toLowerCase()));
   const commit = (records: Item[]) => {
     const next = { ...loadSimplePricingConfig(), [section]: records } as SimplePricingConfig;
-    saveSimplePricingConfig(next);
+    if (!slug) saveSimplePricingConfig(next);
     setConfig(next);
     onChanged?.();
   };
-  const save = (item: Item) => {
+  const save = async (item: Item) => {
+    if (slug && section !== 'vehicles') {
+      const previous = catalogQuery.data?.find(row => row.id === item.id);
+      try {
+        if (previous) await operations.updateCatalog(slug, previous, catalogFromUi(item as DeliveryService | AccessorialItem, previous));
+        else await operations.createCatalog(slug, section === 'services' ? 'SERVICE' : 'ACCESSORIAL', (item as DeliveryService | AccessorialItem).code, catalogFromUi(item as DeliveryService | AccessorialItem));
+        await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'catalog'] });
+        onChanged?.(); onNotification?.(`${singular} saved.`);
+      } catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not save ${singular.toLowerCase()}.`); }
+      return;
+    }
     const records: Item[] = loadSimplePricingConfig()[section];
     commit(records.some(record => record.id === item.id) ? records.map(record => record.id === item.id ? item : record) : [...records, item]);
     onNotification?.(`${singular} saved.`);
@@ -56,12 +74,20 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       confirmLabel: `Delete ${singular.toLowerCase()}`,
       tone: 'danger'
     }))) return;
+    if (slug) {
+      const record = catalogQuery.data?.find(row => row.id === item.id); if (!record) return;
+      try { await operations.deleteCatalog(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'catalog'] }); onChanged?.(); onNotification?.(`${item.name} deleted.`); }
+      catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not delete ${item.name}.`); }
+      return;
+    }
     const records = loadSimplePricingConfig()[section];
     if (!records.some(record => record.id === item.id)) return;
     commit(records.filter(record => record.id !== item.id));
     onNotification?.(`${item.name} deleted.`);
   };
   return <section aria-label={title} className="space-y-4">
+    {slug && catalogQuery.isPending && <p role="status" className="text-sm text-slate-500">Loading {title.toLowerCase()}…</p>}
+    {slug && catalogQuery.error && <p role="alert" className="text-sm text-rose-700">{catalogQuery.error.message}</p>}
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="app-section-title text-slate-900">{title}</h2><p className="text-xs text-slate-500 mt-1">{description}</p></div><button type="button" onClick={() => setEditing(null)} className={button}><Plus className="w-3.5 h-3.5" />Add {singular}</button></div>
     {section === 'accessorials' && <input aria-label="Search Accessorials" placeholder="Search Accessorials" value={search} onChange={event => setSearch(event.target.value)} className="app-input w-full sm:max-w-xs" />}
     <div className="app-table-shell overflow-x-auto rounded-xl border border-slate-200 bg-white"><table className={`app-table w-full min-w-[620px] text-left text-xs ${section === 'services' ? 'app-services-table' : ''}`}><thead className="bg-slate-50 text-slate-500"><tr>

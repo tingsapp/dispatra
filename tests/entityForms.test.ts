@@ -5,7 +5,10 @@ import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true });
 for (const name of ['window','document','navigator','HTMLElement','HTMLInputElement','Element','Node','Event','CustomEvent','MutationObserver','getComputedStyle','localStorage']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
 HTMLElement.prototype.scrollIntoView=()=>{};
-const {render,screen,cleanup,within}=await import('@testing-library/react');
+const {render: rawRender,screen,cleanup,within,waitFor}=await import('@testing-library/react');
+
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+const render = (ui: React.ReactElement) => rawRender(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { gcTime: 0 }, mutations: { gcTime: 0 } } }) }, ui));
 const {default:userEvent}=await import('@testing-library/user-event');
 const {DriverEditor}=await import('../src/components/entities/DriverEditor');
 const {VehicleEditor}=await import('../src/components/entities/VehicleEditor');
@@ -14,6 +17,7 @@ const {CustomersPage}=await import('../src/pages/CustomersPage');
 const {OrderPricingForm}=await import('../src/components/pricing/OrderPricingForm');
 const {INITIAL_DRIVERS}=await import('../src/data/mockData');
 const {normalizeDriver}=await import('../src/lib/driverStorage');
+const {driverToUi}=await import('../src/operations/adapters');
 const {validateDriver,validateVehicle}=await import('../src/domain/validation');
 const {loadSimplePricingConfig}=await import('../src/lib/simplePricingStorage');
 const {loadVehicles}=await import('../src/lib/vehicleStorage');
@@ -109,7 +113,7 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
   await user.type(address,'100 Main St, Vancouver, BC V6A 2S5');
   await user.type(screen.getByRole('textbox',{name:/^Email /}),'warehouse@example.ca');
   await user.click(screen.getByRole('button',{name:'Create Shipper'}));
-  const shipper=loadCustomers().find(customer=>customer.name==='Warehouse Shipper')!;
+  const shipper=await waitFor(() => { const saved=loadCustomers().find(customer=>customer.name==='Warehouse Shipper'); assert.ok(saved); return saved; });
   assert.equal(shipper.address,'100 Main St, Vancouver, BC V6A 2S5');
   assert.equal(shipper.legalName,'Warehouse Logistics Ltd');
   assert.equal(shipper.contactName,'Warehouse Shipper');
@@ -355,8 +359,8 @@ test('vehicle lists, package details and calculation totals display company unit
   assert.match(screen.getByText(/lb each/).textContent!, /10 lb each · 1 in × 1 in × 1 in/); details.unmount();
   const snapshot = priceOrder(input, ctx); const before = structuredClone(snapshot);
   render(React.createElement(PriceBreakdown, { snapshot }));
-  const user = userEvent.setup({ document }); await user.click(screen.getByRole('button', { name: 'View calculation' }));
-  assert.equal(screen.getByText('Chargeable weight').nextElementSibling!.textContent, '10 lb');
+  assert.equal(screen.queryByRole('button', { name: 'View calculation' }), null);
+  assert.ok(screen.getByText('Charge Lines'));
   assert.deepEqual(snapshot, before);
 });
 test('driver details show all-time completed activity and saved owner-operator estimates', async()=>{
@@ -393,7 +397,39 @@ test('Monitor driver details shows Activity & Earnings immediately', async()=>{
   assert.match(activity.textContent!,/Estimated earnings\$90\.00/);
   assert.equal(within(activity).queryByRole('region',{name:'Completed driver orders'}),null);
   assert.equal(screen.queryByText('#991'),null);
-  const status=screen.getByRole('region',{name:'Current driver status'});
-  assert.ok(status.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const profile=screen.getByRole('region',{name:'Driver profile'});
+  assert.ok(profile.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.equal(within(profile).getByText('Employment').nextElementSibling?.textContent,'Owner-operator');
+  assert.equal(within(profile).getByText('Driver share of order price').nextElementSibling?.textContent,'65%');
+  for (const mock of ['HOS Remaining','Rating & Score','Speed & Heading','License Class']) assert.equal(screen.queryByText(mock),null);
   for (const [label,value] of [['App connectivity','Unknown'],['App last seen','Not set'],['GPS captured','Not set'],['Location permission','UNKNOWN'],['Current route','Not set']]) assert.equal(within(activity).getByText(label).nextElementSibling?.textContent,value);
+});
+
+
+test('live Driver edit reloads duty from the saved API status',()=>{
+  const row = { id: 'driver-id', number: 'D01', name: 'Dana Driver', email: 'dana@example.ca', phone: '6045550102', active: true,
+    on_duty: true, vehicle_id: null, address: { text: '123 Main, Vancouver, BC V5Y 1V4', city: 'Vancouver', province: 'BC', postal_code: 'V5Y 1V4', country: 'CA' },
+    data: { employment: 'EMPLOYEE' }, location_permission: 'UNKNOWN', last_seen_at: null, created_at: new Date().toISOString() } as unknown as Parameters<typeof driverToUi>[0];
+  assert.equal(driverToUi(row).dutyStatus, 'ON_DUTY');
+  assert.equal(driverToUi(row).status, 'available');
+  assert.equal(driverToUi({ ...row, on_duty: false }).dutyStatus, 'OFF_DUTY');
+  assert.equal(driverToUi({ ...row, on_duty: false }).status, 'offline');
+});
+
+test('Monitor assignment shows off-duty movers with a reason and only assigns an available selection', async()=>{
+  const { JobDetailPopover } = await import('../src/components/JobDetailPopover');
+  const { INITIAL_JOBS } = await import('../src/data/mockData');
+  const off = normalizeDriver({ ...INITIAL_DRIVERS[0], id: 'off', driverNumber: 'DDD-1001', name: 'Off Duty Mover', dutyStatus: 'OFF_DUTY', status: 'offline', accountStatus: 'ACTIVE', currentVehicleId: 'vehicle-one' });
+  const available = normalizeDriver({ ...INITIAL_DRIVERS[1], id: 'ready', driverNumber: 'DDD-1002', name: 'Available Mover', dutyStatus: 'ON_DUTY', status: 'available', accountStatus: 'ACTIVE', currentVehicleId: 'vehicle-two' });
+  let assigned = '';
+  render(React.createElement(JobDetailPopover, { job: { ...INITIAL_JOBS[0], lifecycleStatus: 'NEW' }, live: true, drivers: [off, available], showAssignDriver: true, showAiRecommendation: false, setShowAssignDriver: ()=>{}, setShowAiRecommendation: ()=>{}, onClose: ()=>{}, onApproveRecommendation: ()=>{}, onKeepCurrent: ()=>{}, onActionNotification: ()=>{}, onAssignDriver: id=>{assigned=id;} }));
+  const user = userEvent.setup({ document });
+  assert.equal((screen.getByRole('button', { name: /DDD-1001/ }) as HTMLButtonElement).disabled, true);
+  assert.match(screen.getByRole('button', { name: /DDD-1001/ }).textContent!, /Off duty/);
+  const assign = screen.getByRole('button', { name: 'Assign selected driver' }) as HTMLButtonElement;
+  assert.equal(assign.disabled, true);
+  await user.click(screen.getByRole('button', { name: /DDD-1002/ }));
+  assert.equal(assign.disabled, false);
+  await user.click(assign);
+  assert.equal(assigned, 'ready');
 });

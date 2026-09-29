@@ -15,7 +15,9 @@ export function companySettingsBilling(data: CompanySettings, base: BillingConfi
     company: { name: data.company_name, address: companyAddress(data), email: data.email, phone: data.phone, logoDataUrl: data.logo_url },
     companyTax: { enabled: data.gst_enabled, ratePercent: Number(data.gst_percent), provincialEnabled: data.provincial_enabled, provincialRatePercent: Number(data.provincial_percent) },
     general: { ...base.general, timeZone: data.time_zone, distanceUnit: data.distance_unit, weightUnit: data.weight_unit, dimensionUnit: data.dimension_unit },
-    invoicing: { ...base.invoicing, currency: data.currency, taxRegistrationNumber: data.tax_registration_number },
+    invoicing: { ...base.invoicing, currency: data.currency, taxRegistrationNumber: data.tax_registration_number, quoteValidityDays: data.quote_validity_days },
+    fuelSurcharge: { ...base.fuelSurcharge, enabled: data.fuel_enabled, percent: Number(data.fuel_percent) },
+    dispatch: { ...base.dispatch, maxActiveOrdersPerDriver: data.maximum_active_orders },
   };
 }
 export function withServerCompanySettings(base: BillingConfig): BillingConfig {
