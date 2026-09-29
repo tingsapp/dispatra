@@ -68,6 +68,7 @@ export const operations = {
   createQuote: async (slug: string, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/quotes', { body: booking, params: { path: company(slug), header: mutation() } })),
   sendQuote: async (slug: string, quote: Quote, recipient: string) => unwrap(await client.POST('/api/v1/companies/{slug}/quotes/{identity}/send', { body: { version: quote.version, recipient }, params: { path: entity(slug, quote.id), header: mutation() } })),
   deliveryProof: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}/delivery-proof', { params: { path: entity(slug, identity) } })),
+  orderRoadPath: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}/road-path', { params: { path: entity(slug, identity) } })),
   getOrder: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}', { params: { path: entity(slug, identity) } })),
   createOrder: async (slug: string, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/orders', { body: booking, params: { path: company(slug), header: mutation() } })),
   updateOrder: async (slug: string, order: Order, booking: Booking) => unwrap(await client.PUT('/api/v1/companies/{slug}/orders/{identity}', { body: { version: order.version, booking }, params: { path: entity(slug, order.id), header: mutation() } })),

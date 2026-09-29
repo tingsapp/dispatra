@@ -1,6 +1,9 @@
 import { APIProvider, Map, Marker, Polyline, useMap } from '@vis.gl/react-google-maps';
 import { Clock3, Package, Plane, Truck, UserX } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
+import { operations } from '../operations/api';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { BLUE_ROUTE_WAYPOINTS, GREEN_ROUTE_WAYPOINTS, ORANGE_ROUTE_WAYPOINTS, INITIAL_DRIVERS, INITIAL_JOBS } from '../data/mockData';
 import type { Driver, Job, MapLayerConfig } from '../types';
 import { GoogleOverlayMarker } from './monitor/GoogleOverlayMarker';
@@ -20,14 +23,21 @@ export interface MapController {
   zoomOut: (options?: { duration?: number }) => void;
   resize: () => void;
   project: (coords: [number, number]) => { x: number; y: number };
+  /** Fit the view to [lng, lat] points (e.g. one order's stops); a single point is centred at street zoom. */
+  fitPoints: (points: [number, number][]) => void;
+  /** Fit the view to every open order's stops and every located driver. */
+  fitAll: () => void;
 }
+
+/** Keep the view clear of the top toolbar and the bottom-right controls. */
+const FIT_PADDING = { top: 120, right: 80, bottom: 90, left: 40 };
+const FIT_MAX_ZOOM = 15;
 
 interface GoogleMonitorMapProps {
   active?: boolean;
   demo?: boolean;
   drivers?: Driver[];
   jobs?: Job[];
-  routes?: { id: string; stops: { position: number; stop: { address: { latitude?: number | null; longitude?: number | null } } }[] }[];
   selectedDriverId?: string | null;
   selectedJobId?: string | null;
   onSelectDriver: (id: string, markerPosition?: [number, number]) => void;
@@ -48,7 +58,7 @@ const BLUE_PATH = path(BLUE_ROUTE_WAYPOINTS);
 const GREEN_PATH = path(GREEN_ROUTE_WAYPOINTS);
 const ORANGE_PATH = path(ORANGE_ROUTE_WAYPOINTS);
 
-/** Order and driver route lines on the live map. */
+/** Order road paths on the live map. */
 const ROUTE_COLOR = '#000000';
 
 function routePosition(progress: number) {
@@ -83,6 +93,17 @@ function GoogleTraffic({ enabled }: { enabled: boolean }) {
   return null;
 }
 
+function fitPoints(map: google.maps.Map, points: [number, number][]) {
+  const valid = points.filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
+  if (!valid.length) { map.panTo(MONITOR_CAMERA.center); map.setZoom(MONITOR_CAMERA.zoom); return; }
+  const bounds = new google.maps.LatLngBounds();
+  valid.forEach(([lng, lat]) => bounds.extend({ lat, lng }));
+  if (valid.every(([lng, lat]) => lng === valid[0][0] && lat === valid[0][1])) { map.panTo(bounds.getCenter()); map.setZoom(FIT_MAX_ZOOM); return; }
+  map.fitBounds(bounds, FIT_PADDING);
+  // Nearby stops would otherwise zoom in to building level.
+  google.maps.event.addListenerOnce(map, 'idle', () => { if ((map.getZoom() ?? 0) > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM); });
+}
+
 function MonitorMapContent(props: GoogleMonitorMapProps) {
   const map = useMap();
   const projection = useRef<google.maps.MapCanvasProjection | null>(null);
@@ -93,6 +114,7 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
   const movingDriverRef = useRef(initialPosition.current);
   const propsRef = useRef(props);
   propsRef.current = props;
+  const allPointsRef = useRef<[number, number][]>([]);
 
   const project = useCallback((coords: [number, number]) => {
     const pixel = projection.current?.fromLatLngToContainerPixel(new google.maps.LatLng(coords[1], coords[0]));
@@ -142,7 +164,9 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
       zoomIn: () => map.setZoom((map.getZoom() ?? MONITOR_CAMERA.zoom) + 1),
       zoomOut: () => map.setZoom((map.getZoom() ?? MONITOR_CAMERA.zoom) - 1),
       resize: () => google.maps.event.trigger(map, 'resize'),
-      project
+      project,
+      fitPoints: points => fitPoints(map, points),
+      fitAll: () => fitPoints(map, allPointsRef.current)
     };
     if (props.mapRef) props.mapRef.current = controller;
     if (props.mapInstanceRef) props.mapInstanceRef.current = controller;
@@ -192,7 +216,7 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
     return () => cancelAnimationFrame(animationFrame);
   }, [updatePositions, props.active, props.demo]);
 
-  // Each open order keeps its status marker; its located pickups and drop-offs get default map pins joined by a black line.
+  // Each open order keeps its status marker; its located pickups and drop-offs get default map pins joined by the black road path.
   const located = (lat?: number | null, lng?: number | null): lat is number => lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng);
   const orderStops = (job: Job) => {
     const stops = (job.pricingInput?.stops ?? []).filter(stop => located(stop.latitude, stop.longitude))
@@ -206,6 +230,29 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
     const destination = drops[drops.length - 1];
     return destination?.latitude != null && destination.longitude != null;
   }).map(job => ({ job, stops: orderStops(job) }));
+  // Road geometry from the API (one Google Routes call per order version, cached); no line is drawn until it arrives.
+  const slug = props.demo === false ? companySlugForCurrentPath() : null;
+  const pathQueries = useQueries({ queries: visibleJobs.map(({ job, stops }) => ({
+    queryKey: ['operations', slug, 'road-path', job.id, job.version, stops.map(stop => `${stop.lat},${stop.lng}`).join('|')],
+    queryFn: () => operations.orderRoadPath(slug!, job.id),
+    enabled: !!slug && stops.length > 1, staleTime: Infinity, gcTime: 30 * 60_000, retry: false,
+  })) });
+  const allPoints: [number, number][] = [
+    ...visibleJobs.flatMap(({ job, stops }) => stops.length ? stops.map(stop => [stop.lng, stop.lat] as [number, number]) : [[job.lng, job.lat] as [number, number]]),
+    ...(props.demo === false ? props.drivers ?? [] : []).filter(driver => Number.isFinite(driver.lat) && Number.isFinite(driver.lng)).map(driver => [driver.lng, driver.lat] as [number, number]),
+  ];
+  allPointsRef.current = allPoints;
+  // Open on the company's actual work once live data arrives; later refreshes never move the camera.
+  const fitted = useRef(false);
+  useEffect(() => {
+    if (!map || fitted.current || props.demo !== false || !allPoints.length) return;
+    fitted.current = true;
+    fitPoints(map, allPoints);
+  }, [map, props.demo, allPoints.length]);
+  const roadPaths: Record<string, google.maps.LatLngLiteral[]> = Object.fromEntries(visibleJobs.flatMap(({ job }, index) => {
+    const points = pathQueries[index]?.data?.points;
+    return points ? [[job.id, points.map(([lat, lng]) => ({ lat, lng }))]] : [];
+  }));
 
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />
@@ -222,12 +269,6 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
       </div>
     </GoogleOverlayMarker>
     </>}
-    {props.demo === false && props.routes?.map(route => {
-      const points = [...route.stops].sort((a, b) => a.position - b.position)
-        .map(visit => ({ lat: visit.stop.address.latitude, lng: visit.stop.address.longitude }))
-        .filter((point): point is { lat: number; lng: number } => point.lat != null && point.lng != null && Number.isFinite(point.lat) && Number.isFinite(point.lng));
-      return points.length > 1 ? <Polyline key={route.id} path={points} strokeColor={ROUTE_COLOR} strokeOpacity={0.85} strokeWeight={4} clickable={false} /> : null;
-    })}
     {visibleJobs.map(({ job, stops }) => {
       const risk = job.status === 'at_risk';
       const late = job.status === 'late_start';
@@ -235,10 +276,9 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
       const color = risk ? 'bg-rose-600' : late ? 'bg-amber-500' : unassigned ? 'bg-slate-700' : 'bg-blue-600';
       const label = risk ? 'At Risk' : late ? 'Late Start' : unassigned ? 'No Driver' : job.statusLabel;
       const Icon = risk ? Package : late ? Clock3 : unassigned ? UserX : Package;
-      // Orders on a planned route are already joined by the route line.
-      const onRoute = props.demo === false && !!job.routeId && props.routes?.some(route => route.id === job.routeId);
+      const path = roadPaths[job.id];
       return <Fragment key={job.id}>
-        {!onRoute && stops.length > 1 && <Polyline path={stops.map(stop => ({ lat: stop.lat, lng: stop.lng }))} strokeColor={ROUTE_COLOR} strokeOpacity={0.85} strokeWeight={3} clickable={false} />}
+        {path && path.length > 1 && <Polyline path={path} strokeColor={ROUTE_COLOR} strokeOpacity={0.85} strokeWeight={4} clickable={false} />}
         {stops.map(stop => {
           const pickup = stop.type === 'PICKUP';
           return <Marker key={stop.id} position={{ lat: stop.lat, lng: stop.lng }} label={pickup ? 'P' : 'D'}
@@ -288,7 +328,7 @@ export function GoogleMonitorMap(props: GoogleMonitorMapProps) {
   const { mode, labels } = props.layerConfig;
   return <div className="absolute inset-0 bg-slate-100" data-map-provider="google">
     <APIProvider apiKey={apiKey} language="en" region="CA" onError={() => setError(true)}>
-      <Map defaultCenter={MONITOR_CAMERA.center} defaultZoom={MONITOR_CAMERA.zoom}
+      <Map defaultCenter={MONITOR_CAMERA.center} defaultZoom={MONITOR_CAMERA.zoom} minZoom={4} maxZoom={19}
         mapTypeId={mode === 'map' ? 'roadmap' : labels ? 'hybrid' : 'satellite'}
         styles={mode === 'map' && !labels ? NO_LABELS : undefined}
         disableDefaultUI clickableIcons={false} gestureHandling="greedy"

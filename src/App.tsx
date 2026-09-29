@@ -209,7 +209,11 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
     const found = jobs.find((j) => j.jobNumber === jobNumber);
     if (found && mapRef.current && Number.isFinite(found.lng) && Number.isFinite(found.lat)) {
       const [lng, lat] = markerPosition ?? [found.lng, found.lat];
-      if (!markerPosition) mapRef.current.flyTo({ center: [lng, lat], zoom: 13.5, duration: 800, essential: true });
+      // From a list or search, show the whole trip: every located pickup and drop-off.
+      if (!markerPosition) {
+        const stops = (found.pricingInput?.stops ?? []).filter(stop => stop.latitude != null && stop.longitude != null).map(stop => [stop.longitude!, stop.latitude!] as [number, number]);
+        mapRef.current.fitPoints(stops.length ? stops : [[lng, lat]]);
+      }
       const pt = mapRef.current.project([lng, lat]);
       if (pt && (pt.x !== 0 || pt.y !== 0)) setMarkerPositions((curr) => ({ ...curr, job: pt, job461: jobNumber === '#461' ? pt : curr.job461 }));
     }
@@ -449,16 +453,10 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
 
   const handleResetSpecView = () => {
     if (mapRef.current) {
-      mapRef.current.flyTo({
-        center: VANCOUVER_CENTER_LNG_LAT,
-        zoom: 12,
-        pitch: 0,
-        bearing: 0,
-        duration: 1200,
-        essential: true
-      });
+      if (slug) mapRef.current.fitAll();
+      else mapRef.current.flyTo({ center: VANCOUVER_CENTER_LNG_LAT, zoom: 12, pitch: 0, bearing: 0, duration: 1200, essential: true });
     }
-    showToast('Map centered to Vancouver');
+    showToast(slug ? 'Showing all orders and drivers' : 'Map centered to Vancouver');
   };
 
   const handleZoomIn = () => {
@@ -580,7 +578,6 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
               mapInstanceRef={mapRef}
               drivers={drivers}
               jobs={jobs}
-              routes={slug ? routeQuery.data ?? [] : undefined}
               selectedDriverId={selectedDriverId}
               selectedJobId={selectedJobId}
               layerConfig={layerConfig}
