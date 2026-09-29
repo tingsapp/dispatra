@@ -120,6 +120,102 @@ test('selected Google components become the structured API address', async () =>
   const { canadianAddress } = await import('../src/operations/adapters');
   const result = canadianAddress('1420 Derwent Way, Delta, British Columbia, Canada', undefined, { city: 'Delta', province: 'BC', postalCode: 'V3M 6M7', country: 'CA', latitude: 49.1901, longitude: -122.9412 });
   assert.equal(result.city, 'Delta'); assert.equal(result.province, 'BC'); assert.equal(result.postal_code, 'V3M 6M7'); assert.equal(result.country, 'CA');
+  assert.equal(result.text, '1420 Derwent Way, Delta, British Columbia V3M 6M7, Canada');
   assert.equal(result.latitude, 49.1901);
+  assert.equal(canadianAddress('1420 Derwent Way, Delta, BC, V3M 6M7').postal_code, 'V3M 6M7');
   assert.throws(() => canadianAddress('Seattle', undefined, { city: 'Seattle', province: 'WA', postalCode: '98101', country: 'US', latitude: 1, longitude: 1 }), /Canada/);
+});
+
+test('driver cannot save before selected Google address details arrive', async () => {
+  const { DriversPage } = await import('../src/pages/DriversPage');
+  const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+  const { driverFromUi } = await import('../src/operations/adapters');
+  const address = '600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada';
+  let resolveDetails!: () => void;
+  const place = { formattedAddress: address, addressComponents: [
+    { types: ['locality'], longText: 'Vancouver', shortText: 'Vancouver' },
+    { types: ['administrative_area_level_1'], longText: 'British Columbia', shortText: 'BC' },
+    { types: ['postal_code'], longText: 'V5Z 1M9', shortText: 'V5Z 1M9' },
+    { types: ['country'], longText: 'Canada', shortText: 'CA' },
+  ], location: { lat: () => 49.26, lng: () => -123.12 }, fetchFields: () => new Promise<void>(resolve => { resolveDetails = resolve; }) };
+  (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async () => ({
+    AutocompleteSessionToken: class {},
+    AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: [{ placePrediction: { placeId: 'driver-place', text: { toString: () => address }, toPlace: () => place } }] }) },
+  }) } };
+  let saved: Parameters<typeof driverFromUi>[0] | undefined;
+  render(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { gcTime: 0 }, mutations: { gcTime: 0 } } }) }, React.createElement(DriversPage, {
+    drivers: [], jobs: [], onSelectDriver: () => {}, onUpdateDriver: () => {}, onCreateDriver: driver => { saved = driver; }, onNotification: () => {},
+  })));
+  fireEvent.click(screen.getByRole('button', { name: 'Add Driver' }));
+  fireEvent.change(screen.getByLabelText('Driver name'), { target: { value: 'New Driver' } });
+  fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '6045550199' } });
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'driver@example.ca' } });
+  fireEvent.change(screen.getByLabelText('Address'), { target: { value: '600 W 12th Ave, Vancouver, BC' } });
+  await waitFor(() => assert.ok(screen.getByRole('button', { name: address })));
+  fireEvent.click(screen.getByRole('button', { name: address }));
+  assert.equal((screen.getByRole('button', { name: 'Save driver' }) as HTMLButtonElement).disabled, true);
+  assert.equal(saved, undefined);
+  resolveDetails();
+  await waitFor(() => assert.equal((screen.getByRole('button', { name: 'Save driver' }) as HTMLButtonElement).disabled, false));
+  fireEvent.click(screen.getByRole('button', { name: 'Save driver' }));
+  assert.ok(saved);
+  const api = driverFromUi(saved, undefined, saved.addressCoordinates);
+  assert.equal(api.address.postal_code, 'V5Z 1M9');
+  assert.equal(api.address.city, 'Vancouver');
+  assert.equal(api.address.country, 'CA');
+});
+
+test('missing Place Details postcode falls back to geocoding the selected place ID', async () => {
+  const address = '600 W 12th Ave, Vancouver, BC';
+  const place = { formattedAddress: address, addressComponents: [
+    { types: ['locality'], longText: 'Vancouver', shortText: 'Vancouver' },
+    { types: ['administrative_area_level_1'], longText: 'British Columbia', shortText: 'BC' },
+    { types: ['country'], longText: 'Canada', shortText: 'CA' },
+  ], location: { lat: () => 49.26, lng: () => -123.12 }, fetchFields: async () => {} };
+  let geocodedPlaceId = '';
+  (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async (name: string) => name === 'geocoding' ? ({ Geocoder: class {
+    geocode = async ({ placeId }: { placeId: string }) => { geocodedPlaceId = placeId; return { results: [{ formatted_address: '600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada', address_components: [
+      { types: ['postal_code'], long_name: 'V5Z 1M9', short_name: 'V5Z 1M9' },
+    ], geometry: { location: { lat: () => 49.26, lng: () => -123.12 } } }] }; };
+  } }) : ({ AutocompleteSessionToken: class {}, AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: [{ placePrediction: { placeId: 'driver-place', text: { toString: () => address }, toPlace: () => place } }] }) } }) } };
+  render(React.createElement(Field));
+  fireEvent.change(screen.getByLabelText('Stop address'), { target: { value: '600 W 12th Ave' } });
+  await waitFor(() => assert.ok(screen.getByRole('button', { name: address })));
+  fireEvent.click(screen.getByRole('button', { name: address }));
+  await waitFor(() => assert.equal(chosen?.postalCode, 'V5Z 1M9'));
+  assert.equal(geocodedPlaceId, 'driver-place');
+});
+
+test('a failed Place Details request can still resolve the selected address by place ID', async () => {
+  const address = '600 W 12th Ave, Vancouver, BC';
+  const place = { fetchFields: async () => { throw new Error('Place details unavailable'); } };
+  (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async (name: string) => name === 'geocoding' ? ({ Geocoder: class {
+    geocode = async () => ({ results: [{ formatted_address: '600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada', address_components: [
+      { types: ['locality'], long_name: 'Vancouver', short_name: 'Vancouver' },
+      { types: ['administrative_area_level_1'], long_name: 'British Columbia', short_name: 'BC' },
+      { types: ['postal_code'], long_name: 'V5Z 1M9', short_name: 'V5Z 1M9' },
+      { types: ['country'], long_name: 'Canada', short_name: 'CA' },
+    ], geometry: { location: { lat: () => 49.26, lng: () => -123.12 } } }] });
+  } }) : ({ AutocompleteSessionToken: class {}, AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: [{ placePrediction: { placeId: 'driver-place', text: { toString: () => address }, toPlace: () => place } }] }) } }) } };
+  render(React.createElement(Field));
+  fireEvent.change(screen.getByLabelText('Stop address'), { target: { value: '600 W 12th Ave' } });
+  await waitFor(() => assert.ok(screen.getByRole('button', { name: address })));
+  fireEvent.click(screen.getByRole('button', { name: address }));
+  await waitFor(() => assert.equal(chosen?.postalCode, 'V5Z 1M9'));
+  assert.equal(chosen?.country, 'CA');
+  assert.equal(chosen?.latitude, 49.26);
+});
+
+test('failed Google lookups do not silently treat a clicked suggestion as a complete address', async () => {
+  const address = '600 W 12th Ave, Vancouver, BC';
+  const place = { fetchFields: async () => { throw new Error('Place details unavailable'); } };
+  (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async (name: string) => name === 'geocoding' ? ({ Geocoder: class {
+    geocode = async () => { throw new Error('Geocoding unavailable'); };
+  } }) : ({ AutocompleteSessionToken: class {}, AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: [{ placePrediction: { placeId: 'driver-place', text: { toString: () => address }, toPlace: () => place } }] }) } }) } };
+  render(React.createElement(Field));
+  fireEvent.change(screen.getByLabelText('Stop address'), { target: { value: '600 W 12th Ave' } });
+  await waitFor(() => assert.ok(screen.getByRole('button', { name: address })));
+  fireEvent.click(screen.getByRole('button', { name: address }));
+  await waitFor(() => assert.match(screen.getByRole('alert').textContent ?? '', /could not load the selected address details/i));
+  assert.equal(chosen, null);
 });

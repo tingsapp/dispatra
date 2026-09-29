@@ -6,13 +6,17 @@ import type { Address, Shipper, ShipperInput } from './api';
 export function canadianAddress(text: string, previous?: Address, coordinates?: SelectedAddress): Address {
   const clean = text.trim();
   if (previous && previous.text === clean && !coordinates) return previous;
-  const match = clean.match(/^(.*?),\s*([^,]+),\s*([A-Za-z]{2})\s+([A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d)(?:,\s*Canada)?$/i);
+  const match = clean.match(/^(.*?),\s*([^,]+),\s*([A-Za-z]{2})[,\s]+([A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d)(?:,\s*Canada)?$/i);
+  const postalInText = clean.match(/\b([A-Za-z]\d[A-Za-z])[ -]?(\d[A-Za-z]\d)\b/i);
   const city = coordinates?.city?.trim() || match?.[2]?.trim();
   const province = coordinates?.province?.trim().toUpperCase() || match?.[3]?.toUpperCase();
-  const postal = coordinates?.postalCode?.trim() || match?.[4];
+  const postal = coordinates?.postalCode?.trim() || postalInText?.[0];
   if (coordinates?.country && coordinates.country.toUpperCase() !== 'CA') throw new Error('Choose an address in Canada.');
   if (!city || !province || !postal || !clean) throw new Error('Enter a full Canadian address: street, city, province and postal code.');
-  return { text: clean, city, province, postal_code: postal.toUpperCase().replace(/\s|-/, ' ').replace(/^(.{3})(.{3})$/, '$1 $2'), country: 'CA', latitude: coordinates?.latitude ?? null, longitude: coordinates?.longitude ?? null };
+  const postalCode = postal.toUpperCase().replace(/[\s-]/g, '').replace(/^(.{3})(.{3})$/, '$1 $2');
+  if (!/^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(postalCode)) throw new Error('Enter a valid Canadian postal code.');
+  const fullText = postalInText ? clean : clean.replace(/(,\s*Canada)?$/i, `${clean.endsWith(',') ? '' : ' '}${postalCode}$1`);
+  return { text: fullText, city, province, postal_code: postalCode, country: 'CA', latitude: coordinates?.latitude ?? null, longitude: coordinates?.longitude ?? null };
 }
 
 export function shipperToCustomer(row: Shipper): Customer {

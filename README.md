@@ -13,7 +13,7 @@ The local `demo` company has `dispatcher@example.com`, `shipper@example.com`, an
 
 ## Google map and addresses
 
-Put a browser-restricted `VITE_GOOGLE_MAPS_API_KEY` in `.env.local`; enable Maps JavaScript API and Places API (New). Never commit keys. Without a key, the Monitor shows a setup message. Address fields accept manual entry. Canadian address suggestions use a debounce, session token, and selected-place fields. Map/Places usage can incur provider charges. The previous MapLibre map is saved in [`backups/maplibre-monitor-2026-09-25`](backups/maplibre-monitor-2026-09-25/README.md).
+Put a browser-restricted `VITE_GOOGLE_MAPS_API_KEY` in `.env.local`; enable Maps JavaScript API, Places API (New), and Geocoding API. Never commit keys. Without a key, the Monitor shows a setup message. Address fields accept manual entry. Canadian address suggestions use a debounce, session token, and selected-place fields; geocoding by the selected place ID fills in missing address details when needed. Map/Places/Geocoding usage can incur provider charges. The previous MapLibre map is saved in [`backups/maplibre-monitor-2026-09-25`](backups/maplibre-monitor-2026-09-25/README.md).
 
 ## Checks
 

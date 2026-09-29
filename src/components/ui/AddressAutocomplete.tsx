@@ -15,6 +15,7 @@ type Prediction = google.maps.places.PlacePrediction;
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & {
   value: string;
   onChange: (address: string, selected?: SelectedAddress) => void;
+  onSelectionStateChange?: (state: 'idle' | 'resolving' | 'failed') => void;
   includeCoordinates?: boolean;
 };
 
@@ -22,7 +23,7 @@ const MIN_QUERY_LENGTH = 6;
 const SEARCH_DELAY_MS = 600;
 
 /** A normal text field with optional Google Places suggestions. Manual entry always remains available. */
-export function AddressAutocomplete({ value, onChange, includeCoordinates = false, className = 'app-input w-full', ...inputProps }: Props) {
+export function AddressAutocomplete({ value, onChange, onSelectionStateChange, includeCoordinates = false, className = 'app-input w-full', ...inputProps }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
@@ -32,14 +33,14 @@ export function AddressAutocomplete({ value, onChange, includeCoordinates = fals
   const [suggestions, setSuggestions] = useState<Prediction[]>([]);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'unavailable'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'resolving' | 'unavailable' | 'selection-failed'>('idle');
   const [placement, setPlacement] = useState<{ left: number; top: number; width: number } | null>(null);
   const listId = useId();
 
   useEffect(() => {
     if (!open || query.trim().length < MIN_QUERY_LENGTH) {
       setSuggestions([]);
-      setStatus('idle');
+      if (open) setStatus('idle');
       return;
     }
     const requestId = ++requestRef.current;
@@ -103,25 +104,56 @@ export function AddressAutocomplete({ value, onChange, includeCoordinates = fals
     setOpen(false);
     setQuery('');
     setSuggestions([]);
-    setStatus('idle');
+    setStatus('resolving');
+    onSelectionStateChange?.('resolving');
     tokenRef.current = null;
     try {
       const place = prediction.toPlace();
-      await place.fetchFields({ fields: ['formattedAddress', 'addressComponents', ...(includeCoordinates ? ['location'] : [])] });
+      try {
+        await place.fetchFields({ fields: ['formattedAddress', 'addressComponents', ...(includeCoordinates ? ['location'] : [])] });
+      } catch { /* Geocoding by place ID can still supply the address details. */ }
       if (selectionId !== selectionRef.current) return;
-      const address = place.formattedAddress || prediction.text.toString();
+      let address = place.formattedAddress || prediction.text.toString();
       const component = (...types: string[]) => place.addressComponents?.find(item => types.some(type => item.types.includes(type)));
+      let city = component('locality', 'postal_town', 'sublocality', 'administrative_area_level_2')?.longText;
+      let province = component('administrative_area_level_1')?.shortText;
+      let postalCode = component('postal_code')?.longText;
+      let country = component('country')?.shortText;
+      let latitude = place.location?.lat() ?? null;
+      let longitude = place.location?.lng() ?? null;
+      if (includeCoordinates && (!city || !province || !postalCode || !country)) {
+        const { Geocoder } = await google.maps.importLibrary('geocoding');
+        const result = await new Geocoder().geocode({ placeId: prediction.placeId });
+        if (selectionId !== selectionRef.current) return;
+        const fallback = result.results.find(item => item.address_components.some(part => part.types.includes('postal_code'))) ?? result.results[0];
+        if (fallback) {
+          const part = (...types: string[]) => fallback.address_components.find(item => types.some(type => item.types.includes(type)));
+          address = fallback.formatted_address || address;
+          city = city || part('locality', 'postal_town', 'sublocality', 'administrative_area_level_2')?.long_name;
+          province = province || part('administrative_area_level_1')?.short_name;
+          postalCode = postalCode || part('postal_code')?.long_name;
+          country = country || part('country')?.short_name;
+          if (includeCoordinates) {
+            latitude = latitude ?? fallback.geometry.location.lat();
+            longitude = longitude ?? fallback.geometry.location.lng();
+          }
+        }
+      }
+      if (includeCoordinates && (!city || !province || !postalCode || country?.toUpperCase() !== 'CA')) throw new Error('Incomplete Canadian address details');
       onChange(address, {
-        latitude: place.location?.lat() ?? null,
-        longitude: place.location?.lng() ?? null,
-        city: component('locality', 'postal_town', 'sublocality', 'administrative_area_level_2')?.longText,
-        province: component('administrative_area_level_1')?.shortText,
-        postalCode: component('postal_code')?.longText,
-        country: component('country')?.shortText,
+        latitude,
+        longitude,
+        city,
+        province,
+        postalCode,
+        country,
       });
+      setStatus('idle');
+      onSelectionStateChange?.('idle');
     } catch {
       if (selectionId !== selectionRef.current) return;
-      setStatus('unavailable');
+      setStatus('selection-failed');
+      onSelectionStateChange?.('failed');
       inputRef.current?.focus();
     }
   };
@@ -131,7 +163,7 @@ export function AddressAutocomplete({ value, onChange, includeCoordinates = fals
       role="combobox" aria-autocomplete="list" aria-expanded={open && suggestions.length > 0}
       aria-controls={open && suggestions.length ? listId : undefined}
       aria-activedescendant={activeIndex >= 0 && open ? `${listId}-${activeIndex}` : undefined}
-      onChange={event => { const next = event.target.value; selectionRef.current++; onChange(next); setSuggestions([]); setActiveIndex(-1); setQuery(next); setOpen(true); }}
+      onChange={event => { const next = event.target.value; selectionRef.current++; onSelectionStateChange?.('idle'); onChange(next); setSuggestions([]); setActiveIndex(-1); setQuery(next); setOpen(true); }}
       onKeyDown={event => {
         if (event.key === 'Escape') { setOpen(false); setQuery(''); tokenRef.current = null; return; }
         if (!open || !suggestions.length) return;
@@ -140,6 +172,8 @@ export function AddressAutocomplete({ value, onChange, includeCoordinates = fals
         if (event.key === 'Enter' && activeIndex >= 0) { event.preventDefault(); void select(suggestions[activeIndex]); }
       }} />
     {status === 'unavailable' && <span role="status" className="mt-1 block text-xs text-slate-500">Address search unavailable. You can enter the address manually.</span>}
+    {status === 'selection-failed' && <span role="alert" className="mt-1 block text-xs text-rose-700">Could not load the selected address details. Select the suggestion again.</span>}
+    {status === 'resolving' && <span role="status" className="mt-1 block text-xs text-slate-500">Loading selected address details…</span>}
     {status === 'loading' && <span role="status" className="sr-only">Searching addresses…</span>}
     {open && suggestions.length > 0 && placement && createPortal(
       <div ref={listRef} id={listId} role="listbox" aria-label="Address suggestions"

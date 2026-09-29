@@ -12,9 +12,10 @@ import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 function PercentField({ label, value, onChange, hint }: { label: string; value?: number; onChange: (v: number | undefined) => void; hint: string }) {
   return <label className="block"><span className="app-label">{label}</span><div className="relative"><input className="app-input w-full pr-8" type="number" min={0} max={100} step="any" required value={value ?? ''} onChange={e => onChange(e.target.value === '' ? undefined : Number(e.target.value))} /><span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500">%</span></div><span className="mt-1 block text-xs text-slate-500">{hint}</span></label>;
 }
-export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehicle, createdVehicle, formId, hideActions = false, vehicleOptions }: { driver?: Driver; drivers: Driver[]; onSave: (d: Driver) => void; onCancel: () => void; onRegisterVehicle?: () => void; createdVehicle?: VehicleAsset | null; formId?: string; hideActions?: boolean; vehicleOptions?: VehicleAsset[] }) {
+export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehicle, createdVehicle, formId, hideActions = false, vehicleOptions, onAddressBlockedChange }: { driver?: Driver; drivers: Driver[]; onSave: (d: Driver) => void; onCancel: () => void; onRegisterVehicle?: () => void; createdVehicle?: VehicleAsset | null; formId?: string; hideActions?: boolean; vehicleOptions?: VehicleAsset[]; onAddressBlockedChange?: (blocked: boolean) => void }) {
   const isEditing = !!driver;
   const [draft, setDraft] = useState<Driver>(() => normalizeDriver(driver ?? { id: crypto.randomUUID(), name: '', avatar: '', status: 'offline', statusLabel: 'Off duty', vehicle: 'Unassigned', nextStop: '', eta: '', distance: '', lastUpdate: 'No GPS sample', lat: 49.2827, lng: -123.1207, driverNumber: '', phone: '', accountStatus: 'ACTIVE', dutyStatus: 'OFF_DUTY', createdAt: new Date().toISOString() }));
+  const [addressState, setAddressState] = useState<'idle' | 'resolving' | 'failed'>('idle');
   const [orderLimit, setOrderLimit] = useState<number | undefined>(() => driver ? driverOrderLimit(driver, loadBillingConfig().dispatch.maxActiveOrdersPerDriver) : undefined);
   const [errors, setErrors] = useState<string[]>([]);
   const [localVehicles, setVehicles] = useState(loadVehicles);
@@ -24,16 +25,17 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
     setVehicles(loadVehicles());
     setDraft(current => ({ ...current, currentVehicleId: createdVehicle.id, vehicle: `${createdVehicle.unitNumber} · ${createdVehicle.plateNumber}` }));
   }, [createdVehicle]);
+  useEffect(() => () => onAddressBlockedChange?.(false), [onAddressBlockedChange]);
   const patch = (p: Partial<Driver>) => setDraft(current => ({ ...current, ...p }));
   const selectedVehicle = vehicles.find(vehicle => vehicle.id === draft.currentVehicleId);
-  return <form id={formId} className="space-y-6" onSubmit={e => { e.preventDefault(); if (isEditing && orderLimit == null) { setErrors(['Enter the maximum active orders for this driver.']); return; } if (isEditing && (!draft.accountStatus || !draft.dutyStatus)) { setErrors(['Account and duty are required when editing a driver.']); return; } const number = isEditing ? draft.driverNumber : nextDriverNumber(drivers); const next = syncDriver({ ...draft, id: isEditing ? draft.id : number!, driverNumber: number, maxActiveOrders: isEditing ? orderLimit : undefined }); const problems = validateDriver(next, drivers); setErrors(problems); if (!problems.length) { try { onSave(next); } catch (error) { setErrors([error instanceof Error ? error.message : 'Driver could not be saved.']); } } }}>
+  return <form id={formId} className="space-y-6" onSubmit={e => { e.preventDefault(); if (addressState !== 'idle') { setErrors([addressState === 'resolving' ? 'Wait for the selected address details to load.' : 'Edit the address and select a suggestion again.']); return; } if (isEditing && orderLimit == null) { setErrors(['Enter the maximum active orders for this driver.']); return; } if (isEditing && (!draft.accountStatus || !draft.dutyStatus)) { setErrors(['Account and duty are required when editing a driver.']); return; } const number = isEditing ? draft.driverNumber : nextDriverNumber(drivers); const next = syncDriver({ ...draft, id: isEditing ? draft.id : number!, driverNumber: number, maxActiveOrders: isEditing ? orderLimit : undefined }); const problems = validateDriver(next, drivers); setErrors(problems); if (!problems.length) { try { onSave(next); } catch (error) { setErrors([error instanceof Error ? error.message : 'Driver could not be saved.']); } } }}>
     <FormSection title="Contact">
       <TextField className="sm:col-span-2" label="Driver name" value={draft.name} onChange={name => patch({ name })} required placeholder="Full name" />
       <TextField label="Phone" type="tel" value={draft.phone} onChange={phone => patch({ phone })} required placeholder="(604) 555-0100" />
       <TextField label="Email" type="email" required value={draft.email} onChange={email => patch({ email })} placeholder="driver@company.com" />
       <div className="sm:col-span-2">
         <label htmlFor="driver-address" className="app-label">Address <span aria-hidden="true">*</span></label>
-        <AddressAutocomplete id="driver-address" aria-label="Address" value={draft.address ?? ''} includeCoordinates onChange={(address, selected) => patch({ address, addressCoordinates: selected })} required placeholder="Street, city, province, postal code" className="app-input w-full" />
+        <AddressAutocomplete id="driver-address" aria-label="Address" value={draft.address ?? ''} includeCoordinates onSelectionStateChange={state => { setAddressState(state); onAddressBlockedChange?.(state !== 'idle'); }} onChange={(address, selected) => patch({ address, addressCoordinates: selected })} required placeholder="Street, city, province, postal code" className="app-input w-full" />
         <span className="mt-1 block text-xs text-slate-500">The city in this address defines the driver’s service area.</span>
       </div>
     </FormSection>
@@ -72,6 +74,6 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
       <PercentField label="Driver share of fuel surcharge" value={draft.fuelSurchargeSharePercent} onChange={fuelSurchargeSharePercent => patch({ fuelSurchargeSharePercent })} hint="Usually 100% when the driver buys the fuel." />
     </FormSection>}
     {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
-    {!hideActions && <div className="flex justify-end gap-2"><Button type="submit">Save driver</Button></div>}
+    {!hideActions && <div className="flex justify-end gap-2"><Button type="submit" disabled={addressState !== 'idle'}>Save driver</Button></div>}
   </form>;
 }
