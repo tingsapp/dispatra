@@ -2376,10 +2376,6 @@ export interface components {
         DriverActivityView: {
             /** Completed Orders */
             completed_orders: number;
-            /** Estimated Payout */
-            estimated_payout: string | null;
-            /** Payout Basis */
-            payout_basis: string;
             /** App Connectivity */
             app_connectivity: string;
             /** App Last Seen */
@@ -2410,22 +2406,6 @@ export interface components {
             address: components["schemas"]["Address"];
             /** Vehicle Id */
             vehicle_id?: string | null;
-            /**
-             * Employment
-             * @default EMPLOYEE
-             * @enum {string}
-             */
-            employment: "EMPLOYEE" | "OWNER_OPERATOR";
-            /**
-             * Revenue Share Percent
-             * @default 0
-             */
-            revenue_share_percent: number | string;
-            /**
-             * Fuel Surcharge Share Percent
-             * @default 0
-             */
-            fuel_surcharge_share_percent: number | string;
             /** Qualifications */
             qualifications?: string[];
             /**
@@ -2442,8 +2422,6 @@ export interface components {
              * @default 480
              */
             maximum_work_minutes: number;
-            /** Maximum Active Orders */
-            maximum_active_orders?: number | null;
             /**
              * Active
              * @default true
@@ -4009,8 +3987,6 @@ export interface components {
              * @default
              */
             vin: string;
-            /** Running Cost Per Km */
-            running_cost_per_km?: number | string | null;
             /**
              * Availability
              * @default AVAILABLE
@@ -4086,8 +4062,6 @@ export interface components {
              * @default
              */
             vin: string;
-            /** Running Cost Per Km */
-            running_cost_per_km?: string | null;
             /**
              * Availability
              * @default AVAILABLE

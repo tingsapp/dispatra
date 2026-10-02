@@ -58,9 +58,8 @@ export function driverToUi(row: ApiDriver, vehicle?: ApiVehicle, monitor?: { on_
     status, statusLabel: onDuty ? 'Available' : 'Off duty', vehicle: vehicle ? `${vehicle.number} · ${vehicle.plate}` : 'Unassigned',
     currentVehicleId: row.vehicle_id, nextStop: 'Not set', eta: '—', distance: '—', lastUpdate: row.last_seen_at ?? 'Not set',
     phone: row.phone, email: row.email, address: row.address.text,
-    employmentType: details.employment === 'OWNER_OPERATOR' ? 'CONTRACTOR' : 'EMPLOYEE',
     skills: details.qualifications ?? [], maximumWorkMinutes: details.maximum_work_minutes ?? 480,
-    maxActiveOrders: details.maximum_active_orders ?? undefined, accountStatus: row.active ? 'ACTIVE' : 'INACTIVE',
+    accountStatus: row.active ? 'ACTIVE' : 'INACTIVE',
     dutyStatus: onDuty ? 'ON_DUTY' : 'OFF_DUTY', locationPermissionStatus: row.location_permission as UiDriver['locationPermissionStatus'],
     appLastSeenAt: row.last_seen_at, createdAt: row.created_at,
     lat: monitor?.location?.latitude ?? NaN, lng: monitor?.location?.longitude ?? NaN,
@@ -73,12 +72,10 @@ export function driverFromUi(form: UiDriver, previous?: ApiDriver, coordinates?:
     name: form.name.trim(), avatar_url: form.avatar.startsWith('http') ? form.avatar : '', email: form.email?.trim() ?? '',
     phone: form.phone?.trim() ?? '', address: canadianAddress(form.address ?? '', previous?.address, coordinates),
     vehicle_id: form.currentVehicleId || null,
-    employment: form.employmentType === 'CONTRACTOR' ? 'OWNER_OPERATOR' : 'EMPLOYEE',
-    revenue_share_percent: old?.revenue_share_percent ?? 0, fuel_surcharge_share_percent: old?.fuel_surcharge_share_percent ?? 0,
     qualifications: form.skills ?? old?.qualifications ?? [], crew_size: old?.crew_size ?? 1,
     shift_start: form.shiftStart || null, shift_end: form.shiftEnd || null,
     maximum_work_minutes: form.maximumWorkMinutes ?? old?.maximum_work_minutes ?? 480,
-    maximum_active_orders: form.maxActiveOrders ?? null, active: form.accountStatus !== 'INACTIVE',
+    active: form.accountStatus !== 'INACTIVE',
   };
 }
 
@@ -108,7 +105,7 @@ export function vehicleFromUi(form: VehicleAsset, previous?: ApiVehicle): Vehicl
   const old = previous?.data;
   return {
     name: form.unitNumber.trim(), unit_number: form.unitNumber.trim(), make_model: form.makeModel ?? '',
-    year: form.year || null, vin: form.vin ?? '', running_cost_per_km: old?.running_cost_per_km ?? null,
+    year: form.year || null, vin: form.vin ?? '',
     availability: form.availability === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE',
     unavailable_reason: form.availability === 'UNAVAILABLE' ? form.unavailableReason ?? '' : '',
     unavailable_from: form.unavailableFrom || null, unavailable_until: form.unavailableUntil || null,
