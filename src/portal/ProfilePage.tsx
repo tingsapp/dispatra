@@ -24,7 +24,7 @@ function ProfileForm({ slug, profile }: { slug: string; profile: Shipper }) {
     <div className="grid gap-5 sm:grid-cols-2">
       <Field label="Contact name" maxLength={160} required value={form.contact_name} onChange={e => { setSaved(false); setForm(current => ({ ...current, contact_name: e.target.value })); }} />
       <Field label="Contact email" type="email" maxLength={254} readOnly value={form.email} />
-      <Field label="Phone" maxLength={50} value={form.phone} onChange={e => { setSaved(false); setForm(current => ({ ...current, phone: e.target.value })); }} />
+      <Field label="Phone" type="tel" maxLength={50} value={form.phone} onChange={e => { setSaved(false); setForm(current => ({ ...current, phone: e.target.value })); }} />
       <AddressField label="Address" maxLength={500} value={form.address} onChange={(address, selected) => { setSaved(false); setSelectedAddress(selected); setForm(current => ({ ...current, address })); }} />
     </div>
     <Notice error={mutation.error} success={saved ? 'Profile saved.' : undefined} /><div className="flex gap-3"><Button disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Save profile'}</Button>{mutation.error && <Button type="button" variant="outline" onClick={() => client.invalidateQueries({ queryKey: ['shipper-profile',slug] })}>Reload profile</Button>}</div>

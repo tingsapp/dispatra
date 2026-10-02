@@ -40,33 +40,23 @@ test('new drivers get the next background driver number; the form has no number 
   await user.click(screen.getByRole('button',{name:'Save driver'}));
   assert.ok(saved,'driver saved'); assert.equal(saved.address,'100 Main St, Vancouver, BC V6A 2S5'); assert.equal(saved.driverNumber,'D32'); assert.equal(saved.id,'D32'); assert.equal(saved.maxActiveOrders,undefined);
 });
-test('owner-operators get payout share fields; employees do not', async()=>{
+test('driver form has no employment, payout or earnings fields and keeps the saved employment', async()=>{
   const user=userEvent.setup({document}); let saved:any;
-  const driver=normalizeDriver({...INITIAL_DRIVERS[0],currentVehicleId:null,email:'driver@example.ca',address:'100 Main St, Vancouver, BC V6A 2S5'});
+  const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',currentVehicleId:null,email:'driver@example.ca',address:'100 Main St, Vancouver, BC V6A 2S5'});
   render(React.createElement(DriverEditor,{driver,drivers:[driver],onSave:d=>saved=d,onCancel:()=>{}}));
-  assert.equal(screen.queryByLabelText(/Driver share of order price/),null);
-  await user.click(screen.getByRole('combobox',{name:'Employment'})); await user.click(screen.getByRole('option',{name:/Owner-operator/}));
-  assert.ok(screen.getByRole('heading',{name:'Payout terms'}));
-  const share=screen.getByLabelText(/Driver share of order price/) as HTMLInputElement; const fuel=screen.getByLabelText(/Driver share of fuel surcharge/) as HTMLInputElement;
-  assert.equal(share.value,'70'); assert.equal(fuel.value,'100');
-  await user.clear(share); await user.type(share,'120'); await user.click(screen.getByRole('button',{name:'Save driver'}));
-  assert.equal(saved,undefined); assert.equal(share.checkValidity(),false);
-  assert.match(validateDriver({...driver,employmentType:'CONTRACTOR',revenueSharePercent:120,fuelSurchargeSharePercent:100},[]).join(' '),/between 0 and 100/);
-  await user.clear(share); await user.type(share,'65'); await user.click(screen.getByRole('button',{name:'Save driver'}));
-  assert.equal(saved.revenueSharePercent,65); assert.equal(saved.fuelSurchargeSharePercent,100); assert.equal(saved.employmentType,'CONTRACTOR');
-  await user.click(screen.getByRole('combobox',{name:'Employment'})); await user.click(screen.getByRole('option',{name:/Employee/}));
-  assert.equal(screen.queryByLabelText(/Driver share of order price/),null);
+  assert.equal(screen.queryByRole('combobox',{name:'Employment'}),null); assert.equal(screen.queryByRole('heading',{name:'Payout terms'}),null); assert.equal(screen.queryByLabelText(/Driver share/),null);
+  await user.click(screen.getByRole('button',{name:'Save driver'}));
+  assert.equal(saved.employmentType,'CONTRACTOR'); assert.equal('revenueSharePercent' in saved,false);
 });
-test('driver form: employee or owner-operator, attached vehicle, address and contact; no work/shift/qualification fields', async()=>{
+test('driver form: attached vehicle, address and contact; no work/shift/qualification fields', async()=>{
   const user=userEvent.setup({document}); let saved:any;
-  const driver=normalizeDriver({...INITIAL_DRIVERS[0],shiftStart:undefined,currentVehicleId:null,serviceAreaIds:['Vancouver','Burnaby']});
+  const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',shiftStart:undefined,currentVehicleId:null,serviceAreaIds:['Vancouver','Burnaby']});
   render(React.createElement(DriverEditor,{driver,drivers:[driver],onSave:d=>saved=d,onCancel:()=>{}}));
   await user.clear(screen.getByLabelText('Email')); await user.type(screen.getByLabelText('Email'),'driver@example.test');
   assert.equal(screen.queryByLabelText(/Service areas/),null);
   await user.type(screen.getByRole('combobox',{name:'Address'}),'200 Broadway, Vancouver, BC V5Y 1V4');
   for (const gone of ['Work','Shift starts','Shift ends','Licence class','Qualifications, availability & notes','Current vehicle','Skills (comma separated)']) assert.equal(screen.queryByText(gone),null,gone);
   assert.equal(document.querySelector('details'),null);
-  await user.click(screen.getByRole('combobox',{name:'Employment'})); await user.click(screen.getByRole('option',{name:/Owner-operator/}));
   await user.click(screen.getByRole('button',{name:'Attached vehicle'})); const options=screen.getAllByRole('menuitem'); assert.equal(options[0].textContent,'None yet'); await user.click(options[1]);
   await user.click(screen.getByRole('button',{name:'Save driver'}));
   assert.equal(saved.email,'driver@example.test'); assert.equal(saved.address,'200 Broadway, Vancouver, BC V5Y 1V4'); assert.equal(saved.employmentType,'CONTRACTOR'); assert.ok(saved.currentVehicleId); assert.deepEqual(saved.serviceAreaIds,['vancouver']); assert.equal(saved.dutyStatus,driver.dutyStatus);
@@ -86,7 +76,7 @@ test('driver vehicle menu registers and selects a vehicle without losing the new
   await user.click(menuItems[0]); assert.ok(screen.getByRole('heading',{name:'Register Vehicle'}));
   await user.type(screen.getByLabelText('Unit number'),'V99'); await user.type(screen.getByLabelText('Licence plate'),'TEST-99');
   await user.click(screen.getByRole('combobox',{name:'Vehicle type'})); await user.click(screen.getByRole('option',{name:loadSimplePricingConfig().vehicles.find(type=>type.active)!.name}));
-  for (const [label,value] of [['Cargo length (in)','100'],['Cargo width (in)','60'],['Cargo height (in)','60']]) await user.type(screen.getByLabelText(label),value);
+  for (const [label,value] of [['Box length (in)','100'],['Box width (in)','60'],['Box height (in)','60']]) await user.type(screen.getByLabelText(label),value);
   await user.click(screen.getByRole('button',{name:'Save vehicle'}));
   assert.equal(screen.queryByRole('heading',{name:'Register Vehicle'}),null);
   assert.match(screen.getByRole('button',{name:'Attached vehicle'}).textContent!,/V99.*TEST-99/);
@@ -140,31 +130,30 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
 
 test('vehicle form combines type pricing, required dimensions and equipment checkboxes', async()=>{
   const user=userEvent.setup({document}); let saved:any; let profile:any;
-  const types=loadSimplePricingConfig().vehicles.filter(type=>type.active);
+  const chosen=loadSimplePricingConfig().vehicles.find(type=>type.name==='Cube Van')!; const types=[chosen,chosen];
   render(React.createElement(VehicleEditor,{vehicles:[],onSave:(vehicle,details)=>{saved=vehicle;profile=details;},onCancel:()=>{}}));
   await user.type(screen.getByLabelText('Unit number'),'V99'); await user.type(screen.getByLabelText('Licence plate'),'TEST-99');
   assert.equal(screen.queryByRole('combobox',{name:'Record status'}),null); assert.equal(screen.queryByRole('combobox',{name:'Availability'}),null);
   await user.click(screen.getByRole('combobox',{name:'Vehicle type'})); await user.click(screen.getByRole('option',{name:types[1].name}));
   assert.equal(screen.queryByLabelText('Vehicle class name'),null);
   assert.equal(screen.queryByLabelText('Vehicle class description'),null);
-  assert.ok(screen.getByLabelText('Vehicle description'));
-  for (const label of ['Cargo length (in)','Cargo width (in)','Cargo height (in)']) assert.equal((screen.getByLabelText(label) as HTMLInputElement).value,'');
+  assert.ok(screen.getByLabelText('Description')); assert.equal(screen.queryByRole('checkbox',{name:'Refrigeration'}),null);
+  for (const [label,cm] of [['Box length (in)',types[1].cargoLengthCm],['Box width (in)',types[1].cargoWidthCm],['Box height (in)',types[1].cargoHeightCm]] as const) { const input=screen.getByLabelText(label) as HTMLInputElement; assert.equal(Number(input.value),Number((cm!/2.54).toFixed(6))); await user.clear(input); }
   const maxStops=screen.getByRole('spinbutton',{name:'Maximum stops'}) as HTMLInputElement; assert.equal(maxStops.value,''); assert.equal(maxStops.placeholder,'No limit');
   await user.click(screen.getByRole('button',{name:'Save vehicle'})); assert.equal(saved,undefined);
-  for (const [label,value] of [['Cargo length (in)','100'],['Cargo width (in)','60'],['Cargo height (in)','55']]) await user.type(screen.getByLabelText(label),value);
+  for (const [label,value] of [['Box length (in)','100'],['Box width (in)','60'],['Box height (in)','55']]) await user.type(screen.getByLabelText(label),value);
   await user.type(maxStops,'12');
   await user.click(screen.getByRole('checkbox',{name:'Liftgate'}));
-  await user.click(screen.getByRole('checkbox',{name:'Refrigeration'}));
   for (const label of ['Vehicle upgrade surcharge ($)', 'Surcharge is fuel-eligible', 'Requires commercial driver licence']) assert.equal(screen.queryByLabelText(label),null);
-  await user.clear(screen.getByLabelText('Running cost / km (internal)')); await user.type(screen.getByLabelText('Running cost / km (internal)'),'1.25');
-  await user.type(screen.getByLabelText('Vehicle description'),'Reefer unit');
+  assert.equal(screen.queryByLabelText('Running cost / km (internal)'),null);
+  await user.type(screen.getByLabelText('Description'),'Reefer unit');
   await user.click(screen.getByRole('button',{name:'Save vehicle'}));
   assert.ok(saved); assert.equal(saved.vehicleTypeId,`fleet_${saved.id}`); assert.equal(saved.payloadCapacityKg,types[1].payloadCapacityKg);
-  assert.equal(saved.palletCapacity,types[1].palletCapacity); assert.equal(saved.maxStops,12); assert.equal(saved.notes,'Reefer unit'); assert.equal(saved.hasLiftgate,true); assert.equal(saved.hasReefer,true);
+  assert.equal(saved.palletCapacity,types[1].palletCapacity); assert.equal(saved.maxStops,12); assert.equal(saved.notes,'Reefer unit'); assert.equal(saved.hasLiftgate,true); assert.equal(saved.hasReefer,false);
   assert.match(validateVehicle({...saved,maxStops:0},[]).join(' '),/Maximum stops/);
   assert.match(validateVehicle({...saved,maxStops:1.5},[]).join(' '),/Maximum stops/);
   assert.equal(profile.type.name,types[1].name); assert.equal(profile.type.description,types[1].description);
-  assert.equal(profile.type.baseSurcharge,types[1].baseSurcharge); assert.equal(profile.type.fuelEligible,types[1].fuelEligible); assert.equal(profile.type.requiresCommercialLicense,types[1].requiresCommercialLicense); assert.equal(profile.costPerKm,1.25); assert.equal(Math.round(saved.cargoLengthCm),254);
+  assert.equal(profile.type.baseSurcharge,types[1].baseSurcharge); assert.equal(profile.type.fuelEligible,types[1].fuelEligible); assert.equal(profile.type.requiresCommercialLicense,types[1].requiresCommercialLicense); assert.equal(profile.costPerKm,(await import('../src/lib/billingStorage')).loadBillingConfig().operatingCost.costPerKmByVehicleId[types[1].id]??null); assert.equal(Math.round(saved.cargoLengthCm),254);
   const {saveVehicleProfile}=await import('../src/lib/vehicleStorage'); saveVehicleProfile(saved,profile,[]); assert.equal(loadVehicles()[0].maxStops,12);
 });
 test('multi-stop editor: inline contact and phone per stop, ready-at sets the schedule, added pickups keep item links', async()=>{
@@ -174,7 +163,7 @@ test('multi-stop editor: inline contact and phone per stop, ready-at sets the sc
   assert.equal(document.querySelector('details:not([open]) summary')?.textContent?.includes('Accessorials'),true); assert.equal(screen.queryByText('Contact, time window & delivery requirements'),null); assert.equal(screen.queryByRole('button',{name:/Move stop/}),null); assert.equal(screen.queryByRole('combobox',{name:'Zone'}),null); assert.equal(screen.queryByLabelText('Wait minutes'),null); assert.match(screen.getByText(/Package weight and dimensions do not change this rate card’s base price/i).textContent!,/do not change this rate card/);
   await user.type(screen.getByLabelText('Stop 1 contact name'),'Recipient One'); await user.type(screen.getByLabelText('Stop 1 phone'),'604-555-0100');
   await user.click(screen.getByRole('button',{name:'+ Pickup'})); assert.equal(changed.stops.length,3); assert.equal(changed.stops[2].type,'PICKUP');
-  assert.equal(changed.stops[0].contactName,'Recipient One'); assert.equal(changed.stops[0].contactPhone,'604-555-0100'); assert.equal(changed.packages[0].deliveryStopId,initial.stops[1].id);
+  assert.equal(changed.stops[0].contactName,'Recipient One'); assert.equal(changed.stops[0].contactPhone,'(604) 555-0100'); assert.equal(changed.packages[0].deliveryStopId,initial.stops[1].id);
   assert.ok(screen.getByRole('combobox',{name:'Package 1 pickup'})); assert.ok(screen.getByText('Picked up at:'));
   const qty=screen.getByRole('spinbutton',{name:'Package 1 quantity'}); await user.tripleClick(qty); await user.keyboard('3'); assert.equal(changed.packages[0].quantity,3);
   assert.equal(screen.queryByRole('checkbox',{name:'Residential'}),null);
@@ -260,10 +249,10 @@ test('drivers and vehicles can be deleted after confirmation, but not while assi
   assert.deepEqual(loadVehicles().map(v=>v.id),[attached.id]); assert.equal(screen.queryByRole('button',{name:`Delete ${free.unitNumber}`}),null);
 });
 test('driver table opens complete details with a keyboard-accessible Details action', async()=>{
-  const {DriversPage}=await import('../src/pages/DriversPage'); const user=userEvent.setup({document}); const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',revenueSharePercent:65,fuelSurchargeSharePercent:100,currentVehicleId:null});
+  const {DriversPage}=await import('../src/pages/DriversPage'); const user=userEvent.setup({document}); const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',currentVehicleId:null});
   render(React.createElement(DriversPage,{ drivers:[driver], jobs:[], onSelectDriver:()=>{}, onUpdateDriver:()=>{}, onCreateDriver:()=>{}, onNotification:()=>{} }));
   assert.ok(screen.getByRole('table',{name:'Drivers'})); assert.equal(screen.queryByTitle('Grid Cards View'),null);
-  const details=screen.getByRole('button',{name:`Details for ${driver.name}`}); await user.click(details); assert.ok(screen.getByLabelText('Email')); assert.ok(screen.getByLabelText('Maximum Active Orders')); assert.ok(screen.getByRole('heading',{name:'Payout terms'})); assert.equal((screen.getByLabelText(/Driver share of order price/) as HTMLInputElement).value,'65'); await user.keyboard('{Escape}'); assert.equal(screen.queryByLabelText('Email'),null); assert.equal(document.activeElement,details);
+  const details=screen.getByRole('button',{name:`Details for ${driver.name}`}); await user.click(details); assert.ok(screen.getByLabelText('Email')); assert.equal(screen.queryByLabelText('Maximum Active Orders'),null); assert.equal(screen.queryByRole('heading',{name:'Payout terms'}),null); await user.keyboard('{Escape}'); assert.equal(screen.queryByLabelText('Email'),null); assert.equal(document.activeElement,details);
 });
 test('vehicle table opens the vehicle editor with status and equipment details', async()=>{
   const {VehiclesPage}=await import('../src/pages/VehiclesPage'); const vehicle=loadVehicles()[0]; const user=userEvent.setup({document});
@@ -363,48 +352,42 @@ test('vehicle lists, package details and calculation totals display company unit
   assert.ok(screen.getByText('Charge Lines'));
   assert.deepEqual(snapshot, before);
 });
-test('driver details show all-time completed activity and saved owner-operator estimates', async()=>{
+test('driver details split into Details and Orders tabs without earnings', async()=>{
   const {DriversPage}=await import('../src/pages/DriversPage');
-  const {freezeCompletedOrder}=await import('../src/lib/driverPayout');
-  const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',revenueSharePercent:65,fuelSurchargeSharePercent:80,currentVehicleId:null,routeId:undefined});
-  const assigned:any={id:'J-PAYOUT',jobNumber:'#990',customerName:'Acme',status:'assigned',lifecycleStatus:'ASSIGNED',assignedDriverId:driver.id,pricing:{status:'PRICED',stage:'QUOTE',currency:'CAD',serviceFreight:120,fuelSurcharge:15}};
-  const done=freezeCompletedOrder(assigned,{...assigned,status:'completed',lifecycleStatus:'COMPLETED'},[driver],new Date('2025-01-22T12:00:00Z'));
+  const {freezeCompletedOrder}=await import('../src/lib/orderCompletion');
+  const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',currentVehicleId:null,routeId:undefined});
+  const assigned:any={id:'J-DONE',jobNumber:'#990',customerName:'Acme',pickupAddress:'1 A St, Vancouver',dropoffAddress:'2 B St, Burnaby',status:'assigned',lifecycleStatus:'ASSIGNED',assignedDriverId:driver.id};
+  const done=freezeCompletedOrder(assigned,{...assigned,status:'completed',lifecycleStatus:'COMPLETED'},new Date('2025-01-22T12:00:00Z'));
+  assert.equal(done.completedAt,'2025-01-22T12:00:00.000Z');
   const user=userEvent.setup({document});
-  render(React.createElement(DriversPage,{drivers:[driver],jobs:[done],onSelectDriver:()=>{},onUpdateDriver:()=>{},onCreateDriver:()=>{},onNotification:()=>{}}));
+  render(React.createElement(DriversPage,{drivers:[driver],jobs:[done,{...assigned,id:'J-OPEN',jobNumber:'#989'}],onSelectDriver:()=>{},onUpdateDriver:()=>{},onCreateDriver:()=>{},onNotification:()=>{}}));
   await user.click(screen.getByRole('button',{name:`Details for ${driver.name}`}));
-  const activity=screen.getByRole('region',{name:'Activity & Earnings'});
-  assert.equal(within(activity).queryByRole('button'),null);
-  assert.match(activity.textContent!,/Orders completed1/);
-  assert.match(activity.textContent!,/Estimated earnings\$90\.00/);
-  assert.equal(within(activity).queryByRole('region',{name:'Completed driver orders'}),null);
-  assert.equal(screen.queryByText('#990'),null);
-  assert.equal(screen.queryByRole('heading',{name:'Profile'}),null);
+  assert.deepEqual(screen.getAllByRole('tab').map(t=>t.textContent),['Details','Orders']);
+  const activity=screen.getByRole('region',{name:'Activity'});
+  assert.doesNotMatch(activity.textContent!,/Orders completed/); assert.doesNotMatch(document.body.textContent!,/earnings|payout/i);
   const profile=screen.getByRole('region',{name:'Driver profile'});
   assert.ok(profile.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING);
   for (const [label,value] of [['App connectivity','Unknown'],['App last seen','Not set'],['GPS captured','Not set'],['Location permission','UNKNOWN'],['Current route','Not set']]) assert.equal(within(activity).getByText(label).nextElementSibling?.textContent,value);
+  await user.click(screen.getByRole('tab',{name:'Orders'}));
+  const orders=screen.getByRole('region',{name:'Driver orders'});
+  assert.match(orders.textContent!,/#990/); assert.match(orders.textContent!,/Acme/); assert.match(orders.textContent!,/#989/); assert.match(orders.textContent!,/2 orders/);
   assert.ok(screen.getByRole('button',{name:'Save driver'}));
 });
-test('Monitor driver details shows Activity & Earnings immediately', async()=>{
+test('Monitor driver details has Details and Orders tabs', async()=>{
   const {DetailModalDialog}=await import('../src/components/DetailModalDialog');
-  const {freezeCompletedOrder}=await import('../src/lib/driverPayout');
-  const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',revenueSharePercent:65,fuelSurchargeSharePercent:80,routeId:undefined});
-  const assigned:any={id:'J-MONITOR',jobNumber:'#991',customerName:'Acme',status:'assigned',lifecycleStatus:'ASSIGNED',assignedDriverId:driver.id,pricing:{status:'PRICED',stage:'QUOTE',currency:'CAD',serviceFreight:120,fuelSurcharge:15}};
-  const done=freezeCompletedOrder(assigned,{...assigned,status:'completed',lifecycleStatus:'COMPLETED'},[driver],new Date('2025-01-22T12:00:00Z'));
-  render(React.createElement(DetailModalDialog,{isOpen:true,type:'driver_detail',data:driver,jobs:[done],onClose:()=>{},onActionNotification:()=>{}}));
-  const activity=screen.getByRole('region',{name:'Activity & Earnings'});
-  assert.equal(within(activity).queryByRole('button'),null);
-  assert.match(activity.textContent!,/Orders completed1/);
-  assert.match(activity.textContent!,/Estimated earnings\$90\.00/);
-  assert.equal(within(activity).queryByRole('region',{name:'Completed driver orders'}),null);
-  assert.equal(screen.queryByText('#991'),null);
+  const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',routeId:undefined});
+  const done:any={id:'J-MONITOR',jobNumber:'#991',customerName:'Acme',pickupAddress:'1 A St, Vancouver',dropoffAddress:'2 B St, Burnaby',status:'completed',lifecycleStatus:'COMPLETED',completedAt:'2025-01-22T12:00:00Z',assignedDriverId:driver.id};
+  let selected=''; const user=userEvent.setup({document});
+  render(React.createElement(DetailModalDialog,{isOpen:true,type:'driver_detail',data:driver,jobs:[done],onClose:()=>{},onSelectJob:(n:string)=>selected=n,onActionNotification:()=>{}}));
+  const activity=screen.getByRole('region',{name:'Activity'});
+  assert.doesNotMatch(activity.textContent!,/Orders completed/); assert.doesNotMatch(document.body.textContent!,/earnings|share of/i);
   const profile=screen.getByRole('region',{name:'Driver profile'});
-  assert.ok(profile.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING);
-  assert.equal(within(profile).getByText('Employment').nextElementSibling?.textContent,'Owner-operator');
-  assert.equal(within(profile).getByText('Driver share of order price').nextElementSibling?.textContent,'65%');
+  assert.equal(within(profile).queryByText('Employment'),null);
   for (const mock of ['HOS Remaining','Rating & Score','Speed & Heading','License Class']) assert.equal(screen.queryByText(mock),null);
-  for (const [label,value] of [['App connectivity','Unknown'],['App last seen','Not set'],['GPS captured','Not set'],['Location permission','UNKNOWN'],['Current route','Not set']]) assert.equal(within(activity).getByText(label).nextElementSibling?.textContent,value);
+  await user.click(screen.getByRole('tab',{name:'Orders'}));
+  await user.click(within(screen.getByRole('region',{name:'Driver orders'})).getByRole('button',{name:/View/}));
+  assert.equal(selected,'#991');
 });
-
 
 test('live Driver edit reloads duty from the saved API status',()=>{
   const row = { id: 'driver-id', number: 'D01', name: 'Dana Driver', email: 'dana@example.ca', phone: '6045550102', active: true,
@@ -432,4 +415,21 @@ test('Monitor assignment shows off-duty movers with a reason and only assigns an
   assert.equal(assign.disabled, false);
   await user.click(assign);
   assert.equal(assigned, 'ready');
+});
+test('dispatcher completes an assigned order from order details after confirming', async()=>{
+  const {MonitorOrderDetails}=await import('../src/components/orders/MonitorOrderDetails');
+  const {ConfirmDialogHost}=await import('../src/components/ui/ConfirmDialog');
+  const {INITIAL_JOBS}=await import('../src/data/mockData');
+  const ctx=loadPricingContext(); const input={...createDefaultOrderInput(ctx),routeKm:15,estimatedMinutes:40};
+  const job:any={...INITIAL_JOBS[0],lifecycleStatus:'ASSIGNED',version:3,pricingInput:input,pricing:priceOrder(input,ctx)};
+  const user=userEvent.setup({document}); let updated:any; const notices:string[]=[];
+  function Host(){const [jobs,setJobs]=React.useState([job]);return React.createElement(React.Fragment,null,React.createElement(ConfirmDialogHost),
+    React.createElement(MonitorOrderDetails,{job,jobs,drivers:[],onClose:()=>{},onEdit:()=>{},onUpdateJob:j=>{updated=j;setJobs([j]);},onNotification:m=>notices.push(m)}));}
+  render(React.createElement(Host));
+  await user.click(screen.getByRole('button',{name:'Complete order'}));
+  await user.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Cancel'})); assert.equal(updated,undefined);
+  await user.click(screen.getByRole('button',{name:'Complete order'}));
+  await user.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Complete order'}));
+  assert.equal(updated.lifecycleStatus,'COMPLETED'); assert.equal(updated.status,'completed'); assert.equal(updated.version,4); assert.match(notices.at(-1)!,/completed/);
+  await waitFor(()=>assert.equal(screen.queryByRole('button',{name:'Complete order'}),null));
 });

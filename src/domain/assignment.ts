@@ -1,6 +1,8 @@
 import { Driver, Order } from '../types';
 import { PricingOrderInput } from '../types/pricing';
 import { VehicleAsset } from '../lib/vehicleStorage';
+import type { VehicleType } from '../types/simplePricing';
+import { bodyRequirements, meetsBodyRequirement } from '../lib/vehicleTypes';
 import { validateOrderFacts } from './validation';
 import { cityAreaId, cityFromAddress } from '../lib/driverCity';
 const contains = (have: string[] | undefined, need: string[] | undefined) => (need ?? []).every(n => (have ?? []).some(h => h.toLowerCase() === n.toLowerCase()));
@@ -27,7 +29,7 @@ export function validateLoad(input: PricingOrderInput, vehicle: VehicleAsset): s
   }
   return [...new Set(issues)];
 }
-export function validateOperationalAssignment(order: Partial<Order>, driver: Driver, fleet: VehicleAsset[], timeZone = 'America/Vancouver'): string[] {
+export function validateOperationalAssignment(order: Partial<Order>, driver: Driver, fleet: VehicleAsset[], timeZone = 'America/Vancouver', vehicleTypes: VehicleType[] = []): string[] {
   const errors: string[] = [];
   if (driver.accountStatus === 'INACTIVE' || driver.dutyStatus === 'OFF_DUTY' || driver.workStatus === 'ON_BREAK') errors.push('Driver must be active, on duty and not on break.');
   if (!contains(driver.skills, order.requiredSkills)) errors.push('Driver is missing required skills.');
@@ -61,7 +63,9 @@ export function validateOperationalAssignment(order: Partial<Order>, driver: Dri
   }
   if (vehicle.recordStatus === 'INACTIVE' || vehicle.availability === 'UNAVAILABLE') errors.push('Assigned fleet vehicle is unavailable.');
   if (vehicle.currentDriverId && vehicle.currentDriverId !== driver.id) errors.push('Fleet vehicle is assigned to another driver.');
-  if (input.vehicleId && vehicle.vehicleTypeId !== input.vehicleId) errors.push('Assigned fleet vehicle does not match the required vehicle type.');
+  // Meets or exceeds: any truck with the required body (refrigerated, open deck) whose capacity fits the load (checked below) may take the order.
+  const required = vehicleTypes.find(type => type.id === input.vehicleId);
+  if (required && vehicle.vehicleTypeId !== required.id && !meetsBodyRequirement(vehicle.equipment, required)) errors.push(`Assigned fleet vehicle needs ${bodyRequirements(required).join(' and ').toLowerCase()} for the required ${required.name}.`);
   if (driver.vehicleTypeQualifications?.length && vehicle.vehicleTypeId && !driver.vehicleTypeQualifications.includes(vehicle.vehicleTypeId)) errors.push('Driver is not qualified for this vehicle type.');
   if (!contains(vehicle.equipment, order.requiredEquipment)) errors.push('Fleet vehicle is missing required equipment.');
   if (order.serviceAreaId && !contains(vehicle.serviceAreaIds, [order.serviceAreaId])) errors.push('Fleet vehicle does not cover the service area.');

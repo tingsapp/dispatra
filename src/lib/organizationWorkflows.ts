@@ -39,7 +39,7 @@ export const validateAssignment = (job: Pick<Job, 'id' | 'pricing' | 'pricingInp
   if (job.pricing.stage !== 'FINAL' && job.pricing.quoteExpiresAt && Date.parse(job.pricing.quoteExpiresAt) < now.getTime()) return ['Quote has expired. Re-price explicitly before assigning.'];
   if (driver.status === 'offline') return ['Driver is offline.'];
   const fleet = loadVehicles();
-  const operationalErrors = validateOperationalAssignment(job, driver, fleet, ctx.billing.general.timeZone);
+  const operationalErrors = validateOperationalAssignment(job, driver, fleet, ctx.billing.general.timeZone, ctx.catalogue.vehicles);
   if (operationalErrors.length) return operationalErrors;
   const active = jobs.filter(j => j.id !== job.id && j.assignedDriverId === driver.id && j.status !== 'completed');
   if (active.length >= driverOrderLimit(driver, ctx.billing.dispatch.maxActiveOrdersPerDriver)) return ['Driver has reached the maximum active orders.'];

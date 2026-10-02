@@ -2,10 +2,11 @@ import React from 'react';
 import { Select } from '../ui/Select';
 import { DateTimePicker } from '../ui/DateTimePicker';
 import { splitTags } from '../../domain/validation';
+import { ContactInput } from '../ui/ContactInput';
 export const fieldClass = 'app-input';
 const Hint = ({ children }: { children?: React.ReactNode }) => children ? <span className="mt-1 block text-xs text-slate-500">{children}</span> : null;
 export function TextField({ label, value, onChange, type = 'text', required = false, placeholder, hint, className }: { label: string; value?: string; onChange: (v: string) => void; type?: string; required?: boolean; placeholder?: string; hint?: React.ReactNode; className?: string }) {
-  return <label className={`block ${className ?? ''}`}><span className="app-label">{label}</span><input className={`${fieldClass} w-full`} type={type} value={value ?? ''} required={required} placeholder={placeholder} onChange={e => onChange(e.target.value)} /><Hint>{hint}</Hint></label>;
+  return <label className={`block ${className ?? ''}`}><span className="app-label">{label}</span><ContactInput className={`${fieldClass} w-full`} type={type} value={value ?? ''} required={required} placeholder={placeholder} onChange={e => onChange(e.target.value)} /><Hint>{hint}</Hint></label>;
 }
 export function NumberField({ label, value, onChange, step = 'any', hint, className }: { label: string; value?: number; onChange: (v: number | undefined) => void; step?: string; hint?: React.ReactNode; className?: string }) {
   return <label className={`block ${className ?? ''}`}><span className="app-label">{label}</span><input className={`${fieldClass} w-full`} type="number" min="0" step={step} value={value ?? ''} onChange={e => onChange(e.target.value === '' ? undefined : Number(e.target.value))} /><Hint>{hint}</Hint></label>;

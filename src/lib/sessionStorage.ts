@@ -1,11 +1,11 @@
 // Local dispatcher session for the prototype. The portal uses the API's cookie session instead;
 // this store only decides whether the local dispatch pages render or the login page does.
 import { loadUserProfile } from './profileStorage';
+import { isValidEmail as emailOK } from './email';
 
 export const SESSION_STORAGE_KEY = 'dispatra_session_v1';
 export interface DispatcherSession { email: string; name: string; signedInAt: string }
 
-const emailOK = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 export function loadSession(): DispatcherSession | null {
   try {

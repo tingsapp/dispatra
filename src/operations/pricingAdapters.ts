@@ -25,10 +25,11 @@ export function rateToUi(row: RateCard): UiRateCard {
   return createEmptyRateCard({
     id: row.id, code: row.code, name: row.data.name, status: row.active ? 'ACTIVE' : 'ARCHIVED',
     scope: row.is_default ? 'ORGANIZATION' : 'ORDER', version: row.version,
-    pricingMethod: row.data.method, baseFee: n(row.data.base_fee), includedKm: n(row.data.included_km),
+    // The API prices Imported cards as the final agreed total, including tax.
+    pricingMethod: row.data.method, ...(row.data.method === 'IMPORTED' ? { importedPriceMode: 'FINAL_TOTAL' as const } : {}), baseFee: n(row.data.base_fee), includedKm: n(row.data.included_km),
     kmRate: n(row.data.per_km), fixedAmount: n(row.data.fixed_amount), hourlyRate: n(row.data.hourly_rate),
     minimumBillableMinutes: row.data.minimum_minutes, billingIncrementMinutes: row.data.increment_minutes,
-    hourlySettleActual: row.data.settle_actual, minimumOrderSubtotal: n(row.data.minimum_subtotal),
+    hourlySettleActual: row.data.settle_actual, minimumOrderSubtotal: row.data.method === 'HOURLY' ? 0 : n(row.data.minimum_subtotal),
     dimensionalDivisor: n(row.data.dimensional_divisor), zoneRates,
     applyFuelSurcharge: row.data.apply_fuel, applyServiceMultiplier: row.data.apply_service,
     applyVehicleSurcharge: row.data.apply_vehicle, applyAccessorials: row.data.apply_accessorials,
@@ -49,7 +50,7 @@ export function rateFromUi(card: UiRateCard, zones: PricingContext['pricing']['z
     name: card.name, method: card.pricingMethod, base_fee: card.baseFee, included_km: card.includedKm, per_km: card.kmRate,
     fixed_amount: card.fixedAmount, hourly_rate: card.hourlyRate, minimum_minutes: card.minimumBillableMinutes,
     increment_minutes: card.billingIncrementMinutes, settle_actual: card.hourlySettleActual ?? true,
-    minimum_subtotal: card.minimumOrderSubtotal ?? 0, dimensional_divisor: card.dimensionalDivisor ?? 5000,
+    minimum_subtotal: card.pricingMethod === 'HOURLY' ? 0 : card.minimumOrderSubtotal ?? 0, dimensional_divisor: card.dimensionalDivisor ?? 5000,
     zones: activeZones, weight_bands, apply_fuel: card.applyFuelSurcharge, apply_service: card.applyServiceMultiplier,
     apply_vehicle: card.applyVehicleSurcharge, apply_accessorials: card.applyAccessorials,
   };

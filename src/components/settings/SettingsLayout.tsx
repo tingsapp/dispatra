@@ -8,7 +8,7 @@ export interface SettingsPageProps {
 
 export function SettingsLayout({ children }: { children: React.ReactNode }) {
   return <div className="app-page h-full min-w-0 flex flex-col">
-    <PageHeader title="Pricing" description="Rate cards, service levels, fuel charges and Accessorials." />
+    <PageHeader title="Settings" description="Rate cards, service levels, Accessorials, fuel surcharge, taxes, vehicle types and preferences." />
     <main className="page-content flex-1 overflow-y-auto min-h-0 py-6"><div className="app-sections">{children}</div></main>
   </div>;
 }

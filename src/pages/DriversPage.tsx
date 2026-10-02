@@ -18,6 +18,8 @@ import { allOperations, operations } from '../operations/api';
 import { catalogToVehicleType, driverFromUi, driverToUi, vehicleFromUi, vehicleToUi } from '../operations/adapters';
 import { DriverEditor } from '../components/entities/DriverEditor';
 import { DriverActivity } from '../components/entities/DriverActivity';
+import { DriverOrders } from '../components/entities/DriverOrders';
+import { Tabs } from '../components/ui/Tabs';
 import { VehicleEditor } from '../components/entities/VehicleEditor';
 import { loadVehicles, saveVehicleProfile, type VehicleAsset, type VehicleProfile } from '../lib/vehicleStorage';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
@@ -324,11 +326,14 @@ export function DriversPage({
             leading={<DriverAvatar name={activeDriverDrawer.name} avatar={activeDriverDrawer.avatar} alt={activeDriverDrawer.name} className="w-10 h-10 rounded-full object-cover border border-slate-200" />}
             title={<>{activeDriverDrawer.name}<span className="text-xs font-mono font-medium bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">{activeDriverDrawer.driverNumber ?? activeDriverDrawer.id}</span></>}
             description={activeDriverDrawer.phone} />
-          <DialogBody className="space-y-6">
-            <section aria-label="Driver profile">
-              <DriverEditor driver={activeDriverDrawer} drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onAddressBlockedChange={setDriverAddressBlocked} onCancel={() => setActiveDriverDrawer(null)} onSave={saveDriver} />
-            </section>
-            <DriverActivity driver={activeDriverDrawer} jobs={jobs} />
+          <DialogBody>
+            <Tabs label="Driver details tabs" items={[
+              { id: 'details', label: 'Details', content: <><section aria-label="Driver profile">
+                <DriverEditor driver={activeDriverDrawer} drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onAddressBlockedChange={setDriverAddressBlocked} onCancel={() => setActiveDriverDrawer(null)} onSave={saveDriver} />
+              </section>
+              <DriverActivity driver={activeDriverDrawer} jobs={jobs} /></> },
+              { id: 'orders', label: 'Orders', content: <DriverOrders driver={activeDriverDrawer} jobs={jobs} /> },
+            ]} />
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { onSelectDriver(activeDriverDrawer.id); setActiveDriverDrawer(null); }}><MapPin /> Locate on Monitor</Button>

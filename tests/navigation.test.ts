@@ -53,6 +53,8 @@ test('all operational destinations resolve directly, including prototype URLs; t
 test('removed services page has no navigation entry or legacy page alias', () => {
   assert.equal(pathForPage('services-accessorials', '/'), undefined);
   assert.equal(pathForPage('pricing-services', '/prototype'), undefined);
+  assert.equal(pathForPage('rate-cards', '/demo/orders'), '/demo/settings');
+  for (const old of ['/demo/pricing', '/demo/settings/pricing', '/demo/settings']) assert.equal(pageForPath(old), 'rate-cards');
 });
 
 test('navigation updates the URL, avoids duplicate entries, restores Back/Forward and survives remount', async () => {

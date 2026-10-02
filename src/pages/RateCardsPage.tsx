@@ -1,11 +1,11 @@
 import { hasDimensionalWeightSetting } from '../lib/dimensionalWeight';
-import { sortWeightBands, zoneRateIssue } from '../lib/zoneWeightBands';
+import { zoneRateIssue } from '../lib/zoneWeightBands';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { allOperations, operations } from '../operations/api';
 import { api } from '../portal/api';
-import { companySettingsKey } from '../portal/WorkspaceAccount';
+import { companySettingsKey, useWorkspaceAccount } from '../portal/WorkspaceAccount';
 import { apiPricingContext, rateFromUi, rateToUi } from '../operations/pricingAdapters';
 import { loadBillingConfig } from '../lib/billingStorage';
 import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
@@ -30,11 +30,14 @@ import { METHOD_LABELS, primaryBtn, secondaryBtn } from '../components/pricing/R
 import { BillingSettingsForm } from '../components/settings/BillingSettingsForm';
 import { CatalogueSection } from '../components/settings/CatalogueSection';
 import { PricingTabs } from '../components/pricing/PricingTabs';
+import { VehicleTypesSection } from '../components/settings/VehicleTypesSection';
+import { PreferencesEditor, TaxEditor } from '../portal/CompanySettingsEditors';
 import { SettingsLayout, SettingsPageProps } from '../components/settings/SettingsLayout';
 import { DISCARD_CHANGES, useSettingsGuard } from '../components/settings/useSettingsGuard';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 export function RateCardsPage({ onNotification }: SettingsPageProps) {
   const slug = companySlugForCurrentPath();
+  const workspace = useWorkspaceAccount();
   const queryClient = useQueryClient();
   const rateQuery = useQuery({ queryKey: ['operations', slug, 'rates'], queryFn: () => allOperations.rates(slug!), enabled: !!slug });
   const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
@@ -121,7 +124,6 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     // Every save is a new version so historical PricingSnapshots stay pinned.
     const saved: RateCard = {
       ...draft,
-      zoneRates: draft.zoneRates?.map(rate => rate.weightBands ? { ...rate, weightBands: sortWeightBands(rate.weightBands) } : rate),
       code: draft.code || rateCardCode(draft.name),
       // The first card an organization saves becomes its Default.
       scope: !exists && !config.rateCards.some(card => card.status === 'ACTIVE') ? 'ORGANIZATION' : draft.scope,
@@ -185,7 +187,9 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
   };
 
   const visibleCards = useMemo(
-    () => config.rateCards.filter(c => c.status === 'ACTIVE' && (!methodFilter || c.pricingMethod === methodFilter) && c.name.toLowerCase().includes(search.toLowerCase())),
+    // Imported cards (external price only) always sit at the end of the list; the others keep their order.
+    () => config.rateCards.filter(c => c.status === 'ACTIVE' && (!methodFilter || c.pricingMethod === methodFilter) && c.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => Number(a.pricingMethod === 'IMPORTED') - Number(b.pricingMethod === 'IMPORTED')),
     [config.rateCards, search, methodFilter]
   );
 
@@ -221,7 +225,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
   };
   const refreshDefaults = (message: string) => { setRevision(value => value + 1); onNotification?.(message); };
   const zoneActions = { addZone, patchZone, deleteZone };
-  const methodFilterControl = <Select aria-label="Filter pricing method" value={methodFilter} onValueChange={setMethodFilter} options={[{ value: '', label: 'All pricing methods' }, ...Object.entries(METHOD_LABELS).filter(([value]) => value !== 'IMPORTED').map(([value, label]) => ({ value, label }))]} />;
+  const methodFilterControl = <Select aria-label="Filter pricing method" value={methodFilter} onValueChange={setMethodFilter} options={[{ value: '', label: 'All pricing methods' }, ...Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label }))]} />;
   if (slug && !liveCtx) return <SettingsLayout><p role={rateQuery.error || catalogQuery.error || shipperQuery.error || settingsQuery.error ? 'alert' : 'status'} className="text-sm text-slate-500">{rateQuery.error || catalogQuery.error || shipperQuery.error || settingsQuery.error ? 'Could not load pricing data.' : 'Loading pricing…'}</p></SettingsLayout>;
   return <SettingsLayout>
     <PricingTabs tabs={[
@@ -231,7 +235,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><h2 className="app-section-title text-slate-900">{isNew ? 'New rate card' : draft.name}{!isNew && isDefault(draft) && <span className="ml-2 align-middle text-xs font-medium px-1.5 py-0.5 rounded border bg-slate-100 text-slate-700 border-slate-200">Default</span>}</h2><p className="text-xs text-slate-500">{isNew ? 'Choose a method and enter your rates.' : `Version ${draft.version} · updated ${new Date(draft.updatedAt).toLocaleDateString()}`}{dirty ? ' · Unsaved changes' : ''}</p></div>
             <div className="flex flex-wrap items-center gap-2">
-              {!isNew && !isDefault(draft) && <button type="button" onClick={() => makeDefault(draft)} className={secondaryBtn}>Set as default</button>}
+              {!isNew && !isDefault(draft) && draft.pricingMethod !== 'IMPORTED' && <button type="button" onClick={() => makeDefault(draft)} className={secondaryBtn}>Set as default</button>}
               {methodFilterControl}
             </div>
           </div>
@@ -244,9 +248,12 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
         </section> : <div className="space-y-5"><div className="flex justify-end">{methodFilterControl}</div><div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">Select a rate card or add one to set your prices.</div></div>}
       </div>
       },
-      { id: 'fuel', label: 'Fuel Surcharge', content: <BillingSettingsForm section="fuel" onNotification={refreshDefaults} /> },
       { id: 'services', label: 'Service Level', content: <CatalogueSection section="services" onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
       { id: 'accessorials', label: 'Accessorials', content: <CatalogueSection section="accessorials" onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
+      { id: 'fuel', label: 'Fuel Surcharge', content: <BillingSettingsForm section="fuel" onNotification={refreshDefaults} /> },
+      { id: 'taxes', label: 'Taxes', content: workspace ? <TaxEditor /> : <BillingSettingsForm section="taxes" onNotification={refreshDefaults} /> },
+      { id: 'vehicle-types', label: 'Vehicle Types', content: <VehicleTypesSection onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
+      { id: 'preferences', label: 'Preferences', content: workspace ? <PreferencesEditor /> : <BillingSettingsForm section="preferences" onNotification={refreshDefaults} /> },
     ]} />
   </SettingsLayout>;
 }

@@ -36,12 +36,19 @@ export const createStop = (type: PricingStopInput['type'], partial: Partial<Pric
   ...partial
 });
 
+/** New orders start on the normal no-charge service (Same-Day Standard), never on whichever service happens to be listed first. */
+export const defaultServiceId = (services: PricingContext['catalogue']['services']): string => {
+  const active = services.filter(service => service.active);
+  return (active.find(service => /same-day standard/i.test(service.name)) ?? active.find(service => !service.additionalCharge) ?? active[0] ?? services[0])?.id ?? '';
+};
+
 export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput => normalizeOrderInput({
   taxCalculation: 'COMPANY',
   freightTaxTreatment: 'STANDARD_DOMESTIC',
   customerId: null,
-  serviceId: ctx.catalogue.services.find((s) => s.active)?.id ?? ctx.catalogue.services[0]?.id ?? '',
-  vehicleId: ctx.catalogue.vehicles.find((v) => v.active)?.id ?? null,
+  serviceId: defaultServiceId(ctx.catalogue.services),
+  // A vehicle surcharge applies only when a vehicle type is deliberately requested.
+  vehicleId: null,
   stops: [
     createStop('PICKUP', { zoneId: ctx.pricing.zones[0]?.id ?? null }),
     createStop('DROPOFF', { zoneId: ctx.pricing.zones[1]?.id ?? null })

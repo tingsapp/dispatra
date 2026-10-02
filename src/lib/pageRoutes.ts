@@ -6,7 +6,7 @@ export const PAGE_PATHS: Record<string, string> = {
   vehicles: '/vehicles',
   customers: '/shippers',
   reports: '/analytics',
-  'rate-cards': '/pricing',
+  'rate-cards': '/settings',
   profile: '/profile',
   help: '/help',
 };
@@ -29,7 +29,7 @@ export function pageForPath(pathname: string): string | undefined {
   const suffix = path.slice(prefix.length) || '/';
   if (suffix === '/settings/company') return 'profile';
   if (suffix === '/shipper') return 'customers';
-  if (suffix === '/settings/pricing') return 'rate-cards';
+  if (suffix === '/settings/pricing' || suffix === '/pricing') return 'rate-cards';
   return Object.keys(PAGE_PATHS).find(page => PAGE_PATHS[page] === suffix);
 }
 

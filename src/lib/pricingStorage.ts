@@ -17,7 +17,7 @@ export const RATE_CARD_BACKGROUND_DEFAULTS = {
   vehicleId: null, priority: 0, effectiveTo: null, notes: '',
   includedPieces: 0, pieceRate: 0, includedStops: null, extraStopRate: 0,
   minimumFreight: 0, serviceOverrides: {},
-  applyAdminFee: false, applyContractDiscount: true, applyServiceMultiplier: true, applyVehicleSurcharge: true, applyFuelSurcharge: true, applyAccessorials: true,
+  applyAdminFee: false, applyContractDiscount: true, applyServiceMultiplier: true, applyAccessorials: true,
   fuelPercent: null, waitFreeMinutes: null, waitIncrementMinutes: null,
   vehicleSurchargeOverrides: {}, accessorialRateOverrides: {},
   zoneFallbackToOrganization: false, zoneMatrixMode: 'CONTRACT' as const, zoneNoMatchFallback: 'NEEDS_ATTENTION' as const,
@@ -31,6 +31,9 @@ export const zoneCode = (name: string) => name.trim().toUpperCase().replace(/[^A
 export const rateCardCode = (name: string) => name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'CARD';
 
 /** A blank card with every inheritable field set to "inherit" and no background charges. */
+/** New-card default: the vehicle surcharge is off where the base price already reflects vehicle size (Zone weight bands, Hourly truck rates). Fuel is on for every method. */
+export const defaultVehicleSurcharge = (method: RateCard['pricingMethod']) => method !== 'ZONE' && method !== 'HOURLY';
+
 export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard => ({
   id: `rc_${Date.now()}`,
   name: 'New Rate Card',
@@ -76,9 +79,9 @@ export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard
   applyContractDiscount: true,
   applyOrderMinimum: true,
   minimumOrderSubtotal: 0,
-  importedPriceMode: 'FREIGHT',
+  importedPriceMode: overrides.pricingMethod === 'IMPORTED' ? 'FINAL_TOTAL' : 'FREIGHT',
   applyServiceMultiplier: true,
-  applyVehicleSurcharge: true,
+  applyVehicleSurcharge: defaultVehicleSurcharge(overrides.pricingMethod ?? 'BASE_PLUS_DISTANCE'),
   applyFuelSurcharge: true,
   applyAccessorials: true,
   fuelPercent: null,
@@ -199,6 +202,8 @@ const normaliseCard = (stored: Partial<RateCard>, standardZoneRates: ZoneRate[] 
   card.discount = { ...card.discount, type: card.discount.type === 'INHERIT' ? 'NONE' : card.discount.type, scope: 'TRANSPORT_ONLY' };
   // Move inherited organization minimums onto cards; frozen quote contexts stay untouched.
   if (stored.minimumOrderSubtotal == null) card.minimumOrderSubtotal = card.applyOrderMinimum === false ? 0 : loadBillingConfig().rules.minimumChargePerJob;
+  // Hourly cards use Minimum Billable time only; frozen quote contexts keep their original minimum.
+  if (card.pricingMethod === 'HOURLY') card.minimumOrderSubtotal = 0;
   delete card.customerGroupId;
   if (hasRoutineTimeSettings(card)) Object.assign(card, { minuteRate: 0, includedMinutes: 0 });
   card.zoneRates = normaliseZoneRates(card.zoneRates ?? []);

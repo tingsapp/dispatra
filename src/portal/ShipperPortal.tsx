@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { operations } from '../operations/api';
-import { ClipboardList, CreditCard, Receipt, UserRound, Shield, Plus } from 'lucide-react';
+import { ClipboardList, Receipt, UserRound, Shield, Plus } from 'lucide-react';
 import { PortalShell } from './PortalShell';
 import { CustomerProfile } from './ProfilePage';
 import { PasswordPage } from './PasswordPage';
 import { ShipperOrders } from './ShipperOrders';
 import { ShipperInvoices } from './ShipperInvoices';
-import { ShipperPaymentMethods } from './ShipperPaymentMethods';
 import { Button, Notice } from './ui';
 
 export const shipperPages = [
   { path: 'orders', label: 'Orders', icon: ClipboardList },
   { path: 'profile', label: 'Profile', icon: UserRound },
   { path: 'invoices', label: 'Invoices', icon: Receipt },
-  { path: 'payment-methods', label: 'Payment Methods', icon: CreditCard },
 ];
 export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logoutError }: {
   slug: string; company: string; login: string; onLogout: () => void; loggingOut: boolean; logoutError: unknown;
@@ -32,7 +30,7 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
     actions={page.path === 'orders' ? <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button> : undefined}
     reading={page.path !== 'orders'}
     account={{ name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}
-    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'orders' ? 'Create and track your deliveries.' : page.path === 'invoices' ? 'View invoices for your deliveries.' : 'Invoice terms and saved credit cards.'}
+    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'orders' ? 'Create and track your deliveries.' : 'View invoices for your deliveries.'}
     navigation={shipperPages.filter(item => item.path !== 'profile').map(item => ({ ...item, href: `${base}/${item.path}`, current: item.path === page.path }))}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     <Notice error={logoutError} />
@@ -46,6 +44,5 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
     </>}
     {page.path === 'orders' && <ShipperOrders slug={slug} open={newOrderOpen} onClose={() => setNewOrderOpen(false)} />}
     {page.path === 'invoices' && <ShipperInvoices slug={slug} />}
-    {page.path === 'payment-methods' && <ShipperPaymentMethods slug={slug} />}
   </PortalShell>;
 }

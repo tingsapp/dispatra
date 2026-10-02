@@ -1,9 +1,10 @@
 import React, { useId, useRef, useState } from 'react';
 import { AddressAutocomplete, type SelectedAddress } from '../components/ui/AddressAutocomplete';
 import { Button } from '../components/ui/button';
+import { ContactInput } from '../components/ui/ContactInput';
 export { Button };
 export function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
-  return <label className="grid gap-1.5 text-sm font-medium text-slate-700">{label}<input {...props} className="app-input font-normal" /></label>;
+  return <label className="grid gap-1.5 text-sm font-medium text-slate-700">{label}<ContactInput {...props} className="app-input font-normal" /></label>;
 }
 export function AddressField({ label, value, onChange, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & { label: string; value: string; onChange: (address: string, selected?: SelectedAddress) => void }) {
   const id = useId();

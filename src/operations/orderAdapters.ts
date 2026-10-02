@@ -39,7 +39,8 @@ export function orderToInput(order: Order): PricingOrderInput {
 
 export function priceToUi(price: Order['pricing'], facts: Booking, createdAt: string, rate?: RateCard): PricingSnapshot {
   const lines: ChargeLine[] = price.lines.map((line, index) => ({
-    key: `${line.group}-${index}`, group: line.group as ChargeLine['group'], label: line.label,
+    key: `${line.group}-${index}`, group: line.group as ChargeLine['group'],
+    ...(line.group === 'VEHICLE' ? { label: 'Vehicle Surcharge', detail: line.label } : { label: line.label }),
     amount: amount(line.amount), fuelEligible: line.fuel_eligible, taxable: line.taxable,
   }));
   const group = (name: string) => lines.filter(line => line.group === name).reduce((sum, line) => sum + line.amount, 0);

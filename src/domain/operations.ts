@@ -12,8 +12,6 @@ export interface DriverOperations extends AuditFields {
   /** Contact address; optional in older saved driver records, required when saving the form. */
   address?: string;
   addressCoordinates?: import('../components/ui/AddressAutocomplete').SelectedAddress;
-  /** Owner-operator payout terms: share of the order's freight/service price and of its fuel surcharge (0–100). Internal only; never affects shipper price. */
-  revenueSharePercent?: number; fuelSurchargeSharePercent?: number;
   vehicleTypeQualifications?: string[]; currentVehicleId?: string | null; shiftEnd?: string; maximumWorkMinutes?: number;
   preferredStartLocation?: string; availabilitySchedule?: AvailabilityPeriod[]; appLastSeenAt?: string | null; locationCapturedAt?: string | null;
   locationPermissionStatus?: 'GRANTED' | 'DENIED' | 'UNKNOWN'; notes?: string;
@@ -39,22 +37,8 @@ const LEGACY_LIFECYCLES: Record<string, OrderLifecycle> = { DRAFT: 'NEW', SUBMIT
 export const normalizeLifecycle = (value?: string | null): OrderLifecycle | undefined => value ? (ORDER_LIFECYCLES as string[]).includes(value) ? value as OrderLifecycle : LEGACY_LIFECYCLES[value] : undefined;
 export type OrderAttentionFlag = 'PRICING' | 'AT_RISK' | 'LATE_START' | 'FAILED_ATTEMPT';
 export const ORDER_ATTENTION_LABELS: Record<OrderAttentionFlag, string> = { PRICING: 'Pricing needs review', AT_RISK: 'At risk', LATE_START: 'Late start', FAILED_ATTEMPT: 'Failed attempt' };
-/** Local estimate frozen with an owner-operator's order. Payment status is not tracked here. */
-export interface DriverPayoutSnapshot {
-  driverId: string;
-  calculatedAt: string;
-  priceStage: 'ESTIMATE' | 'FINAL';
-  currency: 'CAD' | 'USD';
-  orderSharePercent: number;
-  fuelSharePercent: number;
-  orderBase: number;
-  fuelBase: number;
-  orderEarnings: number;
-  fuelEarnings: number;
-  total: number;
-}
 export interface OrderOperations extends AuditFields {
-  lifecycleStatus?: OrderLifecycle; completedAt?: string; driverPayout?: DriverPayoutSnapshot; priority?: 'NORMAL' | 'HIGH' | 'URGENT'; orderType?: 'DELIVERY' | 'PICKUP' | 'RETURN' | 'TRANSFER' | 'SERVICE_CALL';
+  lifecycleStatus?: OrderLifecycle; completedAt?: string; priority?: 'NORMAL' | 'HIGH' | 'URGENT'; orderType?: 'DELIVERY' | 'PICKUP' | 'RETURN' | 'TRANSFER' | 'SERVICE_CALL';
   billingCustomerId?: string | null; customerSnapshot?: { id: string | null; name: string; phone: string; email: string; billingEmail: string; legalName?: string; address?: string; paymentTerms?: string };
   billingCustomerSnapshot?: OrderOperations['customerSnapshot']; referenceNumbers?: string; commodityDescription?: string;
   requiredSkills?: string[]; requiredEquipment?: string[]; serviceAreaId?: string; tags?: string[]; dispatcherNotes?: string;

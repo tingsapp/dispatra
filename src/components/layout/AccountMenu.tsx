@@ -15,7 +15,7 @@ export function AccountMenu({ open, onOpenChange, trigger, activeTab, modal = fa
     <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
     <DropdownMenuContent side={collapsed ? 'right' : 'top'} sideOffset={collapsed ? 16 : 8} align={collapsed ? 'end' : 'start'} size={collapsed ? 'menu' : 'trigger'} collisionPadding={8} aria-label="Account menu" aria-labelledby={undefined}>
       <DropdownMenuItem icon={User} selected={activeTab === 'profile'} onSelect={onProfile}>Profile</DropdownMenuItem>
-      {onPricing && <DropdownMenuItem icon={FileText} selected={activeTab === 'rate-cards'} onSelect={onPricing}>Pricing</DropdownMenuItem>}
+      {onPricing && <DropdownMenuItem icon={FileText} selected={activeTab === 'rate-cards'} onSelect={onPricing}>Settings</DropdownMenuItem>}
       {onHelp && <DropdownMenuItem icon={HelpCircle} selected={activeTab === 'help'} onSelect={onHelp}>Help</DropdownMenuItem>}
       <DropdownMenuItem icon={LogOut} onSelect={onLogout}>Logout</DropdownMenuItem>
     </DropdownMenuContent>

@@ -11,10 +11,9 @@ try {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('heading', { name: 'Orders', exact: true }).waitFor();
   const nav = page.getByRole('navigation', { name: 'Portal navigation' });
-  assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Orders','Invoices','Payment Methods']);
+  assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Orders','Invoices']);
   for (const [name,path,content] of [
     ['Orders','orders','Orders'], ['Invoices','invoices','Invoices'],
-    ['Payment Methods','payment-methods','Pay by invoice'],
   ]) {
     await nav.getByRole('link', { name, exact: true }).click();
     await page.waitForURL(`**/${slug}/shipper-portal/${path}`);
@@ -42,23 +41,4 @@ try {
   await page.getByRole('heading',{name:'Orders',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog',{name:'Workspace sidebar'}).count(),0);
   console.log('Live API: sidebar pages, account menu, active links, reloads and mobile navigation passed.');
-  // Browser contract check only: no calls to Stripe and no real card is created.
-  await page.route('**/api/v1/companies/*/shipper/payment-methods', route => route.fulfill({json:{
-    configured:true,test_mode:true,terms:'NET15',cards:[{id:'pm_test',brand:'visa',last4:'4242',exp_month:12,exp_year:2030}],
-  }}));
-  let setupPayload;
-  await page.route('**/api/v1/companies/*/shipper/payment-methods/setup', async route => {
-    setupPayload=route.request().postDataJSON();
-    assert.ok(route.request().headers()['idempotency-key']);
-    await route.fulfill({json:{url:'https://checkout.stripe.com/c/pay/test'}});
-  });
-  await page.route('https://checkout.stripe.com/**', route => route.fulfill({body:'Stripe test redirect intercepted',contentType:'text/plain'}));
-  await page.goto(`${origin}/${slug}/shipper-portal/payment-methods`);
-  await page.getByText('ending in 4242',{exact:false}).waitFor();
-  assert.ok(await page.getByRole('button',{name:'Add credit card',exact:true}).isDisabled());
-  await page.getByRole('checkbox').check();
-  await page.getByRole('button',{name:'Add credit card',exact:true}).click();
-  await page.waitForURL('https://checkout.stripe.com/c/pay/test');
-  assert.deepEqual(setupPayload,{consent:true});
-  console.log('Mocked Stripe UI: masked cards, consent, idempotency and hosted redirect passed.');
 } finally { await browser.close(); }

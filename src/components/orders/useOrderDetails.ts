@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { allOperations } from '../../operations/api';
+import { allOperations, operations } from '../../operations/api';
 import { changeAssignment } from '../../operations/assignment';
 import { apiPricingContext } from '../../operations/pricingAdapters';
 import { api } from '../../portal/api';
 import { companySettingsKey } from '../../portal/WorkspaceAccount';
 import { loadPricingContext } from '../../lib/orderPricing';
 import { validateAssignment } from '../../lib/organizationWorkflows';
-import { orderEditable } from '../../domain/validation';
+import { orderEditable, orderLifecycle } from '../../domain/validation';
 import { confirmDialog } from '../ui/ConfirmDialog';
 import type { Driver, Job } from '../../types';
 
@@ -65,6 +65,32 @@ export function useOrderAssignment({ slug, jobs, drivers, onUpdateJob, onNotific
     };
     onUpdateJob(updated);
     onNotification(`Job ${job.jobNumber} reassigned to ${driver ? `${driver.name} (${driver.id})` : 'Unassigned'}`);
+    return { updated };
+  };
+}
+
+/** A dispatcher can complete an assigned or in-progress Order by hand, without driver proof of delivery. */
+export const orderCompletable = (job: Job) => ['ASSIGNED', 'IN_PROGRESS'].includes(orderLifecycle(job));
+
+/** Manual completion shared by the Orders list and the Monitor. Resolves like `useOrderAssignment`. */
+export function useOrderCompletion({ slug, onUpdateJob, onNotification }: {
+  slug: string | null | undefined; onUpdateJob: (job: Job) => void; onNotification: (message: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const orders = useQuery({ queryKey: ['operations', slug, 'orders'], queryFn: () => allOperations.orders(slug!), enabled: !!slug });
+  return async (job: Job): Promise<{ updated?: Job } | null> => {
+    if (!orderCompletable(job)) return null;
+    if (!(await confirmDialog({ title: 'Complete order?', message: `${job.jobNumber} will be marked Completed.`, confirmLabel: 'Complete order' }))) return null;
+    if (slug) {
+      const record = orders.data?.find(row => row.id === job.id);
+      if (!record) return null;
+      try { await operations.completeOrder(slug, record); onNotification(`${job.jobNumber} completed.`); return {}; }
+      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not complete the order.'); return null; }
+      finally { await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'routes'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]); }
+    }
+    const updated: Job = { ...job, lifecycleStatus: 'COMPLETED', status: 'completed', statusLabel: 'Completed', version: (job.version ?? 1) + 1 };
+    onUpdateJob(updated);
+    onNotification(`${job.jobNumber} completed.`);
     return { updated };
   };
 }

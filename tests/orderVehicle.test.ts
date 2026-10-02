@@ -17,7 +17,6 @@ const { loadVehicles, saveVehicles } = await import('../src/lib/vehicleStorage')
 const { loadPricingConfig, savePricingConfig, createEmptyRateCard } = await import('../src/lib/pricingStorage');
 const { loadCustomers, saveCustomers } = await import('../src/lib/customerStorage');
 const { loadPricingContext, createDefaultOrderInput, priceOrder } = await import('../src/lib/orderPricing');
-const { applyDriverVehicle } = await import('../src/domain/orderAdapters');
 const { validateAssignment } = await import('../src/lib/organizationWorkflows');
 afterEach(() => { cleanup(); localStorage.clear(); });
 function setup() {
@@ -37,7 +36,6 @@ async function openOrder(drivers: ReturnType<typeof setup>['drivers']) {
   const notices: string[] = [];
   render(React.createElement(JobsPage, { jobs: [], drivers, onSelectJob: () => {}, onUpdateJob: () => {}, onCreateJob: job => { created = job; }, onNotification: message => notices.push(message) }));
   await user.click(screen.getByRole('button', { name: 'New Order' }));
-  assert.equal(screen.queryByRole('combobox', { name: 'Vehicle' }), null);
   await user.click(screen.getByRole('combobox', { name: 'Shipper' }));
   await user.click(screen.getAllByRole('option')[1]);
   await user.clear(screen.getAllByLabelText('Stop address')[0]);
@@ -45,45 +43,59 @@ async function openOrder(drivers: ReturnType<typeof setup>['drivers']) {
   await user.type(screen.getAllByLabelText('Stop address')[1], '200 Main St, Vancouver BC');
   return { user, created: () => created, notices };
 }
-test('new order has no vehicle selector and can save without a driver or invented vehicle', async () => {
+const required = () => screen.getByRole('combobox', { name: 'Vehicle type' }).textContent;
+const vehicleRow = () => screen.getByText('Vehicle Surcharge').closest('div')!.parentElement!.textContent!;
+async function chooseDriver(view: Awaited<ReturnType<typeof openOrder>>, name: RegExp) {
+  await view.user.click(screen.getByRole('combobox', { name: 'Assign driver' }));
+  await view.user.click(screen.getByRole('option', { name }));
+}
+test('new order suggests the smallest vehicle type the load fits and saves without a driver', async () => {
   const { drivers } = setup();
   const view = await openOrder(drivers);
+  assert.equal(required(), 'Cargo Van');
+  assert.match(vehicleRow(), /Cargo Van \(no surcharge\)\$0\.00/);
   await view.user.click(screen.getByRole('button', { name: 'Create Order' }));
   const order = view.created();
   assert.ok(order, view.notices.join(' '));
-  assert.equal(order.pricingInput?.vehicleId, null);
-  assert.equal(order.vehicleId, null);
+  assert.equal(order.pricingInput?.vehicleId, 'veh_1_ton');
   assert.equal(order.assignedDriverId, undefined);
   assert.equal(order.pricing?.status, 'PRICED');
   assert.equal(order.pricing?.vehicleSurcharge, 0);
 });
-test('new-order driver changes derive the attached vehicle and its saved surcharge', async () => {
-  const { fleet, drivers } = setup();
+test('choosing a driver never changes the required vehicle or the price; a larger required type adds its surcharge and any fitting truck may take it', async () => {
+  const { drivers } = setup();
   const view = await openOrder(drivers);
-  for (const driver of drivers) {
-    await view.user.click(screen.getByRole('combobox', { name: 'Assign driver' }));
-    await view.user.click(screen.getByRole('option', { name: new RegExp(driver.name) }));
-  }
+  for (const driver of drivers) await chooseDriver(view, new RegExp(driver.name));
+  assert.equal(required(), 'Cargo Van');
+  await view.user.click(screen.getByRole('combobox', { name: 'Vehicle type' }));
+  await view.user.click(screen.getByRole('option', { name: 'Cube Van' }));
+  assert.match(vehicleRow(), /Cube Van\$25\.00/);
   await view.user.click(screen.getByRole('button', { name: 'Create Order' }));
   const order = view.created();
   assert.ok(order, view.notices.join(' '));
   assert.equal(order.assignedDriverId, drivers[1].id);
-  assert.equal(order.pricingInput?.vehicleId, fleet[1].vehicleTypeId);
-  assert.equal(order.vehicleId, fleet[1].vehicleTypeId);
-  assert.equal(order.pricing?.vehicleSurcharge, loadPricingContext().catalogue.vehicles.find(v => v.id === fleet[1].vehicleTypeId)!.baseSurcharge);
-  assert.equal(order.pricing?.orderFacts?.vehicleId, fleet[1].vehicleTypeId);
+  assert.equal(order.pricingInput?.vehicleId, 'veh_2_ton');
+  assert.equal(order.pricing?.vehicleSurcharge, 25);
 });
-test('clearing the new-order driver clears its derived vehicle; a driver with no asset cannot be assigned', async () => {
+test('a refrigerated requirement needs a truck with refrigeration', async () => {
+  const { fleet, drivers } = setup();
+  assert.ok(!fleet[0].equipment?.includes('Refrigeration') && fleet[1].equipment?.includes('Refrigeration'));
+  const view = await openOrder(drivers);
+  await view.user.click(screen.getByRole('combobox', { name: 'Vehicle type' }));
+  await view.user.click(screen.getByRole('option', { name: 'Refrigerated Van' }));
+  await chooseDriver(view, new RegExp(drivers[0].name));
+  await view.user.click(screen.getByRole('button', { name: 'Create Order' }));
+  assert.equal(view.created(), undefined);
+  assert.match(view.notices.at(-1)!, /needs refrigeration for the required Refrigerated Van/);
+  await chooseDriver(view, new RegExp(drivers[1].name));
+  await view.user.click(screen.getByRole('button', { name: 'Create Order' }));
+  assert.equal(view.created()?.assignedDriverId, drivers[1].id, view.notices.join(' '));
+});
+test('a driver with no attached vehicle cannot be assigned on a new order', async () => {
   const { drivers } = setup();
   const driver = { ...drivers[0], currentVehicleId: null };
   const view = await openOrder([drivers[1], driver]);
-  await view.user.click(screen.getByRole('combobox', { name: 'Assign driver' }));
-  await view.user.click(screen.getByRole('option', { name: new RegExp(drivers[1].name) }));
-  await view.user.click(screen.getByRole('combobox', { name: 'Assign driver' }));
-  await view.user.click(screen.getByRole('option', { name: /Leave Unassigned/ }));
-  assert.equal(screen.queryByText('Vehicle Surcharge'), null);
-  await view.user.click(screen.getByRole('combobox', { name: 'Assign driver' }));
-  await view.user.click(screen.getByRole('option', { name: new RegExp(driver.name) }));
+  await chooseDriver(view, new RegExp(driver.name));
   await view.user.click(screen.getByRole('button', { name: 'Create Order' }));
   assert.equal(view.created(), undefined);
   assert.match(view.notices.at(-1)!, /current fleet vehicle on the driver profile/);
@@ -91,7 +103,7 @@ test('clearing the new-order driver clears its derived vehicle; a driver with no
 test('later assignment checks the attached vehicle type without mutating the stored quote', () => {
   const { customer, fleet, drivers } = setup();
   const ctx = loadPricingContext();
-  const input = applyDriverVehicle({ ...createDefaultOrderInput(ctx), customerId: customer.id }, undefined, fleet);
+  const input = { ...createDefaultOrderInput(ctx), customerId: customer.id };
   input.stops.forEach((stop, index) => { stop.label = `${index + 1} Main St, Vancouver BC`; });
   const quote = priceOrder(input, ctx);
   const order = { id: 'new', version: 1, status: 'no_driver' as const, pricingInput: input, pricing: quote };

@@ -1,3 +1,4 @@
+import { isValidEmail } from '../lib/email';
 import { cityFromAddress } from '../lib/driverCity';
 import { PricingOrderInput } from '../types/pricing';
 import { Driver, Order } from '../types';
@@ -6,7 +7,7 @@ import { Customer } from '../lib/customerStorage';
 import { VehicleAsset } from '../lib/vehicleStorage';
 export const splitTags = (s: string) => [...new Set(s.split(',').map(x => x.trim()).filter(Boolean))];
 const nonnegative = (n: number | undefined) => n == null || Number.isFinite(n) && n >= 0;
-const emailOK = (s?: string) => !s || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+const emailOK = (s?: string) => !s || isValidEmail(s);
 export const windowErrors = (start?: string | null, end?: string | null, label = 'Window'): string[] => {
   const valid = (v: string) => /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v) && Number.isFinite(Date.parse(v));
   if (start && !valid(start) || end && !valid(end)) return [`${label}: enter valid dates and times.`];
@@ -52,7 +53,6 @@ export function validateDriver(d: Driver, all: Driver[]): string[] {
   if (!d.driverNumber?.trim()) return ['Driver number could not be assigned.'];
   if (all.some(x => x.id !== d.id && (x.driverNumber ?? x.id).toLowerCase() === d.driverNumber!.trim().toLowerCase())) return ['Driver number already exists.'];
   if (d.currentVehicleId && all.some(x => x.id !== d.id && x.currentVehicleId === d.currentVehicleId)) return ['Vehicle is already linked to another driver.'];
-  if (d.employmentType === 'CONTRACTOR' && [d.revenueSharePercent, d.fuelSurchargeSharePercent].some(v => v == null || !Number.isFinite(v) || v < 0 || v > 100)) return ['Enter owner-operator shares between 0 and 100%.'];
   if (!emailOK(d.email) || !nonnegative(d.maximumWorkMinutes)) return ['Check email and maximum work minutes.'];
   return [...windowErrors(d.shiftStart, d.shiftEnd, 'Shift'), ...(d.availabilitySchedule ?? []).flatMap(a => !a.start || !a.end ? ['Availability needs a start and end.'] : windowErrors(a.start, a.end, 'Availability'))];
 }
@@ -60,7 +60,7 @@ export function validateVehicle(v: VehicleAsset, all: VehicleAsset[]): string[] 
   if (!v.unitNumber.trim() || !v.plateNumber.trim() || !v.vehicleTypeId) return ['Unit number, licence plate and vehicle type are required.'];
   if (all.some(x => x.id !== v.id && (x.unitNumber.toLowerCase() === v.unitNumber.toLowerCase() || x.plateNumber.toLowerCase() === v.plateNumber.toLowerCase() && x.plateProvince === v.plateProvince))) return ['Unit number or plate/province already exists.'];
   if (![v.payloadCapacityKg,v.palletCapacity,v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm,v.cargoVolumeM3].every(nonnegative) || !Number.isInteger(v.palletCapacity)) return ['Enter nonnegative capacities and whole pallet counts.'];
-  if ([v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm].some(value => value == null || !Number.isFinite(value) || value <= 0)) return ['Cargo length, width and height must be greater than zero.'];
+  if ([v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm].some(value => value == null || !Number.isFinite(value) || value <= 0)) return ['Box length, width and height must be greater than zero.'];
   if (v.maxStops != null && (!Number.isSafeInteger(v.maxStops) || v.maxStops < 1)) return ['Maximum stops must be a positive whole number.'];
   if (v.availability === 'UNAVAILABLE' && !v.unavailableReason?.trim()) return ['Enter the reason this vehicle is unavailable.'];
   return windowErrors(v.unavailableFrom, v.unavailableUntil, 'Unavailability');

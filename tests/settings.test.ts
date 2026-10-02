@@ -15,9 +15,12 @@ const { RateCardsPage } = await import('../src/pages/RateCardsPage');
 const { VehiclesPage } = await import('../src/pages/VehiclesPage');
 const { loadVehicles } = await import('../src/lib/vehicleStorage');
 const { ProfilePage } = await import('../src/pages/ProfilePage');
-const TaxesPreferencesPage = (props: { onNotification?: (message: string) => void } = {}) => React.createElement(ProfilePage, { ...props, initialSection: 'taxes' });
 const { BillingSettingsForm } = await import('../src/components/settings/BillingSettingsForm');
+const TaxesPage = () => React.createElement(BillingSettingsForm, { section: 'taxes' });
+const PreferencesPage = () => React.createElement(BillingSettingsForm, { section: 'preferences' });
 const { CatalogueSection } = await import('../src/components/settings/CatalogueSection');
+const { VehicleTypesSection } = await import('../src/components/settings/VehicleTypesSection');
+const { ConfirmDialogHost } = await import('../src/components/ui/ConfirmDialog');
 const { loadPricingConfig, savePricingConfig, createEmptyRateCard, rateCardCode, RATE_CARD_BACKGROUND_DEFAULTS } = await import('../src/lib/pricingStorage');
 const { loadBillingConfig, saveBillingConfig } = await import('../src/lib/billingStorage');
 const { loadSimplePricingConfig, saveSimplePricingConfig } = await import('../src/lib/simplePricingStorage');
@@ -51,25 +54,32 @@ function assertFieldIssue(label: string, issue: string | null) {
     assert.match(hint.textContent!, new RegExp(issue));
   }
 }
-test('Profile starts with Company and ends with Taxes & Preferences; Pricing stays separate', async () => {
+test('Profile has Company and Security; Taxes and Preferences are separate Pricing tabs', async () => {
   const user = userEvent.setup({ document });
   const page = render(React.createElement(ProfilePage, {}));
-  assert.deepEqual(screen.getAllByRole('button', { name: /^(Company|Security & Sessions|Taxes & Preferences)$/ }).map(button => button.textContent), ['Company', 'Security & Sessions', 'Taxes & Preferences']);
+  assert.deepEqual(screen.getAllByRole('button', { name: /^(Company|Security|Security & Sessions|Taxes & Preferences|Taxes|Preferences)$/ }).map(button => button.textContent), ['Company', 'Security']);
   assert.ok(screen.getByRole('button', { name: 'Company', pressed: true }));
   for (const label of ['Company name', 'Contact Full Name', 'Email', 'Phone', 'Role', 'Company address']) assert.ok(screen.getByLabelText(label), label);
   assert.ok(screen.getByText('Company Logo'));
   assert.ok(screen.getByRole('button', { name: 'Upload company logo' }));
   assert.equal(screen.queryByRole('textbox', { name: 'GST/HST registration number' }), null);
-  await user.click(screen.getByRole('button', { name: 'Security & Sessions' }));
+  await user.click(screen.getByRole('button', { name: 'Security' }));
   for (const label of ['Current Password', 'New Password', 'Confirm New Password']) assert.ok(screen.getByLabelText(label), label);
-  await user.click(screen.getByRole('button', { name: 'Taxes & Preferences' }));
-  assert.ok(screen.getByRole('textbox', { name: 'GST/HST registration number' }));
-  assert.ok(screen.getByRole('checkbox', { name: 'Apply GST/HST to taxable charges' }));
-  assert.ok(screen.getByRole('checkbox', { name: 'Apply provincial tax to taxable charges' }));
-  for (const label of ['GST/HST rate', 'Provincial tax rate']) assert.ok(screen.getByRole('spinbutton', { name: label }), label);
-  for (const label of ['Currency', 'Organization timezone', 'Distance unit', 'Weight unit', 'Dimension unit']) assert.ok(screen.getByRole('combobox', { name: label }), label);
-  assert.equal(screen.queryByLabelText('Company address'), null);
   page.unmount();
+  const pricing = render(React.createElement(RateCardsPage, {}));
+  assert.deepEqual(screen.getAllByRole('tab').map(tab => tab.textContent), ['Rate Cards', 'Service Level', 'Accessorials', 'Fuel Surcharge', 'Taxes', 'Vehicle Types', 'Preferences']);
+  await user.click(screen.getByRole('tab', { name: 'Taxes' }));
+  const taxes = within(screen.getByRole('tabpanel', { name: 'Taxes' }));
+  assert.ok(taxes.getByRole('textbox', { name: 'GST/HST registration number' }));
+  assert.ok(taxes.getByRole('checkbox', { name: 'Apply GST/HST to taxable charges' }));
+  assert.ok(taxes.getByRole('checkbox', { name: 'Apply provincial tax to taxable charges' }));
+  for (const label of ['GST/HST rate', 'Provincial tax rate']) assert.ok(taxes.getByRole('spinbutton', { name: label }), label);
+  assert.equal(taxes.queryByRole('combobox', { name: 'Weight unit' }), null);
+  await user.click(screen.getByRole('tab', { name: 'Preferences' }));
+  const preferences = within(screen.getByRole('tabpanel', { name: 'Preferences' }));
+  for (const label of ['Currency', 'Organization timezone', 'Distance unit', 'Weight unit', 'Dimension unit']) assert.ok(preferences.getByRole('combobox', { name: label }), label);
+  assert.equal(preferences.queryByRole('spinbutton', { name: 'GST/HST rate' }), null);
+  pricing.unmount();
   render(React.createElement(RateCardsPage, {}));
   await user.click(screen.getByRole('tab', { name: 'Rate Cards' }));
   assert.ok(screen.getByRole('button', { name: 'Add card' }));
@@ -91,10 +101,10 @@ test('old Company URL opens the Company tab in Profile', () => {
 test('new cards choose one method, do not persist before Save, and cancelled drafts leave no records', async () => {
   const user = userEvent.setup({ document }); seedCard(); const before = loadPricingConfig();
   render(React.createElement(RateCardsPage, {  })); await user.click(screen.getByRole('tab', { name: 'Rate Cards' }));
-  await user.click(screen.getByRole('combobox', { name: 'Filter pricing method' })); assert.equal(screen.queryByRole('option', { name: 'Imported price' }), null); await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('combobox', { name: 'Filter pricing method' })); assert.ok(screen.getByRole('option', { name: 'Imported price' })); await user.keyboard('{Escape}');
   await user.click(screen.getByRole('button', { name: 'Add card' }));
   assert.deepEqual(loadPricingConfig(), before);
-  await user.click(screen.getByRole('combobox', { name: 'Pricing method' })); assert.equal(screen.queryByRole('option', { name: 'Imported price' }), null); assert.ok(screen.getByRole('option', { name: 'Fixed per delivery' })); await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('combobox', { name: 'Pricing method' })); assert.ok(screen.getByRole('option', { name: 'Imported price' })); assert.ok(screen.getByRole('option', { name: 'Fixed per delivery' })); await user.keyboard('{Escape}');
   assert.equal(screen.getByLabelText('Minimum Charge').closest('.grid'), screen.getByLabelText('Rate card name').closest('.grid'));
   await select(user, 'Pricing method', 'Fixed per delivery'); assert.ok(screen.getByLabelText('Fixed Amount per Delivery')); assert.equal(screen.queryByLabelText('Base Fee'), null);
   await user.click(screen.getByRole('button', { name: 'Cancel' })); assert.deepEqual(loadPricingConfig(), before);
@@ -105,8 +115,8 @@ test('new cards choose one method, do not persist before Save, and cancelled dra
 test('stored background contract exceptions are normalised on load; editing keeps the discount and unrelated billing data', async () => {
   const original = seedCard({ fuelPercent: 0, waitFreeMinutes: 0, minimumOrderSubtotal: 0, applyAdminFee: false, accessorialRateOverrides: { acc_stairs: 0 }, discount: { type: 'NONE', value: 0, scope: 'SUBTOTAL' } });
   const billing = loadBillingConfig(); saveBillingConfig(billing); const user = userEvent.setup({ document }); render(React.createElement(RateCardsPage, {  })); await user.click(screen.getByRole('tab', { name: 'Rate Cards' }));
-  await user.click(screen.getByRole('button', { name: 'Contract A' })); assert.equal(screen.queryByText('Additional settings'), null); assert.deepEqual([...document.querySelectorAll('details summary')].map(el => el.textContent!.split('Example')[0].trim()), ['How Pricing Work?']); assert.equal(screen.queryByRole('note'), null);
-  for (const hidden of ['Code', 'Applies to', 'Customer', 'Service restriction', 'Status', 'Vehicle restriction', 'Priority', 'Effective From', 'Effective To', 'Currency', 'Notes', 'Minimum Freight', 'Included Pieces', 'Wait-Free Allowance']) assert.equal(screen.queryByLabelText(hidden), null, hidden);
+  await user.click(screen.getByRole('button', { name: 'Contract A' })); assert.equal(screen.queryByText('Additional settings'), null); assert.deepEqual([...document.querySelectorAll('details summary')].map(el => el.textContent!.split('Example')[0].trim()), ['How pricing works']); assert.equal(screen.queryByRole('note'), null);
+  for (const hidden of ['Code', 'Applies to', 'Customer', 'Service restriction', 'Status', 'Vehicle restriction', 'Priority', 'Effective From', 'Effective To', 'Currency', 'Notes', 'Minimum Freight', 'Included Pieces', 'Wait-Free Allowance']) assert.equal(within(screen.getByRole('region', { name: 'Rate card editor' })).queryByLabelText(hidden), null, hidden);
   assert.equal(within(screen.getByRole('region', { name: 'Rate card editor' })).queryByLabelText('Fuel Surcharge'), null);
   await user.clear(screen.getByLabelText('Base Fee')); await user.type(screen.getByLabelText('Base Fee'), '27'); await user.click(screen.getByRole('button', { name: 'Save Card' }));
   const saved = loadPricingConfig().rateCards[0];
@@ -119,40 +129,79 @@ test('hourly and zone cards show required method terms without exposing other me
   const terms = screen.getAllByRole('checkbox', { name: /Billable clock|Includes|Settled/ }); assert.equal(terms.length, 5); assert.ok(terms.every(box => (box as HTMLInputElement).checked && (box as HTMLInputElement).disabled)); assert.ok(screen.getByRole('checkbox', { name: 'Billable clock starts: Arrival at first pickup' })); assert.equal(screen.queryByRole('textbox', { name: /Billable clock/ }), null); assert.equal(terms[0].closest('details'), null); assert.equal(screen.queryByLabelText('Base Fee'), null); page.unmount();
   seedCard({ pricingMethod: 'ZONE', zoneMatrixMode: 'CONTRACT', zoneNoMatchFallback: 'NEEDS_ATTENTION' }); render(React.createElement(RateCardsPage, {  })); await user.click(screen.getByRole('tab', { name: 'Rate Cards' })); await user.click(screen.getByRole('button', { name: 'Contract A' })); assert.equal(screen.queryByRole('combobox', { name: 'Zone prices' }), null); assert.equal(screen.queryByRole('checkbox', { name: /organization rates/ }), null); assert.equal(screen.queryByRole('combobox', { name: 'Pickup zone' }), null); assert.equal(screen.getAllByRole('table').length, 2); assert.ok(screen.getByRole('button', { name: 'Add' })); assert.equal(screen.queryByRole('combobox', { name: 'Zone no-match fallback' }), null); assert.equal(screen.queryByLabelText('Base Fee'), null); assert.equal(screen.queryByLabelText('Hourly Rate'), null);
 });
+test('hourly cards use Minimum Billable only: Minimum Charge is hidden and saved hourly minimums clear while other methods keep theirs', async () => {
+  const config = loadPricingConfig();
+  config.rateCards = [createEmptyRateCard({ id: 'hourly-min', name: 'Hourly A', scope: 'ORGANIZATION', pricingMethod: 'HOURLY', minimumBillableMinutes: 120, minimumOrderSubtotal: 150 }), createEmptyRateCard({ id: 'fixed-min', name: 'Fixed A', pricingMethod: 'FIXED', fixedAmount: 55, minimumOrderSubtotal: 40 })];
+  savePricingConfig(config);
+  const loaded = loadPricingConfig().rateCards;
+  assert.equal(loaded.find(card => card.id === 'hourly-min')!.minimumOrderSubtotal, 0);
+  assert.equal(loaded.find(card => card.id === 'hourly-min')!.minimumBillableMinutes, 120);
+  assert.equal(loaded.find(card => card.id === 'fixed-min')!.minimumOrderSubtotal, 40);
+  const user = userEvent.setup({ document });
+  render(React.createElement(RateCardsPage, {}));
+  await user.click(screen.getByRole('button', { name: 'Hourly A' }));
+  assert.equal(screen.queryByLabelText('Minimum Charge'), null); assert.ok(screen.getByLabelText('Minimum Billable'));
+  await user.click(screen.getByRole('button', { name: 'Fixed A' }));
+  assert.equal((screen.getByLabelText('Minimum Charge') as HTMLInputElement).value, '40');
+  await user.click(screen.getByRole('button', { name: 'Add card' }));
+  assert.ok(screen.getByLabelText('Minimum Charge'));
+  await user.click(screen.getByRole('combobox', { name: 'Pricing method' })); await user.click(screen.getByRole('option', { name: /Hourly/ }));
+  assert.equal(screen.queryByLabelText('Minimum Charge'), null);
+});
+test('rate cards have Apply fuel and Apply vehicle surcharge checkboxes that save and survive reload; Imported cards have none; new Hourly and Zone cards start without the vehicle surcharge', async () => {
+  const config = loadPricingConfig();
+  config.rateCards = [createEmptyRateCard({ id: 'fixed-all-in', name: 'All-in fixed', scope: 'ORGANIZATION', pricingMethod: 'FIXED', fixedAmount: 95 }), createEmptyRateCard({ id: 'imported-card', name: 'Imported A', pricingMethod: 'IMPORTED' })];
+  savePricingConfig(config);
+  const user = userEvent.setup({ document });
+  let page = render(React.createElement(RateCardsPage, {}));
+  await user.click(screen.getByRole('button', { name: 'All-in fixed' }));
+  const fuel = screen.getByRole('checkbox', { name: /Apply fuel surcharge/ }) as HTMLInputElement;
+  const vehicle = screen.getByRole('checkbox', { name: /Apply vehicle surcharge/ }) as HTMLInputElement;
+  assert.equal(fuel.checked, true); assert.equal(vehicle.checked, true);
+  assert.equal(fuel.closest('label')!.textContent, 'Apply fuel surcharge'); assert.equal(screen.queryByText(/Untick a surcharge/), null);
+  await user.click(fuel); await user.click(vehicle);
+  await user.click(screen.getByRole('button', { name: 'Save Card' }));
+  page.unmount(); page = render(React.createElement(RateCardsPage, {}));
+  const saved = loadPricingConfig().rateCards.find(card => card.id === 'fixed-all-in')!;
+  assert.equal(saved.applyFuelSurcharge, false); assert.equal(saved.applyVehicleSurcharge, false);
+  await user.click(screen.getByRole('button', { name: 'All-in fixed' }));
+  assert.equal((screen.getByRole('checkbox', { name: /Apply fuel surcharge/ }) as HTMLInputElement).checked, false);
+  await user.click(screen.getByRole('button', { name: 'Imported A' }));
+  assert.equal(screen.queryByRole('checkbox', { name: /Apply fuel surcharge/ }), null);
+  await user.click(screen.getByRole('button', { name: 'Add card' }));
+  await user.click(screen.getByRole('combobox', { name: 'Pricing method' })); await user.click(screen.getByRole('option', { name: /Hourly/ }));
+  assert.equal((screen.getByRole('checkbox', { name: /Apply vehicle surcharge/ }) as HTMLInputElement).checked, false);
+  assert.equal((screen.getByRole('checkbox', { name: /Apply fuel surcharge/ }) as HTMLInputElement).checked, true);
+  for (const [method, vehicleOn] of [[/Zone/, false], [/Fixed/, true], [/Distance/, true]] as const) {
+    await user.click(screen.getByRole('combobox', { name: 'Pricing method' })); await user.click(screen.getByRole('option', { name: method }));
+    assert.equal((screen.getByRole('checkbox', { name: /Apply vehicle surcharge/ }) as HTMLInputElement).checked, vehicleOn, String(method));
+    assert.equal((screen.getByRole('checkbox', { name: /Apply fuel surcharge/ }) as HTMLInputElement).checked, true, String(method));
+  }
+  page.unmount();
+});
+test('Imported cards sit at the end of the rate card list; the other cards keep their order', () => {
+  const config = loadPricingConfig();
+  config.rateCards = [createEmptyRateCard({ id: 'imp', name: 'Imported price (TMS)', pricingMethod: 'IMPORTED' }), createEmptyRateCard({ id: 'b', name: 'Zone B', pricingMethod: 'ZONE', scope: 'ORGANIZATION' }), createEmptyRateCard({ id: 'a', name: 'Fixed A', pricingMethod: 'FIXED' })];
+  savePricingConfig(config);
+  render(React.createElement(RateCardsPage, {}));
+  const names = within(screen.getByRole('complementary', { name: 'Rate cards' })).getAllByRole('button').map(button => button.textContent ?? '').filter(text => /Imported price \(TMS\)|Zone B|Fixed A/.test(text));
+  assert.deepEqual(names.map(name => name.match(/Imported price \(TMS\)|Zone B|Fixed A/)![0]), ['Zone B', 'Fixed A', 'Imported price (TMS)']);
+});
 test('unsaved card navigation can be cancelled without losing changes', async () => {
   const user = userEvent.setup({ document }); seedCard(); const config = loadPricingConfig(); config.rateCards.push(createEmptyRateCard({ id: 'contract-b', name: 'Contract B', status: 'ACTIVE', pricingMethod: 'FIXED', fixedAmount: 55 })); savePricingConfig(config); render(React.createElement(RateCardsPage, {  })); await user.click(screen.getByRole('tab', { name: 'Rate Cards' })); await user.click(screen.getByRole('button', { name: 'Contract A' })); await user.type(screen.getByLabelText('Rate card name'), ' edited'); window.confirm = () => false;
   assert.equal(window.dispatchEvent(new Event(SETTINGS_NAVIGATION_EVENT, { cancelable: true })), false); await user.click(screen.getByRole('button', { name: 'Add card' })); assert.equal((screen.getByLabelText('Rate card name') as HTMLInputElement).value, 'Contract A edited'); assert.equal(loadPricingConfig().rateCards[0].name, 'Contract A');
   await user.click(screen.getByRole('button', { name: 'Contract B' })); assert.equal((screen.getByLabelText('Rate card name') as HTMLInputElement).value, 'Contract A edited'); window.confirm = () => true; await user.click(screen.getByRole('button', { name: 'Contract B' })); assert.equal((screen.getByLabelText('Fixed Amount per Delivery') as HTMLInputElement).value, '55'); assert.ok(screen.getByRole('tab', { name: 'Rate Cards', selected: true }));
 });
-test('driver details save an individual limit without changing company defaults or other drivers', async () => {
+test('driver details have no order limit field and saving keeps an existing individual limit', async () => {
   const { DriverEditor } = await import('../src/components/entities/DriverEditor');
   const { INITIAL_DRIVERS } = await import('../src/data/mockData');
-  const { normalizeDriver, saveDrivers, loadDrivers } = await import('../src/lib/driverStorage');
-  const billing = loadBillingConfig(); billing.dispatch.maxActiveOrdersPerDriver = 6; saveBillingConfig(billing);
-  const driver = normalizeDriver(INITIAL_DRIVERS[0]); const other = normalizeDriver(INITIAL_DRIVERS[1]);
-  const beforeOther = structuredClone(other); let saved = driver;
+  const { normalizeDriver } = await import('../src/lib/driverStorage');
+  const driver = normalizeDriver({ ...INITIAL_DRIVERS[0], maxActiveOrders: 8, address: '100 Main St, Vancouver, BC V6A 2S5', email: 'driver@example.ca' }); let saved: typeof driver | undefined;
   const user = userEvent.setup({ document });
-  const props = { driver, drivers: [driver, other], onSave: (value: typeof driver) => { saved = value; saveDrivers([value, other]); }, onCancel: noop };
-  const page = render(React.createElement(DriverEditor, props));
-  const limit = screen.getByLabelText('Maximum Active Orders') as HTMLInputElement;
-  assert.equal(limit.value, '6');
-  for (const invalid of ['', '0', '-1', '1.5']) {
-    await user.clear(limit); if (invalid) await user.type(limit, invalid);
-    assert.equal(limit.checkValidity(), false);
-    await user.click(screen.getByRole('button', { name: 'Save driver' }));
-    assert.equal(saved.maxActiveOrders, undefined);
-  }
-  await user.clear(limit); await user.type(limit, '8');
-  await user.type(screen.getByRole('combobox', { name: 'Address' }), '100 Main St, Vancouver, BC V6A 2S5');
-  await user.type(screen.getByLabelText('Email'), 'driver@example.ca');
-  const changedBilling = loadBillingConfig(); changedBilling.fuelSurcharge.percent = 17; saveBillingConfig(changedBilling);
+  render(React.createElement(DriverEditor, { driver, drivers: [driver], onSave: (value: typeof driver) => { saved = value; }, onCancel: noop }));
+  assert.equal(screen.queryByLabelText('Maximum Active Orders'), null);
   await user.click(screen.getByRole('button', { name: 'Save driver' }));
-  assert.equal(saved.maxActiveOrders, 8);
-  assert.deepEqual(loadBillingConfig(), changedBilling);
-  assert.deepEqual(loadDrivers([])[1], beforeOther);
-  page.unmount();
-  render(React.createElement(DriverEditor, { ...props, driver: loadDrivers([])[0] }));
-  assert.equal((screen.getByLabelText('Maximum Active Orders') as HTMLInputElement).value, '8');
+  assert.equal(saved?.maxActiveOrders, 8);
 });
 
 test('Pricing Service Level edits core details while preserving hidden settings and other catalogue sections', async () => {
@@ -225,26 +274,27 @@ test('Accessorial edit keeps only dollar rate and Taxable, preserving other cata
   const created = loadSimplePricingConfig().accessorials.find(a => a.name === 'Special handling')!;
   assert.deepEqual([created.calculationType, created.appliesAt, created.autoRule, created.minimumCharge, created.maximumCharge, created.taxable], ['FLAT', 'ORDER', 'NONE', null, null, true]);
 });
-test('existing imported cards remain editable with their agreed-total treatment', async () => {
-  const user = userEvent.setup({ document }); seedCard({ pricingMethod: 'IMPORTED', importedPriceMode: 'FINAL_TOTAL' }); render(React.createElement(RateCardsPage, {  })); await user.click(screen.getByRole('tab', { name: 'Rate Cards' })); await user.click(screen.getByRole('button', { name: 'Contract A' })); assert.ok(screen.getByRole('combobox', { name: 'Imported amount means' })); assert.equal(screen.getByRole('combobox', { name: 'Imported amount means' }).closest('details'), null); await user.type(screen.getByLabelText('Rate card name'), ' renewed'); await user.click(screen.getByRole('button', { name: 'Save Card' })); assert.equal(loadPricingConfig().rateCards[0].importedPriceMode, 'FINAL_TOTAL');
+test('imported cards are final-total, editable, cannot be the default and have no minimum or surcharge settings', async () => {
+  const user = userEvent.setup({ document }); seedCard({ pricingMethod: 'IMPORTED', importedPriceMode: 'FINAL_TOTAL' }); render(React.createElement(RateCardsPage, {  })); await user.click(screen.getByRole('tab', { name: 'Rate Cards' })); await user.click(screen.getByRole('button', { name: 'Contract A' })); assert.equal(screen.queryByRole('combobox', { name: 'Imported amount means' }), null); assert.ok(screen.getByText('The imported amount is the final total, including tax')); assert.equal(screen.queryByRole('button', { name: 'Set as default' }), null); assert.equal(screen.queryByLabelText('Minimum Charge'), null); assert.equal(screen.queryByRole('checkbox', { name: /Apply fuel surcharge/ }), null); await user.type(screen.getByLabelText('Rate card name'), ' renewed'); await user.click(screen.getByRole('button', { name: 'Save Card' })); assert.equal(loadPricingConfig().rateCards[0].importedPriceMode, 'FINAL_TOTAL');
 });
 
-test('Company shows regional and tax settings together and saves them with one action', async () => {
+test('Taxes and Preferences save independently', async () => {
   const user = userEvent.setup({ document });
-  render(React.createElement(TaxesPreferencesPage, {}));
-  assert.ok(screen.getByRole('heading', { name: 'Profile' }));
+  render(React.createElement(React.Fragment, null, React.createElement(TaxesPage), React.createElement(PreferencesPage)));
   assert.deepEqual(screen.getAllByRole('heading', { level: 2 }).map(heading => heading.textContent), ['Tax Registration', 'GST/HST', 'Provincial tax', 'Regional Preferences']);
   for (const label of ['Company phone', 'Company email']) assert.equal(screen.queryByLabelText(label), null);
   await select(user, 'Organization timezone', 'Toronto');
-  assert.ok(screen.getByLabelText('GST/HST registration number'));
   await user.clear(screen.getByRole('spinbutton', { name: 'GST/HST rate' }));
   await user.type(screen.getByRole('spinbutton', { name: 'GST/HST rate' }), '12');
   assert.equal(loadBillingConfig().companyTax.ratePercent, 5);
-  await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+  await user.click(screen.getByRole('button', { name: 'Save Taxes' }));
+  assert.equal(loadBillingConfig().companyTax.ratePercent, 12);
+  assert.notEqual(loadBillingConfig().general.timeZone, 'America/Toronto');
+  await user.click(screen.getByRole('button', { name: 'Save Preferences' }));
   const saved = loadBillingConfig();
   assert.equal(saved.general.timeZone, 'America/Toronto');
-  assert.equal(saved.invoicing.taxRegistrationNumber, '');
   assert.equal(saved.companyTax.ratePercent, 12);
+  assert.equal(saved.invoicing.taxRegistrationNumber, '');
 });
 
 test('customer payment terms create, reload and edit independently of company settings', async () => {
@@ -290,20 +340,19 @@ test('editing older customers displays inherited and legacy payment terms withou
   assert.equal(loadCustomers()[1].paymentTerms, 'NET7');
 });
 
-test('Company saves regional and tax settings while preserving stored contact details and internal costs', async () => {
+test('Preferences save while preserving stored contact details and internal costs', async () => {
   const user = userEvent.setup({ document });
   const initial = loadBillingConfig();
   initial.company.phone = '604-555-0100';
   initial.company.email = 'billing@pacific.test';
   initial.invoicing.taxRegistrationNumber = 'REG-OLD';
   saveBillingConfig(initial);
-  const company = render(React.createElement(TaxesPreferencesPage, {}));
+  const company = render(React.createElement(PreferencesPage, {}));
   assert.equal(screen.queryByLabelText('Company phone'), null);
   assert.equal(screen.queryByLabelText('Company email'), null);
   await select(user, 'Organization timezone', 'Toronto');
-  assert.ok(screen.getByLabelText('GST/HST registration number'));
   const other = loadBillingConfig(); other.invoicing.quoteValidityDays = 21; saveBillingConfig(other);
-  await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+  await user.click(screen.getByRole('button', { name: 'Save Preferences' }));
   const saved = loadBillingConfig();
   assert.equal(saved.general.timeZone, 'America/Toronto');
   assert.equal(saved.invoicing.quoteValidityDays, 21);
@@ -313,23 +362,23 @@ test('Company saves regional and tax settings while preserving stored contact de
   assert.deepEqual(loadBillingConfig().operatingCost, other.operatingCost);
 });
 
-test('GST/HST rate drafts save decimals and zero, survive reload and validate on the combined page', async () => {
+test('GST/HST rate drafts save decimals and zero, survive reload and validate on the Taxes tab', async () => {
   const user = userEvent.setup({ document });
-  let view = render(React.createElement(TaxesPreferencesPage, {}));
+  let view = render(React.createElement(TaxesPage, {}));
   for (const rate of ['12.75', '0']) {
     const previous = loadBillingConfig().companyTax.ratePercent;
     await user.clear(screen.getByRole('spinbutton', { name: 'GST/HST rate' }));
     await user.type(screen.getByRole('spinbutton', { name: 'GST/HST rate' }), rate);
     assert.equal(loadBillingConfig().companyTax.ratePercent, previous);
-    await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Save Taxes' }));
     assert.equal(loadBillingConfig().companyTax.ratePercent, Number(rate));
-    view.unmount(); view = render(React.createElement(TaxesPreferencesPage, {}));
+    view.unmount(); view = render(React.createElement(TaxesPage, {}));
     assert.equal((screen.getByRole('spinbutton', { name: 'GST/HST rate' }) as HTMLInputElement).value, rate);
   }
   for (const invalid of ['', '-1', '101']) {
     await user.clear(screen.getByRole('spinbutton', { name: 'GST/HST rate' }));
     if (invalid) await user.type(screen.getByRole('spinbutton', { name: 'GST/HST rate' }), invalid);
-    await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Save Taxes' }));
     assert.match(screen.getByRole('alert').textContent!, /0 to 100%/);
     assert.equal(loadBillingConfig().companyTax.ratePercent, 0);
   }
@@ -337,7 +386,7 @@ test('GST/HST rate drafts save decimals and zero, survive reload and validate on
 
 test('tax checkboxes control optional rates and preserve them after reload', async () => {
   const user = userEvent.setup({ document });
-  let page = render(React.createElement(TaxesPreferencesPage, {}));
+  let page = render(React.createElement(TaxesPage, {}));
   const gst = screen.getByRole('checkbox', { name: 'Apply GST/HST to taxable charges' }) as HTMLInputElement;
   const provincial = screen.getByRole('checkbox', { name: 'Apply provincial tax to taxable charges' }) as HTMLInputElement;
   assert.equal(gst.checked, true);
@@ -349,19 +398,19 @@ test('tax checkboxes control optional rates and preserve them after reload', asy
   const provincialRate = screen.getByRole('spinbutton', { name: 'Provincial tax rate' });
   await user.clear(provincialRate);
   await user.type(provincialRate, '7.5');
-  await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+  await user.click(screen.getByRole('button', { name: 'Save Taxes' }));
   assert.deepEqual(loadBillingConfig().companyTax, { enabled: false, ratePercent: 5, provincialEnabled: true, provincialRatePercent: 7.5 });
-  page.unmount(); page = render(React.createElement(TaxesPreferencesPage, {}));
+  page.unmount(); page = render(React.createElement(TaxesPage, {}));
   assert.equal((screen.getByRole('checkbox', { name: 'Apply GST/HST to taxable charges' }) as HTMLInputElement).checked, false);
   assert.equal((screen.getByRole('checkbox', { name: 'Apply provincial tax to taxable charges' }) as HTMLInputElement).checked, true);
   assert.equal((screen.getByRole('spinbutton', { name: 'Provincial tax rate' }) as HTMLInputElement).value, '7.5');
   await user.clear(screen.getByRole('spinbutton', { name: 'Provincial tax rate' }));
   await user.type(screen.getByRole('spinbutton', { name: 'Provincial tax rate' }), '101');
-  await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+  await user.click(screen.getByRole('button', { name: 'Save Taxes' }));
   assert.match(screen.getByRole('alert').textContent!, /provincial tax rate from 0 to 100%/);
   assert.equal(loadBillingConfig().companyTax.provincialRatePercent, 7.5);
   await user.click(screen.getByRole('checkbox', { name: 'Apply provincial tax to taxable charges' }));
-  await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+  await user.click(screen.getByRole('button', { name: 'Save Taxes' }));
   assert.equal(loadBillingConfig().companyTax.provincialEnabled, false);
 });
 
@@ -395,7 +444,7 @@ test('pricing-method filter sits in the editor header and still filters the card
 test('Pricing tabs show one section, support keyboard navigation and preserve independent drafts', async () => {
   const user = userEvent.setup({ document }); seedCard();
   render(React.createElement(RateCardsPage, {  }));
-  assert.deepEqual(screen.getAllByRole('tab').map(tab => tab.textContent), ['Rate Cards', 'Fuel Surcharge', 'Service Level', 'Accessorials']);
+  assert.deepEqual(screen.getAllByRole('tab').map(tab => tab.textContent), ['Rate Cards', 'Service Level', 'Accessorials', 'Fuel Surcharge', 'Taxes', 'Vehicle Types', 'Preferences']);
   assert.equal(screen.getAllByRole('tabpanel').length, 1);
   assert.ok(screen.getByRole('tab', { name: 'Rate Cards', selected: true }));
   await user.type(screen.getByLabelText('Rate card name'), ' draft');
@@ -407,7 +456,7 @@ test('Pricing tabs show one section, support keyboard navigation and preserve in
   assert.ok(screen.getByRole('heading', { name: 'Accessorials' }));
   assert.equal(screen.getAllByRole('tabpanel').length, 1);
   await user.keyboard('{End}');
-  assert.equal(screen.getByRole('tab', { name: 'Accessorials' }).getAttribute('aria-selected'), 'true');
+  assert.equal(screen.getByRole('tab', { name: 'Preferences' }).getAttribute('aria-selected'), 'true');
   await user.keyboard('{Home}');
   assert.ok(screen.getByRole('tab', { name: 'Rate Cards', selected: true }));
   assert.equal((screen.getByLabelText('Rate card name') as HTMLInputElement).value, 'Contract A draft');
@@ -653,7 +702,7 @@ test('sidebar brand replaces Monitor navigation and supports logo, wordmark and 
   assert.equal(visited.at(-1), 'drivers', 'Expanding from the logo preserves the active page');
 });
 
-test('account menu offers direct Profile and Pricing destinations and dismisses correctly', async () => {
+test('account menu offers direct Profile and Settings destinations and dismisses correctly', async () => {
   const { Sidebar } = await import('../src/components/Sidebar');
   const user = userEvent.setup({ document });
   const visited: string[] = [];
@@ -669,9 +718,8 @@ test('account menu offers direct Profile and Pricing destinations and dismisses 
   const trigger = screen.getByTitle('Dispatcher Account');
   await user.click(trigger);
   const menu = screen.getByRole('menu', { name: 'Account menu' });
-  assert.deepEqual(within(menu).getAllByRole('menuitem').map(item => item.textContent), ['Profile', 'Pricing', 'Help', 'Logout']);
-  assert.equal(screen.queryByRole('menuitem', { name: 'Settings' }), null);
-  await user.click(within(menu).getByRole('menuitem', { name: 'Pricing' }));
+  assert.deepEqual(within(menu).getAllByRole('menuitem').map(item => item.textContent), ['Profile', 'Settings', 'Help', 'Logout']);
+  await user.click(within(menu).getByRole('menuitem', { name: 'Settings' }));
   assert.deepEqual(visited, ['rate-cards']);
   assert.equal(screen.queryByRole('menu'), null);
   await user.click(trigger); await user.click(screen.getByRole('button', { name: 'Outside content' }));
@@ -681,23 +729,41 @@ test('account menu offers direct Profile and Pricing destinations and dismisses 
   assert.equal(document.activeElement, trigger);
 });
 
-test('vehicle types carry their internal running cost, stored with operating costs and never in the customer price', async () => {
-  const user = userEvent.setup({ document });
-  render(React.createElement(CatalogueSection, { section: 'vehicles', onNotification: noop }));
+test('Vehicle Types tab adds, edits and deletes types with payload, pallets and cargo size in company units', async () => {
+  const user = userEvent.setup({ document }); const notes: string[] = [];
+  render(React.createElement(React.Fragment, null, React.createElement(ConfirmDialogHost), React.createElement(VehicleTypesSection, { onNotification: (m: string) => notes.push(m) })));
   const section = within(screen.getByRole('region', { name: 'Vehicle types' }));
-  assert.ok(section.getByRole('columnheader', { name: 'Cost / km' }));
-  const before = loadBillingConfig(); const vehicle = loadSimplePricingConfig().vehicles[0];
-  await user.click(section.getByRole('button', { name: `Edit ${vehicle.name}` }));
-  const cost = screen.getByLabelText('Running cost / km (internal)') as HTMLInputElement;
-  assert.equal(cost.value, before.operatingCost.costPerKmByVehicleId[vehicle.id] == null ? '' : String(before.operatingCost.costPerKmByVehicleId[vehicle.id]));
-  await user.clear(cost); await user.type(cost, '1.25');
-  await user.click(screen.getByRole('button', { name: 'Save Changes' }));
-  assert.equal(loadBillingConfig().operatingCost.costPerKmByVehicleId[vehicle.id], 1.25);
-  assert.deepEqual(loadSimplePricingConfig().vehicles[0].baseSurcharge, vehicle.baseSurcharge);
-  assert.match(section.getByText(vehicle.name).closest('tr')!.textContent!, /\$1\.25/);
-  await user.click(section.getByRole('button', { name: `Edit ${vehicle.name}` }));
-  await user.clear(screen.getByLabelText('Running cost / km (internal)')); await user.click(screen.getByRole('button', { name: 'Save Changes' }));
-  assert.equal(vehicle.id in loadBillingConfig().operatingCost.costPerKmByVehicleId, false);
+  for (const name of ['Name', 'Max payload (lb)', 'Pallet capacity', 'Cargo L × W × H (in)', 'Surcharge', 'Action']) assert.ok(section.getByRole('columnheader', { name }), name);
+  assert.deepEqual(section.getAllByRole('row').slice(1).map(row => (row as HTMLTableRowElement).cells[0].textContent), ['Box Truck', 'Cargo Van', 'Cube Van', 'Dry Van Trailer', 'Flatbed Trailer', 'Flatbed Truck', 'Refrigerated Trailer', 'Refrigerated Truck', 'Refrigerated Van']);
+  assert.equal(section.queryByText(/Tonne|retired/), null);
+  assert.match(section.getByText('Cube Van').closest('tr')!.textContent!, /4,300.*8.*192 × 91 × 78/);
+  assert.equal(section.queryByText(/^fleet_/), null);
+  await user.click(section.getByRole('button', { name: 'Add Vehicle Type' }));
+  const dialog = within(screen.getByRole('dialog'));
+  await user.type(dialog.getByLabelText('Name'), 'Reefer Van');
+  await user.type(dialog.getByLabelText('Max payload (lb)'), '2200');
+  await user.type(dialog.getByLabelText('Pallet capacity'), '3');
+  await user.click(dialog.getByRole('button', { name: 'Add Vehicle Type' }));
+  assert.match(dialog.getByRole('alert').textContent!, /length, width and height/);
+  for (const [label, value] of [['Box length (in)', '144'], ['Box width (in)', '70'], ['Box height (in)', '72']]) await user.type(dialog.getByLabelText(label), value);
+  await user.clear(dialog.getByLabelText('Surcharge ($)')); await user.type(dialog.getByLabelText('Surcharge ($)'), '15');
+  await user.click(dialog.getByRole('button', { name: 'Add Vehicle Type' }));
+  let saved = loadSimplePricingConfig().vehicles.find(type => type.name === 'Reefer Van')!;
+  assert.ok(Math.abs(saved.payloadCapacityKg - 2200 * 0.45359237) < 1e-6); assert.equal(saved.palletCapacity, 3);
+  assert.ok(Math.abs(saved.cargoLengthCm! - 365.76) < 1e-6); assert.ok(Math.abs(saved.cargoHeightCm! - 182.88) < 1e-6);
+  assert.match(section.getByText('Reefer Van').closest('tr')!.textContent!, /2,200.*3.*144 × 70 × 72\$15\.00/);
+  assert.equal(saved.baseSurcharge, 15);
+  await user.click(section.getByRole('button', { name: 'Edit Reefer Van' }));
+  const edit = within(screen.getByRole('dialog'));
+  assert.equal((edit.getByLabelText('Box width (in)') as HTMLInputElement).value, '70');
+  await user.clear(edit.getByLabelText('Pallet capacity')); await user.type(edit.getByLabelText('Pallet capacity'), '4');
+  await user.click(edit.getByRole('button', { name: 'Save Changes' }));
+  saved = loadSimplePricingConfig().vehicles.find(type => type.id === saved.id)!; assert.equal(saved.palletCapacity, 4);
+  await user.click(section.getByRole('button', { name: 'Delete Reefer Van' }));
+  await user.click(await screen.findByRole('button', { name: 'Delete vehicle type' }));
+  assert.equal(section.queryByText('Reefer Van'), null);
+  assert.equal(loadSimplePricingConfig().vehicles.find(type => type.id === saved.id)!.active, false);
+  assert.deepEqual(notes, ['Vehicle type saved.', 'Vehicle type saved.', 'Reefer Van deleted.']);
 });
 
 test('Vehicles tab shows type pricing columns and retains search and registration', async () => {
@@ -712,7 +778,6 @@ test('Vehicles tab shows type pricing columns and retains search and registratio
   for (const name of ['Surcharge', 'Type limits', 'Cost / km', 'Capacity']) assert.ok(table.getByRole('columnheader', { name }));
   await user.type(screen.getByRole('searchbox'), asset.unitNumber);
   const row = screen.getByRole('button', { name: `Details for ${asset.unitNumber}` }).closest('tr')!;
-  assert.ok(within(row).getByText(`$${type.baseSurcharge.toFixed(2)}`));
   assert.ok(within(row).getByText(`${formatWeight(type.payloadCapacityKg, loadBillingConfig().general)} · ${type.palletCapacity} pallets`));
   assert.ok(within(row).getByText('$1.25'));
   await select(user, 'Filter by vehicle category', type.name);
@@ -731,26 +796,22 @@ test('registering a vehicle saves equipment and running cost without changing th
   await user.click(screen.getByRole('button', { name: 'Register Vehicle' }));
   await user.type(screen.getByLabelText('Unit number'), 'V99'); await user.type(screen.getByLabelText('Licence plate'), 'TEST-99');
   await select(user, 'Vehicle type', seed.name);
-  for (const [label, value] of [['Cargo length (in)', '100'], ['Cargo width (in)', '60'], ['Cargo height (in)', '55']]) await user.type(screen.getByLabelText(label), value);
+  for (const [label, value] of [['Box length (in)', '100'], ['Box width (in)', '60'], ['Box height (in)', '55']]) await user.type(screen.getByLabelText(label), value);
   assert.equal(screen.queryByLabelText('Vehicle upgrade surcharge ($)'), null);
-  await user.clear(screen.getByLabelText('Running cost / km (internal)')); await user.type(screen.getByLabelText('Running cost / km (internal)'), '1.25');
+  assert.equal(screen.queryByLabelText('Running cost / km (internal)'), null);
   await user.click(screen.getByRole('checkbox', { name: 'Liftgate' }));
   await user.click(screen.getByRole('button', { name: 'Save vehicle' }));
   const asset = loadVehicles().find(vehicle => vehicle.unitNumber === 'V99')!;
   const config = loadSimplePricingConfig(); const profile = config.vehicles.find(type => type.id === asset.vehicleTypeId)!;
   assert.equal(profile.baseSurcharge, seed.baseSurcharge); assert.equal(profile.hasLiftgate, true);
   assert.equal(config.vehicles.find(type => type.id === seed.id)?.baseSurcharge, seed.baseSurcharge);
-  assert.equal(loadBillingConfig().operatingCost.costPerKmByVehicleId[profile.id], 1.25);
   assert.ok(asset.cargoLengthCm && asset.cargoWidthCm && asset.cargoHeightCm);
   const row = screen.getByRole('button', { name: 'Details for V99' }).closest('tr')!;
-  assert.ok(within(row).getByText(`$${seed.baseSurcharge.toFixed(2)}`));
   await user.click(screen.getByRole('button', { name: 'Details for V99' }));
   assert.equal(screen.queryByLabelText('Vehicle upgrade surcharge ($)'), null);
-  await user.clear(screen.getByLabelText('Running cost / km (internal)')); await user.type(screen.getByLabelText('Running cost / km (internal)'), '1.5');
   await user.click(screen.getByRole('button', { name: 'Save vehicle' }));
   assert.equal(loadVehicles().find(vehicle => vehicle.unitNumber === 'V99')?.vehicleTypeId, profile.id);
   assert.equal(loadSimplePricingConfig().vehicles.find(type => type.id === profile.id)?.baseSurcharge, seed.baseSurcharge);
-  assert.equal(loadBillingConfig().operatingCost.costPerKmByVehicleId[profile.id], 1.5);
   assert.equal(loadSimplePricingConfig().vehicles.find(type => type.id === seed.id)?.baseSurcharge, seed.baseSurcharge);
 });
 
@@ -840,8 +901,7 @@ test('discount moves from every card to shipper creation and editing, and persis
   assert.deepEqual(loadCustomers().find(c => c.name === 'Discount Shipper')!.discount, { type: 'FIXED', value: 8, scope: 'TRANSPORT_ONLY' });
 });
 
-test('Company saves logo, contact and address while Taxes & Preferences saves registration independently', async () => {
-  const { ConfirmDialogHost } = await import('../src/components/ui/ConfirmDialog');
+test('Company saves logo, contact and address while Taxes saves registration independently', async () => {
   const { loadUserProfile, PROFILE_STORAGE_KEY } = await import('../src/lib/profileStorage');
   localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ name: 'Sam', organization: 'Old Org', hub: 'Old Hub', timezone: 'America/Toronto', orgLogoUrl: 'data:image/png;base64,x', avatarUrl: 'data:image/png;base64,YXZhdGFy' }));
   const initialBilling = loadBillingConfig();
@@ -861,7 +921,7 @@ test('Company saves logo, contact and address while Taxes & Preferences saves re
   await user.type(address, '100 Main St, Vancouver');
   await user.clear(screen.getByRole('textbox', { name: 'Contact Full Name' }));
   await user.type(screen.getByRole('textbox', { name: 'Contact Full Name' }), 'Alex Morgan');
-  await user.click(screen.getByRole('button', { name: 'Taxes & Preferences' }));
+  await user.click(screen.getByRole('button', { name: 'Security' }));
   assert.equal(screen.queryByRole('textbox', { name: 'Company address' }), null);
   assert.equal(loadBillingConfig().company.name, initialBilling.company.name);
   await user.click(screen.getByRole('button', { name: 'Company' }));
@@ -879,73 +939,65 @@ test('Company saves logo, contact and address while Taxes & Preferences saves re
   assert.equal(loadBillingConfig().company.phone, '604-555-0100');
   assert.equal(loadUserProfile().name, 'Alex Morgan');
   assert.equal(loadBillingConfig().invoicing.taxRegistrationNumber, 'REG-OLD');
-  await user.click(screen.getByRole('button', { name: 'Taxes & Preferences' }));
+  page.unmount();
+  const taxes = render(React.createElement(TaxesPage));
   const registration = screen.getByRole('textbox', { name: 'GST/HST registration number' }) as HTMLInputElement;
   assert.equal(registration.value, 'REG-OLD');
   await user.clear(registration); await user.type(registration, 'REG-123');
-  await user.click(screen.getByRole('button', { name: 'Company' }));
-  assert.equal(screen.queryByRole('textbox', { name: 'GST/HST registration number' }), null);
-  await user.click(screen.getByRole('button', { name: 'Taxes & Preferences' }));
-  assert.equal((screen.getByRole('textbox', { name: 'GST/HST registration number' }) as HTMLInputElement).value, 'REG-123');
-  await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+  await user.click(screen.getByRole('button', { name: 'Save Taxes' }));
   assert.equal(loadBillingConfig().invoicing.taxRegistrationNumber, 'REG-123');
   assert.equal(loadBillingConfig().invoicing.quoteValidityDays, 21);
   assert.equal(loadBillingConfig().companyTax.enabled, false);
-  page.unmount();
+  assert.equal(loadBillingConfig().company.name, 'Pacific Couriers');
+  taxes.unmount();
   render(React.createElement(ProfilePage, {}));
   assert.equal((screen.getByRole('combobox', { name: 'Company address' }) as HTMLInputElement).value, '100 Main St, Vancouver');
-  await user.click(screen.getByRole('button', { name: 'Taxes & Preferences' }));
-  assert.equal((screen.getByRole('textbox', { name: 'GST/HST registration number' }) as HTMLInputElement).value, 'REG-123');
 });
-
-test('How Pricing Work shows a method-specific formula before short engine-calculated values', async () => {
+test('How pricing works shows an engine-calculated example in plain language without prose formulas', async () => {
   useMetricCompany();
   seedCard({ baseFee: 20, includedKm: 5, kmRate: 1.5, minimumOrderSubtotal: 35 });
   render(React.createElement(RateCardsPage, {}));
-  const section = screen.getByText('How Pricing Work?').closest('details')!;
+  const section = screen.getByText('How pricing works').closest('details')!;
   assert.equal(section.open, false);
   assert.match(section.textContent!, /Example: 12 km, 3 stops · \$[\d.]+/);
   const headings = [...section.querySelectorAll('h4')].map(heading => heading.textContent);
-  assert.deepEqual(headings, ['Formula', 'Example values']);
-  assert.match(section.textContent!, /Freight is the base fee plus any distance beyond the included distance/);
+  assert.deepEqual(headings, ['Example values']);
+  assert.doesNotMatch(section.textContent!, /Freight|freight|max\(/);
   const values = screen.getByLabelText('Pricing values');
   const rows = Object.fromEntries([...values.querySelectorAll('dt')].map(term => [term.textContent, term.nextElementSibling!.textContent]));
   assert.equal(rows['Distance'], '12 km billable; 5 km included');
-  assert.equal(rows['Freight'], '$20.00 + 7 km × $1.50/km = $30.50');
-  assert.match(rows['Service charge']!, /Rush.*\$20\.00/);
-  assert.match(rows['Vehicle surcharge']!, /2 Tonne.*\$25\.00/);
+  assert.equal(rows['Delivery charge'], '$20.00 + 7 km × $1.50/km = $30.50');
+  assert.equal(rows['Service charge'], 'Same-Day Standard: $0.00');
+  assert.equal(rows['Vehicle surcharge'], undefined);
   assert.match(rows['Fuel surcharge']!, /28\.5% of \$[\d.]+ = \$[\d.]+/);
   assert.ok(rows['Accessorials']);
-  assert.match(rows['Minimum charge']!, /^\$35\.00 floor;/);
+  assert.equal(rows['Minimum charge'], undefined);
   const calculation = screen.getByLabelText('Example calculation').textContent!;
-  assert.match(calculation, /Subtotal = max\(\$30\.50 \+ \$20\.00.*, \$35\.00\) = \$[\d.]+/);
-  assert.doesNotMatch(calculation, /freight|service|vehicle|accessorials|minimum/i);
+  assert.match(calculation, /Charges = \$30\.50 \+ \$40\.75 \+ \$[\d.]+ = \$[\d.]+/);
+  assert.match(calculation, /Subtotal = \$35\.00 minimum < \$([\d.]+) = \$\1/);
+  assert.doesNotMatch(calculation, /The minimum charge is/);
+  assert.doesNotMatch(calculation, /freight|max\(/i);
   assert.match(calculation, /Tax = \$[\d.]+ × 5% = \$[\d.]+/);
   assert.match(calculation, /Total = \$[\d.]+ \+ \$[\d.]+ = \$[\d.]+/);
   assert.equal(section.querySelector('pre'), null);
 
-  for (const [method, expected] of [
-    ['FIXED', 'Freight is the fixed amount for the order.'],
-    ['HOURLY', 'Freight is billable hours times the hourly rate.'],
-    ['IMPORTED', 'Freight is the imported order amount.'],
-    ['ZONE', 'Freight is the sum of each delivery zone rate at its weight band, using the greater of actual and dimensional weight.']
-  ] as const) {
+  for (const method of ['FIXED', 'HOURLY', 'IMPORTED', 'ZONE'] as const) {
     cleanup(); localStorage.clear(); seedCard({ pricingMethod: method });
     render(React.createElement(RateCardsPage, {}));
-    const details = screen.getByText('How Pricing Work?').closest('details')!;
-    assert.ok(details.textContent!.includes(expected));
+    const details = screen.getByText('How pricing works').closest('details')!;
+    assert.doesNotMatch(details.textContent!, /Freight|freight|max\(|Formula/);
     if (method === 'FIXED') assert.match(details.querySelector('summary')!.textContent!, /fixed/);
     if (method === 'HOURLY') assert.match(details.querySelector('summary')!.textContent!, /billable min/);
     if (method === 'IMPORTED') assert.match(details.querySelector('summary')!.textContent!, /imported/);
-    assert.ok(details.textContent!.indexOf('Formula') < details.textContent!.indexOf('Example values'));
     if (method === 'ZONE') {
       assert.equal(screen.queryByText('Pricing terms'), null);
       assert.match(screen.getByRole('status').textContent!, /zone/i);
       assert.match(details.textContent!, /Sample only, not saved: 0–99 lb to Vancouver at \$20\.00/);
-      assert.match(screen.getByLabelText('Example calculation').textContent!, /Subtotal = max\(zone rates \+ other charges − discounts, minimum\)Tax = taxable charges × applicable tax rateTotal = subtotal \+ tax/);
+      assert.match(screen.getByLabelText('Example calculation').textContent!, /Charges = zone rates \+ other charges − discountsSubtotal = minimum compared with charges = the larger amountTax = taxable charges × applicable tax rateTotal = subtotal \+ tax/);
     } else {
       const values = within(details as HTMLElement).getByLabelText('Pricing values');
       if (method === 'HOURLY') assert.match(values.textContent!, /150 min entered; 120 min minimum; 30 min increments/);
+      assert.match(values.textContent!, method === 'IMPORTED' ? /Final total\$100\.00/ : /Delivery charge/);
     }
   }
   cleanup(); localStorage.clear();
@@ -953,16 +1005,15 @@ test('How Pricing Work shows a method-specific formula before short engine-calcu
     weightBands: [{ id: 'example-band', maxWeightKg: 100, amount: 25 }] }] });
   render(React.createElement(RateCardsPage, {}));
   const zoneValues = screen.getByLabelText('Pricing values').textContent!;
-  assert.match(zoneValues, /Delivery 1\$25\.00/);
-  assert.match(zoneValues, /Delivery 2\$25\.00/);
-  assert.match(zoneValues, /Freight\$25\.00 \+ \$25\.00 = \$50\.00/);
+  assert.doesNotMatch(zoneValues, /Delivery 1|Delivery 2/);
+  assert.match(zoneValues, /Delivery chargePickup → Vancouver = \$25\.00/);
+  assert.match(screen.getByText('How pricing works').closest('details')!.querySelector('summary')!.textContent!, /Example: pickup to Vancouver/);
 
   cleanup(); localStorage.clear();
   seedCard({ pricingMethod: 'IMPORTED', importedPriceMode: 'FINAL_TOTAL' });
   render(React.createElement(RateCardsPage, {}));
-  const importedDetails = screen.getByText('How Pricing Work?').closest('details')!;
-  assert.match(importedDetails.textContent!, /The imported agreed amount is the final total/);
-  assert.equal(importedDetails.textContent!.includes('Add the service charge'), false);
+  const importedDetails = screen.getByText('How pricing works').closest('details')!;
+  assert.equal(importedDetails.textContent!.includes('minimum charge'), false);
   assert.match(screen.getByLabelText('Pricing values').textContent!, /Final total\$100\.00/);
   assert.match(screen.getByLabelText('Example calculation').textContent!, /Subtotal = \$100\.00 agreed amountTax = \$100\.00 × 0% \(exempt\) = \$0\.00Total = \$100\.00 \+ \$0\.00 = \$100\.00/);
 });
@@ -974,7 +1025,7 @@ test('subtotal and tax equations show an applied minimum and both configured tax
   seedCard({ pricingMethod: 'FIXED', fixedAmount: 10, minimumOrderSubtotal: 500 });
   render(React.createElement(RateCardsPage, {}));
   const calculation = screen.getByLabelText('Example calculation').textContent!;
-  assert.match(calculation, /Subtotal = max\(.*, \$500\.00\) = \$500\.00/);
+  assert.match(calculation, /Charges = .*\$([\d.]+)Subtotal = \$500\.00 minimum > \$\1 = \$500\.00/);
   assert.match(calculation, /Tax = GST\/HST: \$[\d.]+ × 5% \+ Provincial tax: \$[\d.]+ × 7% = \$[\d.]+/);
   assert.match(calculation, /Total = \$500\.00 \+ \$[\d.]+ = \$[\d.]+/);
 });
@@ -1088,7 +1139,7 @@ test('customer create form is flat and minimal; status appears only on edit and 
 });
 
 test('custom confirm dialog replaces the browser confirm: archive, discard-changes guard, Escape and cancel', async () => {
-  const { ConfirmDialogHost, confirmDialog } = await import('../src/components/ui/ConfirmDialog');
+  const { confirmDialog } = await import('../src/components/ui/ConfirmDialog');
   const user = userEvent.setup({ document }); seedCard();
   const config = loadPricingConfig(); config.rateCards.push(createEmptyRateCard({ id: 'contract-b', name: 'Contract B', pricingMethod: 'FIXED', fixedAmount: 55 })); savePricingConfig(config);
   window.confirm = () => { throw new Error('native confirm must not be used while the host is mounted'); };
@@ -1258,7 +1309,7 @@ test('legacy catalogue settings normalize without changing names, dollar values,
   assert.deepEqual(loadSimplePricingConfig(), loaded);
 });
 
-test('single matrix shows saved weight ranges without a blank row', async () => {
+test('single matrix shows saved weight ranges in saved order without a blank row', async () => {
   useMetricCompany();
   seedCard({ pricingMethod: 'ZONE', zoneRates: [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 40,
     weightBands: [{ id: 'large', maxWeightKg: 500, amount: 40 }, { id: 'small', maxWeightKg: 200, amount: 25 }] }] });
@@ -1270,10 +1321,11 @@ test('single matrix shows saved weight ranges without a blank row', async () => 
   const matrix = screen.getByRole('table', { name: 'Zone prices by weight' });
   assert.equal(matrix.querySelectorAll('tbody tr').length, 2);
   assert.deepEqual(within(matrix).getAllByRole('columnheader').map(header => header.textContent), ['From (kg)', 'To (kg)', 'Zone 1', 'Zone 2', 'Action']);
-  assert.equal((screen.getByLabelText('Weight from (kg)') as HTMLInputElement).value, '0');
-  assert.equal((screen.getByLabelText('Weight range 2 from (kg)') as HTMLInputElement).value, '200');
-  assert.equal((screen.getByLabelText('Zone 2 price') as HTMLInputElement).value, '25');
-  assert.equal((screen.getByLabelText('Zone 2 range 2 price') as HTMLInputElement).value, '40');
+  // Rows are not re-sorted; each From is still the next lower limit.
+  assert.equal((screen.getByLabelText('Weight from (kg)') as HTMLInputElement).value, '200');
+  assert.equal((screen.getByLabelText('Weight range 2 from (kg)') as HTMLInputElement).value, '0');
+  assert.equal((screen.getByLabelText('Zone 2 price') as HTMLInputElement).value, '40');
+  assert.equal((screen.getByLabelText('Zone 2 range 2 price') as HTMLInputElement).value, '25');
   assert.ok(screen.getByRole('button', { name: 'Add weight range' }));
 });
 
@@ -1410,7 +1462,6 @@ test('zone postal fields update shared codes and preserve directional prices aft
 });
 
 test('removing a shared zone confirms, shrinks both matrix axes and preserves drafts and archived rates', async () => {
-  const { ConfirmDialogHost } = await import('../src/components/ui/ConfirmDialog');
   const user = userEvent.setup({ document });
   const rates = [
     { id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 45 },
@@ -1467,9 +1518,9 @@ test('company weight setting controls matrix entry and reload without changing s
   assert.equal(loadBillingConfig().general.weightUnit, 'kg');
   seedCard({ pricingMethod: 'ZONE', zoneRates: [] });
   const config = loadPricingConfig(); config.zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['001'] }]; savePricingConfig(config);
-  let company = render(React.createElement(TaxesPreferencesPage, {}));
+  let company = render(React.createElement(PreferencesPage, {}));
   await select(user, 'Weight unit', 'lb — Pounds');
-  await user.click(screen.getByRole('button', { name: 'Save Settings' }));
+  await user.click(screen.getByRole('button', { name: 'Save Preferences' }));
   assert.equal(loadBillingConfig().general.weightUnit, 'lb');
   company.unmount();
   let page = render(React.createElement(RateCardsPage, {}));
@@ -1486,9 +1537,9 @@ test('company weight setting controls matrix entry and reload without changing s
   page.unmount(); page = render(React.createElement(RateCardsPage, {}));
   assert.equal((screen.getByLabelText('Weight to (lb)') as HTMLInputElement).value, '100');
   page.unmount();
-  company = render(React.createElement(TaxesPreferencesPage, {}));
+  company = render(React.createElement(PreferencesPage, {}));
   await select(user, 'Weight unit', 'kg — Kilograms');
-  await user.click(screen.getByRole('button', { name: 'Save Settings' })); company.unmount();
+  await user.click(screen.getByRole('button', { name: 'Save Preferences' })); company.unmount();
   render(React.createElement(RateCardsPage, {}));
   assert.equal((screen.getByLabelText('Weight to (kg)') as HTMLInputElement).value, '45.359237');
   assert.equal((screen.getByLabelText('Central price') as HTMLInputElement).value, '0');
@@ -1517,12 +1568,12 @@ test('Distance formula ignores retired weight prices and clamps included distanc
   render(React.createElement(RateCardsPage, {}));
   const values = () => Object.fromEntries([...screen.getByLabelText('Pricing values').querySelectorAll('dt')].map(term => [term.textContent!, term.nextElementSibling!.textContent!]));
   assert.equal(values()['Distance'], '12 km billable; 20 km included');
-  assert.equal(values()['Freight'], '$20.00 + 0 km × $1.00/km = $20.00');
+  assert.equal(values()['Delivery charge'], '$20.00 + 0 km × $1.00/km = $20.00');
   assert.equal(values()['Weight charge'], undefined);
   assert.doesNotMatch(screen.getByLabelText('Pricing values').textContent!, /dimensional|divisor|Weight charge/i);
   await user.clear(screen.getByLabelText('Included Distance')); await user.type(screen.getByLabelText('Included Distance'), '5');
   assert.equal(values()['Distance'], '12 km billable; 5 km included');
-  assert.equal(values()['Freight'], '$20.00 + 7 km × $1.00/km = $27.00');
+  assert.equal(values()['Delivery charge'], '$20.00 + 7 km × $1.00/km = $27.00');
 });
 
 
@@ -1543,22 +1594,20 @@ test('Zone formula selects prices automatically using dimensional movement weigh
   const user = userEvent.setup({ document });
   seedCard({ pricingMethod: 'ZONE', dimensionalDivisor: 5000, zoneRates: [{ id: 'ab', originZoneId: 'zone_van', destinationZoneId: 'zone_bby', serviceId: null, amount: 999, weightBands: [{ id: 'light', maxWeightKg: 25, amount: 30 }, { id: 'bulky', maxWeightKg: 50, amount: 60 }] }] });
   render(React.createElement(RateCardsPage, {}));
-  const baseFreight = () => [...screen.getByLabelText('Pricing values').querySelectorAll('dt')].find(dt => dt.textContent === 'Freight')!.nextElementSibling!.textContent;
-  assert.match(baseFreight()!, /= \$60.00/); // Two separate 24 kg movements at $30 each.
+  const baseFreight = () => [...screen.getByLabelText('Pricing values').querySelectorAll('dt')].find(dt => dt.textContent === 'Delivery charge')!.nextElementSibling!.textContent;
+  assert.match(baseFreight()!, /= \$30.00/); // One 24 kg movement at $30.
   await user.clear(screen.getByLabelText('Dimensional Divisor')); await user.type(screen.getByLabelText('Dimensional Divisor'), '2500');
-  assert.match(baseFreight()!, /= \$120.00/); // Each movement is now 48 kg and uses the $60 band.
+  assert.match(baseFreight()!, /= \$60.00/); // The movement is now 48 kg and uses the $60 band.
   assert.match(screen.getByRole('region', { name: 'Zone prices' }).textContent!, /use the greater of actual and dimensional weight/);
 });
 
 
-test('Service Level lives in Pricing, preserves rate drafts and reloads saved services', async () => {
+test('Service Level lives in Settings, preserves rate drafts and reloads saved services', async () => {
   const user = userEvent.setup({ document });
   seedCard();
   const page = render(React.createElement(RateCardsPage, {}));
   await user.type(screen.getByLabelText('Rate card name'), ' draft');
   const tab = screen.getByRole('tab', { name: 'Rate Cards' }); tab.focus();
-  await user.keyboard('{ArrowRight}');
-  assert.equal(document.activeElement, screen.getByRole('tab', { name: 'Fuel Surcharge', selected: true }));
   await user.keyboard('{ArrowRight}');
   assert.equal(document.activeElement, screen.getByRole('tab', { name: 'Service Level', selected: true }));
   assert.ok(screen.getByRole('region', { name: 'Services' }));
@@ -1669,8 +1718,7 @@ test('company logo accepts only PNG and JPEG uploads and preserves its draft aft
 
 for (const [section, singular] of [['services', 'service'], ['accessorials', 'accessorial']] as const) {
   test(`${singular} Delete asks for confirmation and removes only the chosen catalogue record`, async () => {
-    const { ConfirmDialogHost } = await import('../src/components/ui/ConfirmDialog');
-    const before = loadSimplePricingConfig();
+      const before = loadSimplePricingConfig();
     const item = before[section][0];
     const notifications: string[] = [];
     let changes = 0;
@@ -1703,11 +1751,28 @@ for (const [section, singular] of [['services', 'service'], ['accessorials', 'ac
   });
 }
 
-test('Vehicle Types retain their Active/Inactive control', async () => {
-  const vehicle = loadSimplePricingConfig().vehicles[0];
+test('saved tonne-named preset vehicle types migrate to Canadian classes while custom names and surcharges are kept', () => {
+  const config = loadSimplePricingConfig();
+  config.vehicles = [{ ...config.vehicles.find(type => type.id === 'veh_2_ton')!, name: '2 Tonne (16ft Cube Truck)', baseSurcharge: 31, payloadCapacityKg: 2000 }, { ...config.vehicles.find(type => type.id === 'veh_3_ton')!, name: 'My box truck', payloadCapacityKg: 3500 }];
+  saveSimplePricingConfig(config);
+  const [migrated, custom] = loadSimplePricingConfig().vehicles;
+  assert.equal(migrated.name, 'Cube Van'); assert.equal(migrated.baseSurcharge, 31); assert.equal(migrated.palletCapacity, 8);
+  assert.ok(Math.abs(migrated.payloadCapacityKg - 4300 * 0.45359237) < 1e-4);
+  assert.equal(custom.name, 'My box truck'); assert.equal(custom.payloadCapacityKg, 3500);
+});
+
+test('vehicle registration offers active vehicle types and fills capacity and cargo size from the chosen type', async () => {
+  const { VehicleEditor } = await import('../src/components/entities/VehicleEditor');
+  const config = loadSimplePricingConfig(); config.vehicles = config.vehicles.map(type => type.id === 'veh_flatbed_truck' ? { ...type, active: false } : type); saveSimplePricingConfig(config);
   const user = userEvent.setup({ document });
-  render(React.createElement(CatalogueSection, { section: 'vehicles' }));
-  await user.click(screen.getByRole('button', { name: `${vehicle.name}: deactivate` }));
-  assert.equal(loadSimplePricingConfig().vehicles[0].active, false);
-  assert.ok(screen.getByRole('button', { name: `${vehicle.name}: activate` }));
+  render(React.createElement(VehicleEditor, { vehicles: [], onSave: noop, onCancel: noop }));
+  await user.click(screen.getByRole('combobox', { name: 'Vehicle type' }));
+  const options = screen.getAllByRole('option').map(option => option.textContent);
+  assert.ok(options.includes('Refrigerated Truck')); assert.ok(!options.includes('Flatbed Truck')); assert.ok(!options.some(name => /retired/.test(name!)));
+  await user.click(screen.getByRole('option', { name: 'Refrigerated Truck' }));
+  assert.equal((screen.getByLabelText('Pallet capacity') as HTMLInputElement).value, '8');
+  assert.equal((screen.getByLabelText('Box length (in)') as HTMLInputElement).value, '192');
+  assert.equal((screen.getByLabelText('Box width (in)') as HTMLInputElement).value, '87');
+  assert.equal(screen.queryByRole('checkbox', { name: 'Refrigeration' }), null);
+  assert.equal((screen.getByRole('checkbox', { name: 'Liftgate' }) as HTMLInputElement).checked, false);
 });

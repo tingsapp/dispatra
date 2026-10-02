@@ -14,7 +14,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { Select } from '../components/ui/Select';
 import { SearchInput } from '../components/ui/SearchInput';
 import { loadBillingConfig } from '../lib/billingStorage';
-import { formatWeight, type Units } from '../lib/units';
+import { type Units } from '../lib/units';
 
 interface HelpSupportPageProps {
   onNotification?: (msg: string) => void;
@@ -47,11 +47,11 @@ const getFAQs = (units: Units): FAQItem[] => [
   },
   {
     id: 'faq-3',
-    question: 'What are the vehicle capacity classes (1 Tonne to 5 Tonnes)?',
+    question: 'Which vehicle types does Dispatra use?',
     category: 'fleet',
     categoryLabel: 'Fleet & Capacities',
     answer:
-      `Dispatra categorizes local delivery fleet into four clear tonnage tiers: 1 Tonne (Courier Cargo Van, max ${formatWeight(1000, units)}, 2 standard skids), 2 Tonnes (Standard Sprinter/Cube, max ${formatWeight(2000, units)}, 4 skids), 3 Tonnes (Medium Box Truck with liftgate, max ${formatWeight(3500, units)}, 6 skids), and 5 Tonnes (Heavy Straight Truck, max ${formatWeight(5000, units)}, 10-12 skids). The system automatically blocks assignments if a shipment exceeds the vehicle payload or pallet limits.`
+      `Vehicle types describe the kind of vehicle used in Canadian moving and transportation: Cargo Van, Refrigerated Van, Cube Van, Box Truck, Refrigerated Truck, Flatbed Truck, Dry Van Trailer, Refrigerated Trailer and Flatbed Trailer. Size is not part of the type: each type carries typical max payload, pallet capacity and cargo dimensions that a vehicle can override, and refrigerated types tick Refrigeration on the vehicle. Manage them under Settings → Vehicle Types; registering a vehicle fills its capacity from the chosen type.`,
   },
   {
     id: 'faq-4',

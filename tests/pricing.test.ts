@@ -188,6 +188,44 @@ test('hourly settlement uses frozen rate-card version', () => {
   const quote = priced(s); s.card.hourlyRate = 900;
   const final = finalizeOrderPrice(s.order, 90, s.ctx, quote); assert.equal(final.snapshot.freight, 90);
 });
+test('an hourly quote frozen with a dollar minimum keeps it at settlement after hourly cards drop Minimum Charge', () => {
+  const s = setup(); s.card.pricingMethod = 'HOURLY'; s.card.hourlyRate = 60; s.card.minimumBillableMinutes = 0; s.card.minimumOrderSubtotal = 500; s.card.applyOrderMinimum = true; s.order.hourlyBillableMinutes = 60;
+  const quote = priced(s); assert.equal(quote.subtotal, 500);
+  s.card.minimumOrderSubtotal = 0;
+  const final = finalizeOrderPrice(s.order, 90, s.ctx, quote); assert.equal(final.snapshot.freight, 90); assert.equal(final.snapshot.subtotal, 500);
+});
+test('every card method obeys its Apply fuel and Apply vehicle surcharge settings, including Distance', () => {
+  for (const method of ['BASE_PLUS_DISTANCE', 'FIXED'] as const) {
+    const s = setup(); s.card.pricingMethod = method; s.card.fixedAmount = 95;
+    Object.assign(s.billing.fuelSurcharge, { enabled: true, mode: 'fixed_percent', percent: 20 });
+    s.card.applyFuelSurcharge = true; s.card.applyVehicleSurcharge = true;
+    s.order.vehicleId = s.ctx.catalogue.vehicles.find(vehicle => vehicle.baseSurcharge > 0)!.id;
+    const withBoth = priced(s); assert.ok(withBoth.fuelSurcharge > 0, method); assert.ok(withBoth.vehicleSurcharge > 0, method);
+    s.card.applyFuelSurcharge = false; s.card.applyVehicleSurcharge = false;
+    const allIn = priced(s); assert.equal(allIn.fuelSurcharge, 0, method); assert.equal(allIn.vehicleSurcharge, 0, method);
+    assert.equal(allIn.lines.some(line => line.group === 'FUEL' || line.group === 'VEHICLE'), false, method);
+  }
+});
+test('new orders default to Same-Day Standard and no requested vehicle', () => {
+  const s = setup(); const ctx = { ...s.ctx, catalogue: { ...s.ctx.catalogue, services: [...s.ctx.catalogue.services].reverse() } };
+  const input = createDefaultOrderInput(ctx);
+  assert.equal(ctx.catalogue.services.find(service => service.id === input.serviceId)!.name, 'Same-Day Standard');
+  assert.equal(input.vehicleId, null);
+});
+test('the suggested vehicle type is the smallest general type the load fits; refrigerated and flatbed are never suggested', async () => {
+  const { suggestVehicleType, meetsBodyRequirement } = await import('../src/lib/vehicleTypes');
+  const types = structuredClone(INITIAL_VEHICLES); const name = (id: string | null) => types.find(type => type.id === id)?.name;
+  const item = (weightKg: number, extra: Partial<{ quantity: number; handlingUnit: 'PALLET'; lengthCm: number; widthCm: number; heightCm: number }> = {}) => ({ id: 'p', quantity: 1, weightKg, lengthCm: 50, widthCm: 40, heightCm: 30, declaredValue: 0, ...extra }) as never;
+  assert.equal(name(suggestVehicleType(types, [item(20)])), 'Cargo Van');
+  assert.equal(name(suggestVehicleType(types, [item(400, { quantity: 4, handlingUnit: 'PALLET', lengthCm: 120, widthCm: 100, heightCm: 120 })])), 'Cube Van');
+  assert.equal(name(suggestVehicleType(types, [item(300, { quantity: 10, handlingUnit: 'PALLET', lengthCm: 120, widthCm: 100, heightCm: 120 })])), 'Box Truck');
+  assert.equal(name(suggestVehicleType(types, [item(200, { lengthCm: 500 })])), 'Box Truck'); // too long for the vans
+  assert.equal(suggestVehicleType(types, [item(30000)]), null);
+  const reefer = types.find(type => type.name === 'Refrigerated Truck')!; const flatbed = types.find(type => type.name === 'Flatbed Truck')!;
+  assert.equal(meetsBodyRequirement(['Liftgate'], reefer), false); assert.equal(meetsBodyRequirement(['REFRIGERATION'], reefer), true);
+  assert.equal(meetsBodyRequirement([], flatbed), false); assert.equal(meetsBodyRequirement(['OPEN_DECK'], flatbed), true);
+  assert.equal(meetsBodyRequirement([], types.find(type => type.name === 'Box Truck')), true); // a liftgate is optional, not a body
+});
 test('cutoff uses organization timezone for same-day bookings', () => {
   const s = setup(); s.order.scheduledAt = '2026-09-12T17:00'; s.ctx.catalogue.services[0].bookingCutoffTime = '14:00';
   assert.equal(organizationTime('2026-09-12T22:30:00Z', 'America/Vancouver')?.clock, '15:30');
@@ -212,13 +250,13 @@ test('invoice preview uses finalized lines, tax registration and payment terms',
 test('revised settings and shared order form render without a browser', async () => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { ProfilePage } = await import('../src/pages/ProfilePage');
-  const TaxesPreferencesPage = () => React.createElement(ProfilePage, { initialSection: 'taxes' });
+  const { BillingSettingsForm } = await import('../src/components/settings/BillingSettingsForm');
+  const PreferencesPage = () => React.createElement(BillingSettingsForm, { section: 'preferences' });
   const { RateCardsPage } = await import('../src/pages/RateCardsPage');
   const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
   const { ContractRulesEditor } = await import('../src/components/pricing/ContractRulesEditor');
   const noop = () => { };
-  const company = renderToStaticMarkup(React.createElement(TaxesPreferencesPage, {}));
+  const company = renderToStaticMarkup(React.createElement(PreferencesPage, {}));
   assert.match(company, /Regional Preferences/); assert.doesNotMatch(company, /Vehicle Running Cost|Invoicing Basics|Fuel surcharge/);
   const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
   const rates = renderToStaticMarkup(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { gcTime: 0 }, mutations: { gcTime: 0 } } }) }, React.createElement(RateCardsPage, {})));
@@ -227,7 +265,7 @@ test('revised settings and shared order form render without a browser', async ()
   assert.match(form, /aria-label="Stop 1 ready at date:/); assert.match(form, /Contact name/); assert.doesNotMatch(form, /Supplying pickups|Driving only|Freight tax treatment|Move stop|Pricing Adjustments|Rate Card override/);
   s.card.pricingMethod = 'IMPORTED'; s.card.importedPriceMode = 'FINAL_TOTAL';
   const contract = renderToStaticMarkup(React.createElement(ContractRulesEditor, { card: s.card, patch: noop }));
-  assert.match(contract, /includes tax; no changes/); assert.doesNotMatch(contract, /Apply resolved contract discount/);
+  assert.match(contract, /final total, including tax/); assert.match(contract, /No fuel, vehicle, service or minimum charges are added/); assert.doesNotMatch(contract, /Imported amount means/); assert.doesNotMatch(contract, /Apply resolved contract discount/);
 });
 
 test('hourly billable actuals do not become driving actuals in the cost estimate', () => {

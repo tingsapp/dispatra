@@ -5,7 +5,7 @@ import { TaxSettings } from './TaxSettings';
 import { FuelChargeSettings } from './FuelChargeSettings';
 import { useBillingSettings } from './useBillingSettings';
 
-const SAVE_LABELS = { taxes: 'Settings', fuel: 'Fuel Surcharge' } as const;
+const SAVE_LABELS = { taxes: 'Taxes', preferences: 'Preferences', fuel: 'Fuel Surcharge' } as const;
 export function BillingSettingsForm({ section, onNotification }: { section: keyof typeof SAVE_LABELS; onNotification?: (message: string) => void }) {
   const editor = useBillingSettings(onNotification);
   return <form noValidate={section === 'taxes'} onSubmit={event => { event.preventDefault(); editor.handleSave(); }} className={`space-y-5 ${section === 'fuel' ? 'w-full max-w-2xl' : ''}`}>
@@ -21,8 +21,8 @@ export function BillingSettingsForm({ section, onNotification }: { section: keyo
         </div>
       </section>
       <TaxSettings editor={editor} />
-      <RegionalSettings editor={editor} />
     </div>}
+    {section === 'preferences' && <div className="app-sections"><RegionalSettings editor={editor} /></div>}
     {section === 'fuel' && <FuelChargeSettings editor={editor} />}
     {editor.saveError && <p role="alert" className="text-sm text-red-600">{editor.saveError}</p>}
     <div className={`flex items-center justify-end gap-3 ${section === 'fuel' ? 'flex-row-reverse flex-wrap' : ''}`}>

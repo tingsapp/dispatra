@@ -97,7 +97,7 @@ export const quotationText = (q: Quotation, message = ''): string => {
 export const quotationMailto = (q: Quotation, to: string, message = ''): string =>
   `mailto:${encodeURIComponent(to.trim())}?subject=${encodeURIComponent(quotationSubject(q))}&body=${encodeURIComponent(quotationText(q, message))}`;
 
-export const isEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+export { isValidEmail as isEmail } from './email';
 
 
 export const quotationFileName = (q: Quotation): string => `Quotation-${q.quoteNumber}.pdf`;

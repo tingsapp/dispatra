@@ -624,7 +624,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
 
   // ---- 5. Vehicle surcharge ------------------------------------------------
   let vehicleSurcharge = 0;
-  const applyVehicle = effectiveMethod === 'BASE_PLUS_DISTANCE' || card.applyVehicleSurcharge;
+  const applyVehicle = card.applyVehicleSurcharge !== false;
   if (vehicle && applyVehicle) {
     const override = card.vehicleSurchargeOverrides[vehicle.id];
     vehicleSurcharge = netAmount(inherit(override, vehicle.baseSurcharge), 'transport');
@@ -749,7 +749,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
 
   // ---- 7. Fuel surcharge ---------------------------------------------------
   let fuelSurcharge = 0;
-  const applyFuel = effectiveMethod === 'BASE_PLUS_DISTANCE' || card.applyFuelSurcharge;
+  const applyFuel = card.applyFuelSurcharge !== false;
   const fuelBase = round2(
     lines.filter((l) => l.fuelEligible && l.group !== 'FUEL').reduce((s, l) => s + l.amount, 0)
   );

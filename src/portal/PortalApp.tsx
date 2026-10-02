@@ -22,7 +22,7 @@ export function parsePortal(path: string): PortalRoute | null {
   if (!slug) return null;
   if (pageForPath(path)) return { slug, portal:'dispatch', settings:false, workspace:true };
   if (new RegExp(`^/${slug}/driver/?$`).test(path)) return { slug, portal:'driver', settings:false };
-  if (new RegExp(`^/${slug}/shipper-portal(?:/(?:profile|orders|invoices|payment-methods|settings))?/?$`).test(path)) return { slug, portal:'customer', settings:path.includes('/settings') };
+  if (new RegExp(`^/${slug}/shipper-portal(?:/(?:profile|orders|invoices|settings))?/?$`).test(path)) return { slug, portal:'customer', settings:path.includes('/settings') };
   const legacy = path.match(new RegExp(`^/${slug}/(dispatch|customer)(?:/(login|settings))?/?$`));
   return legacy ? { slug, portal:legacy[1] as 'dispatch'|'customer', settings:legacy[2] === 'settings' } : null;
 }

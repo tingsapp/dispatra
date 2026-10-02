@@ -65,7 +65,7 @@ Retain **Hourly** only for contracts that explicitly sell time.
 Each hourly contract must define:
 
 - Hourly rate.
-- Minimum billable duration.
+- Minimum billable duration. This is the hourly card's only minimum: Hourly cards do not show or apply a dollar Minimum Charge, because it would duplicate the time floor.
 - Billing increment.
 - When the billable clock starts and stops.
 - Whether loading, unloading and waiting are included.
@@ -185,7 +185,9 @@ Recommended default: apply the order minimum after contract discounts and permit
 
 Example: a $100 order minimum with a 20% discount still produces a $100 subtotal excluding tax.
 
-Each rate card owns its Minimum Charge; 0 disables it. New cards start at 0, and existing inherited amounts migrate onto their cards. General has no minimum controls or active minimum-distance floor. Do not make a discount implicitly waive a card minimum.
+Vehicle surcharges follow the order's Required vehicle type, which is decided at booking from the shipment (suggested from weight, pallets and item size, or chosen for refrigerated / open-deck needs), never from the assigned driver. The quote is therefore final: assignment is meets-or-exceeds (any truck with the required body that fits the load), a larger truck sent for operational convenience is a free upgrade, and only a shipment that differs from what was booked is re-rated through an adjustment with a reason. Rate cards carry Apply fuel surcharge and Apply vehicle surcharge switches; each vehicle type's surcharge is set in Settings → Vehicle Types.
+
+Each Base + Distance, Fixed, Zone and Imported (non-final-total) rate card owns its Minimum Charge; 0 disables it. Hourly cards have no Minimum Charge (their floor is Minimum Billable time); saved Hourly minimums are cleared on load and API save, while frozen quote contexts keep the minimum they were quoted with. New cards start at 0, and existing inherited amounts migrate onto their cards. General has no minimum controls or active minimum-distance floor. Do not make a discount implicitly waive a card minimum.
 
 Discount controls live only on the Shipper creation/edit form and offer No discount, Percentage (0–100), or Fixed amount. The shipper discount applies across selected rate cards; new shippers start with no discount. Apply one discount to freight, service multiplier, freight minimum and vehicle surcharge, excluding fuel, Accessorials, service fee and tax.
 

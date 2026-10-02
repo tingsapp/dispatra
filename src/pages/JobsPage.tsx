@@ -23,20 +23,21 @@ import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { allOperations, operations } from '../operations/api';
 import { inputToBooking } from '../operations/orderAdapters';
 import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
-import { useCompanyPricingContext, useOrderAssignment } from '../components/orders/useOrderDetails';
+import { useCompanyPricingContext, useOrderAssignment, useOrderCompletion } from '../components/orders/useOrderDetails';
 import { useOrderPreview } from '../components/orders/useOrderPreview';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
 import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
+import { withSurchargeRows } from '../lib/surchargeRows';
+import { resolveFuelPercent } from '../lib/billingEngine';
 import { QuotationMenu } from '../components/pricing/QuotationMenu';
 import { buildQuotation } from '../lib/quotation';
 import { invoiceOrder, invoiceState } from '../lib/invoicing';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
 import { companyRateRows, travelRows } from '../lib/companyTax';
-import { applyDriverVehicle,normalizeOrderInput,snapshotCustomer } from '../domain/orderAdapters';
-import { loadVehicles } from '../lib/vehicleStorage';
+import { normalizeOrderInput,snapshotCustomer } from '../domain/orderAdapters';
 import { lifecycleLabel,orderAttention,orderEditable,orderLifecycle,validateOrderFacts } from '../domain/validation';
 import { ORDER_LIFECYCLES, ORDER_LIFECYCLE_LABELS } from '../domain/operations';
 import {
@@ -113,7 +114,7 @@ export function JobsPage({
     if (!ctx) { onNotification('Pricing data is still loading. Try again in a moment.'); return; }
     setCreateMode(mode); setEditingOrder(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null;
     setPricingCtx(ctx);
-    setNewOrderInput(applyDriverVehicle({ ...createBookingInput(ctx), rateCardOverrideId: mode === 'quote' ? defaultRateCard(ctx.pricing.rateCards)?.id ?? null : null }, undefined, []));
+    setNewOrderInput({ ...createBookingInput(ctx), rateCardOverrideId: mode === 'quote' ? defaultRateCard(ctx.pricing.rateCards)?.id ?? null : null });
     setNewInstructions('');
     setNewDriverId('unassigned');
     setShowCreateModal(true);
@@ -179,6 +180,13 @@ export function JobsPage({
     const result = await reassign(job, driverId);
     if (!result) return;
     setReassigningJobId(null);
+    if (!result.updated) setActiveJobDossier(null);
+    else if (activeJobDossier?.id === job.id) setActiveJobDossier(result.updated);
+  };
+  const complete = useOrderCompletion({ slug, onUpdateJob, onNotification });
+  const handleCompleteOrder = async (job: Job) => {
+    const result = await complete(job);
+    if (!result) return;
     if (!result.updated) setActiveJobDossier(null);
     else if (activeJobDossier?.id === job.id) setActiveJobDossier(result.updated);
   };
@@ -563,7 +571,7 @@ export function JobsPage({
 
       {/* ORDER DETAILS DIALOG */}
       {activeJobDossier && <OrderDetailsDialog job={activeJobDossier} ctx={pricingCtx} drivers={drivers} onClose={() => setActiveJobDossier(null)}
-        onReassign={handleReassignDriver} onEdit={openEditOrder} onLocate={job => { onSelectJob(job.jobNumber); setActiveJobDossier(null); }} />}
+        onReassign={handleReassignDriver} onEdit={openEditOrder} onComplete={handleCompleteOrder} onLocate={job => { onSelectJob(job.jobNumber); setActiveJobDossier(null); }} />}
 
       {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (
@@ -575,7 +583,7 @@ export function JobsPage({
                   {!!formErrors.length && <p role="alert" className="text-xs text-rose-700">{formErrors.join(" ")}</p>}
 
                   <OrderPricingForm
-                    showVehicleSelection={!!editingOrder}
+                    showVehicleSelection suggestVehicle={!editingOrder}
                     customerMode={createMode === 'quote' ? 'rateCard' : 'shipper'}
                     value={newOrderInput}
                     onChange={v => { if (v.customerId !== newOrderInput.customerId) { const c = pricingCtx.customers.find(c => c.id === v.customerId); setOrderFields({ ...orderFields, notificationPreferences: c?.communicationPreferences }); setNewInstructions(c?.instructions ?? ''); } setNewOrderInput(v); }}
@@ -595,8 +603,8 @@ export function JobsPage({
                         className="w-full"
                         value={newDriverId}
                         onValueChange={driverId => {
+                          // The required vehicle comes from the load; a driver's truck is only checked against it.
                           setNewDriverId(driverId);
-                          if (!editingOrder) setNewOrderInput(input => applyDriverVehicle(input, drivers.find(driver => driver.id === driverId), slug ? [] : loadVehicles()));
                         }}
                         options={[
                           { value: 'unassigned', label: '— Leave Unassigned (Staged for Dispatch) —' },
@@ -606,7 +614,7 @@ export function JobsPage({
                       <p className="text-xs text-slate-500 mt-1">{editingOrder ? 'Driver choice never changes the shipper price.' : 'Uses the vehicle attached to the selected driver.'}</p>
                     </div>
                     <div>
-                      <label className="block font-medium text-slate-700 mb-1">Handling Instructions</label>
+                      <label className="block font-medium text-slate-700 mb-1">Instructions</label>
                       <textarea
                         rows={2}
                         placeholder="e.g. Liftgate required, call receiver 10m before arrival."
@@ -620,7 +628,7 @@ export function JobsPage({
 
                 <div className="lg:col-span-5 lg:sticky lg:top-0">
                   <PriceBreakdown
-                    snapshot={newOrderSnapshot}
+                    snapshot={withSurchargeRows(newOrderSnapshot, pricingCtx.pricing.rateCards.find(card => card.id === newOrderSnapshot.rateCard?.id), resolveFuelPercent(pricingCtx.billing), pricingCtx.catalogue.vehicles.find(vehicle => vehicle.id === newOrderInput.vehicleId)?.name)}
                     title={createMode === 'quote' ? 'Live quote' : 'Live estimate'}
                     showPricingDetail={false}
                     rateRows={[...companyRateRows(pricingCtx.billing), ...(newOrderSnapshot.status === 'PRICED' ? travelRows(newOrderSnapshot, pricingCtx.billing.general) : [])]}

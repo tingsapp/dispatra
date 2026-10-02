@@ -1,16 +1,18 @@
-import { MapPin } from 'lucide-react';
+import { CheckCircle2, MapPin } from 'lucide-react';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../ui/Dialog';
 import { Button } from '../ui/button';
 import { Select } from '../ui/Select';
 import { Detail, OrderDossierSections } from './OrderDossierSections';
 import { orderEditable } from '../../domain/validation';
+import { orderCompletable } from './useOrderDetails';
 import type { PricingContext } from '../../lib/pricingEngine';
 import type { Driver, Job } from '../../types';
 
 /** The dispatcher's order details dialog, shared by the Orders list and the Monitor. */
-export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onEdit, onLocate }: {
+export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onEdit, onLocate, onComplete }: {
   job: Job; ctx: PricingContext; drivers: Driver[]; onClose: () => void;
   onReassign: (job: Job, driverId: string) => void; onEdit?: (job: Job) => void; onLocate?: (job: Job) => void;
+  onComplete?: (job: Job) => void;
 }) {
   const requested = job.pricingInput?.preferredDriverId;
   const editable = !!onEdit && orderEditable(job);
@@ -39,6 +41,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
     </DialogBody>
     <DialogFooter>
       {editable && <Button variant="outline" onClick={() => onEdit!(job)}>Edit order</Button>}
+      {onComplete && orderCompletable(job) && <Button variant="outline" onClick={() => onComplete(job)}><CheckCircle2 /> Complete order</Button>}
       {onLocate ? <Button onClick={() => onLocate(job)}><MapPin /> Locate on Monitor</Button> : <Button onClick={onClose}>Close</Button>}
     </DialogFooter>
   </Dialog>;

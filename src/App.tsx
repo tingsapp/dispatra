@@ -1,4 +1,4 @@
-import { PanelLeft,RefreshCw,Sparkles } from 'lucide-react';
+import { LocateFixed,PanelLeft,Sparkles } from 'lucide-react';
 import { AnimatePresence,motion } from 'motion/react';
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,13 +19,14 @@ import { ConfirmDialogHost, confirmDialog } from './components/ui/ConfirmDialog'
 import { Sidebar } from './components/Sidebar';
 import { TopMetrics } from './components/TopMetrics';
 import { GoogleMonitorMap, type MapController, VANCOUVER_CENTER_LNG_LAT } from './components/GoogleMonitorMap';
+import { companyMapCenter } from './components/monitor/mapScene';
 import {
 INITIAL_DRIVERS,
 INITIAL_JOBS,
 INITIAL_NEEDS_ATTENTION
 } from './data/mockData';
 import { bindDriverVehicle,loadDrivers,saveDrivers } from './lib/driverStorage';
-import { freezeCompletedOrder } from './lib/driverPayout';
+import { freezeCompletedOrder } from './lib/orderCompletion';
 import { loadPricingContext,loadSavedOrders,pricingAttentionItems,saveOrders } from './lib/orderPricing';
 import { validateAssignment } from './lib/organizationWorkflows';
 import { usePageNavigation } from './lib/usePageNavigation';
@@ -374,11 +375,11 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   };
 
   const handleUpdateJob = useCallback((updatedJob: Job) => {
-    setJobs((prev) => prev.map((j) => (j.id === updatedJob.id ? freezeCompletedOrder(j, updatedJob, drivers) : j)));
+    setJobs((prev) => prev.map((j) => (j.id === updatedJob.id ? freezeCompletedOrder(j, updatedJob) : j)));
   }, [drivers]);
 
   const handleCreateJob = useCallback((newJob: Job) => {
-    setJobs((prev) => [freezeCompletedOrder(undefined, newJob, drivers), ...prev]);
+    setJobs((prev) => [freezeCompletedOrder(undefined, newJob), ...prev]);
     setActiveJobsCount((prev) => prev + 1);
   }, [drivers]);
 
@@ -451,12 +452,11 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
     showToast('Maintained current assignment with Driver D14');
   };
 
+  const companyLocation = useMemo(() => slug ? companyMapCenter(settingsQuery.data?.data.address, settingsQuery.data?.data.time_zone) : companyMapCenter(null, loadPricingContext().billing.general.timeZone), [slug, settingsQuery.data]);
+
   const handleResetSpecView = () => {
-    if (mapRef.current) {
-      if (slug) mapRef.current.fitAll();
-      else mapRef.current.flyTo({ center: VANCOUVER_CENTER_LNG_LAT, zoom: 12, pitch: 0, bearing: 0, duration: 1200, essential: true });
-    }
-    showToast(slug ? 'Showing all orders and drivers' : 'Map centered to Vancouver');
+    mapRef.current?.flyTo({ center: companyLocation.center, zoom: 12, pitch: 0, bearing: 0, duration: 1200, essential: true });
+    showToast(`Map centered to ${companyLocation.label}`);
   };
 
   const handleZoomIn = () => {
@@ -696,11 +696,11 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
             {/* RE-CENTER MAP QUICK ACTION BUTTON */}
             <button
               onClick={handleResetSpecView}
-              className="app-action app-secondary absolute bottom-6 left-6 z-30 h-10 px-3.5 bg-white rounded-xl shadow-md shadow-slate-900/10 border border-slate-200/90 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"
-              title="Reset map camera to Vancouver overview"
+              className="absolute bottom-6 left-6 z-30 h-10 w-10 bg-white rounded-xl shadow-md shadow-slate-900/10 border border-slate-200/90 text-slate-600 hover:text-blue-600 hover:bg-slate-50 flex items-center justify-center transition-all active:scale-95"
+              title={`Focus map on ${companyLocation.label}`}
+              aria-label={`Focus map on ${companyLocation.label}`}
             >
-              <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
-              <span>Vancouver Overview</span>
+              <LocateFixed className="w-5 h-5" strokeWidth={1.75} />
             </button>
             </>}
           </div>}

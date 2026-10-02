@@ -7,16 +7,16 @@ CheckCircle2,
 Building2,
 Mail,
 Phone,
-ReceiptText,
 Shield,
 User
 } from 'lucide-react';
 import React,{ useState } from 'react';
 import { PageHeader } from '../components/layout/PageHeader';
-import { BillingSettingsForm } from '../components/settings/BillingSettingsForm';
 import { CompanyIdentity, type CompanyIdentityValue } from '../components/settings/CompanyIdentity';
 import { useSettingsGuard } from '../components/settings/useSettingsGuard';
 import { loadBillingConfig, saveBillingConfig } from '../lib/billingStorage';
+import { ContactInput } from '../components/ui/ContactInput';
+import { isValidEmail } from '../lib/email';
 import {
 UserProfile,
 loadUserProfile,
@@ -25,7 +25,7 @@ saveUserProfile
 
 interface ProfilePageProps {
   onNotification?: (msg: string) => void;
-  initialSection?: 'company' | 'security' | 'taxes';
+  initialSection?: 'company' | 'security';
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = (props) => {
@@ -44,7 +44,7 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
     return { name, address, logoDataUrl };
   });
   const [savedCompanyIdentity, setSavedCompanyIdentity] = useState(companyIdentity);
-  const [activeSection, setActiveSection] = useState<'company' | 'security' | 'taxes'>(() => initialSection ?? 'company');
+  const [activeSection, setActiveSection] = useState<'company' | 'security'>(() => initialSection ?? 'company');
   const companyDirty = Object.keys(companyIdentity).some(key => companyIdentity[key as keyof CompanyIdentityValue] !== savedCompanyIdentity[key as keyof CompanyIdentityValue]);
   const contactDirty = (['name', 'email', 'phone', 'role'] as const).some(key => profile[key] !== savedProfile[key]);
   useSettingsGuard(companyDirty || contactDirty);
@@ -62,6 +62,7 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
   };
 
   const handleSave = () => {
+    if (contactDirty && profile.email.trim() && !isValidEmail(profile.email)) { (document.getElementById('company-contact-email') as HTMLInputElement | null)?.reportValidity(); return; }
     if (contactDirty) {
       const latest = loadUserProfile();
       for (const key of ['name', 'email', 'phone', 'role'] as const) {
@@ -110,7 +111,7 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
   return (
     <div className="app-page app-page-profile app-page-reading h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
-      <PageHeader title="Profile" description="Company details, account security, taxes and preferences." />
+      <PageHeader title="Profile" description="Company details and account security." />
 
       {/* SUB-NAVIGATION TABS */}
       <div className="page-content h-12 bg-app-canvas flex items-center gap-2 shrink-0 overflow-x-auto">
@@ -131,18 +132,9 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
             className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
           >
             <Shield className="w-3.5 h-3.5" />
-            <span>Security & Sessions</span>
+            <span>Security</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSection('taxes')}
-            aria-pressed={activeSection === 'taxes'}
-            className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
-          >
-            <ReceiptText className="w-3.5 h-3.5" />
-            <span>Taxes & Preferences</span>
-          </button>
       </div>
 
       {/* MAIN CONTENT AREA */}
@@ -179,7 +171,7 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
+                    <ContactInput
                       id="company-contact-email"
                       type="email"
                       value={profile.email}
@@ -195,7 +187,7 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
+                    <ContactInput
                       id="company-contact-phone"
                       type="tel"
                       value={profile.phone}
@@ -340,9 +332,6 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
 
           </div>
         )}
-        <div hidden={activeSection !== 'taxes'} className={activeSection === 'taxes' ? '' : 'hidden'}>
-          <BillingSettingsForm section="taxes" onNotification={onNotification} />
-        </div>
       </main>
     </div>
   );

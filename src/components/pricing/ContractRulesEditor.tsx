@@ -1,6 +1,4 @@
 import { RateCard } from '../../types/pricing';
-import { Select } from '../ui/Select';
-import { labelClass } from './RateCardFields';
 
 interface Props { card: RateCard; patch: (changes: Partial<RateCard>) => void }
 /** Method-specific contract terms; only Hourly and Imported cards have any. */
@@ -18,12 +16,10 @@ export const ContractRulesEditor = ({ card, patch }: Props) => {
         'Settled on actual minutes at completion'
       ].map(term => <label key={term} className="flex items-center gap-2 text-slate-700"><input type="checkbox" checked readOnly disabled className="accent-slate-900" />{term}</label>)}
     </div>}
-      {card.pricingMethod === 'IMPORTED' && <div className="sm:max-w-sm">
-        <label className={labelClass}>Imported amount means</label>
-        <Select aria-label="Imported amount means" className="w-full" value={card.importedPriceMode ?? 'FREIGHT'} onValueChange={value => patch({ importedPriceMode: value as RateCard['importedPriceMode'] })} options={[
-          { value: 'FREIGHT', label: 'Freight — additional charges may apply' },
-          { value: 'FINAL_TOTAL', label: 'Final total — includes tax; no changes' }
-        ]} />
-      </div>}
+      {card.pricingMethod === 'IMPORTED' && <div className="space-y-2">
+      {[card.importedPriceMode === 'FINAL_TOTAL' ? 'The imported amount is the final total, including tax' : 'The imported amount is the delivery charge (older card)',
+        ...(card.importedPriceMode === 'FINAL_TOTAL' ? ['No fuel, vehicle, service or minimum charges are added'] : []), 'The external reference (TMS order number) is required'
+      ].map(term => <label key={term} className="flex items-center gap-2 text-slate-700"><input type="checkbox" checked readOnly disabled className="accent-slate-900" />{term}</label>)}
+    </div>}
   </section>;
 };

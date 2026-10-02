@@ -244,7 +244,7 @@ export function saveVehicles(vehicles: VehicleAsset[]): void {
 }
 
 export function normalizeVehicle(v: VehicleAsset): VehicleAsset {
-  const types: Partial<Record<VehicleAsset['category'], string>> = { '1 Tonne Van': 'veh_1_ton', '2 Tonne Cube': 'veh_2_ton', '3 Tonne Box': 'veh_3_ton', '5 Tonne Freight': 'veh_5_ton' };
+  const types: Partial<Record<VehicleAsset['category'], string>> = { '1 Tonne Van': 'veh_1_ton', '2 Tonne Cube': 'veh_2_ton', '3 Tonne Box': 'veh_3_ton', '5 Tonne Freight': 'veh_3_ton', 'Refrigerated Reefer': 'veh_reefer_van', Flatbed: 'veh_flatbed_truck' };
   return { vehicleTypeId: types[v.category], recordStatus: 'ACTIVE', availability: v.status === 'in_service' ? 'IN_USE' : v.status === 'available' ? 'AVAILABLE' : 'UNAVAILABLE',
     plateProvince: 'BC', equipment: [...(v.hasLiftgate ? ['Liftgate'] : []), ...(v.hasReefer ? ['Refrigeration'] : [])], serviceAreaIds: [], ...v };
 }

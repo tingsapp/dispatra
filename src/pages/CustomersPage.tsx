@@ -32,6 +32,7 @@ import { loadBillingConfig } from '../lib/billingStorage';
 import { paymentTermOptions, PaymentTerms, resolvePaymentTerms } from '../lib/paymentTerms';
 import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
+import { ContactInput } from '../components/ui/ContactInput';
 
 interface CustomersPageProps {
   jobs?: Job[];
@@ -57,6 +58,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   // Pricing lookups for the relationship section — read-only here, edited under Organization Settings.
   const [pricing] = useState(() => loadPricingConfig());
   const customerCards = slug ? (ratesQuery.data ?? []).filter(c => c.active).map(c => ({ id: c.id, name: c.data.name })) : pricing.rateCards.filter(c => c.status === 'ACTIVE');
+  // Imported cards price only orders that carry an external price, so they cannot be attached to a shipper yet.
+  const importedCardIds = new Set(slug ? (ratesQuery.data ?? []).filter(c => c.data.method === 'IMPORTED').map(c => c.id) : pricing.rateCards.filter(c => c.pricingMethod === 'IMPORTED').map(c => c.id));
   const defaultCard = slug ? customerCards.find(c => c.id === ratesQuery.data?.find(r => r.active && r.is_default)?.id) : pricing.rateCards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
   const defaultCardName = defaultCard?.name ?? 'Default';
   // A deleted card no longer names the customer's pricing; the Default applies.
@@ -556,8 +559,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 <label className="block"><span className="app-label">Shipper name</span><input type="text" required placeholder="e.g. Alex Morgan" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="app-input w-full" /></label>
                 <div><span className="app-label">Shipper type</span><Select aria-label="Shipper type" className="w-full" value={formData.customerType ?? 'BUSINESS'} onValueChange={(v) => setFormData({ ...formData, customerType: v as Customer['customerType'] })} options={[{ value: 'BUSINESS', label: 'Business' }, { value: 'INDIVIDUAL', label: 'Individual' }]} /></div>
                 {formData.customerType !== 'INDIVIDUAL' && <label className="block sm:col-span-2"><span className="app-label">Company name</span><input type="text" required placeholder="e.g. Pacific Fresh Logistics" value={formData.legalName || ''} onChange={(e) => setFormData({ ...formData, legalName: e.target.value })} className="app-input w-full" /></label>}
-                <label className="block"><span className="app-label">Phone</span><input type="tel" placeholder="+1 (604) 555-0100" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="app-input w-full" /></label>
-                <label className="block"><span className="app-label">Email</span><input type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Used for portal login, quotes and invoices.</span></label>
+                <label className="block"><span className="app-label">Phone</span><ContactInput type="tel" placeholder="(604) 555-0100" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="app-input w-full" /></label>
+                <label className="block"><span className="app-label">Email</span><ContactInput type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Used for portal login, quotes and invoices.</span></label>
                 {editingCustomer && <div><span className="app-label">Status</span><Select aria-label="Shipper status" className="w-full" value={formData.status || 'Active'} onValueChange={(v) => setFormData({ ...formData, status: v as Customer['status'] })} options={[{ value: 'Active', label: 'Active' }, { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }]} /></div>}
               </FormSection>
 
@@ -566,7 +569,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </FormSection>
 
               <FormSection title="Billing">
-                <div><span className="app-label">Shipper rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">New orders start on it; dispatch can change it per order.</span></div>
+                <div><span className="app-label">Shipper rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.filter(c => !importedCardIds.has(c.id) || c.id === formData.rateCardId).map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">New orders start on it; dispatch can change it per order.</span></div>
                 <div><span className="app-label">Default payment terms</span><Select aria-label="Default payment terms" className="w-full" value={formData.paymentTerms ?? ''} onValueChange={value => setFormData({ ...formData, paymentTerms: value as PaymentTerms })} options={paymentTermOptions(editingCustomer?.paymentTerms)} /><span className="mt-1 block text-xs text-slate-500">Sets invoice due dates.</span></div>
                 <div className="sm:col-span-2">
                   <span className="app-label">Credit card</span>

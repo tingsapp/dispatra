@@ -12,7 +12,7 @@ export function DimensionalWeightFields({ card, units, patch }: {
     <h3 className="app-section-title text-slate-900">Dimensional Weight</h3>
     <p className="text-xs text-slate-500 mt-0.5 mb-4">Chargeable weight is always the greater of actual and dimensional weight. Weight charges depend on the pricing method.</p>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <NumberField label="Dimensional Divisor" value={toDisplayDivisor(card.dimensionalDivisor ?? units.dimensionalDivisor, units)}
+      <NumberField label="Dimensional Divisor" value={Number(toDisplayDivisor(card.dimensionalDivisor ?? units.dimensionalDivisor, units).toFixed(1))}
         onChange={value => patch({ dimensionalDivisor: fromDisplayDivisor(value, units) })}
         suffix={`${units.dimensionUnit}³/${units.weightUnit}`} step="any"
         hint="Length × width × height ÷ divisor." />

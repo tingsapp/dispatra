@@ -1,13 +1,9 @@
-import { Driver, Order } from '../types';
-import type { VehicleAsset } from '../lib/vehicleStorage';
+import { Order } from '../types';
 import { PricingOrderInput } from '../types/pricing';
 import { Customer } from '../lib/customerStorage';
 import { addressChange } from '../lib/taxAddress';
 
 /** New-order estimates use the selected driver's attached asset, never a guessed type. */
-export function applyDriverVehicle(input: PricingOrderInput, driver: Driver | undefined, fleet: VehicleAsset[]): PricingOrderInput {
-  return { ...input, vehicleId: fleet.find(vehicle => vehicle.id === driver?.currentVehicleId)?.vehicleTypeId ?? null };
-}
 /** Enrich only unambiguous legacy links; never guess a multi-stop shipment split. */
 export function normalizeOrderInput(input: PricingOrderInput): PricingOrderInput {
   const pickups = input.stops.filter(s => s.type === 'PICKUP');

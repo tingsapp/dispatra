@@ -1,5 +1,7 @@
 import { DriverAvatar } from './DriverAvatar';
 import { DriverActivity } from './entities/DriverActivity';
+import { DriverOrders } from './entities/DriverOrders';
+import { Tabs } from './ui/Tabs';
 import { SearchInput } from './ui/SearchInput';
 import { loadBillingConfig } from '../lib/billingStorage';
 import { useOverlayMotion } from './ui/useOverlayMotion';
@@ -116,6 +118,7 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
               driver={effectiveData as Driver}
               jobs={effectiveJobs}
               onClose={onClose}
+              timeZone={timeZone ?? loadBillingConfig().general.timeZone}
               onSelectJob={onSelectJob}
               onEditDriver={onEditDriver}
             />
@@ -179,11 +182,11 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
 const DriverDetailView: React.FC<{
   driver: Driver;
   jobs: Job[];
+  timeZone: string;
   onClose: () => void;
   onSelectJob?: (jobNumber: string) => void;
   onEditDriver?: (driver: Driver) => void;
-}> = ({ driver, jobs, onClose, onSelectJob, onEditDriver }) => {
-  const ownerOperator = driver.employmentType === 'CONTRACTOR';
+}> = ({ driver, jobs, timeZone, onClose, onSelectJob, onEditDriver }) => {
   const active = jobs.filter(job => job.assignedDriverId === driver.id && ['ASSIGNED', 'IN_PROGRESS'].includes(job.lifecycleStatus ?? ''));
   const phone = formatPhone(driver.phone);
   return (
@@ -204,17 +207,15 @@ const DriverDetailView: React.FC<{
       </div>
 
       <div className="px-6 pb-6 overflow-y-auto space-y-6 flex-1">
+        <Tabs label="Driver details tabs" items={[
+          { id: 'details', label: 'Details', content: <>
         <section aria-label="Driver profile" className="space-y-3">
           <h3 className="app-section-title">Profile</h3>
           <ReadFields values={{
             Phone: phone, Email: driver.email, Address: driver.address,
             Account: driver.accountStatus === 'INACTIVE' ? 'Inactive' : driver.accountStatus ? 'Active' : undefined,
             Duty: driver.dutyStatus === 'ON_DUTY' ? 'On duty' : driver.dutyStatus ? 'Off duty' : undefined,
-            Employment: ownerOperator ? 'Owner-operator' : 'Employee',
             'Attached vehicle': driver.vehicle,
-            'Maximum active orders': driver.maxActiveOrders != null ? String(driver.maxActiveOrders) : undefined,
-            ...(ownerOperator ? { 'Driver share of order price': driver.revenueSharePercent != null ? `${driver.revenueSharePercent}%` : undefined,
-              'Driver share of fuel surcharge': driver.fuelSurchargeSharePercent != null ? `${driver.fuelSurchargeSharePercent}%` : undefined } : {}),
           }} />
         </section>
 
@@ -227,6 +228,9 @@ const DriverDetailView: React.FC<{
         </section>
 
         <DriverActivity driver={driver} jobs={jobs} />
+          </> },
+          { id: 'orders', label: 'Orders', content: <DriverOrders driver={driver} jobs={jobs} timeZone={timeZone} onSelectJob={onSelectJob && (jobNumber => { onSelectJob(jobNumber); onClose(); })} /> },
+        ]} />
       </div>
 
       <div className="px-6 py-4 flex items-center justify-between gap-2 shrink-0 border-t border-slate-100">

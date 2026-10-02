@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { FloatingPanel } from '../ui/FloatingPanel';
 import { isEmail, pdfBlob, Quotation, quotationFileName, quotationMailto, quotationPdf } from '../../lib/quotation';
 import { PdfJpeg } from '../../lib/pdf';
+import { ContactInput } from '../ui/ContactInput';
 
 interface QuotationMenuProps {
   /** Built lazily so the quote number and date reflect the moment the menu opens. */
@@ -68,7 +69,7 @@ export const QuotationMenu: React.FC<QuotationMenuProps> = ({ buildQuotation, on
         </div>
         <div>
           <label htmlFor="quote-recipient-email" className="app-label">Recipient email</label>
-          <input id="quote-recipient-email" type="email" className="app-input w-full" value={q.customer.email} onChange={event => setQuotation({ ...q, customer: { ...q.customer, email: event.target.value } })} placeholder="name@example.com" />
+          <ContactInput id="quote-recipient-email" type="email" className="app-input w-full" value={q.customer.email} onChange={event => setQuotation({ ...q, customer: { ...q.customer, email: event.target.value } })} placeholder="name@example.com" />
           {to && !canEmail && <p role="alert" className="mt-1 text-xs text-rose-700">Enter a valid email address to send the quote.</p>}
         </div>
       </div> : <div>

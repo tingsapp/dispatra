@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useRef } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { CENTRAL_PICKUP_ZONE_ID, withCentralZoneRates } from '../../lib/centralZoneRates';
 import { toDisplayWeight, Units } from '../../lib/units';
@@ -15,17 +15,15 @@ interface Props {
 interface MatrixRow { id: string; maxWeightKg: number | null; pending: boolean; flat: boolean }
 const routeId = (destination: Zone) => `zr_central_${destination.id}`;
 
-/** One shared range axis for all destination prices. Existing bands supply the rows. */
-function matrixRows(rates: ZoneRate[], pendingPositions: Record<string, number>): MatrixRow[] {
-  const bands = rates.flatMap(rate => rate.weightBands ?? []);
-  const limits = [...new Set(bands.filter(band => band.maxWeightKg != null).map(band => band.maxWeightKg!))].sort((a, b) => a - b);
-  const rows: MatrixRow[] = limits.map(maxWeightKg => ({
-    id: bands.find(band => band.maxWeightKg === maxWeightKg)!.id, maxWeightKg, pending: false, flat: false
-  }));
-  for (const id of new Set(bands.filter(band => band.maxWeightKg == null).map(band => band.id))) {
-    rows.splice(pendingPositions[id] ?? rows.length, 0, { id, maxWeightKg: null, pending: true, flat: false });
+/** One shared range axis for all destination prices. Rows keep the order they were entered in; they are never re-sorted. */
+function matrixRows(rates: ZoneRate[], zones: Zone[]): MatrixRow[] {
+  const ordered = [...zones.flatMap(zone => rates.filter(rate => rate.destinationZoneId === zone.id)), ...rates.filter(rate => !zones.some(zone => zone.id === rate.destinationZoneId))];
+  const rows = new Map<string, MatrixRow>();
+  for (const band of ordered.flatMap(rate => rate.weightBands ?? [])) {
+    const key = band.maxWeightKg == null ? `pending:${band.id}` : `limit:${band.maxWeightKg}`;
+    if (!rows.has(key)) rows.set(key, { id: band.id, maxWeightKg: band.maxWeightKg, pending: band.maxWeightKg == null, flat: false });
   }
-  if (rows.length) return rows;
+  if (rows.size) return [...rows.values()];
   if (rates.some(rate => !rate.weightBands)) return [{ id: 'flat-central', maxWeightKg: null, pending: false, flat: true }];
   return [{ id: 'initial-central', maxWeightKg: null, pending: true, flat: false }];
 }
@@ -40,11 +38,10 @@ function rowPrice(rate: ZoneRate | undefined, row: MatrixRow): number | null {
 /** A single central pickup prices each destination by weight. */
 export function ZoneMatrixEditor({ rates, zones, units, currency, onChange }: Props) {
   const descriptionId = useId();
-  const [pendingPositions, setPendingPositions] = useState<Record<string, number>>({});
   const clearedRateIds = useRef<Record<string, string>>({});
   const workingRates = withCentralZoneRates(rates, zones);
   const centralRates = workingRates.filter(rate => rate.originZoneId === CENTRAL_PICKUP_ZONE_ID);
-  const rows = matrixRows(centralRates, pendingPositions);
+  const rows = matrixRows(centralRates, zones);
   const rateFor = (destination: Zone) => centralRates.find(rate => rate.destinationZoneId === destination.id);
   const replace = (destination: Zone, next?: ZoneRate) => {
     const others = workingRates.filter(rate => rate.originZoneId !== CENTRAL_PICKUP_ZONE_ID || rate.destinationZoneId !== destination.id);
@@ -63,9 +60,6 @@ export function ZoneMatrixEditor({ rates, zones, units, currency, onChange }: Pr
       onChange(workingRates.map(rate => rate.originZoneId === CENTRAL_PICKUP_ZONE_ID && !rate.weightBands
         ? { ...rate, weightBands: [{ id: row.id, maxWeightKg, amount: rate.amount }] } : rate));
       return;
-    }
-    if (maxWeightKg == null) {
-      setPendingPositions(current => ({ ...current, [row.id]: rows.findIndex(candidate => candidate.id === row.id) }));
     }
     if (!centralRates.some(rate => rate.weightBands?.some(band => row.pending ? band.id === row.id : band.maxWeightKg === row.maxWeightKg))) {
       if (zones.length) {
@@ -134,8 +128,8 @@ export function ZoneMatrixEditor({ rates, zones, units, currency, onChange }: Pr
           <th scope="col" className="app-zone-matrix-action"><span className="sr-only">Action</span></th>
         </tr></thead>
         <tbody>{rows.map((row, index) => {
-          const previous = rows.slice(0, index).reverse().find(candidate => candidate.maxWeightKg != null)?.maxWeightKg;
-          const from = previous == null ? 0 : Number(toDisplayWeight(previous, units).toFixed(6));
+          const previous = row.maxWeightKg == null ? undefined : Math.max(-Infinity, ...rows.flatMap(candidate => candidate.maxWeightKg != null && candidate.maxWeightKg < row.maxWeightKg! ? [candidate.maxWeightKg] : []));
+          const from = previous == null || previous === -Infinity ? 0 : Number(toDisplayWeight(previous, units).toFixed(6));
           const suffix = index ? ` range ${index + 1}` : '';
           const affected = centralRates.flatMap(rate => rate.weightBands ?? [])
             .filter(band => row.pending ? band.id === row.id : band.maxWeightKg === row.maxWeightKg);

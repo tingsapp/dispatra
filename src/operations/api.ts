@@ -24,8 +24,6 @@ const mutation = () => ({ 'Idempotency-Key': key() });
 
 /** Operational records are always read from the tenant API. A page can request subsequent UUID pages without local fixtures. */
 export const operations = {
-  shipperPaymentMethods: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/shipper/payment-methods', { params: { path: company(slug) } })),
-  setupShipperCard: async (slug: string, idempotencyKey: string) => unwrap(await client.POST('/api/v1/companies/{slug}/shipper/payment-methods/setup', { body: { consent: true }, params: { path: company(slug), header: { 'Idempotency-Key': idempotencyKey } } })),
   driverProfile: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/driver/profile', { params: { path: company(slug) } })),
   driverRoutes: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/driver/routes', { params: { path: company(slug), query: { limit: 100, after } } })),
   startDuty: async (slug: string) => unwrap(await client.POST('/api/v1/companies/{slug}/driver/duty', { body: { location_permission: 'GRANTED' }, params: { path: company(slug), header: mutation() } })),
@@ -73,6 +71,7 @@ export const operations = {
   createOrder: async (slug: string, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/orders', { body: booking, params: { path: company(slug), header: mutation() } })),
   updateOrder: async (slug: string, order: Order, booking: Booking) => unwrap(await client.PUT('/api/v1/companies/{slug}/orders/{identity}', { body: { version: order.version, booking }, params: { path: entity(slug, order.id), header: mutation() } })),
   assignOrder: async (slug: string, order: Order, driverId: string, vehicleId: string) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/assign', { body: { version: order.version, driver_id: driverId, vehicle_id: vehicleId, planned_at: order.scheduled_at }, params: { path: entity(slug, order.id), header: mutation() } })),
+  completeOrder: async (slug: string, order: Order) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/complete', { body: { version: order.version }, params: { path: entity(slug, order.id), header: mutation() } })),
   releaseRoute: async (slug: string, route: components['schemas']['RouteView']) => unwrap(await client.POST('/api/v1/companies/{slug}/routes/{identity}/release', { body: { version: route.version, generation: route.generation }, params: { path: entity(slug, route.id), header: mutation() } })),
   createInvoice: async (slug: string, order: Order) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/invoice', { body: { version: order.version, actual_minutes: null }, params: { path: entity(slug, order.id), header: mutation() } })),
   sendInvoice: async (slug: string, invoice: Invoice) => unwrap(await client.POST('/api/v1/companies/{slug}/invoices/{identity}/send', { body: { version: invoice.version }, params: { path: entity(slug, invoice.id), header: mutation() } })),

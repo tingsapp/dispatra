@@ -60,64 +60,206 @@ export const INITIAL_SERVICES: DeliveryService[] = [
   }
 ];
 
+/** Vehicle kinds common in Canadian moving and transportation. Sizes are typical defaults the vehicle form prefills and each vehicle can override:
+ * published fleet specs (Penske, U-Haul, Enterprise Canada, Ford Transit, 53 ft dry and reefer trailer guides); refrigerated van sizes allow ~3 in insulation;
+ * flatbed height is the load height left under Canada's 4.15 m limit. Pallets are single-layer 40 × 48 in. */
 export const INITIAL_VEHICLES: VehicleType[] = [
   {
     id: 'veh_1_ton',
-    name: '1 Tonne (Van / Sprinter)',
-    payloadCapacityKg: 1000,
-    palletCapacity: 2,
-    cargoBedFeet: 10,
-    cargoVolumeCbm: 12,
+    name: 'Cargo Van',
+    payloadCapacityKg: 1587.573295,
+    palletCapacity: 3,
+    cargoBedFeet: 14.33,
+    cargoVolumeCbm: 15.98,
+    cargoLengthCm: 436.88,
+    cargoWidthCm: 177.8,
+    cargoHeightCm: 205.74,
     baseSurcharge: 0,
     fuelEligible: true,
     hasLiftgate: false,
     requiresCommercialLicense: false,
-    description: 'Standard courier cargo van for parcel batches and up to 2 standard skids.',
+    description: 'Enclosed van (Ford Transit, Mercedes-Benz Sprinter, Ram ProMaster) for parcels, courier work and small moves.',
+    active: true
+  },
+  {
+    id: 'veh_reefer_van',
+    name: 'Refrigerated Van',
+    payloadCapacityKg: 1360.77711,
+    palletCapacity: 3,
+    cargoBedFeet: 13.83,
+    cargoVolumeCbm: 13.06,
+    cargoLengthCm: 421.64,
+    cargoWidthCm: 162.56,
+    cargoHeightCm: 190.5,
+    baseSurcharge: 20,
+    fuelEligible: true,
+    hasLiftgate: false,
+    requiresCommercialLicense: false,
+    description: 'Insulated cargo van with a refrigeration unit for food, flowers and pharmaceuticals.',
+    equipment: ['Refrigeration'],
     active: true
   },
   {
     id: 'veh_2_ton',
-    name: '2 Tonne (16ft Cube Truck)',
-    payloadCapacityKg: 2000,
-    palletCapacity: 4,
-    cargoBedFeet: 16,
-    cargoVolumeCbm: 22,
-    baseSurcharge: 25.0,
+    name: 'Cube Van',
+    payloadCapacityKg: 1950.447191,
+    palletCapacity: 8,
+    cargoBedFeet: 16.0,
+    cargoVolumeCbm: 22.33,
+    cargoLengthCm: 487.68,
+    cargoWidthCm: 231.14,
+    cargoHeightCm: 198.12,
+    baseSurcharge: 25,
     fuelEligible: true,
     hasLiftgate: false,
     requiresCommercialLicense: false,
-    description: 'Enclosed 16ft box truck ideal for residential furniture and medium palletized goods.',
+    description: 'Box body on a van cutaway chassis; the common local delivery and apartment moving truck.',
     active: true
   },
   {
     id: 'veh_3_ton',
-    name: '3 Tonne (20ft Straight Truck)',
-    payloadCapacityKg: 3500,
-    palletCapacity: 8,
-    cargoBedFeet: 20,
-    cargoVolumeCbm: 34,
-    baseSurcharge: 50.0,
+    name: 'Box Truck',
+    payloadCapacityKg: 4535.9237,
+    palletCapacity: 12,
+    cargoBedFeet: 25.92,
+    cargoVolumeCbm: 50.92,
+    cargoLengthCm: 789.94,
+    cargoWidthCm: 246.38,
+    cargoHeightCm: 261.62,
+    baseSurcharge: 60,
     fuelEligible: true,
     hasLiftgate: true,
+    requiresCommercialLicense: false,
+    description: 'Straight truck with an enclosed dry box for furniture, household moves and LTL freight.',
+    equipment: ['Liftgate'],
+    active: true
+  },
+  {
+    id: 'veh_reefer_truck',
+    name: 'Refrigerated Truck',
+    payloadCapacityKg: 1646.540303,
+    palletCapacity: 8,
+    cargoBedFeet: 16.0,
+    cargoVolumeCbm: 22.17,
+    cargoLengthCm: 487.68,
+    cargoWidthCm: 220.98,
+    cargoHeightCm: 205.74,
+    baseSurcharge: 60,
+    fuelEligible: true,
+    hasLiftgate: false,
+    requiresCommercialLicense: false,
+    description: 'Straight truck with an insulated box and nose-mounted reefer unit for temperature-controlled loads.',
+    equipment: ['Refrigeration'],
+    active: true
+  },
+  {
+    id: 'veh_flatbed_truck',
+    name: 'Flatbed Truck',
+    payloadCapacityKg: 4535.9237,
+    palletCapacity: 12,
+    cargoBedFeet: 24.0,
+    cargoVolumeCbm: 46.21,
+    cargoLengthCm: 731.52,
+    cargoWidthCm: 243.84,
+    cargoHeightCm: 259.08,
+    baseSurcharge: 60,
+    fuelEligible: true,
+    hasLiftgate: false,
+    requiresCommercialLicense: false,
+    description: 'Straight truck with an open deck for building materials, machinery and oversized items.',
+    equipment: ['Open deck'],
+    active: true
+  },
+  {
+    id: 'veh_53_trailer',
+    name: 'Dry Van Trailer',
+    payloadCapacityKg: 20411.65665,
+    palletCapacity: 26,
+    cargoBedFeet: 52.5,
+    cargoVolumeCbm: 113.56,
+    cargoLengthCm: 1600.2,
+    cargoWidthCm: 254.0,
+    cargoHeightCm: 279.4,
+    baseSurcharge: 250,
+    fuelEligible: true,
+    hasLiftgate: false,
     requiresCommercialLicense: true,
-    description: 'Commercial straight truck with hydraulic tail-lift for up to 8 commercial skids.',
+    description: 'Enclosed semi-trailer pulled by a tractor for full truckload freight; Class 1 / AZ licence.',
+    active: true
+  },
+  {
+    id: 'veh_reefer_trailer',
+    name: 'Refrigerated Trailer',
+    payloadCapacityKg: 18506.568696,
+    palletCapacity: 26,
+    cargoBedFeet: 52.0,
+    cargoVolumeCbm: 101.17,
+    cargoLengthCm: 1584.96,
+    cargoWidthCm: 246.38,
+    cargoHeightCm: 259.08,
+    baseSurcharge: 300,
+    fuelEligible: true,
+    hasLiftgate: false,
+    requiresCommercialLicense: true,
+    description: 'Insulated reefer semi-trailer for temperature-controlled truckload freight; Class 1 / AZ licence.',
+    equipment: ['Refrigeration'],
+    active: true
+  },
+  {
+    id: 'veh_flatbed_trailer',
+    name: 'Flatbed Trailer',
+    payloadCapacityKg: 21772.43376,
+    palletCapacity: 26,
+    cargoBedFeet: 53.0,
+    cargoVolumeCbm: 108.43,
+    cargoLengthCm: 1615.44,
+    cargoWidthCm: 259.08,
+    cargoHeightCm: 259.08,
+    baseSurcharge: 250,
+    fuelEligible: true,
+    hasLiftgate: false,
+    requiresCommercialLicense: true,
+    description: 'Open-deck semi-trailer for steel, lumber and machinery; Class 1 / AZ licence.',
+    equipment: ['Open deck'],
     active: true
   },
   {
     id: 'veh_5_ton',
-    name: '5 Tonne (26ft Heavy Truck)',
-    payloadCapacityKg: 5500,
+    name: 'Box Truck (retired preset)',
+    payloadCapacityKg: 4535.9237,
     palletCapacity: 12,
-    cargoBedFeet: 26,
-    cargoVolumeCbm: 48,
-    baseSurcharge: 90.0,
+    cargoBedFeet: 25.92,
+    cargoVolumeCbm: 50.92,
+    cargoLengthCm: 789.94,
+    cargoWidthCm: 246.38,
+    cargoHeightCm: 261.62,
+    baseSurcharge: 90,
     fuelEligible: true,
     hasLiftgate: true,
-    requiresCommercialLicense: true,
-    description: 'Heavy distribution freight truck with power liftgate for full LTL shipments.',
-    active: true
+    requiresCommercialLicense: false,
+    description: 'Retired preset kept so older records still resolve; use Box Truck.',
+    equipment: ['Liftgate'],
+    active: false
   }
 ];
+
+/** Earlier preset names. A saved preset still carrying one is replaced by the current kind (surcharge and status kept); retired-only presets are deactivated. */
+const RETIRED_PRESET_NAMES: Record<string, string[]> = {
+  veh_1_ton: ['1 Tonne (Van / Sprinter)', 'Cargo Van – High Roof Extended'], veh_2_ton: ['2 Tonne (16ft Cube Truck)', '16 ft Cube Van'],
+  veh_3_ton: ['3 Tonne (20ft Straight Truck)', '20 ft Straight Truck'], veh_5_ton: ['5 Tonne (26ft Heavy Truck)', '26 ft Straight Truck'],
+  veh_53_trailer: ['53ft Dry Van Trailer', '53 ft Dry Van Trailer'], veh_cargo_van: ['Cargo Van (Small)', 'Cargo Van – Low Roof'], veh_12ft_cube: ['12 ft Cube Van'],
+};
+const withCurrentPreset = (vehicle: VehicleType): VehicleType => {
+  if (!RETIRED_PRESET_NAMES[vehicle.id]?.includes(vehicle.name)) return vehicle;
+  const preset = INITIAL_VEHICLES.find(item => item.id === vehicle.id);
+  if (!preset) return { ...vehicle, active: false };
+  const { baseSurcharge, fuelEligible } = vehicle;
+  return { ...structuredClone(preset), baseSurcharge, fuelEligible, active: preset.active && vehicle.active };
+};
+/** Kinds added after a company saved its list appear once; deleted types stay as inactive records, so they are never re-added. */
+const withNewPresets = (vehicles: VehicleType[]): VehicleType[] => [...vehicles, ...structuredClone(INITIAL_VEHICLES.filter(preset => preset.active && !vehicles.some(vehicle => vehicle.id === preset.id)))];
+/** Fresh copies, so callers that edit a loaded config never change the built-in defaults. */
+const defaultConfig = (): SimplePricingConfig => structuredClone({ services: INITIAL_SERVICES, vehicles: INITIAL_VEHICLES, accessorials: INITIAL_ACCESSORIALS });
 
 const retiredSeedDescriptions: Record<string, string> = {
   "Manual carry per flight of stairs navigated at pickup or delivery site.": "Carry items using stairs at pickup or delivery.",
@@ -163,7 +305,7 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
       if (Array.isArray(parsed.services) && Array.isArray(parsed.accessorials)) {
         return {
           services: parsed.services.map(normalizeService),
-          vehicles: Array.isArray(parsed.vehicles) && parsed.vehicles.length > 0 ? parsed.vehicles : INITIAL_VEHICLES,
+          vehicles: Array.isArray(parsed.vehicles) && parsed.vehicles.length > 0 ? withNewPresets(parsed.vehicles.map(withCurrentPreset)) : structuredClone(INITIAL_VEHICLES),
           accessorials: parsed.accessorials.map(normalizeAccessorial)
         };
       }
@@ -172,11 +314,7 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
     console.warn('Could not read saved pricing config, using defaults:', err);
   }
 
-  return {
-    services: INITIAL_SERVICES,
-    vehicles: INITIAL_VEHICLES,
-    accessorials: INITIAL_ACCESSORIALS
-  };
+  return defaultConfig();
 }
 
 export function saveSimplePricingConfig(config: SimplePricingConfig): void {
@@ -188,11 +326,7 @@ export function saveSimplePricingConfig(config: SimplePricingConfig): void {
 }
 
 export function resetSimplePricingConfig(): SimplePricingConfig {
-  const defaults: SimplePricingConfig = {
-    services: INITIAL_SERVICES,
-    vehicles: INITIAL_VEHICLES,
-    accessorials: INITIAL_ACCESSORIALS
-  };
+  const defaults = defaultConfig();
   saveSimplePricingConfig(defaults);
   return defaults;
 }

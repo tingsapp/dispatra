@@ -47,7 +47,7 @@ export function customerToShipper(form: Partial<Customer>, previous?: Shipper, c
 
 import type { Driver as UiDriver } from '../types';
 import type { VehicleAsset } from '../lib/vehicleStorage';
-import type { Driver as ApiDriver, DriverInput, Vehicle as ApiVehicle, VehicleInput, CatalogItem } from './api';
+import type { Driver as ApiDriver, DriverInput, Vehicle as ApiVehicle, VehicleInput, CatalogItem, CatalogInput } from './api';
 
 export function driverToUi(row: ApiDriver, vehicle?: ApiVehicle, monitor?: { on_duty: boolean; location?: { latitude?: number; longitude?: number } | null }): UiDriver {
   const details = row.data as Partial<DriverInput>;
@@ -59,7 +59,6 @@ export function driverToUi(row: ApiDriver, vehicle?: ApiVehicle, monitor?: { on_
     currentVehicleId: row.vehicle_id, nextStop: 'Not set', eta: '—', distance: '—', lastUpdate: row.last_seen_at ?? 'Not set',
     phone: row.phone, email: row.email, address: row.address.text,
     employmentType: details.employment === 'OWNER_OPERATOR' ? 'CONTRACTOR' : 'EMPLOYEE',
-    revenueSharePercent: Number(details.revenue_share_percent ?? 0), fuelSurchargeSharePercent: Number(details.fuel_surcharge_share_percent ?? 0),
     skills: details.qualifications ?? [], maximumWorkMinutes: details.maximum_work_minutes ?? 480,
     maxActiveOrders: details.maximum_active_orders ?? undefined, accountStatus: row.active ? 'ACTIVE' : 'INACTIVE',
     dutyStatus: onDuty ? 'ON_DUTY' : 'OFF_DUTY', locationPermissionStatus: row.location_permission as UiDriver['locationPermissionStatus'],
@@ -75,8 +74,7 @@ export function driverFromUi(form: UiDriver, previous?: ApiDriver, coordinates?:
     phone: form.phone?.trim() ?? '', address: canadianAddress(form.address ?? '', previous?.address, coordinates),
     vehicle_id: form.currentVehicleId || null,
     employment: form.employmentType === 'CONTRACTOR' ? 'OWNER_OPERATOR' : 'EMPLOYEE',
-    revenue_share_percent: form.employmentType === 'CONTRACTOR' ? form.revenueSharePercent ?? 0 : 0,
-    fuel_surcharge_share_percent: form.employmentType === 'CONTRACTOR' ? form.fuelSurchargeSharePercent ?? 0 : 0,
+    revenue_share_percent: old?.revenue_share_percent ?? 0, fuel_surcharge_share_percent: old?.fuel_surcharge_share_percent ?? 0,
     qualifications: form.skills ?? old?.qualifications ?? [], crew_size: old?.crew_size ?? 1,
     shift_start: form.shiftStart || null, shift_end: form.shiftEnd || null,
     maximum_work_minutes: form.maximumWorkMinutes ?? old?.maximum_work_minutes ?? 480,
@@ -129,7 +127,24 @@ export function catalogToVehicleType(row: CatalogItem): VehicleType {
     payloadCapacityKg: Number(row.data.payload_kg ?? 0), palletCapacity: row.data.pallet_capacity,
     cargoBedFeet: row.data.length_cm == null ? undefined : Number(row.data.length_cm) / 30.48,
     cargoVolumeCbm: row.data.volume_m3 == null ? undefined : Number(row.data.volume_m3),
+    cargoLengthCm: row.data.length_cm == null ? undefined : Number(row.data.length_cm),
+    cargoWidthCm: row.data.width_cm == null ? undefined : Number(row.data.width_cm),
+    cargoHeightCm: row.data.height_cm == null ? undefined : Number(row.data.height_cm),
+    equipment: (row.data.equipment ?? []).map(item => item.charAt(0) + item.slice(1).toLowerCase()),
     baseSurcharge: Number(row.data.amount), fuelEligible: row.data.fuel_eligible,
     hasLiftgate: row.data.equipment.includes('LIFTGATE'), requiresCommercialLicense: false, active: row.active,
+  };
+}
+
+/** Vehicle Types form → catalogue record; fields the form does not show are carried over. */
+export function vehicleTypeToCatalog(type: VehicleType, previous?: CatalogItem): CatalogInput {
+  const { cargoLengthCm: l, cargoWidthCm: w, cargoHeightCm: h } = type;
+  return {
+    name: type.name, description: type.description ?? previous?.data.description ?? '',
+    amount: type.baseSurcharge, taxable: previous?.data.taxable ?? true,
+    fuel_eligible: previous?.data.fuel_eligible ?? type.fuelEligible, exclusive_vehicle: previous?.data.exclusive_vehicle ?? false,
+    payload_kg: type.payloadCapacityKg, volume_m3: l && w && h ? l * w * h / 1e6 : previous?.data.volume_m3 ?? null,
+    length_cm: l ?? null, width_cm: w ?? null, height_cm: h ?? null, pallet_capacity: type.palletCapacity,
+    equipment: previous?.data.equipment ?? [], required_equipment: previous?.data.required_equipment ?? [], required_crew: previous?.data.required_crew ?? 1,
   };
 }

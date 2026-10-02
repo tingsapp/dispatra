@@ -50,7 +50,7 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-7 space-y-5 text-xs">
           {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
-          <OrderPricingForm customerMode="self" showVehicleSelection={false} showStopAddresses startIndex={1} value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
+          <OrderPricingForm customerMode="self" showVehicleSelection suggestVehicle={!editing} showStopAddresses startIndex={1} value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
         </div>
         <div className="lg:col-span-5 lg:sticky lg:top-0">
           <PriceBreakdown snapshot={snapshot} title="Live estimate" showMargin={false} showPricingDetail={false} rateRows={companyRateRows(ctx.billing)} />

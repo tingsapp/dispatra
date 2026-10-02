@@ -72,6 +72,10 @@ export interface VehicleType {
   palletCapacity: number; // e.g. 2, 4, 8, 12 pallets
   cargoBedFeet?: number; // e.g. 10ft, 16ft, 20ft, 26ft
   cargoVolumeCbm?: number; // e.g. 12 m³, 22 m³, 35 m³
+  /** Inside cargo dimensions, stored in cm and shown in the company dimension unit. */
+  cargoLengthCm?: number; cargoWidthCm?: number; cargoHeightCm?: number;
+  /** Equipment a vehicle of this kind normally has (e.g. Refrigeration); ticked when the type is chosen on a vehicle. */
+  equipment?: string[];
   /** Default additive surcharge ($). A Rate Card may override per customer. */
   baseSurcharge: number;
   /** Whether the surcharge is included in the fuel-surcharge base. */

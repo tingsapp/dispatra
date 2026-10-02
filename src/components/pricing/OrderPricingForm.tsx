@@ -9,8 +9,10 @@ import { defaultRateCard, PricingContext } from '../../lib/pricingEngine';
 import { createStop } from '../../lib/orderPricing';
 import { fromDisplayDimension, fromDisplayDistance, fromDisplayWeight, toDisplayDimension, toDisplayDistance, toDisplayWeight, Units } from '../../lib/units';
 import { Select } from '../ui/Select';
+import { listedVehicleTypes, suggestVehicleType } from '../../lib/vehicleTypes';
 import { DateTimePicker } from '../ui/DateTimePicker';
 import { AddressAutocomplete } from '../ui/AddressAutocomplete';
+import { ContactInput } from '../ui/ContactInput';
 
 /**
  * Order-facts editor for Order creation. It only edits a `PricingOrderInput`; the caller runs
@@ -25,8 +27,10 @@ interface OrderPricingFormProps {
   showStopAddresses?: boolean;
   /** Start section numbering here (Order form prefixes its own sections). */
   startIndex?: number;
-  /** New orders derive their vehicle from the selected driver's fleet asset. */
+  /** Show the order's required vehicle type (set at booking; it decides any vehicle surcharge, never the assigned driver). */
   showVehicleSelection?: boolean;
+  /** New orders follow the load: the smallest fitting general vehicle type is suggested until someone picks one. */
+  suggestVehicle?: boolean;
   /** `self`: the signed-in shipper books for their own account, so no shipper or rate card is chosen. */
   customerMode?: 'shipper' | 'rateCard' | 'self';
   /** Extra fields for the caller's own concerns (e.g. a shipper's driver preference), placed after Service. */
@@ -65,12 +69,12 @@ function PackageMeasurementInput({ value, units, kind, label, onChange }: {
     onBlur={() => setDraft(null)} />;
 }
 
-export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, startIndex = 1, showVehicleSelection = true, customerMode = 'shipper', serviceExtras }) => {
+export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, startIndex = 1, showVehicleSelection = true, suggestVehicle = false, customerMode = 'shipper', serviceExtras }) => {
   const { catalogue, pricing, customers, billing } = ctx;
   const units = billing.general;
   const timeZone = billing.general.timeZone ?? 'America/Vancouver';
   const activeServices = catalogue.services.filter((s) => s.active);
-  const activeVehicles = catalogue.vehicles.filter((v) => v.active);
+  const activeVehicles = listedVehicleTypes(catalogue.vehicles);
   const activeAccessorials = catalogue.accessorials.filter((a) => a.active);
   const customer = customers.find(c => c.id === value.customerId);
   const card = pricing.rateCards.find(c => c.id === value.rateCardOverrideId && c.status === 'ACTIVE')
@@ -94,10 +98,17 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   const setQty = (id: string, quantity: number) => patch({ accessorials: [...value.accessorials.filter((a) => a.accessorialId !== id), ...(quantity > 0 ? [{ accessorialId: id, quantity }] : [])] });
   const addStop = (type: PricingStopInput['type']) => patch({ stops: [...value.stops, createStop(type, type === 'DROPOFF' && pickups.length === 1 ? { pickupIds: [pickups[0].id] } : {})] });
 
+  const suggested = suggestVehicleType(catalogue.vehicles, value.packages);
+  const lastSuggested = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!suggestVehicle) return;
+    if ((value.vehicleId == null || value.vehicleId === lastSuggested.current) && value.vehicleId !== suggested) onChange({ ...value, vehicleId: suggested });
+    lastSuggested.current = suggested;
+  }, [suggestVehicle, suggested]); // eslint-disable-line react-hooks/exhaustive-deps
   const currentVehicle = activeVehicles.find((v) => v.id === value.vehicleId);
   const totalWeight = value.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
   const capacityWarning = currentVehicle && totalWeight > currentVehicle.payloadCapacityKg
-    ? `Cargo (${Math.round(toDisplayWeight(totalWeight, units))} ${units.weightUnit}) exceeds ${currentVehicle.name} payload. Capacity does not change the price.` : null;
+    ? `Cargo (${Math.round(toDisplayWeight(totalWeight, units))} ${units.weightUnit}) exceeds ${currentVehicle.name} payload. Choose a larger vehicle type.` : null;
   const selectedAccessorials = activeAccessorials.filter(a => qtyOf(a.id) > 0);
 
   let n = startIndex;
@@ -115,7 +126,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             {customerMode === 'rateCard' ? <>
               <label className={labelClass}>Rate Card</label>
               <Select aria-label="Rate Card" className="w-full" value={value.rateCardOverrideId ?? ''} onValueChange={(v) => patch({ customerId: null, rateCardOverrideId: v || null })}
-                options={[{ value: '', label: 'Choose a rate card…' }, ...pricing.rateCards.filter(c => c.status === 'ACTIVE').map(c => ({ value: c.id, label: c.name }))]} />
+                options={[{ value: '', label: 'Choose a rate card…' }, ...pricing.rateCards.filter(c => c.status === 'ACTIVE').map(c => c.pricingMethod === 'IMPORTED' ? { value: c.id, label: `${c.name} (external price only)`, disabled: true } : { value: c.id, label: c.name })]} />
             </> : <>
               <label className={labelClass}>Shipper</label>
               <Select aria-label="Shipper" className="w-full" value={value.customerId ?? ''} onValueChange={(v) => {
@@ -130,8 +141,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             <Select aria-label="Service" className="w-full" value={value.serviceId} onValueChange={(v) => patch({ serviceId: v })} options={activeServices.map((s) => ({ value: s.id, label: s.name }))} />
           </div>
           {showVehicleSelection && <div>
-            <label className={labelClass}>Vehicle</label>
-            <Select aria-label="Vehicle" className="w-full" value={value.vehicleId ?? ''} onValueChange={(v) => patch({ vehicleId: v || null })} options={activeVehicles.map((v) => ({ value: v.id, label: v.name }))} />
+            <label className={labelClass}>Vehicle type</label>
+            <Select aria-label="Vehicle type" className="w-full" value={value.vehicleId ?? ''} onValueChange={(v) => patch({ vehicleId: v || null })} options={[...(value.vehicleId ? [] : [{ value: '', label: 'Choose a vehicle type' }]), ...activeVehicles.map((v) => ({ value: v.id, label: v.name })), ...(value.vehicleId && !activeVehicles.some(v => v.id === value.vehicleId) ? [{ value: value.vehicleId, label: catalogue.vehicles.find(v => v.id === value.vehicleId)?.name ?? 'Previous vehicle type' }] : [])]} />
           </div>}
           {serviceExtras}
         </div>
@@ -174,7 +185,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                 </div>
                 <div>
                   <label htmlFor={`${sid}-phone`} className={labelClass}>Phone</label>
-                  <input id={`${sid}-phone`} type="tel" value={stop.contactPhone ?? ''} onChange={(e) => updateStop(stop.id, { contactPhone: e.target.value })} className={`${fieldClass} w-full`} aria-label={`Stop ${i + 1} phone`} />
+                  <ContactInput id={`${sid}-phone`} type="tel" value={stop.contactPhone ?? ''} onChange={(e) => updateStop(stop.id, { contactPhone: e.target.value })} className={`${fieldClass} w-full`} aria-label={`Stop ${i + 1} phone`} />
                 </div>
                 <div className="sm:col-span-2">
                   <span className={labelClass}>{stop.type === 'PICKUP' ? 'Ready at' : 'Deliver by'}</span>

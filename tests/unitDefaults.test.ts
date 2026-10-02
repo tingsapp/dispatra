@@ -8,8 +8,8 @@ HTMLElement.prototype.scrollIntoView = () => {};
 const { render, screen, cleanup } = await import('@testing-library/react');
 const { default: userEvent } = await import('@testing-library/user-event');
 const { BILLING_STORAGE_KEY, loadBillingConfig, saveBillingConfig } = await import('../src/lib/billingStorage');
-const { ProfilePage } = await import('../src/pages/ProfilePage');
-const TaxesPreferencesPage = () => React.createElement(ProfilePage, { initialSection: 'taxes' });
+const { BillingSettingsForm } = await import('../src/components/settings/BillingSettingsForm');
+const PreferencesPage = () => React.createElement(BillingSettingsForm, { section: 'preferences' });
 const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
 const { VehicleEditor } = await import('../src/components/entities/VehicleEditor');
 const { loadVehicles } = await import('../src/lib/vehicleStorage');
@@ -39,15 +39,15 @@ test('settings saved before the pound/inch defaults migrate once to lb and in', 
 });
 test('Company settings shows the new defaults and keeps a saved metric preference after reload', async () => {
   const user = userEvent.setup({ document });
-  let page = render(React.createElement(TaxesPreferencesPage, {}));
+  let page = render(React.createElement(PreferencesPage, {}));
   assert.match(screen.getByRole('combobox', { name: 'Weight unit' }).textContent!, /Pounds/);
   assert.match(screen.getByRole('combobox', { name: 'Dimension unit' }).textContent!, /Inches/);
   assert.match(screen.getByRole('combobox', { name: 'Distance unit' }).textContent!, /Kilometres/);
   for (const [name, option] of [['Weight unit', 'kg — Kilograms'], ['Dimension unit', 'cm — Centimetres']]) {
     await user.click(screen.getByRole('combobox', { name })); await user.click(screen.getByRole('option', { name: option }));
   }
-  await user.click(screen.getByRole('button', { name: 'Save Settings' }));
-  page.unmount(); page = render(React.createElement(TaxesPreferencesPage, {}));
+  await user.click(screen.getByRole('button', { name: 'Save Preferences' }));
+  page.unmount(); page = render(React.createElement(PreferencesPage, {}));
   assert.match(screen.getByRole('combobox', { name: 'Weight unit' }).textContent!, /Kilograms/);
   assert.match(screen.getByRole('combobox', { name: 'Dimension unit' }).textContent!, /Centimetres/);
 });
@@ -85,7 +85,7 @@ test('vehicle type limits display in company units and stored cargo dimensions s
   const user = userEvent.setup({ document });
   render(React.createElement(VehicleEditor, { vehicle, vehicles: [vehicle], onCancel: () => {}, onSave: next => { saved = next as typeof vehicle; } }));
   assert.ok(Number((screen.getByLabelText('Max payload') as HTMLInputElement).value) > 0);
-  assert.equal((screen.getByLabelText('Cargo length (in)') as HTMLInputElement).value, '100');
+  assert.equal((screen.getByLabelText('Box length (in)') as HTMLInputElement).value, '100');
   await user.click(screen.getByRole('button', { name: 'Save vehicle' }));
   assert.ok(saved);
   assert.equal(saved.cargoLengthCm, vehicle.cargoLengthCm);
@@ -102,6 +102,7 @@ test('converted zone dimensional divisors accept fractional values without chang
   assert.ok(screen.getByText('in³/lb'));
   assert.equal(field.validity.stepMismatch, false);
   assert.equal(card.dimensionalDivisor, 5000);
+  assert.equal(field.value, '138.4'); // 5000 cm³/kg shown to one decimal; the stored value stays exact.
   await user.clear(field); await user.type(field, '139.5');
   assert.equal(card.dimensionalDivisor, fromDisplayDivisor(139.5, units));
   assert.equal(field.checkValidity(), true);
