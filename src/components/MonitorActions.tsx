@@ -7,6 +7,7 @@ import { allOperations } from '../operations/api';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { loadVehicles } from '../lib/vehicleStorage';
 import { formatPhone } from '../lib/phone';
+import { NotificationPanel, useUnreadNotifications } from '../portal/Notifications';
 import { lifecycleLabel } from '../domain/validation';
 import {
   Search,
@@ -99,7 +100,9 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
     }
   ]);
 
-  const unreadCount = alerts.filter((a) => a.unread).length;
+  // Company workspaces read the API inbox; /prototype keeps its static sample alerts.
+  const apiUnread = useUnreadNotifications(slug ?? '');
+  const unreadCount = slug ? apiUnread : alerts.filter((a) => a.unread).length;
 
   const changeSearch = (next: boolean) => {
     setIsSearchOpen(next);
@@ -197,6 +200,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
           aria-expanded={isNotificationOpen}
           className="app-metric app-map-icon relative"
           title="Dispatch alerts and notifications"
+          aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         >
           <Bell className="w-4 h-4 stroke-[2.2]" />
           {unreadCount > 0 && (
@@ -204,6 +208,11 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
           )}
         </button>
         }>
+        {slug ? isNotificationOpen && <NotificationPanel slug={slug} onOpen={row => {
+          const job = jobs.find(item => item.id === row.order_id);
+          if (job) onSelectJob?.(job.jobNumber);
+          setIsNotificationOpen(false);
+        }} /> : <>
 
 
               <div className="flex items-center justify-between pb-2.5">
@@ -279,6 +288,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
                   </div>
                 ))}
               </div>
+        </>}
       </FloatingPanel>
     </div>
   );

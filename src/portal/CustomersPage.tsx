@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, Customer, CustomerInput, generatePassword } from './api';
 import { Field, AddressField, Button, Card, Notice, CredentialCard, Credentials, useOperationKey } from './ui';
+import { formatPhone } from '../lib/phone';
 const empty = (): CustomerInput => ({ name:'', number:'', login_id:'', password:generatePassword(), contact_name:'', email:'', phone:'', address:'' });
 export function AccountCustomers({ slug }: { slug: string }) {
   const cache = useQueryClient();
@@ -22,7 +23,7 @@ export function AccountCustomers({ slug }: { slug: string }) {
       <p className="text-xs text-slate-500">Shippers can complete missing contact details after login. Changing their password is optional.</p><Notice error={create.error} /><Button disabled={create.isPending}>{create.isPending ? 'Creating…' : 'Create shipper'}</Button></form>}
       {reset && <div className="my-5 rounded-lg border border-amber-200 bg-amber-50 p-4"><p className="text-sm">Reset the password for <strong>{reset.name}</strong>? Existing sessions will be signed out.</p><div className="mt-3 flex gap-3"><Button disabled={resetPassword.isPending} onClick={() => resetPassword.mutate(reset)}>Confirm reset</Button><Button variant="outline" disabled={resetPassword.isPending} onClick={() => setReset(undefined)}>Cancel</Button></div><Notice error={resetPassword.error} /></div>}
       <Notice error={query.error} />{query.isPending && <p role="status">Loading shippers…</p>}{query.isError && <Button variant="outline" onClick={() => query.refetch()}>Try again</Button>}
-      <ul className="mt-5">{query.data?.pages.flat().map(c => <li key={c.id} className="flex flex-wrap justify-between gap-4 py-5"><div className="min-w-0"><p className="font-medium">{c.name} <span className="ml-2 text-xs font-normal text-slate-500">{c.number}</span></p><p className="mt-1 text-sm text-slate-500">{c.contact_name || 'Contact name missing'} · {c.email || 'Email missing'}</p><p className="text-sm text-slate-500">{c.phone} {c.address}</p><p className="mt-2 text-xs text-slate-500">Email login: {c.login_id}</p></div><Button variant="outline" onClick={() => { resetPassword.reset(); setReset(c); }}>Reset password</Button></li>)}</ul>
+      <ul className="mt-5">{query.data?.pages.flat().map(c => <li key={c.id} className="flex flex-wrap justify-between gap-4 py-5"><div className="min-w-0"><p className="font-medium">{c.name} <span className="ml-2 text-xs font-normal text-slate-500">{c.number}</span></p><p className="mt-1 text-sm text-slate-500">{c.contact_name || 'Contact name missing'} · {c.email || 'Email missing'}</p><p className="text-sm text-slate-500">{formatPhone(c.phone)} {c.address}</p><p className="mt-2 text-xs text-slate-500">Email login: {c.login_id}</p></div><Button variant="outline" onClick={() => { resetPassword.reset(); setReset(c); }}>Reset password</Button></li>)}</ul>
       {query.data?.pages[0].length === 0 && <p className="py-8 text-center text-sm text-slate-500">No shippers yet. Create an account to provide portal access.</p>}{query.hasNextPage && <Button variant="outline" disabled={query.isFetchingNextPage} onClick={() => query.fetchNextPage()}>Load more</Button>}
     </Card></div>;
 }

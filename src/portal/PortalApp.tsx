@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users, UserRound } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { api, Account, ApiError, LoginInput } from './api';
 import { WorkspaceAccount } from './WorkspaceAccount';
 import { ShipperPortal } from './ShipperPortal';
@@ -21,7 +21,7 @@ export function parsePortal(path: string): PortalRoute | null {
   const slug = companySlugForPath(path);
   if (!slug) return null;
   if (pageForPath(path)) return { slug, portal:'dispatch', settings:false, workspace:true };
-  if (new RegExp(`^/${slug}/driver/?$`).test(path)) return { slug, portal:'driver', settings:false };
+  if (new RegExp(`^/${slug}/driver(?:/(?:profile|orders))?/?$`).test(path)) return { slug, portal:'driver', settings:false };
   if (new RegExp(`^/${slug}/shipper-portal(?:/(?:profile|orders|invoices|settings))?/?$`).test(path)) return { slug, portal:'customer', settings:path.includes('/settings') };
   const legacy = path.match(new RegExp(`^/${slug}/(dispatch|customer)(?:/(login|settings))?/?$`));
   return legacy ? { slug, portal:legacy[1] as 'dispatch'|'customer', settings:legacy[2] === 'settings' } : null;
@@ -47,7 +47,7 @@ function Portal() {
   if (account.role !== role || (route.slug && account.organization?.slug !== route.slug)) return <main className="mx-auto max-w-lg space-y-5 px-6 py-24"><h1 className="text-2xl font-medium">Sign in to this workspace</h1><p className="text-slate-600">You are currently signed in as {account.login_id}. Sign out to use a different company or account.</p><Notice error={logout.error} /><Button disabled={logout.isPending} onClick={() => logout.mutate()}>Sign out</Button></main>;
   if (route.portal === 'platform') return <AdminPortal account={account} onLogout={() => logout.mutate()} loggingOut={logout.isPending} logoutError={logout.error} />;
   if (route.portal === 'customer') return <ShipperPortal slug={route.slug!} company={account.organization?.name ?? 'Dispatra'} login={account.login_id} onLogout={() => logout.mutate()} loggingOut={logout.isPending} logoutError={logout.error} />;
-  if (route.portal === 'driver') return <PortalShell company={account.organization?.name ?? 'Dispatra'} login={account.login_id} primary="My routes" icon={UserRound} settings={settings} onHome={() => setSettings(false)} onSettings={() => setSettings(true)} onLogout={() => logout.mutate()} loggingOut={logout.isPending}><Notice error={logout.error} />{settings ? <PasswordPage /> : <DriverPortal slug={route.slug!} />}</PortalShell>;
+  if (route.portal === 'driver') return <DriverPortal slug={route.slug!} company={account.organization?.name ?? 'Dispatra'} login={account.login_id} onLogout={() => logout.mutate()} loggingOut={logout.isPending} logoutError={logout.error} />;
   return <PortalShell company={account.organization?.name ?? 'Dispatra'} login={account.login_id} primary="Shippers" icon={Users} settings={settings}
     onHome={() => setSettings(false)} onSettings={() => setSettings(true)} onLogout={() => logout.mutate()} loggingOut={logout.isPending}>
     <Notice error={logout.error} />

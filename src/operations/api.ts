@@ -16,6 +16,9 @@ export type VehicleInput = components['schemas']['VehicleData-Input'];
 export type RateInput = components['schemas']['RateData-Input'];
 export type CatalogInput = components['schemas']['CatalogData-Input'];
 export type Booking = components['schemas']['Booking-Input'];
+export type SyncView = components['schemas']['SyncView'];
+export type SyncChange = components['schemas']['SyncChange'];
+export type AppNotification = components['schemas']['NotificationView'];
 
 const key = () => crypto.randomUUID();
 const company = (slug: string) => ({ slug });
@@ -24,9 +27,15 @@ const mutation = () => ({ 'Idempotency-Key': key() });
 
 /** Operational records are always read from the tenant API. A page can request subsequent UUID pages without local fixtures. */
 export const operations = {
+  sync: async (slug: string, cursor?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/sync', { params: { path: company(slug), query: { cursor } } })),
+  notifications: async (slug: string, before?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/notifications', { params: { path: company(slug), query: { limit: 50, before } } })),
+  readNotification: async (slug: string, row: AppNotification) => unwrap(await client.POST('/api/v1/companies/{slug}/notifications/{identity}/read', { body: { version: row.version }, params: { path: entity(slug, row.id), header: mutation() } })),
+  readAllNotifications: async (slug: string) => unwrap(await client.POST('/api/v1/companies/{slug}/notifications/read-all', { params: { path: company(slug), header: mutation() } })),
   driverProfile: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/driver/profile', { params: { path: company(slug) } })),
+  updateDriverProfile: async (slug: string, version: number, phone: string) => unwrap(await client.PATCH('/api/v1/companies/{slug}/driver/profile', { body: { version, phone }, params: { path: company(slug), header: mutation() } })),
+  driverOrders: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/driver/orders', { params: { path: company(slug) } })),
   driverRoutes: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/driver/routes', { params: { path: company(slug), query: { limit: 100, after } } })),
-  startDuty: async (slug: string) => unwrap(await client.POST('/api/v1/companies/{slug}/driver/duty', { body: { location_permission: 'GRANTED' }, params: { path: company(slug), header: mutation() } })),
+  startDuty: async (slug: string) => unwrap(await client.POST('/api/v1/companies/{slug}/driver/duty', { body: {}, params: { path: company(slug), header: mutation() } })),
   endDuty: async (slug: string, duty: components['schemas']['DutyView']) => unwrap(await client.POST('/api/v1/companies/{slug}/driver/duty/{identity}/end', { body: { version: duty.version, ended_at: new Date().toISOString() }, params: { path: entity(slug, duty.id), header: mutation() } })),
   driverLocation: async (slug: string, dutyId: string, position: GeolocationPosition) => unwrap(await client.POST('/api/v1/companies/{slug}/driver/location', { body: { duty_id: dutyId, captured_at: new Date(position.timestamp).toISOString(), latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy_m: Math.max(position.coords.accuracy, 0.1), location_permission: 'GRANTED' }, params: { path: company(slug), header: mutation() } })),
   startRoute: async (slug: string, route: components['schemas']['RouteView']) => unwrap(await client.POST('/api/v1/companies/{slug}/driver/routes/{identity}/start', { body: { version: route.version, generation: route.generation }, params: { path: entity(slug, route.id), header: mutation() } })),
@@ -65,15 +74,16 @@ export const operations = {
   preview: async (slug: string, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/pricing/preview', { body: booking, params: { path: company(slug) } })),
   createQuote: async (slug: string, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/quotes', { body: booking, params: { path: company(slug), header: mutation() } })),
   sendQuote: async (slug: string, quote: Quote, recipient: string) => unwrap(await client.POST('/api/v1/companies/{slug}/quotes/{identity}/send', { body: { version: quote.version, recipient }, params: { path: entity(slug, quote.id), header: mutation() } })),
+  orderTracking: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}/tracking', { params: { path: entity(slug, identity) } })),
   deliveryProof: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}/delivery-proof', { params: { path: entity(slug, identity) } })),
   orderRoadPath: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}/road-path', { params: { path: entity(slug, identity) } })),
   getOrder: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}', { params: { path: entity(slug, identity) } })),
   createOrder: async (slug: string, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/orders', { body: booking, params: { path: company(slug), header: mutation() } })),
   updateOrder: async (slug: string, order: Order, booking: Booking) => unwrap(await client.PUT('/api/v1/companies/{slug}/orders/{identity}', { body: { version: order.version, booking }, params: { path: entity(slug, order.id), header: mutation() } })),
-  assignOrder: async (slug: string, order: Order, driverId: string, vehicleId: string) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/assign', { body: { version: order.version, driver_id: driverId, vehicle_id: vehicleId, planned_at: order.scheduled_at }, params: { path: entity(slug, order.id), header: mutation() } })),
+  assignOrder: async (slug: string, order: Order, driverId: string, vehicleId: string, route?: components['schemas']['RouteView']) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/assign', { body: { version: order.version, driver_id: driverId, vehicle_id: vehicleId, planned_at: route?.planned_at ?? order.scheduled_at, route_id: route?.id ?? null, route_version: route?.version ?? null }, params: { path: entity(slug, order.id), header: mutation() } })),
   completeOrder: async (slug: string, order: Order) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/complete', { body: { version: order.version }, params: { path: entity(slug, order.id), header: mutation() } })),
   releaseRoute: async (slug: string, route: components['schemas']['RouteView']) => unwrap(await client.POST('/api/v1/companies/{slug}/routes/{identity}/release', { body: { version: route.version, generation: route.generation }, params: { path: entity(slug, route.id), header: mutation() } })),
-  createInvoice: async (slug: string, order: Order) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/invoice', { body: { version: order.version, actual_minutes: null }, params: { path: entity(slug, order.id), header: mutation() } })),
+  createInvoice: async (slug: string, order: Order, actualMinutes: number | null = null) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/invoice', { body: { version: order.version, actual_minutes: actualMinutes }, params: { path: entity(slug, order.id), header: mutation() } })),
   sendInvoice: async (slug: string, invoice: Invoice) => unwrap(await client.POST('/api/v1/companies/{slug}/invoices/{identity}/send', { body: { version: invoice.version }, params: { path: entity(slug, invoice.id), header: mutation() } })),
   orders: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders', { params: { path: company(slug), query: { limit: 200, after } } })),
   quotes: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/quotes', { params: { path: company(slug), query: { limit: 200, after } } })),

@@ -220,10 +220,11 @@ test('completed orders offer Invoice; invoicing finalises the price, records the
   assert.throws(()=>invoiceOrder(open,ctx),/completed/); assert.throws(()=>invoiceOrder(invoiced,ctx),/not yet invoiced/);
   const user=userEvent.setup({document}); let updated:any; const notices:string[]=[];
   render(React.createElement(JobsPage,{jobs:[done,open],drivers:[],onSelectJob:()=>{},onUpdateJob:j=>updated=j,onCreateJob:()=>{},onNotification:m=>notices.push(m)}));
-  const row=screen.getByText('#900').closest('tr')!; assert.ok(within(row.cells[0]).getByText('Invoice')); assert.ok(within(row).getByRole('button',{name:/Invoice/}));
+  const row=screen.getByText('#900').closest('tr')!; assert.ok(within(row.cells[0]).getByRole('button',{name:'Invoice'})); assert.equal(within(row).getAllByRole('button',{name:/Invoice/}).length,2);
   const openRow=screen.getByText('#901').closest('tr')!; assert.equal(within(openRow.cells[0]).queryByText('Invoice'),null); assert.equal(within(openRow).queryByRole('button',{name:/Invoice/}),null);
-  await user.click(within(row).getByRole('button',{name:/Invoice/}));
-  assert.equal(updated.lifecycleStatus,'INVOICED'); assert.match(notices.at(-1)!,/#900 invoiced/);
+  await user.click(within(row.cells[0]).getByRole('button',{name:'Invoice'})); assert.equal(updated,undefined);
+  assert.ok(screen.getByText('Invoice #900')); await user.click(screen.getByRole('button',{name:'Send'}));
+  assert.equal(updated.lifecycleStatus,'INVOICED'); assert.equal(screen.queryByText('Invoice #900'),null); assert.match(notices.at(-1)!,/#900 invoiced/);
   cleanup(); render(React.createElement(JobsPage,{jobs:[updated,open],drivers:[],onSelectJob:()=>{},onUpdateJob:()=>{},onCreateJob:()=>{},onNotification:()=>{}}));
   const after=screen.getByText('#900').closest('tr')!; assert.ok(within(after.cells[0]).getByText('Invoiced')); assert.equal(within(after.cells[0]).queryByText('Invoice'),null); assert.equal(within(after).queryByRole('button',{name:/Invoice$/}),null);
 });

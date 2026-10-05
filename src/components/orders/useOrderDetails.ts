@@ -84,7 +84,11 @@ export function useOrderCompletion({ slug, onUpdateJob, onNotification }: {
     if (slug) {
       const record = orders.data?.find(row => row.id === job.id);
       if (!record) return null;
-      try { await operations.completeOrder(slug, record); onNotification(`${job.jobNumber} completed.`); return {}; }
+      try {
+        const done = await operations.completeOrder(slug, record);
+        onNotification(done.status === 'INVOICED' ? `${job.jobNumber} completed. Invoice queued for email.` : `${job.jobNumber} completed. Review the invoice.`);
+        return {};
+      }
       catch (error) { onNotification(error instanceof Error ? error.message : 'Could not complete the order.'); return null; }
       finally { await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'routes'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]); }
     }

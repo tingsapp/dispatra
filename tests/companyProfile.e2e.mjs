@@ -74,7 +74,7 @@ try {
   await page.route('**/api/v1/companies/demo/settings', fail);
   await page.getByRole('button', { name: 'Save Company', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: 'Temporary test failure' }).waitFor();
-  assert.equal(await page.getByLabel('Phone', { exact: true }).inputValue(), '6045550166');
+  assert.equal(await page.getByLabel('Phone', { exact: true }).inputValue(), '(604) 555-0166');
   await page.unroute('**/api/v1/companies/demo/settings', fail);
   // Another tab saves; stale draft must fail without overwriting it.
   const latest = (await (await context.request.get(settingsUrl)).json()).data;
@@ -82,7 +82,7 @@ try {
   await page.getByRole('button', { name: 'Save Company', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: 'Record changed' }).waitFor();
   await page.getByRole('button', { name: 'Reload saved settings', exact: true }).click();
-  await page.waitForFunction(() => [...document.querySelectorAll('input')].some(input => input.value === '6045550177'));
+  await page.waitForFunction(() => [...document.querySelectorAll('input')].some(input => input.value === '(604) 555-0177'));
   await page.getByRole('button', { name: 'Security', exact: true }).click();
   assert.equal(await page.getByText('Enforced & Active', { exact: true }).count(), 0);
   await page.getByLabel('Current password', { exact: true }).fill('incorrect-password');

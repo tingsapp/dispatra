@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ChevronRight, CircleCheck, Clock, Package, Pencil, Truck } from 'lucide-react';
 import { allOperations, operations, type Order } from '../operations/api';
 import { orderToUi } from '../operations/orderAdapters';
@@ -12,6 +12,8 @@ import type { PricingContext } from '../lib/pricingEngine';
 import { ListSummary } from '../components/layout/ListSummary';
 import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
 import { OrderDossierSections, formatWhen } from '../components/orders/OrderDossierSections';
+import { ProofOfDelivery, proofAvailable } from '../components/orders/ProofOfDelivery';
+import { OrderTracking, trackingHeadline, trackingMoving } from '../components/orders/OrderTracking';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/button';
@@ -58,9 +60,11 @@ export function ShipperOrders({ slug, open, onClose }: { slug: string; open: boo
   const [editing, setEditing] = useState<Order | null>(null);
   const [message, setMessage] = useState('');
   const detail = jobs.find(job => job.id === detailId) ?? null;
-  const proof = useQuery({ queryKey: ['shipper-proof', slug, detailId], queryFn: () => operations.deliveryProof(slug, detailId!), enabled: !!detail && ['COMPLETED', 'INVOICED'].includes(detail.lifecycleStatus ?? '') });
   useEntityDialog(!!detail, () => setDetailId(null));
 
+  const active = jobs.filter(job => ['ASSIGNED', 'IN_PROGRESS'].includes(orderLifecycle(job)));
+  const tracking = useQueries({ queries: active.map(job => ({ queryKey: ['tracking', slug, job.id], queryFn: () => operations.orderTracking(slug, job.id), refetchInterval: 60_000, retry: false })) });
+  const trackingById = Object.fromEntries(active.flatMap((job, index) => tracking[index]?.data ? [[job.id, tracking[index].data!]] : []));
   const filtered = jobs.filter(job => {
     const q = search.toLowerCase().trim();
     const text = [job.jobNumber, job.pickupAddress, job.dropoffAddress, job.serviceLevel, ...(job.pricingInput?.stops.map(s => [s.label, s.contactName, s.contactPhone].join(' ')) ?? [])].join(' ').toLowerCase();
@@ -118,6 +122,7 @@ export function ShipperOrders({ slug, open, onClose }: { slug: string; open: boo
               <td className="py-3.5 px-4 whitespace-nowrap">
                 <div className="flex items-center gap-2"><span className="font-medium text-slate-900">{job.jobNumber}</span><span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>{orderAttention(job).map(a => <span key={a.flag} className="text-xs text-amber-700" title={a.detail}>{a.label}</span>)}</div>
                 {job.riskText && <div className="text-xs text-slate-500 mt-0.5 font-normal">{job.riskText}</div>}
+                {trackingById[job.id] && <div className={`mt-0.5 text-xs font-normal ${trackingById[job.id].late ? 'text-rose-700' : 'text-blue-700'}`}>{trackingHeadline(trackingById[job.id], timeZone)}{trackingById[job.id].eta && trackingMoving(trackingById[job.id]) ? ` · ETA ${new Date(trackingById[job.id].eta!).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone })}` : ''}</div>}
               </td>
               <td className="py-3.5 px-4 max-w-xs">
                 <div className="flex items-start gap-1.5 text-slate-700"><span className="w-2 h-2 rounded-full bg-emerald-500 mt-1 flex-none" /><span className="truncate font-medium">{job.pickupAddress}{pickups.length > 1 && ` +${pickups.length - 1}`}</span></div>
@@ -150,17 +155,12 @@ export function ShipperOrders({ slug, open, onClose }: { slug: string; open: boo
         {detail.pricing?.status === 'PRICED' && <span className="text-sm font-normal text-slate-600">${detail.pricing.total.toFixed(2)} {detail.pricing.currency}</span>}
       </>} />
       <DialogBody className="space-y-5">
+        {detail.lifecycleStatus !== 'NEW' && <OrderTracking slug={slug} orderId={detail.id} timeZone={timeZone} version={detail.version} />}
         <OrderDossierSections job={detail} ctx={ctx} showShipper={false} showMargin={false} dispatch={<section className="rounded-xl border border-slate-200 p-5 space-y-3 text-sm">
           <h4 className="app-section-title">Delivery</h4>
           <p>Status: <span className="font-medium">{lifecycleLabel(detail)}</span>{detail.lifecycleStatus === 'NEW' && <span className="text-slate-500"> · awaiting dispatch</span>}</p>
-          {['COMPLETED', 'INVOICED'].includes(detail.lifecycleStatus ?? '') && <div>
-            <p className="font-medium">Delivery proof</p>
-            {proof.isPending && <p role="status">Loading proof…</p>}
-            <Notice error={proof.error} />
-            {proof.data?.length === 0 && <p className="text-slate-500">No completed delivery proof yet.</p>}
-            {proof.data?.map(stop => <div key={stop.stop_id} className="mt-2 border-t border-slate-100 pt-2"><p>{stop.address.text} · {formatWhen(stop.completed_at, timeZone)}</p><p>{stop.unattended ? 'Unattended delivery' : `Received by ${stop.recipient_name || 'recipient'}`}</p>{stop.evidence.map(item => <a key={item.id} className="mr-3 text-blue-700 hover:underline" href={`/api/v1/companies/${slug}/evidence/${item.id}`} target="_blank" rel="noreferrer">View {item.kind.toLowerCase()}</a>)}</div>)}
-          </div>}
         </section>} />
+        {proofAvailable(detail.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={detail.id} timeZone={timeZone} />}
       </DialogBody>
       <DialogFooter note={shipperEditable(detail) ? undefined : 'Orders can be edited until they are assigned to a driver.'}>
         {shipperEditable(detail) && <Button variant="outline" onClick={() => startEdit(detail)}>Edit order</Button>}

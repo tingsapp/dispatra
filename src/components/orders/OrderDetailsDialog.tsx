@@ -5,6 +5,9 @@ import { Select } from '../ui/Select';
 import { Detail, OrderDossierSections } from './OrderDossierSections';
 import { orderEditable } from '../../domain/validation';
 import { orderCompletable } from './useOrderDetails';
+import { ProofOfDelivery, proofAvailable } from './ProofOfDelivery';
+import { OrderTracking } from './OrderTracking';
+import { companySlugForCurrentPath } from '../../lib/pageRoutes';
 import type { PricingContext } from '../../lib/pricingEngine';
 import type { Driver, Job } from '../../types';
 
@@ -16,6 +19,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
 }) {
   const requested = job.pricingInput?.preferredDriverId;
   const editable = !!onEdit && orderEditable(job);
+  const slug = companySlugForCurrentPath();
   return <Dialog size="md" onClose={onClose}>
     <DialogHeader onClose={onClose} title={<>
       <span>{job.jobNumber}</span>
@@ -24,6 +28,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
     </>} />
     {/* One bordered section per New Order form section; inner groups are borderless grey */}
     <DialogBody className="space-y-5">
+      {slug && job.lifecycleStatus && job.lifecycleStatus !== 'NEW' && <OrderTracking slug={slug} orderId={job.id} timeZone={ctx.billing.general.timeZone} version={job.version} />}
       <OrderDossierSections job={job} ctx={ctx} dispatch={<section className="rounded-xl border border-slate-200 p-5 space-y-3">
         <h4 className="app-section-title">Dispatch</h4>
         <div>
@@ -38,6 +43,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
           <Detail label="Handling instructions" value={job.handlingInstructions} />
         </dl>
       </section>} />
+      {slug && proofAvailable(job.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={job.id} timeZone={ctx.billing.general.timeZone} />}
     </DialogBody>
     <DialogFooter>
       {editable && <Button variant="outline" onClick={() => onEdit!(job)}>Edit order</Button>}

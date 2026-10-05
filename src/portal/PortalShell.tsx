@@ -7,7 +7,9 @@ import { useSidebarDrawer } from '../components/layout/useSidebarDrawer';
 const initials = (name: string) => name.trim().split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('') || '?';
 
 /** Presentational workspace shell. Authentication and customer data remain in PortalApp. */
-export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, reading = false, children }: {
+export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, reading = false, footer, children }: {
+  /** Sidebar controls under the Logout card (or the account card), such as the driver's duty switch. */
+  footer?: (collapsed: boolean) => ReactNode;
   description?: string; reading?: boolean; actions?: ReactNode; onNavigate?: (href: string) => void;
   /** Dispatcher-style account card with a Profile / Logout menu instead of the plain sign-out control. */
   account?: { name: string; role: string; profileCurrent: boolean };
@@ -48,6 +50,10 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
               <span className="block text-xs text-slate-500 truncate">{loggingOut ? 'Signing out…' : account.role}</span>
             </span>
           </button>} />
+        {footer?.(collapsed)}
+      </div> : footer ? <div className="mt-auto p-2">
+        <button type="button" className="app-account-card border border-app-border bg-white shadow-sm hover:bg-white disabled:opacity-50" aria-label="Logout" title={collapsed ? 'Logout' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} className="shrink-0 text-slate-600" /><span className={collapsed ? 'sr-only' : 'text-sm font-medium text-slate-900'}>{loggingOut ? 'Logging out…' : 'Logout'}</span></button>
+        {footer(collapsed)}
       </div> : <div className={`mt-auto space-y-2 ${collapsed ? 'p-2' : 'p-3'}`}>
         <p className={collapsed ? 'sr-only' : 'truncate px-2 text-xs text-app-muted'} title={login}>{login}</p>
         <button type="button" className="app-nav-item disabled:opacity-50" aria-label="Sign out" title={collapsed ? 'Sign out' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Sign out</span></button>

@@ -21,8 +21,10 @@ import React,{ useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { allOperations, operations } from '../operations/api';
+import { assignableRoute, assignToDriver } from '../operations/assignment';
 import { inputToBooking } from '../operations/orderAdapters';
 import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
+import { InvoiceDialog } from '../components/orders/InvoiceDialog';
 import { useCompanyPricingContext, useOrderAssignment, useOrderCompletion } from '../components/orders/useOrderDetails';
 import { useOrderPreview } from '../components/orders/useOrderPreview';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
@@ -52,6 +54,7 @@ import { formatWeight } from '../lib/units';
 import { Driver,Job } from '../types';
 import { PricingOrderInput } from '../types/pricing';
 import { defaultRateCard } from '../lib/pricingEngine';
+import { formatPhone } from '../lib/phone';
 
 interface JobsPageProps {
   jobs: Job[];
@@ -92,6 +95,7 @@ export function JobsPage({
   
   // Selected job for detail drawer
   const [activeJobDossier, setActiveJobDossier] = useState<Job | null>(null);
+  const [invoicingJob, setInvoicingJob] = useState<Job | null>(null);
   
   // Create Job Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -172,7 +176,7 @@ export function JobsPage({
   const totalCount = jobs.length;
   const onTimeCount = jobs.filter((j) => j.status === 'on_time').length;
   const atRiskCount = jobs.filter((j) => j.status === 'at_risk' || j.status === 'late_start').length;
-  const noDriverCount = jobs.filter(j => !j.assignedDriverId && j.status !== 'completed').length;
+  const noDriverCount = jobs.filter(j => orderLifecycle(j) === 'NEW').length;
   const completedCount = jobs.filter((j) => j.status === 'completed').length;
 
   const reassign = useOrderAssignment({ slug, jobs, drivers, onUpdateJob, onNotification });
@@ -195,15 +199,20 @@ export function JobsPage({
     e.preventDefault();
     if (slug) {
       try {
+        const driver = newDriverId === 'unassigned' ? undefined : drivers.find(row => row.id === newDriverId);
+        if (newDriverId !== 'unassigned') {
+          if (!driver?.currentVehicleId) throw new Error('The selected driver needs an attached vehicle before assignment.');
+          assignableRoute(await allOperations.routes(slug), driver.id, driver.currentVehicleId);
+          if (driver.dutyStatus !== 'ON_DUTY' || driver.status === 'offline')
+            throw new Error('The selected driver and vehicle must be available before assignment.');
+        }
         const booking = inputToBooking(newOrderInput, newInstructions, pricingCtx.billing.general.timeZone);
         const previous = editingOrder ? orderQuery.data?.find(row => row.id === editingOrder.id) : undefined;
         const saved = previous ? await operations.updateOrder(slug, previous, booking) : await operations.createOrder(slug, booking);
         setShowCreateModal(false);
         try {
           if (newDriverId !== 'unassigned' && saved.status === 'NEW') {
-            const driver = drivers.find(row => row.id === newDriverId);
-            if (!driver?.currentVehicleId) throw new Error('The selected driver needs an attached vehicle before assignment.');
-            await operations.assignOrder(slug, saved, driver.id, driver.currentVehicleId);
+            await assignToDriver(slug, saved, driver!.id, driver!.currentVehicleId!);
           }
           onNotification(`${previous ? 'Updated' : 'Created'} ${saved.number}.`);
         } catch (assignmentError) {
@@ -290,20 +299,24 @@ export function JobsPage({
     );
   };
 
-  const handleInvoice = async (job: Job) => {
+  const handleInvoice = async (job: Job, actualMinutes: number | null = null): Promise<boolean> => {
     if (slug) {
       const record = orderQuery.data?.find(row => row.id === job.id);
-      if (!record) return;
-      try { const invoice = await operations.createInvoice(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }); onNotification(`${job.jobNumber} invoiced — $${Number(invoice.total).toFixed(2)}.`); }
-      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not create invoice.'); }
-      return;
+      if (!record) { onNotification('Order is still loading. Try again.'); return false; }
+      let invoice;
+      try { invoice = await operations.createInvoice(slug, record, actualMinutes); }
+      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not create invoice.'); return false; }
+      finally { await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'invoices'] })]); }
+      onNotification(`Invoice ${invoice.number} for ${job.jobNumber} — $${Number(invoice.total).toFixed(2)} queued for the shipper.`);
+      return true;
     }
     try {
       const updated = invoiceOrder(job, loadPricingContext());
       onUpdateJob(updated);
       if (activeJobDossier?.id === job.id) setActiveJobDossier(updated);
       onNotification(`${job.jobNumber} invoiced — $${updated.pricing!.total.toFixed(2)} ${updated.pricing!.currency} to ${updated.invoicePreview?.billingEmail || 'the shipper'}`);
-    } catch (error) { onNotification(error instanceof Error ? error.message : 'The order could not be invoiced.'); }
+      return true;
+    } catch (error) { onNotification(error instanceof Error ? error.message : 'The order could not be invoiced.'); return false; }
   };
   const handleSendInvoice = async (job: Job) => {
     if (!slug) return;
@@ -452,7 +465,7 @@ export function JobsPage({
                           <span className="font-medium text-slate-900">{job.jobNumber}</span>
                           <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>
                           {orderAttention(job).map(a => <span key={a.flag} className="text-xs text-amber-700" title={a.detail}>{a.label}</span>)}
-                          {readyToInvoice && <span className="text-xs text-amber-700" title="Completed order ready for invoicing">Invoice</span>}
+                          {readyToInvoice && <button type="button" className="text-xs text-amber-700 hover:underline underline-offset-2 cursor-pointer" title="Completed order ready for invoicing" onClick={e => { e.stopPropagation(); setInvoicingJob(job); }}>Invoice</button>}
                         </div>
                         {job.riskText && (
                           <div className="text-xs text-slate-500 mt-0.5 font-normal">
@@ -466,7 +479,7 @@ export function JobsPage({
                         <div className="font-medium text-slate-800">{job.customerName}</div>
                         <div className="text-slate-500 text-xs flex items-center gap-1 mt-0.5">
                           <Phone className="w-3 h-3 text-slate-400" />
-                          {job.customerPhone}
+                          {formatPhone(job.customerPhone)}
                         </div>
                       </td>
 
@@ -510,10 +523,12 @@ export function JobsPage({
                               </div>
                             </div>
                           </div>
-                        ) : (
+                        ) : job.lifecycleStatus === 'NEW' ? (
                           <DriverAssignmentMenu drivers={drivers} requestedId={job.pricingInput?.preferredDriverId} open={reassigningJobId === job.id}
                             onOpenChange={open => setReassigningJobId(open ? job.id : null)}
                             onSelect={driverId => handleReassignDriver(job, driverId)} />
+                        ) : (
+                          <span className="text-slate-500">{job.routeId ? 'Assigned driver unavailable' : '—'}</span>
                         )}
                       </td>
 
@@ -541,7 +556,7 @@ export function JobsPage({
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center gap-1">
-                          {readyToInvoice && <Button type="button" size="xs" variant="outline" onClick={() => handleInvoice(job)}><FileText /> Invoice</Button>}
+                          {readyToInvoice && <Button type="button" size="xs" variant="outline" onClick={() => setInvoicingJob(job)}><FileText /> Invoice</Button>}
                           {slug && job.lifecycleStatus === 'INVOICED' && <Button type="button" size="xs" variant="outline" onClick={() => handleSendInvoice(job)}><FileText /> Send invoice</Button>}
                           <button
                             onClick={() => onSelectJob(job.jobNumber)}
@@ -572,6 +587,8 @@ export function JobsPage({
       {/* ORDER DETAILS DIALOG */}
       {activeJobDossier && <OrderDetailsDialog job={activeJobDossier} ctx={pricingCtx} drivers={drivers} onClose={() => setActiveJobDossier(null)}
         onReassign={handleReassignDriver} onEdit={openEditOrder} onComplete={handleCompleteOrder} onLocate={job => { onSelectJob(job.jobNumber); setActiveJobDossier(null); }} />}
+
+      {invoicingJob && <InvoiceDialog job={invoicingJob} onClose={() => setInvoicingJob(null)} onSend={handleInvoice} />}
 
       {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (

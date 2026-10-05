@@ -1,6 +1,6 @@
 # Dispatra web client
 
-The public website is `/`. The original dispatcher UI, including its Google Monitor and Pricing design, is available at `/{company}/` after API login. `/prototype` provides a separate local demonstration. Dispatcher operational records still use the browser demo store; the manual API is implemented but is not connected to these screens.
+The public website is `/`. The dispatcher workspace, including Monitor, Orders and Pricing settings, is available at `/{company}/` after API login. Company workspaces use the FastAPI/PostgreSQL API for operational records. `/prototype` provides a separate local demonstration.
 
 ```sh
 npm ci
@@ -9,7 +9,9 @@ npm run dev
 
 Vite serves port 3000 and proxies `/api` to `http://127.0.0.1:8000`. Set `API_PROXY_TARGET` to use a different API port. See [API setup](../api/README.md).
 
-The local `demo` company has `dispatcher@example.com`, `shipper@example.com`, and `driver@example.com`, initially using `123456`. The dispatcher workspace at `/demo/` uses the original local Monitor, Orders, Shippers, Drivers, Vehicles, Pricing, and Analytics screens. Company Profile and session/password settings are API backed. The Shipper account page provides profile/password access. The Driver URL is reserved; its operational portal is not connected in this client. API demo data is separate from browser fixtures and is not silently imported.
+The explicitly seeded local `demo` company has `dispatcher@example.com`, `shipper@example.com`, and `driver@example.com`, initially using `123456`. The dispatcher workspace is `/demo/`; Shippers book and track orders at `/demo/shipper-portal`; Drivers manage duty and execute assigned deliveries at `/demo/driver`. Platform administration is at `/admin`. Company Profile, pricing settings and account security use the API. API demo data is separate from browser fixtures and is not silently imported.
+
+The Monitor refreshes order, route, driver and vehicle data every 15 seconds while open. Shipper and Driver order lists refresh every 30 seconds. Completion automatically issues an Invoice and queues its PDF email, except hourly orders that require manual actual-time review. Run the [API email worker](../api/README.md#quote-and-invoice-email) to deliver queued messages.
 
 ## Google map and addresses
 
@@ -23,4 +25,12 @@ npm test
 npm run build
 ```
 
-After an API schema change, run `python -m app.export_openapi` in the API environment and `npm run generate:api` here. `npm run test:company-profile` checks the authenticated company Profile against a dedicated test database. The operational UI needs a later API connection that preserves the existing components and layout.
+After an API schema change, run `python -m app.export_openapi` in the API environment and `npm run generate:api` here. Account browser checks are `npm run test:admin`, `npm run test:company-profile`, and `npm run test:shipper-portal`.
+
+For the full manual browser journey, use a disposable `*_test` database migrated and seeded with `app.demo`, a restricted API runtime role, `ROUTING_PROVIDER=demo`, and no email worker. Start Vite with `DISABLE_HMR=true` and `API_PROXY_TARGET` pointing to that API. Then run:
+
+```sh
+E2E_ORIGIN=http://127.0.0.1:3001 E2E_DISPOSABLE=true node tests/manualWorkflow.e2e.mjs
+```
+
+This creates test orders through both booking forms, assigns through the dispatcher UI, executes signature delivery through the driver UI, checks automatic invoicing and the Shipper PDF, and observes Monitor updates. Places and GPS use deterministic fixtures; the API and PostgreSQL are real. It does not submit email or verify a recipient inbox.

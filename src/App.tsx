@@ -30,6 +30,7 @@ import { freezeCompletedOrder } from './lib/orderCompletion';
 import { loadPricingContext,loadSavedOrders,pricingAttentionItems,saveOrders } from './lib/orderPricing';
 import { validateAssignment } from './lib/organizationWorkflows';
 import { usePageNavigation } from './lib/usePageNavigation';
+import { useSync } from './portal/sync';
 import { CustomersPage } from './pages/CustomersPage';
 import { DriversPage } from './pages/DriversPage';
 import { HelpSupportPage } from './pages/HelpSupportPage';
@@ -41,21 +42,24 @@ import { VehiclesPage } from './pages/VehiclesPage';
 import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from './types';
 
 /** API attention kinds as dispatcher-facing labels. */
-const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
+const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', INVOICE: 'Invoice review' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
 
 export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
-  const driverQuery = useQuery({ queryKey: ['operations', slug, 'drivers'], queryFn: () => allOperations.drivers(slug!), enabled: !!slug });
+  const [activeTab, setActiveTab] = usePageNavigation();
+  useSync(slug, 'DISPATCHER');
+  // Record changes arrive through /sync; only driver locations and time-based attention still need a Monitor refresh.
+  const liveRefresh = activeTab === 'monitor' ? 30_000 : false;
+  const driverQuery = useQuery({ queryKey: ['operations', slug, 'drivers'], queryFn: () => allOperations.drivers(slug!), enabled: !!slug, refetchInterval: liveRefresh });
   const vehicleQuery = useQuery({ queryKey: ['operations', slug, 'vehicles'], queryFn: () => allOperations.vehicles(slug!), enabled: !!slug });
   const shipperQuery = useQuery({ queryKey: ['operations', slug, 'shippers'], queryFn: () => allOperations.shippers(slug!), enabled: !!slug });
   const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
   const rateQuery = useQuery({ queryKey: ['operations', slug, 'rates'], queryFn: () => allOperations.rates(slug!), enabled: !!slug });
   const orderQuery = useQuery({ queryKey: ['operations', slug, 'orders'], queryFn: () => allOperations.orders(slug!), enabled: !!slug });
   const routeQuery = useQuery({ queryKey: ['operations', slug, 'routes'], queryFn: () => allOperations.routes(slug!), enabled: !!slug });
-  const monitorQuery = useQuery({ queryKey: ['operations', slug, 'monitor'], queryFn: () => operations.monitor(slug!), enabled: !!slug, refetchInterval: 30000 });
+  const monitorQuery = useQuery({ queryKey: ['operations', slug, 'monitor'], queryFn: () => operations.monitor(slug!), enabled: !!slug, refetchInterval: liveRefresh });
   const settingsQuery = useQuery({ queryKey: companySettingsKey(slug!), queryFn: () => api.companySettings(slug!), enabled: !!slug });
-  const [activeTab, setActiveTab] = usePageNavigation();
   const [mapEverOpened, setMapEverOpened] = useState(() => activeTab === 'monitor');
   useEffect(() => { if (activeTab === 'monitor') setMapEverOpened(true); }, [activeTab]);
   const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia('(max-width: 639px)').matches);
@@ -70,9 +74,12 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const [localDrivers, setDrivers] = useState<Driver[]>(() => slug ? [] : loadDrivers(INITIAL_DRIVERS));
   const drivers = slug ? (driverQuery.data ?? []).map(row => {
     const current = routeQuery.data?.find(route => route.driver_id === row.id && ['PLANNED', 'IN_PROGRESS'].includes(route.status));
-    const driver = driverToUi(row, vehicleQuery.data?.find(vehicle => vehicle.id === row.vehicle_id), monitorQuery.data?.drivers.find(item => item.id === row.id));
-    return { ...driver, status: driver.dutyStatus === 'ON_DUTY' && current?.status === 'IN_PROGRESS' ? 'on_route' as const : driver.status,
-      statusLabel: driver.dutyStatus === 'ON_DUTY' && current?.status === 'IN_PROGRESS' ? 'On route' : driver.statusLabel,
+    const vehicle = vehicleQuery.data?.find(item => item.id === row.vehicle_id);
+    const driver = driverToUi(row, vehicle, monitorQuery.data?.drivers.find(item => item.id === row.id));
+    const onRoute = driver.dutyStatus === 'ON_DUTY' && current?.status === 'IN_PROGRESS';
+    const vehicleUnavailable = vehicleQuery.isSuccess && driver.dutyStatus === 'ON_DUTY' && (!vehicle || !vehicle.active || vehicle.data.availability === 'UNAVAILABLE');
+    return { ...driver, status: onRoute ? 'on_route' as const : vehicleUnavailable ? 'offline' as const : driver.status,
+      statusLabel: onRoute ? 'On route' : vehicleUnavailable ? 'Vehicle unavailable' : driver.statusLabel,
       currentJob: orderQuery.data?.find(order => order.route_id === current?.id)?.number,
       nextStop: current?.stops.find(stop => stop.status !== 'COMPLETED')?.stop.address.text ?? 'Not set', routeId: current?.id,
       lastUpdate: row.last_seen_at ? new Date(row.last_seen_at).toLocaleString() : 'Not set' };

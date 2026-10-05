@@ -9,7 +9,7 @@ export function ContactInput({ type, onChange, onBlur, onInvalid, ...props }: Re
   const value = String(props.value ?? '');
   const invalid = type === 'email' && !props.readOnly && value.trim() !== '' && !isValidEmail(value);
   useEffect(() => { ref.current?.setCustomValidity(invalid ? EMAIL_ERROR : ''); }, [invalid]);
-  const input = <input {...props} ref={ref} type={type}
+  const input = <input {...props} {...type === 'tel' && props.value !== undefined ? { value: formatPhoneInput(value) } : {}} ref={ref} type={type}
     {...type === 'tel' ? { inputMode: 'tel' as const, autoComplete: props.autoComplete ?? 'tel', placeholder: props.placeholder ?? '(604) 555-0100' } : type === 'email' ? { autoComplete: props.autoComplete ?? 'email', maxLength: props.maxLength ?? 254, 'aria-invalid': invalid && touched || undefined } : {}}
     onChange={e => { if (type === 'tel') e.target.value = formatPhoneInput(e.target.value); onChange?.(e); }}
     onBlur={e => { setTouched(true); onBlur?.(e); }}

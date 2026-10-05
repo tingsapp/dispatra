@@ -33,6 +33,7 @@ import { paymentTermOptions, PaymentTerms, resolvePaymentTerms } from '../lib/pa
 import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
 import { ContactInput } from '../components/ui/ContactInput';
+import { formatPhone } from '../lib/phone';
 
 interface CustomersPageProps {
   jobs?: Job[];
@@ -348,7 +349,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                         <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
                           <span className="flex items-center gap-1">
                             <Phone className="w-3 h-3 text-slate-400" />
-                            {customer.phone}
+                            {formatPhone(customer.phone)}
                           </span>
                         </div>
                       </td>
@@ -471,7 +472,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       href={`tel:${selectedCustomerForView.phone}`}
                       className="text-blue-600 hover:underline font-medium"
                     >
-                      {selectedCustomerForView.phone}
+                      {formatPhone(selectedCustomerForView.phone)}
                     </a>
                   </div>
                   <div className="flex items-center justify-between text-slate-600">

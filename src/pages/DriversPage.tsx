@@ -27,6 +27,7 @@ import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Driver,Job } from '../types';
+import { formatPhone } from '../lib/phone';
 
 interface DriversPageProps {
   drivers: Driver[];
@@ -264,7 +265,7 @@ export function DriversPage({
                                 {driver.driverNumber ?? driver.id}
                               </span>
                             </div>
-                            <div className="text-xs text-slate-400">{driver.phone}</div>
+                            <div className="text-xs text-slate-400">{formatPhone(driver.phone)}</div>
                           </div>
                         </div>
                       </td>
@@ -325,7 +326,7 @@ export function DriversPage({
           <DialogHeader onClose={() => setActiveDriverDrawer(null)}
             leading={<DriverAvatar name={activeDriverDrawer.name} avatar={activeDriverDrawer.avatar} alt={activeDriverDrawer.name} className="w-10 h-10 rounded-full object-cover border border-slate-200" />}
             title={<>{activeDriverDrawer.name}<span className="text-xs font-mono font-medium bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">{activeDriverDrawer.driverNumber ?? activeDriverDrawer.id}</span></>}
-            description={activeDriverDrawer.phone} />
+            description={formatPhone(activeDriverDrawer.phone)} />
           <DialogBody>
             <Tabs label="Driver details tabs" items={[
               { id: 'details', label: 'Details', content: <><section aria-label="Driver profile">
