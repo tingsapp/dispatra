@@ -45,7 +45,7 @@ test('all operational destinations resolve directly, including prototype URLs; t
   }
   assert.equal(pageForPath('/acme/settings/company'), 'profile');
   assert.equal(pathForPage('company-settings', '/acme/'), undefined);
-  for (const path of ['/platform', '/acme/dispatch', '/acme/customer/settings', '/prototype-company/dispatch', '/acme/orders/customer', '/acme/settings/services', '/prototype/settings/services', '/acme/unknown']) {
+  for (const path of ['/platform', '/acme/dispatch', '/acme/customer/settings', '/prototype-company/dispatch', '/acme/orders/customer', '/acme/settings/services', '/prototype/settings/services', '/acme/unknown', '/acme/shipper', '/acme/driver']) {
     assert.equal(pageForPath(path), undefined);
   }
 });

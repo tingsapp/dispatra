@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Building2, Shield } from 'lucide-react';
+import { Building2, Mail, Shield } from 'lucide-react';
+import { MailboxSettings } from '../components/orders/EmailIntake';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { Field } from './ui';
 import { PasswordPage } from './PasswordPage';
 import { PageHeader } from '../components/layout/PageHeader';
@@ -34,17 +36,19 @@ function CompanyEditor() {
   </form>;
 }
 
-export function CompanyProfilePage({ initialSection = 'company' }: { initialSection?: 'company' | 'security' }) {
-  const [section, setSection] = useState(initialSection);
+export function CompanyProfilePage({ initialSection = 'company' }: { initialSection?: 'company' | 'security' | 'mailbox' }) {
+  const [section, setSection] = useState<'company' | 'security' | 'mailbox'>(initialSection);
+  const slug = companySlugForCurrentPath();
   return <div className="app-page app-page-profile app-page-reading h-full w-full flex flex-col overflow-hidden font-sans">
-    <PageHeader title="Profile" description="Company details and account security." />
+    <PageHeader title="Profile" description="Company details, mailbox and account security." />
     <div className="page-content h-12 bg-app-canvas flex items-center gap-2 shrink-0 overflow-x-auto">
-      {([['company', 'Company', Building2], ['security', 'Security', Shield]] as const).map(([id, label, Icon]) =>
+      {([['company', 'Company', Building2], ['mailbox', 'Mailbox', Mail], ['security', 'Security', Shield]] as const).map(([id, label, Icon]) =>
         <button key={id} type="button" aria-pressed={section === id} className="app-tab inline-flex items-center gap-2 whitespace-nowrap" onClick={() => setSection(id)}><Icon className="w-3.5 h-3.5" />{label}</button>)}
     </div>
     <main className="page-content flex-1 overflow-y-auto py-6 space-y-6">
       <div hidden={section !== 'company'} className={section === 'company' ? 'profile-company-content flex flex-1 flex-col' : 'hidden'}><CompanyEditor /></div>
-      {section === 'security' && <PasswordPage />}
+      {section === 'mailbox' && slug && <MailboxSettings slug={slug} />}
+      {section === 'security' && <PasswordPage plain />}
     </main>
   </div>;
 }

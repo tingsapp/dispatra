@@ -30,11 +30,22 @@ export function orderToInput(order: Order): PricingOrderInput {
       handlingTags: item.dangerous_goods ? ['DANGEROUS_GOODS'] : [],
     })),
     accessorials: facts.accessorials.map(a => ({ accessorialId: a.id, quantity: Number(a.quantity) })),
-    source: order.source === 'SHIPPER_PORTAL' || order.source === 'SHIPPER_PORTAL' ? 'SHIPPER_PORTAL' : order.source === 'IMPORT' ? 'IMPORT' : 'DISPATCHER',
+    source: order.source === 'SHIPPER_PORTAL' || order.source === 'EMAIL' || order.source === 'IMPORT' ? order.source : 'DISPATCHER',
     importedPrice: facts.imported_total == null ? null : Number(facts.imported_total), importedTaxAmount: facts.imported_tax == null ? null : Number(facts.imported_tax),
     externalSource: null, externalReference: facts.external_reference, adjustments: facts.adjustments.map((a, i) => ({ id: String(i), amount: Number(a.amount), reason: a.reason, taxable: a.taxable })),
     rateCardOverrideId: facts.rate_card_id ?? null, preferredDriverId: facts.preferred_driver_id ?? null, stage: order.pricing.stage,
   };
+}
+
+/** An Order agent draft (possibly incomplete) as order-form input; missing values stay blank for the dispatcher to fill. */
+export function draftToInput(draft: Record<string, unknown>): PricingOrderInput {
+  const facts = draft as Partial<Booking> & { stops?: Array<Record<string, unknown>>; items?: Array<Record<string, unknown>> };
+  const blank = { text: '', city: '', province: '', postal_code: '', country: 'CA' };
+  const stops = (facts.stops ?? []).map(stop => ({ ...stop, address: stop.address ?? blank, contact_name: stop.contact_name ?? '', phone: stop.phone ?? '', instructions: stop.instructions ?? '' }));
+  const items = (facts.items ?? []).map(item => ({ ...item, quantity: item.quantity ?? 1, weight_kg: item.weight_kg ?? 0, length_cm: item.length_cm ?? 0, width_cm: item.width_cm ?? 0, height_cm: item.height_cm ?? 0 }));
+  const order = { facts: { accessorials: [], adjustments: [], external_reference: '', ...facts, stops, items }, shipper_id: facts.shipper_id, billing_shipper_id: facts.shipper_id,
+    service_id: facts.service_id ?? '', scheduled_at: facts.scheduled_at ?? '', source: 'EMAIL', pricing: { stage: 'ESTIMATE' } } as unknown as Order;
+  return orderToInput(order);
 }
 
 export function priceToUi(price: Order['pricing'], facts: Booking, createdAt: string, rate?: RateCard): PricingSnapshot {

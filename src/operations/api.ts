@@ -19,6 +19,11 @@ export type Booking = components['schemas']['Booking-Input'];
 export type SyncView = components['schemas']['SyncView'];
 export type SyncChange = components['schemas']['SyncChange'];
 export type AppNotification = components['schemas']['NotificationView'];
+export type Mailbox = components['schemas']['MailboxView'];
+export type MailboxInput = components['schemas']['MailboxInput'];
+export type EmailIntake = components['schemas']['IntakeView'];
+export type EmailIntakeDetail = components['schemas']['IntakeDetail'];
+export type EmailIntakeStatus = EmailIntake['status'];
 
 const key = () => crypto.randomUUID();
 const company = (slug: string) => ({ slug });
@@ -89,6 +94,15 @@ export const operations = {
   quotes: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/quotes', { params: { path: company(slug), query: { limit: 200, after } } })),
   invoices: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/invoices', { params: { path: company(slug), query: { limit: 100, after } } })),
   driverActivity: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/drivers/{identity}/activity', { params: { path: entity(slug, identity) } })),
+  mailbox: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/email-intake/mailbox', { params: { path: company(slug) } })),
+  saveMailbox: async (slug: string, data: MailboxInput) => unwrap(await client.PUT('/api/v1/companies/{slug}/email-intake/mailbox', { body: data, params: { path: company(slug), header: mutation() } })),
+  testMailbox: async (slug: string, data: Pick<MailboxInput, 'host' | 'port' | 'username' | 'password' | 'folder'>) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/mailbox/test', { body: data, params: { path: company(slug) } })),
+  emailIntakes: async (slug: string, status?: EmailIntakeStatus[]) => unwrap(await client.GET('/api/v1/companies/{slug}/email-intake/messages', { params: { path: company(slug), query: { status, limit: 200 } } })),
+  emailIntake: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/email-intake/messages/{identity}', { params: { path: entity(slug, identity) } })),
+  discardEmailIntake: async (slug: string, row: EmailIntake) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/discard', { body: { version: row.version }, params: { path: entity(slug, row.id), header: mutation() } })),
+  retryEmailIntake: async (slug: string, row: EmailIntake) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/retry', { body: { version: row.version }, params: { path: entity(slug, row.id), header: mutation() } })),
+  linkEmailIntakeShipper: async (slug: string, row: EmailIntake, shipperId: string) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/shipper', { body: { version: row.version, shipper_id: shipperId }, params: { path: entity(slug, row.id), header: mutation() } })),
+  createOrderFromEmail: async (slug: string, row: { id: string; version: number }, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/order', { body: { version: row.version, booking }, params: { path: entity(slug, row.id), header: mutation() } })),
   monitor: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/monitor', { params: { path: company(slug) } })),
   analytics: async (slug: string, start?: string, end?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/analytics', { params: { path: company(slug), query: { date_from: start, date_to: end } } })),
 };

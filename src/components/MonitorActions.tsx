@@ -27,6 +27,8 @@ interface MonitorActionsProps {
   setShowNotificationPopover?: React.Dispatch<React.SetStateAction<boolean>>;
   onSelectJob?: (jobNumber: string) => void;
   onSelectDriver?: (driverId: string) => void;
+  /** Order agent notifications open Orders, where emails needing details are listed as drafts. */
+  onOpenEmailDrafts?: () => void;
   onActionNotification: (msg: string) => void;
   drivers?: Driver[];
   jobs?: Job[];
@@ -52,6 +54,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   setShowNotificationPopover: externalSetShowNotification,
   onSelectJob,
   onSelectDriver,
+  onOpenEmailDrafts,
   onActionNotification,
   drivers = [],
   jobs = []
@@ -210,7 +213,8 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
         }>
         {slug ? isNotificationOpen && <NotificationPanel slug={slug} onOpen={row => {
           const job = jobs.find(item => item.id === row.order_id);
-          if (job) onSelectJob?.(job.jobNumber);
+          if (/^(intake|mailbox)\./.test(row.kind)) onOpenEmailDrafts?.();
+          else if (job) onSelectJob?.(job.jobNumber);
           setIsNotificationOpen(false);
         }} /> : <>
 

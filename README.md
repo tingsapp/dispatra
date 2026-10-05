@@ -9,9 +9,9 @@ npm run dev
 
 Vite serves port 3000 and proxies `/api` to `http://127.0.0.1:8000`. Set `API_PROXY_TARGET` to use a different API port. See [API setup](../api/README.md).
 
-The explicitly seeded local `demo` company has `dispatcher@example.com`, `shipper@example.com`, and `driver@example.com`, initially using `123456`. The dispatcher workspace is `/demo/`; Shippers book and track orders at `/demo/shipper-portal`; Drivers manage duty and execute assigned deliveries at `/demo/driver`. Platform administration is at `/admin`. Company Profile, pricing settings and account security use the API. API demo data is separate from browser fixtures and is not silently imported.
+The explicitly seeded local `demo` company has `dispatcher@example.com`, `shipper@example.com`, and `driver@example.com`, initially using `123456`. The dispatcher workspace is `/demo/`; Shippers book and track orders at `/demo/shipper`; Drivers manage duty and execute assigned deliveries at `/demo/driver`. Old `/demo/shipper-portal`, `/demo/customer` and `/demo/dispatch` links redirect to these paths. Platform administration is at `/admin`. Company Profile, pricing settings and account security use the API. API demo data is separate from browser fixtures and is not silently imported.
 
-The Monitor refreshes order, route, driver and vehicle data every 15 seconds while open. Shipper and Driver order lists refresh every 30 seconds. Completion automatically issues an Invoice and queues its PDF email, except hourly orders that require manual actual-time review. Run the [API email worker](../api/README.md#quote-and-invoice-email) to deliver queued messages.
+Every signed-in workspace follows the API `/sync` feed and refetches only changed records (about every 15 seconds by default); the open Monitor also refreshes driver locations every 30 seconds. Notifications appear in the Monitor bell and in the Shipper and Driver portal headers. Completion automatically issues an Invoice and queues its PDF email, except hourly orders that require manual actual-time review. Run the [API email worker](../api/README.md#quote-and-invoice-email) to deliver queued messages.
 
 ## Google map and addresses
 

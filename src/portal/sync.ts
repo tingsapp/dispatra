@@ -20,6 +20,8 @@ function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
     case 'shipper': return [ops('shippers'), ['customers', slug]];
     case 'invoice': case 'email': return [ops('invoices'), ops('orders'), ops('analytics')];
     case 'quote': return [ops('quotes')];
+    case 'intake': return [ops('email-intakes'), ops('orders')];
+    case 'mailbox': return [ops('mailbox')];
     case 'rate': return [ops('rates')];
     case 'catalog': return [ops('catalog')];
     case 'settings': case 'organization': return [companySettingsKey(slug), ops('settings'), ops('catalog'), ops('rates')];

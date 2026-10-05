@@ -572,14 +572,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               <FormSection title="Billing">
                 <div><span className="app-label">Shipper rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.filter(c => !importedCardIds.has(c.id) || c.id === formData.rateCardId).map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">New orders start on it; dispatch can change it per order.</span></div>
                 <div><span className="app-label">Default payment terms</span><Select aria-label="Default payment terms" className="w-full" value={formData.paymentTerms ?? ''} onValueChange={value => setFormData({ ...formData, paymentTerms: value as PaymentTerms })} options={paymentTermOptions(editingCustomer?.paymentTerms)} /><span className="mt-1 block text-xs text-slate-500">Sets invoice due dates.</span></div>
-                <div className="sm:col-span-2">
-                  <span className="app-label">Credit card</span>
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2.5">
-                    <span className="text-sm text-slate-500">No card on file</span>
-                    <Button type="button" variant="outline" disabled aria-describedby="shipper-card-note">Add credit card</Button>
-                  </div>
-                  <p id="shipper-card-note" className="mt-1 text-xs text-slate-500">Card entry will be available when payments are connected.</p>
-                </div>
               </FormSection>
 
               <section aria-label="Discount" className="space-y-3">

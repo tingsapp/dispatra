@@ -11,7 +11,10 @@ export const PAGE_PATHS: Record<string, string> = {
   help: '/help',
 };
 
-const RESERVED = new Set(['admin', 'platform', 'prototype', 'api', 'assets', 'health', 'ready', 'login', 'customer', 'dispatch', 'www']);
+/** First path segments that can never be a company slug (keep in sync with the API's reserved slugs). */
+export const RESERVED_SLUGS = ['admin', 'platform', 'prototype', 'api', 'assets', 'static', 'app', 'health', 'ready', 'login', 'signup', 'customer', 'dispatch',
+  'shipper', 'driver', 'www', 'pricing', 'about', 'contact', 'blog', 'help', 'docs', 'terms', 'privacy', 'support'];
+const RESERVED = new Set(RESERVED_SLUGS);
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const trim = (path: string) => path.replace(/\/+$/, '') || '/';
 
@@ -28,7 +31,6 @@ export function pageForPath(pathname: string): string | undefined {
   if (!prefix) return undefined;
   const suffix = path.slice(prefix.length) || '/';
   if (suffix === '/settings/company') return 'profile';
-  if (suffix === '/shipper') return 'customers';
   if (suffix === '/settings/pricing' || suffix === '/pricing') return 'rate-cards';
   return Object.keys(PAGE_PATHS).find(page => PAGE_PATHS[page] === suffix);
 }

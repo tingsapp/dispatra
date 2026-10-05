@@ -5,7 +5,7 @@ const slug = process.env.PORTAL_COMPANY || 'demo';
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 try {
-  await page.goto(`${origin}/${slug}/shipper-portal`);
+  await page.goto(`${origin}/${slug}/shipper`);
   await page.getByLabel('Email or login ID', { exact: true }).fill(process.env.SHIPPER_LOGIN || 'shipper@example.com');
   await page.getByLabel('Password', { exact: true }).fill(process.env.SHIPPER_PASSWORD || '123456');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -16,7 +16,7 @@ try {
     ['Orders','orders','Orders'], ['Invoices','invoices','Invoices'],
   ]) {
     await nav.getByRole('link', { name, exact: true }).click();
-    await page.waitForURL(`**/${slug}/shipper-portal/${path}`);
+    await page.waitForURL(`**/${slug}/shipper/${path}`);
     await page.getByRole('heading', { name: content, exact: true }).last().waitFor();
     assert.equal(await nav.getByRole('link', { name, exact: true }).getAttribute('aria-current'), 'page');
     await page.reload();
@@ -26,7 +26,7 @@ try {
   await page.getByRole('button',{name:'Shipper account',exact:true}).click();
   assert.deepEqual(await page.getByRole('menu',{name:'Account menu'}).getByRole('menuitem').allTextContents(), ['Profile','Logout']);
   await page.getByRole('menuitem',{name:'Profile'}).click();
-  await page.waitForURL(`**/${slug}/shipper-portal/profile`);
+  await page.waitForURL(`**/${slug}/shipper/profile`);
   await page.getByRole('heading',{name:'Contact details',exact:true}).waitFor();
   await page.getByRole('button',{name:'Security',exact:true}).click();
   await page.getByRole('heading',{name:'Change password',exact:true}).waitFor();

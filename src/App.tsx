@@ -643,6 +643,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
                 handleSelectDriver(driverId);
                 setShowSearchPopover(false);
               }}
+              onOpenEmailDrafts={() => setActiveTab('jobs')}
               onActionNotification={showToast}
               drivers={drivers}
               jobs={jobs}

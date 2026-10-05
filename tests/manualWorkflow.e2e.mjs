@@ -71,7 +71,7 @@ async function book(page, dispatcher) {
 }
 try {
   const desk=await open('/demo/orders','Login ID','dispatcher@example.com');
-  const shipper=await open('/demo/shipper-portal','Email or login ID','shipper@example.com');
+  const shipper=await open('/demo/shipper','Email or login ID','shipper@example.com');
   const driver=await open('/demo/driver','Login ID','driver@example.com');
   // Real driver activation verifies the first location belongs to the newly created duty.
   const existing=await json(await driver.request.get(base+'/driver/profile'));

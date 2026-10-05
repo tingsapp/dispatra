@@ -14,7 +14,7 @@ npm run lint         # tsc --noEmit (there is no ESLint; this is the only lint s
 npm test             # runs every tests/*.test.ts file sequentially
 npm run build        # vite build (a bundle-size advisory is expected)
 npm run generate:api # regenerate src/portal/schema.d.ts from ../api/openapi.json
-npm run test:portal  # Playwright browser journey against a live API (needs E2E_* env, see README)
+npm run test:shipper-portal  # Playwright Shipper portal journey against a live API (see README)
 ```
 
 Run a single test file (the test runner is `node:test`, no vitest/jest):
@@ -36,7 +36,7 @@ New test files must be appended to the `test` script in `package.json` — nothi
 `src/Root.tsx` picks the app by `location.pathname`:
 
 - `/` and `/prototype*` → `src/App.tsx`, the **local dispatch prototype**. No router; navigation is a `activeTab` string. All data is static mocks (`src/data/mockData.ts`) persisted to `localStorage` under `dispatra_*` keys by the `src/lib/*Storage.ts` modules.
-- Everything else (`/platform`, `/{slug}/dispatch`, `/{slug}/customer[/settings]`) → `src/portal/PortalApp.tsx`, the **authenticated portal**. Routes are parsed by `parsePortal`; server state goes through `src/portal/api.ts` (`openapi-fetch` typed by the generated `schema.d.ts`) and TanStack Query. It must never import from the prototype or read its localStorage stores.
+- Everything else (`/admin`, `/{slug}` dispatcher pages, `/{slug}/shipper`, `/{slug}/driver`) → `src/portal/PortalApp.tsx`, the **authenticated portal**. Routes are parsed by `parsePortal`; server state goes through `src/portal/api.ts` (`openapi-fetch` typed by the generated `schema.d.ts`) and TanStack Query. It must never import from the prototype or read its localStorage stores.
 
 Both apps are lazy-loaded so neither bundle pulls the other in.
 
@@ -58,7 +58,7 @@ Settings UI (`src/components/settings/`) has exactly four destinations — Compa
 
 - Component tests bootstrap jsdom manually at the top of the file (see `tests/entityForms.test.ts`) and `await import` React components *after* the globals are defined. Copy that preamble for new component tests.
 - Pure engine tests build a `PricingContext` from `INITIAL_*` constants with `structuredClone` and assert on `PricingSnapshot` fields.
-- `tests/portal.e2e.mjs` is not in `npm test`; it needs a running API and browser.
+- `tests/*.e2e.mjs` are not in `npm test`; they need a running API and browser.
 
 ## Conventions worth knowing
 

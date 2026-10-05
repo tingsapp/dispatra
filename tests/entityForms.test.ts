@@ -90,8 +90,7 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
   render(React.createElement(CustomersPage,{onBackToMonitor:()=>{}}));
   await user.click(screen.getByRole('button',{name:'New Shipper'}));
   assert.equal(screen.queryByLabelText('Service Area'),null);
-  assert.ok(screen.getByText('No card on file'));
-  assert.equal((screen.getByRole('button',{name:'Add credit card'}) as HTMLButtonElement).disabled,true);
+  assert.equal(screen.queryByText('Credit card'),null); assert.equal(screen.queryByRole('button',{name:'Add credit card'}),null);
   assert.equal(screen.queryByLabelText(/Card number|Expiry|CVC/i),null);
   const address=screen.getByLabelText('Warehouse Address') as HTMLInputElement;
   assert.match(address.parentElement!.textContent!,/street, city, province and postal code/i);

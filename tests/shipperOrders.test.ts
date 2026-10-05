@@ -66,7 +66,7 @@ test('self mode shows the dispatcher form without shipper, rate card or vehicle 
 test('shipper sidebar uses the dispatcher account card with Profile and Logout', async () => {
   const user = userEvent.setup({ document }); let profile = 0, logout = 0;
   render(React.createElement(PortalShell, { company: 'Demo', login: 'shipper@example.com', primary: 'Orders', icon: ClipboardList, settings: false,
-    navigation: [{ label: 'Orders', href: '/demo/shipper-portal/orders', icon: ClipboardList, current: true }],
+    navigation: [{ label: 'Orders', href: '/demo/shipper', icon: ClipboardList, current: true }],
     account: { name: 'Demo Shipper', role: 'Shipper', profileCurrent: false },
     onHome: () => {}, onSettings: () => { profile += 1; }, onLogout: () => { logout += 1; }, loggingOut: false, children: null }));
   assert.equal(screen.queryByRole('button', { name: 'Sign out' }), null);

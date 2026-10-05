@@ -13,6 +13,7 @@ ChevronRight,
 Clock,
 MapPin,
 Package,
+Mail,
 Phone,
 Plus,
 FileText
@@ -22,9 +23,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { allOperations, operations } from '../operations/api';
 import { assignableRoute, assignToDriver } from '../operations/assignment';
-import { inputToBooking } from '../operations/orderAdapters';
+import { draftToInput, inputToBooking } from '../operations/orderAdapters';
 import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
 import { InvoiceDialog } from '../components/orders/InvoiceDialog';
+import { EMAIL_DRAFT_STATUSES, EMAIL_ERRORS, EmailStatusBadge, IntakeDialog, emailTime, type EmailDraft } from '../components/orders/EmailIntake';
 import { useCompanyPricingContext, useOrderAssignment, useOrderCompletion } from '../components/orders/useOrderDetails';
 import { useOrderPreview } from '../components/orders/useOrderPreview';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
@@ -104,6 +106,7 @@ export function JobsPage({
   const [newInstructions, setNewInstructions] = useState('');
   const [orderFields, setOrderFields] = useState<Partial<Job>>({});
   const [editingOrder, setEditingOrder] = useState<Job | null>(null);
+  const [emailSource, setEmailSource] = useState<{ id: string; version: number } | null>(null);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   // Pricing context is read fresh each time the modal opens so settings edits apply.
   const [localPricingCtx, setPricingCtx] = useState(() => loadPricingContext());
@@ -116,7 +119,7 @@ export function JobsPage({
   const openCreateModal = (mode: 'order' | 'quote') => {
     const ctx = slug ? livePricingCtx : loadPricingContext();
     if (!ctx) { onNotification('Pricing data is still loading. Try again in a moment.'); return; }
-    setCreateMode(mode); setEditingOrder(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null;
+    setCreateMode(mode); setEditingOrder(null); setEmailSource(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null;
     setPricingCtx(ctx);
     setNewOrderInput({ ...createBookingInput(ctx), rateCardOverrideId: mode === 'quote' ? defaultRateCard(ctx.pricing.rateCards)?.id ?? null : null });
     setNewInstructions('');
@@ -126,7 +129,7 @@ export function JobsPage({
 
   const openEditOrder = (job: Job) => {
     if (!orderEditable(job) || !job.pricingInput) return;
-    setCreateMode('order'); setPricingCtx(slug && livePricingCtx ? livePricingCtx : loadPricingContext()); setEditingOrder(job); setOrderFields({ ...job }); setFormErrors([]);
+    setCreateMode('order'); setPricingCtx(slug && livePricingCtx ? livePricingCtx : loadPricingContext()); setEditingOrder(job); setEmailSource(null); setOrderFields({ ...job }); setFormErrors([]);
     setNewOrderInput(normalizeOrderInput({ ...structuredClone(job.pricingInput), taxCalculation: 'COMPANY' }));
     setNewInstructions(job.handlingInstructions ?? '');
     setNewScheduledTime(job.scheduledTime); setNewDriverId(job.assignedDriverId ?? 'unassigned'); setActiveJobDossier(null); setShowCreateModal(true);
@@ -138,6 +141,16 @@ export function JobsPage({
     if (!job) return;
     openEditOrder(job); onEditHandled?.();
   }, [editJobId, jobs, livePricingCtx]);
+
+  // Emails the Order agent could not book yet are listed as drafts in this same Orders list.
+  const emailQuery = useQuery({ queryKey: ['operations', slug, 'email-intakes', 'drafts'], queryFn: () => operations.emailIntakes(slug!, [...EMAIL_DRAFT_STATUSES, 'NOT_AN_ORDER']), enabled: !!slug });
+  const [reviewingEmailId, setReviewingEmailId] = useState<string | null>(null);
+  const openEmailDraft = (email: EmailDraft) => {
+    if (!livePricingCtx) { onNotification('Pricing data is still loading. Try again in a moment.'); return; }
+    setCreateMode('order'); setEditingOrder(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null; setPricingCtx(livePricingCtx);
+    setNewOrderInput(normalizeOrderInput({ ...draftToInput(email.draft), taxCalculation: 'COMPANY' }));
+    setNewInstructions(''); setNewDriverId('unassigned'); setEmailSource(email.intake); setShowCreateModal(true);
+  };
 
   // Reassignment popover
   const [reassigningJobId, setReassigningJobId] = useState<string | null>(null);
@@ -171,6 +184,14 @@ export function JobsPage({
       return matchesSearch && matchesStatus && matchesType && matchesDate && (lifecycleFilter === 'all' || (lifecycleFilter === 'attention' ? orderAttention(job).length > 0 : orderLifecycle(job) === lifecycleFilter));
     });
   }, [jobs, searchQuery, statusFilter, typeFilter, lifecycleFilter, dateFilter, today]);
+
+  const emailDrafts = (emailQuery.data ?? []).filter(row => EMAIL_DRAFT_STATUSES.includes(row.status));
+  const visibleDrafts = useMemo(() => {
+    if (statusFilter !== 'all' || typeFilter !== 'all' || dateFilter.kind !== 'all' || !['all', 'attention', 'email'].includes(lifecycleFilter)) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return (lifecycleFilter === 'email' ? emailQuery.data ?? [] : emailDrafts)
+      .filter(row => !q || [row.subject, row.from_address, row.from_name, row.shipper_name, row.summary].join(' ').toLowerCase().includes(q));
+  }, [emailQuery.data, statusFilter, typeFilter, dateFilter, lifecycleFilter, searchQuery]);
 
   // Metrics
   const totalCount = jobs.length;
@@ -208,7 +229,9 @@ export function JobsPage({
         }
         const booking = inputToBooking(newOrderInput, newInstructions, pricingCtx.billing.general.timeZone);
         const previous = editingOrder ? orderQuery.data?.find(row => row.id === editingOrder.id) : undefined;
-        const saved = previous ? await operations.updateOrder(slug, previous, booking) : await operations.createOrder(slug, booking);
+        const saved = previous ? await operations.updateOrder(slug, previous, booking)
+          : emailSource ? await operations.createOrderFromEmail(slug, emailSource, booking) : await operations.createOrder(slug, booking);
+        if (emailSource) { setEmailSource(null); void queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] }); }
         setShowCreateModal(false);
         try {
           if (newDriverId !== 'unassigned' && saved.status === 'NEW') {
@@ -363,6 +386,7 @@ export function JobsPage({
           { label: 'At risk / late', value: atRiskCount, icon: AlertTriangle },
           { label: 'Unassigned', value: noDriverCount, icon: UserRoundSearch },
           { label: 'Completed', value: completedCount, icon: CircleCheck },
+          ...(slug ? [{ label: 'Email drafts', value: emailDrafts.length, icon: Mail }] : []),
         ]} />
 
         {/* SEARCH & FILTERS BAR */}
@@ -400,7 +424,7 @@ export function JobsPage({
             </div>
 
             <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={today} />
-            <Select aria-label="Filter by order status" value={lifecycleFilter} onValueChange={setLifecycleFilter} options={[{ value: 'all', label: 'All order statuses' }, ...ORDER_LIFECYCLES.map(value => ({ value, label: ORDER_LIFECYCLE_LABELS[value] })), { value: 'attention', label: 'Needs attention' }]} />
+            <Select aria-label="Filter by order status" value={lifecycleFilter} onValueChange={setLifecycleFilter} options={[{ value: 'all', label: 'All order statuses' }, ...ORDER_LIFECYCLES.map(value => ({ value, label: ORDER_LIFECYCLE_LABELS[value] })), { value: 'attention', label: 'Needs attention' }, ...(slug ? [{ value: 'email', label: 'Email drafts' }] : [])]} />
             {/* Service Type Filter */}
             <Select
               aria-label="Filter by service level"
@@ -416,7 +440,7 @@ export function JobsPage({
 
         {/* JOBS TABLE */}
         <div className="app-table-shell bg-white overflow-hidden">
-          {filteredJobs.length === 0 ? (
+          {filteredJobs.length === 0 && visibleDrafts.length === 0 ? (
             <div className="p-12 text-center">
               <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <h3 className="app-section-title text-slate-800">No orders match your filter</h3>
@@ -449,6 +473,32 @@ export function JobsPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
+                {visibleDrafts.map(email => (
+                  <tr key={email.id} className="hover:bg-slate-50/80 transition-colors cursor-pointer" onClick={() => setReviewingEmailId(email.id)}>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-500">Draft</span>
+                        <EmailStatusBadge status={email.status} />
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" /> From email</div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="font-medium text-slate-800">{email.shipper_name ?? (email.from_name || email.from_address)}</div>
+                      {!email.shipper_name && <div className="text-slate-500 text-xs mt-0.5">{email.from_address}</div>}
+                    </td>
+                    <td className="py-3.5 px-4 max-w-xs">
+                      <div className="truncate font-medium text-slate-700">{email.subject || '(no subject)'}</div>
+                      <div className="truncate text-slate-500 mt-1">{email.missing.length ? `Missing: ${email.missing.join(' · ')}` : email.error_code ? EMAIL_ERRORS[email.error_code] ?? email.error_code : email.summary}</div>
+                    </td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1 text-slate-700 font-medium"><Clock className="w-3.5 h-3.5 text-slate-400" />{emailTime(email.received_at)}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">Received</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-400">—</td>
+                    <td className="py-3.5 px-4 text-slate-400">—</td>
+                    <td className="py-3.5 px-4 text-right"><Button type="button" variant="outline" size="xs" onClick={e => { e.stopPropagation(); setReviewingEmailId(email.id); }}>Review</Button></td>
+                  </tr>
+                ))}
                 {filteredJobs.map((job) => {
                   const assignedDriver = drivers.find((d) => d.id === job.assignedDriverId);
                   const readyToInvoice = invoiceState(job) === 'READY';
@@ -588,12 +638,15 @@ export function JobsPage({
       {activeJobDossier && <OrderDetailsDialog job={activeJobDossier} ctx={pricingCtx} drivers={drivers} onClose={() => setActiveJobDossier(null)}
         onReassign={handleReassignDriver} onEdit={openEditOrder} onComplete={handleCompleteOrder} onLocate={job => { onSelectJob(job.jobNumber); setActiveJobDossier(null); }} />}
 
+      {reviewingEmailId && slug && <IntakeDialog slug={slug} id={reviewingEmailId} onClose={() => setReviewingEmailId(null)} onNotification={onNotification}
+        onChanged={() => queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] })}
+        onCompleteDraft={email => { setReviewingEmailId(null); openEmailDraft(email); }} onShowOrder={number => { setReviewingEmailId(null); onSelectJob(number); }} />}
       {invoicingJob && <InvoiceDialog job={invoicingJob} onClose={() => setInvoicingJob(null)} onSend={handleInvoice} />}
 
       {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (
         <Dialog size="xl" onClose={() => setShowCreateModal(false)}>
-          <DialogHeader onClose={() => setShowCreateModal(false)} title={editingOrder ? 'Edit Order' : createMode === 'quote' ? 'New Quote' : 'New Order'} description={createMode === 'quote' ? 'Enter shipment details to prepare a quotation without creating an order.' : 'Enter the order details on the left to see its live price estimate on the right.'} />
+          <DialogHeader onClose={() => setShowCreateModal(false)} title={editingOrder ? 'Edit Order' : createMode === 'quote' ? 'New Quote' : emailSource ? 'New Order from Email' : 'New Order'} description={createMode === 'quote' ? 'Enter shipment details to prepare a quotation without creating an order.' : 'Enter the order details on the left to see its live price estimate on the right.'} />
             <form onSubmit={createMode === 'quote' ? event => event.preventDefault() : handleCreateSubmit} className="app-dialog-body bg-slate-50 pt-5">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-7 space-y-5 text-xs">

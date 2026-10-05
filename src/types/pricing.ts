@@ -242,7 +242,7 @@ export interface PricingOrderInput {
   /** ISO datetime the service window starts — drives after-hours / weekend rules. */
   scheduledAt: string | null;
   /** Order source — customer portal bookings can carry a channel discount later. */
-  source: 'DISPATCHER' | 'SHIPPER_PORTAL' | 'IMPORT';
+  source: 'DISPATCHER' | 'SHIPPER_PORTAL' | 'EMAIL' | 'IMPORT';
   importedPrice: number | null;
   importedTaxTreatment?: 'INCLUDED' | 'EXEMPT' | 'SUPPLIED';
   importedTaxAmount?: number | null;

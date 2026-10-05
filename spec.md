@@ -16,11 +16,11 @@ Use React, strict TypeScript, Vite, shadcn/ui, Inter, a light neutral theme, bla
 | `/admin`, `/admin/companies`, `/admin/companies/{id}`, `/admin/profile` | Platform owner administration: companies, company detail with dispatcher accounts, owner profile |
 | `/{company-slug}/` | Dispatcher Monitor |
 | `/{company-slug}/orders`, `/drivers`, `/vehicles`, `/shippers`, `/analytics`, `/pricing`, `/profile`, `/help` | Dispatcher pages |
-| `/{company-slug}/shipper-portal` | Shipper account portal |
-| `/{company-slug}/driver` | Driver portal |
+| `/{company-slug}/shipper`, `/shipper/invoices`, `/shipper/profile` | Shipper portal (home is Orders) |
+| `/{company-slug}/driver`, `/driver/profile` | Driver portal (home is Orders) |
 | `/prototype` | Separate local demo entry |
 
-`/{company-slug}/shippers` is the dispatcher directory, never the shipper portal. Dispatcher pages require the matching dispatcher API session; role-specific portals must not read dispatcher browser stores. Older `/platform`, `/{slug}/dispatch`, and `/{slug}/customer` account routes remain compatibility paths. Internal navigation preserves the slug, Back/Forward, direct loading, drafts, and unsaved-change confirmation.
+Plural `/{company-slug}/shippers` and `/drivers` are dispatcher directories; singular `/shipper` and `/driver` are only the role portals, and no dispatcher page may use them. Dispatcher pages require the matching dispatcher API session; role-specific portals must not read dispatcher browser stores. A signed-in account that opens another role's area of its own company is sent to its own home. Older `/{slug}/shipper-portal/...`, `/{slug}/customer` and `/{slug}/dispatch` links redirect to the clean paths, and `/platform` still opens administration. Company slugs cannot use reserved top-level words (`RESERVED_SLUGS` in `src/lib/pageRoutes.ts`, mirrored by the API). Internal navigation preserves the slug, Back/Forward, direct loading, drafts, and unsaved-change confirmation.
 
 ## 3. Shared navigation and Monitor
 
@@ -34,7 +34,7 @@ Order, Quote, Shipper warehouse, Driver, Company, and portal address fields use 
 
 ## 4. Dispatcher directories and forms
 
-- **Shippers:** New/Edit uses Shipper name for both Business and Individual; Business also requires Company name. Collect email, phone, one complete Warehouse Address, rate card, payment terms, optional discount, and instructions. Email is required for portal login and is also the quote/invoice address. There is no Contact name or Service Area input. The warehouse address is the default Order pickup and is preserved when the dispatcher manually changes that stop. Credit cards are added by the authenticated Shipper through Stripe Connect hosted setup. The company owns the Stripe customer and card; never collect raw card data in Dispatra or browser storage.
+- **Shippers:** New/Edit uses Shipper name for both Business and Individual; Business also requires Company name. Collect email, phone, one complete Warehouse Address, rate card, payment terms, optional discount, and instructions. Email is required for portal login and is also the quote/invoice address. There is no Contact name or Service Area input. The warehouse address is the default Order pickup and is preserved when the dispatcher manually changes that stop. V1 has no card payments or Stripe integration: Shippers pay by invoice terms, and Dispatra never collects card data.
 - **Drivers:** New/Edit requires name, phone, email, and address. Address city defines the service area; remove the old Service areas input. Every driver uses the company maximum active Orders limit; there is no individual override and no employment type. Drivers carry no billing details: no payout shares, earnings or pay records in this version. Attached vehicle selection begins with Register new vehicle and returns to the same driver draft. Editing Duty saves the dispatcher-selected On/Off state through the API and reloads from the persisted duty session; it does not start location sharing. With no image, show the uppercase first letter of the name as the avatar.
 - **Driver details:** Two tabs. Details holds the profile and ends with Activity (app connectivity, app last seen, GPS captured, location permission and current route; no order count). Orders lists every Order assigned to this driver in any status, newest first, with number, status, shipper, route leg and completion or scheduled time.
 - **Vehicles:** One fleet view and one Register/Edit form. Select a vehicle type, then edit vehicle-specific capacity and pricing. Cargo length, width, and height are required; Maximum stops is optional and a positive whole number. Equipment uses checkboxes. Keep one Vehicle description. Do not show Vehicle class name/description, Vehicle upgrade surcharge, Surcharge is fuel-eligible, or Requires commercial driver licence in the form; legacy stored values remain readable.
@@ -81,6 +81,6 @@ Orders, Drivers, Shippers and Vehicles have server-issued public numbers in the 
 
 ## Shipper portal navigation and payments
 
-The sidebar contains Profile, Orders and Invoices, each with a direct URL beneath `/{company}/shipper-portal`. Profile contains contact details and password controls. Orders contains booking and delivery proof; Invoices contains issued documents. Shippers pay by dispatcher-managed invoice terms; this version has no saved cards, Payment Methods page or Stripe integration.
+The sidebar contains Profile, Orders and Invoices, with direct URLs `/{company}/shipper` (Orders), `/{company}/shipper/invoices` and `/{company}/shipper/profile`. Profile contains contact details and password controls. Orders contains booking and delivery proof; Invoices contains issued documents. Shippers pay by dispatcher-managed invoice terms; this version has no saved cards, Payment Methods page or Stripe integration.
 
 Shipper pages reuse dispatcher typography, spacing, controls and tables. Profile and Invoices use the centered reading-width column. Profile uses Details/Security tabs. Plain sections have no card wrapper, background, border or padding. Orders and Invoices have a single page heading and unboxed tables. New order opens the shared form dialog from the page header.

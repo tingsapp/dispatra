@@ -26,15 +26,15 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   const go = (href: string) => { if (href !== location.pathname) history.pushState(null, '', href); setPathname(href); window.scrollTo(0, 0); };
   useSync(slug, 'SHIPPER');
   const profile = useQuery({ queryKey: ['shipper-profile', slug], queryFn: () => operations.ownShipper(slug) });
-  const base = `/${slug}/shipper-portal`;
+  const base = `/${slug}/shipper`;
   const suffix = pathname.replace(/\/+$/, '').split('/')[3];
   const page = shipperPages.find(item => item.path === suffix) ?? shipperPages[0];
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false}
-    actions={<><NotificationBell slug={slug} onOpen={row => go(`${base}/${row.kind.startsWith('invoice.') ? 'invoices' : 'orders'}`)} />{page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}</>}
+    actions={<><NotificationBell slug={slug} onOpen={row => go(row.kind.startsWith('invoice.') ? `${base}/invoices` : base)} />{page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}</>}
     reading={page.path !== 'orders'}
     account={{ name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}
     description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'orders' ? 'Create and track your deliveries.' : 'View invoices for your deliveries.'}
-    navigation={shipperPages.filter(item => item.path !== 'profile').map(item => ({ ...item, href: `${base}/${item.path}`, current: item.path === page.path }))}
+    navigation={shipperPages.filter(item => item.path !== 'profile').map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path }))}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     <Notice error={logoutError} />
     {page.path === 'profile' && <>
