@@ -16,6 +16,7 @@ import { DriverPopover } from './components/DriverPopover';
 import { JobDetailPopover } from './components/JobDetailPopover';
 import { MapControls } from './components/MapControls';
 import { ConfirmDialogHost, confirmDialog } from './components/ui/ConfirmDialog';
+import { DispatchRecommendation } from './components/monitor/DispatchRecommendation';
 import { Sidebar } from './components/Sidebar';
 import { TopMetrics } from './components/TopMetrics';
 import { GoogleMonitorMap, type MapController, VANCOUVER_CENTER_LNG_LAT } from './components/GoogleMonitorMap';
@@ -42,7 +43,7 @@ import { VehiclesPage } from './pages/VehiclesPage';
 import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from './types';
 
 /** API attention kinds as dispatcher-facing labels. */
-const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', INVOICE: 'Invoice review' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
+const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', INVOICE: 'Invoice review', NO_DRIVER: 'No driver' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
 
 export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const slug = companySlugForCurrentPath();
@@ -378,7 +379,23 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
       setShowAssignDriver(false); setShowJobDetail(false);
       showToast(`Assigned ${job.jobNumber} to ${driver.name}.`);
     } catch (error) { showToast(error instanceof Error ? error.message : 'Could not assign driver.'); }
-    finally { await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'routes'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]); }
+    finally { await refreshDispatch(); }
+  };
+  const refreshDispatch = () => Promise.all(['orders', 'routes', 'monitor'].map(name => queryClient.invalidateQueries({ queryKey: ['operations', slug, name] })));
+  const handleRecommendationAssigned = async (message: string) => {
+    setShowAiRecommendation(false); setShowAssignDriver(false); setShowJobDetail(false);
+    showToast(message);
+    await refreshDispatch();
+  };
+  const handleDispatchModeChange = async (mode: 'AUTO' | 'MANUAL') => {
+    if (!slug) { setDispatchMode(mode); showToast(`Dispatch mode set to ${mode === 'AUTO' ? 'Auto' : 'Manual'}`); return; }
+    const current = settingsQuery.data;
+    if (!current || mode === current.data.dispatch_mode) return;
+    if (mode === 'AUTO' && !(await confirmDialog({ title: 'Turn on auto dispatch?', message: 'Priced orders that are due soon will be assigned to the best available driver automatically. You will be notified of each assignment and of any order no driver can take.', confirmLabel: 'Turn on' }))) return;
+    try {
+      queryClient.setQueryData(companySettingsKey(slug), await api.saveCompanySettings(slug, { version: current.version, data: { ...current.data, dispatch_mode: mode } }, crypto.randomUUID()));
+      showToast(mode === 'AUTO' ? 'Auto dispatch is on.' : 'Auto dispatch is off. Orders wait for a dispatcher.');
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Could not change the dispatch mode.'); }
   };
 
   const handleUpdateJob = useCallback((updatedJob: Job) => {
@@ -476,6 +493,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
 
   const activeDriver = drivers.find((d) => d.id === selectedDriverId) || drivers[0];
   const activeJob = jobs.find((j) => j.jobNumber === selectedJobId) || jobs[0];
+  const activeRecord = slug && activeJob ? orderQuery.data?.find(order => order.id === activeJob.id) : undefined;
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-app-canvas font-sans text-app-text antialiased">
@@ -494,11 +512,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
         onLogout={onSignOut}
         onOpenPricing={() => { setModalDialog({ isOpen: false, type: null }); setActiveTab('rate-cards'); }}
         dispatchMode={dispatchMode}
-        onDispatchModeChange={(mode) => {
-          if (slug) { showToast('Manual dispatch is active.'); return; }
-          setDispatchMode(mode);
-          showToast(`Dispatch mode set to ${mode === 'AUTO' ? 'Auto' : 'Manual'}`);
-        }}
+        onDispatchModeChange={handleDispatchModeChange}
         onOpenProfile={handleOpenProfile}
         onOpenHelp={handleOpenHelp}
       />
@@ -686,6 +700,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
                   onOpenAllDrivers={handleOpenAllDrivers}
                   position={markerPositions.job ?? markerPositions.job461 ?? undefined}
                   timeZone={settingsQuery.data?.data.time_zone}
+                  recommendation={slug && activeRecord?.status === 'NEW' ? <DispatchRecommendation slug={slug} order={activeRecord} onClose={() => setShowAiRecommendation(false)} onAssigned={handleRecommendationAssigned} /> : undefined}
                 />
               )}
             </AnimatePresence>

@@ -1,9 +1,12 @@
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { confirmDialog } from '../ui/ConfirmDialog';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from '../../lib/pageRoutes';
 import { allOperations, operations } from '../../operations/api';
+import { api } from '../../portal/api';
+import { companySettingsKey } from '../../portal/WorkspaceAccount';
+import { defaultServiceId } from '../../lib/orderPricing';
 import { catalogFromUi, catalogueFromApi } from '../../operations/pricingAdapters';
 import { loadBillingConfig } from '../../lib/billingStorage';
 import { loadSimplePricingConfig, saveSimplePricingConfig } from '../../lib/simplePricingStorage';
@@ -14,7 +17,7 @@ import { ServiceModal } from '../pricing/ServiceModal';
 type Section = 'services' | 'accessorials';
 type Item = DeliveryService | AccessorialItem;
 const descriptions = {
-  services: ['Services', 'Delivery promises and fixed charges added once per order.', 'Service'],
+  services: ['Services', 'Delivery promises and fixed charges added once per order. New orders, and emails that don’t name a service, use the Default.', 'Service'],
   accessorials: ['Accessorials', 'Fixed charges added once per order when selected.', 'Accessorial'],
 };
 const button = 'inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shrink-0';
@@ -23,13 +26,15 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
+  const settingsQuery = useQuery({ queryKey: companySettingsKey(slug!), queryFn: () => api.companySettings(slug!), enabled: !!slug && section === 'services' });
   const [config, setConfig] = useState(() => slug ? { services: [], vehicles: [], accessorials: [] } as SimplePricingConfig : loadSimplePricingConfig());
-  useEffect(() => { if (slug && catalogQuery.data) { const all = catalogueFromApi(catalogQuery.data); setConfig({ ...all, services: all.services.filter(row => row.active), accessorials: all.accessorials.filter(row => row.active) }); } }, [slug, catalogQuery.data]);
+  useEffect(() => { if (slug && catalogQuery.data) { const all = catalogueFromApi(catalogQuery.data, settingsQuery.data?.data.default_service_id); setConfig({ ...all, services: all.services.filter(row => row.active), accessorials: all.accessorials.filter(row => row.active) }); } }, [slug, catalogQuery.data, settingsQuery.data]);
   const [editing, setEditing] = useState<Item | null | undefined>(undefined);
   const [search, setSearch] = useState('');
   const [billing] = useState(loadBillingConfig);
   const [title, description, singular] = descriptions[section];
   const items = config[section].filter(item => `${item.name} ${item.description}`.toLowerCase().includes(search.toLowerCase()));
+  const defaultId = section === 'services' ? defaultServiceId(config.services) : '';
   const commit = (records: Item[]) => {
     const next = { ...loadSimplePricingConfig(), [section]: records } as SimplePricingConfig;
     if (!slug) saveSimplePricingConfig(next);
@@ -51,7 +56,20 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
     commit(records.some(record => record.id === item.id) ? records.map(record => record.id === item.id ? item : record) : [...records, item]);
     onNotification?.(`${singular} saved.`);
   };
+  const makeDefault = async (item: Item) => {
+    if (slug) {
+      const settings = settingsQuery.data; if (!settings) return;
+      try {
+        const saved = await api.saveCompanySettings(slug, { version: settings.version, data: { ...settings.data, default_service_id: item.id } }, crypto.randomUUID());
+        queryClient.setQueryData(companySettingsKey(slug), saved); onChanged?.(); onNotification?.(`${item.name} is now the Default service.`);
+      } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not change the Default service.'); }
+      return;
+    }
+    commit(loadSimplePricingConfig().services.map(service => ({ ...service, isDefault: service.id === item.id })));
+    onNotification?.(`${item.name} is now the Default service.`);
+  };
   const deleteItem = async (item: Item) => {
+    if (item.id === defaultId) { onNotification?.('Set another service as Default before deleting this one.'); return; }
     if (!(await confirmDialog({
       title: `Delete ${singular.toLowerCase()} “${item.name}”?`,
       message: 'This removes it from future order choices. Saved order prices stay unchanged, but orders using it may need a replacement before editing or repricing.',
@@ -81,13 +99,14 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       {section === 'services' && <th className="px-4 py-3 font-medium">Additional charge ({billing.invoicing.currency})</th>}
       <th className="px-4 py-3 font-medium">Action</th>
     </tr></thead><tbody>{items.map(item => <tr key={item.id} className="border-t border-slate-100">
-      <td className="px-4 py-3 font-medium text-slate-900">{item.name}</td>
+      <td className="px-4 py-3 font-medium text-slate-900">{item.name}{item.id === defaultId && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">Default</span>}</td>
       {section === 'services' ? <><td className="px-4 py-3 text-slate-600">{(item as DeliveryService).estimatedTime || 'Not specified'}</td><td className="px-4 py-3 text-slate-500">{(item as DeliveryService).bookingCutoffTime ? `Book by ${(item as DeliveryService).bookingCutoffTime}` : 'No cutoff'} · {(item as DeliveryService).exclusiveVehicle ? 'Exclusive vehicle' : 'Shared vehicle'}</td></> : <>
         <td className="px-4 py-3 text-slate-600">${(item as AccessorialItem).rate.toFixed(2)} <span className="text-slate-400">per order</span></td>
         <td className="px-4 py-3 text-slate-500">Selected on order</td>
       </>}
       {section === 'services' && <td className="px-4 py-3 text-slate-600 tabular-nums">{(item as DeliveryService).additionalCharge == null ? 'Set charge' : `$${(item as DeliveryService).additionalCharge!.toFixed(2)}`}</td>}
       <td className="px-4 py-3"><div className="inline-flex items-center gap-1">
+        {section === 'services' && item.id !== defaultId && <button type="button" aria-label={`Set ${item.name} as default`} title="Set as default" onClick={() => void makeDefault(item)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Star aria-hidden="true" className="h-3.5 w-3.5" /></button>}
         <button type="button" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} onClick={() => void deleteItem(item)} className="rounded p-1.5 text-rose-700 hover:bg-rose-50"><Trash2 aria-hidden="true" className="h-3.5 w-3.5" /></button>
         <button type="button" aria-label={`Edit ${item.name}`} onClick={() => setEditing(item)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Pencil className="w-3.5 h-3.5" /></button>
       </div></td>

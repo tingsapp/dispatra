@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { draftToInput, inputToBooking } from '../src/operations/orderAdapters';
+import { draftToInput, emailDraftRow, inputToBooking } from '../src/operations/orderAdapters';
+import { EMAIL_DRAFT_STATUSES } from '../src/components/orders/EmailIntake';
+import type { CatalogItem, EmailIntake, Shipper } from '../src/operations/api';
 import { syncInvalidations } from '../src/portal/sync';
 
 const pickup = '11111111-1111-4111-8111-111111111111', dropoff = '22222222-2222-4222-8222-222222222222', item = '33333333-3333-4333-8333-333333333333';
@@ -35,4 +37,15 @@ test('Order agent changes refresh the email queue and orders', () => {
   const keys = syncInvalidations('DISPATCHER', 'acme', [{ entity: 'intake' } as never, { entity: 'mailbox' } as never]).map(key => JSON.stringify(key));
   assert.deepEqual(keys, [JSON.stringify(['operations', 'acme', 'email-intakes']), JSON.stringify(['operations', 'acme', 'orders']), JSON.stringify(['operations', 'acme', 'mailbox'])]);
   assert.deepEqual(syncInvalidations('SHIPPER', 'acme', [{ entity: 'intake' } as never]), []);
+});
+
+test('only order emails become Draft rows, shown like an Order with missing facts blank', () => {
+  assert.deepEqual(EMAIL_DRAFT_STATUSES, ['NEEDS_REVIEW', 'UNKNOWN_SENDER']);
+  const intake = { id: 'intake-1', shipper_id: 'shipper-1', from_address: 'alice@example.com', draft } as unknown as EmailIntake;
+  const shippers = [{ id: 'shipper-1', name: 'Alice Shipper', phone: '6045550101' }] as Shipper[];
+  const row = emailDraftRow(intake, shippers, [] as CatalogItem[]);
+  assert.deepEqual([row.shipper, row.phone, row.pickup, row.dropoff, row.scheduledAt, row.stops, row.service], ['Alice Shipper', '6045550101', warehouse.text, '', draft.scheduled_at, 2, '']);
+  const unknown = emailDraftRow({ ...intake, shipper_id: null, draft: { ...draft, shipper_id: null } } as unknown as EmailIntake, shippers, []);
+  assert.deepEqual([unknown.shipper, unknown.phone, unknown.from], ['', '', 'alice@example.com']);
+  assert.equal(emailDraftRow({ ...intake, draft: null } as unknown as EmailIntake, shippers, []).pickup, '');
 });

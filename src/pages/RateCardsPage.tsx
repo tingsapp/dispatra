@@ -32,6 +32,7 @@ import { CatalogueSection } from '../components/settings/CatalogueSection';
 import { PricingTabs } from '../components/pricing/PricingTabs';
 import { VehicleTypesSection } from '../components/settings/VehicleTypesSection';
 import { PreferencesEditor, TaxEditor } from '../portal/CompanySettingsEditors';
+import { MailboxSettings } from '../components/orders/EmailIntake';
 import { SettingsLayout, SettingsPageProps } from '../components/settings/SettingsLayout';
 import { DISCARD_CHANGES, useSettingsGuard } from '../components/settings/useSettingsGuard';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
@@ -254,6 +255,8 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
       { id: 'taxes', label: 'Taxes', content: workspace ? <TaxEditor /> : <BillingSettingsForm section="taxes" onNotification={refreshDefaults} /> },
       { id: 'vehicle-types', label: 'Vehicle Types', content: <VehicleTypesSection onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
       { id: 'preferences', label: 'Preferences', content: workspace ? <PreferencesEditor /> : <BillingSettingsForm section="preferences" onNotification={refreshDefaults} /> },
+      // The Order agent's IMAP mailbox is API-only, so /prototype has no Mailbox tab.
+      ...(workspace && slug ? [{ id: 'mailbox', label: 'Mailbox', content: <MailboxSettings slug={slug} /> }] : []),
     ]} />
   </SettingsLayout>;
 }

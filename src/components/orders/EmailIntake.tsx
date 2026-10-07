@@ -13,8 +13,8 @@ export type EmailDraft = { intake: { id: string; version: number }; draft: Recor
 export const EMAIL_STATUS: Record<EmailIntakeStatus, { label: string; tone: string }> = {
   RECEIVED: { label: 'Reading email', tone: 'bg-slate-100 text-slate-700' },
   ORDER_CREATED: { label: 'Order created', tone: 'bg-emerald-50 text-emerald-700' },
-  NEEDS_REVIEW: { label: 'Needs details', tone: 'bg-amber-50 text-amber-800' },
-  UNKNOWN_SENDER: { label: 'Unknown sender', tone: 'bg-amber-50 text-amber-800' },
+  NEEDS_REVIEW: { label: 'Draft', tone: 'bg-slate-100 text-slate-700' },
+  UNKNOWN_SENDER: { label: 'Draft', tone: 'bg-slate-100 text-slate-700' },
   NOT_AN_ORDER: { label: 'Not an order', tone: 'bg-slate-100 text-slate-600' },
   FAILED: { label: 'Could not read', tone: 'bg-rose-50 text-rose-700' },
   DISCARDED: { label: 'Discarded', tone: 'bg-slate-100 text-slate-500' },
@@ -26,8 +26,8 @@ export const EMAIL_ERRORS: Record<string, string> = {
   MESSAGE_TOO_LARGE: 'The email is larger than 5 MB and was not read.', NO_SENDER: 'The email has no sender address.',
   PASSWORD_UNREADABLE: 'The saved mailbox password can no longer be read. Enter it again.',
 };
-/** Emails that are not Orders yet and still need a dispatcher. */
-export const EMAIL_DRAFT_STATUSES: EmailIntakeStatus[] = ['RECEIVED', 'NEEDS_REVIEW', 'UNKNOWN_SENDER', 'FAILED'];
+/** Emails the agent understood as order requests but could not book yet; anything else never becomes a draft. */
+export const EMAIL_DRAFT_STATUSES: EmailIntakeStatus[] = ['NEEDS_REVIEW', 'UNKNOWN_SENDER'];
 const OPEN: EmailIntakeStatus[] = ['NEEDS_REVIEW', 'UNKNOWN_SENDER', 'FAILED', 'NOT_AN_ORDER'];
 export const emailTime = (value?: string | null) => value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 const message = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
@@ -95,34 +95,78 @@ export function IntakeDialog({ slug, id, onClose, onChanged, onNotification, onC
   </Dialog>;
 }
 
-/** Mailbox settings (Profile → Mailbox): the one IMAP mailbox the Order agent reads for this company. */
+/** Mailbox settings (Settings → Mailbox): the one IMAP mailbox the Order agent reads for this company. */
 export function MailboxSettings({ slug }: { slug: string }) {
   const queryClient = useQueryClient();
   const mailboxQuery = useQuery({ queryKey: ['operations', slug, 'mailbox'], queryFn: () => operations.mailbox(slug) });
   if (mailboxQuery.isPending) return <p role="status" className="text-sm text-slate-500">Loading mailbox…</p>;
   if (mailboxQuery.error) return <p role="alert" className="text-sm text-rose-700">{mailboxQuery.error.message}</p>;
-  return <MailboxForm key={mailboxQuery.data?.version ?? 0} slug={slug} mailbox={mailboxQuery.data ?? null} onSaved={() => queryClient.invalidateQueries({ queryKey: ['operations', slug, 'mailbox'] })} />;
+  return <div className="space-y-8">
+    <MailboxForm key={mailboxQuery.data?.version ?? 0} slug={slug} mailbox={mailboxQuery.data ?? null} onSaved={() => queryClient.invalidateQueries({ queryKey: ['operations', slug, 'mailbox'] })} />
+    <UnreadEmails slug={slug} />
+  </div>;
 }
 
+/** Emails the agent could not read (AI or message errors). They may or may not be orders, so they stay here rather than in Orders. */
+function UnreadEmails({ slug }: { slug: string }) {
+  const queryClient = useQueryClient();
+  const failed = useQuery({ queryKey: ['operations', slug, 'email-intakes', 'failed'], queryFn: () => operations.emailIntakes(slug, ['FAILED']) });
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  if (!failed.data?.length) return null;
+  return <section className="max-w-2xl space-y-2">
+    <h3 className="app-section-title text-slate-900">Emails that could not be read</h3>
+    <p className="text-sm text-slate-500">Open one to read it again or discard it. Emails that are not order requests are ignored and not listed.</p>
+    {notice && <p role="status" className="text-sm text-slate-600">{notice}</p>}
+    <ul className="divide-y divide-slate-100 rounded-lg border border-app-border">
+      {failed.data.map(row => <li key={row.id}><button type="button" onClick={() => setOpenId(row.id)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50">
+        <span className="min-w-0"><span className="block truncate font-medium text-slate-800">{row.subject || '(no subject)'}</span>
+          <span className="block truncate text-xs text-slate-500">{row.from_address} · {ERRORS[row.error_code ?? ''] ?? row.error_code}</span></span>
+        <span className="shrink-0 text-xs text-slate-500">{when(row.received_at)}</span>
+      </button></li>)}
+    </ul>
+    {openId && <IntakeDialog slug={slug} id={openId} onClose={() => setOpenId(null)} onNotification={setNotice}
+      onChanged={() => queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] })} onCompleteDraft={() => setOpenId(null)} onShowOrder={() => setOpenId(null)} />}
+  </section>;
+}
+
+/** Known providers fill the servers; Other shows them. Microsoft may refuse app passwords (it expects Microsoft sign-in). */
+const PROVIDERS = {
+  gmail: { label: 'Gmail', host: 'imap.gmail.com', port: 993, smtp_host: 'smtp.gmail.com', smtp_port: 465, help: 'For Gmail, turn on 2-Step Verification and IMAP, then create an app password.' },
+  icloud: { label: 'iCloud', host: 'imap.mail.me.com', port: 993, smtp_host: 'smtp.mail.me.com', smtp_port: 587, help: 'For iCloud, create an app-specific password in your Apple Account.' },
+  yahoo: { label: 'Yahoo', host: 'imap.mail.yahoo.com', port: 993, smtp_host: 'smtp.mail.yahoo.com', smtp_port: 465, help: 'For Yahoo, create an app password in Account security.' },
+  zoho: { label: 'Zoho', host: 'imap.zoho.com', port: 993, smtp_host: 'smtp.zoho.com', smtp_port: 465, help: 'For Zoho, turn on IMAP access, then create an app password.' },
+  outlook: { label: 'Outlook / Microsoft 365', host: 'outlook.office365.com', port: 993, smtp_host: 'smtp.office365.com', smtp_port: 587, help: 'Microsoft may not allow app passwords. If the test fails, use another mailbox.' },
+} as const;
+type Provider = keyof typeof PROVIDERS | 'other';
+const providerOf = (host: string): Provider => (Object.keys(PROVIDERS) as (keyof typeof PROVIDERS)[]).find(key => PROVIDERS[key].host === host.trim().toLowerCase()) ?? 'other';
+
+/** Most providers pair imap.<domain> with smtp.<domain>. */
+const outgoingHost = (host: string) => host.trim().toLowerCase().startsWith('imap.') ? `smtp.${host.trim().slice(5)}` : host.trim();
+
 function MailboxForm({ slug, mailbox, onSaved }: { slug: string; mailbox: Mailbox | null; onSaved: () => void }) {
-  const catalog = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug) });
   const [form, setForm] = useState({ host: mailbox?.host ?? 'imap.gmail.com', port: String(mailbox?.port ?? 993), username: mailbox?.username ?? '', password: '',
-    folder: mailbox?.folder ?? 'INBOX', enabled: mailbox?.enabled ?? true, default_service_id: mailbox?.default_service_id ?? '' });
+    folder: mailbox?.folder ?? 'INBOX', enabled: mailbox?.enabled ?? true, smtp_host: mailbox?.smtp_host ?? 'smtp.gmail.com', smtp_port: String(mailbox?.smtp_port ?? 465) });
+  const [provider, setProvider] = useState<Provider>(() => providerOf(mailbox?.host ?? 'imap.gmail.com'));
+  const choose = (value: string) => { const next = value as Provider; setProvider(next); setResult(null);
+    if (next !== 'other') { const p = PROVIDERS[next]; setForm(f => ({ ...f, host: p.host, port: String(p.port), smtp_host: p.smtp_host, smtp_port: String(p.smtp_port) })); } };
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const set = (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) => { setForm(f => ({ ...f, [field]: event.target.value })); setResult(null); };
-  const services = (catalog.data ?? []).filter(item => item.kind === 'SERVICE' && item.active);
-  const connection = () => ({ host: form.host.trim(), port: Number(form.port) || 993, username: form.username.trim(), password: form.password || null, folder: form.folder.trim() || 'INBOX' });
+  // The outgoing server follows the IMAP server until it is edited.
+  const set = (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) => { const value = event.target.value;
+    setForm(f => ({ ...f, [field]: value, ...(field === 'host' && f.smtp_host === outgoingHost(f.host) ? { smtp_host: outgoingHost(value) } : {}) })); setResult(null); };
+  const connection = () => ({ host: form.host.trim(), port: Number(form.port) || 993, username: form.username.trim(), password: form.password || null, folder: form.folder.trim() || 'INBOX',
+    smtp_host: form.smtp_host.trim() || null, smtp_port: Number(form.smtp_port) || 465 });
   const test = async () => {
     setBusy(true);
-    try { const outcome = await operations.testMailbox(slug, connection()); setResult(outcome.ok ? { ok: true, text: 'Connected. Dispatra can read this mailbox.' } : { ok: false, text: outcome.error ?? 'Could not connect.' }); }
+    try { const outcome = await operations.testMailbox(slug, connection()); setResult(outcome.ok ? { ok: true, text: 'Connected. Dispatra can read and send from this mailbox.' } : { ok: false, text: outcome.error ?? 'Could not connect.' }); }
     catch (error) { setResult({ ok: false, text: message(error, 'Could not connect.') }); }
     finally { setBusy(false); }
   };
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true);
     try {
-      await operations.saveMailbox(slug, { ...connection(), enabled: form.enabled, default_service_id: form.default_service_id || null, version: mailbox?.version ?? null });
+      await operations.saveMailbox(slug, { ...connection(), enabled: form.enabled, version: mailbox?.version ?? null });
       setResult({ ok: true, text: 'Mailbox saved. New emails are read about once a minute.' }); onSaved();
     } catch (error) { setResult({ ok: false, text: message(error, 'Could not save the mailbox.') }); }
     finally { setBusy(false); }
@@ -130,24 +174,25 @@ function MailboxForm({ slug, mailbox, onSaved }: { slug: string; mailbox: Mailbo
   return <form onSubmit={save} className="max-w-2xl space-y-5">
     <div>
       <h3 className="app-section-title text-slate-900">Mailbox</h3>
-      <p className="mt-1 text-sm text-slate-500">The Order agent reads new emails sent to this mailbox and turns them into Orders. Emails received before you connect are not imported.</p>
+      <p className="mt-1 text-sm text-slate-500">The Order agent reads new emails sent to this mailbox and turns them into Orders. Dispatra also sends your invoices and notifications from this address.</p>
       {mailbox && (mailbox.last_error
         ? <p role="alert" className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">Dispatra cannot read {mailbox.username}. {ERRORS[mailbox.last_error] ?? 'Check the settings and app password.'}</p>
-        : <p className="mt-3 text-sm text-slate-600">{mailbox.enabled ? <>Reading <span className="font-medium text-slate-900">{mailbox.username}</span> · last checked {when(mailbox.last_polled_at)}</> : <>Reading of {mailbox.username} is paused.</>}</p>)}
+        : <p className="mt-3 text-sm text-slate-600">{mailbox.enabled ? <>Last checked {when(mailbox.last_polled_at)}</> : <>Reading new emails is paused.</>}</p>)}
     </div>
     <fieldset disabled={busy} className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div><span className="app-label">Email provider</span>
+        <Select aria-label="Email provider" value={provider} onValueChange={choose} className="w-full"
+          options={[...(Object.keys(PROVIDERS) as (keyof typeof PROVIDERS)[]).map(key => ({ value: key, label: PROVIDERS[key].label })), { value: 'other', label: 'Other' }]} /></div>
+      {provider === 'other' && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="block sm:col-span-2"><span className="app-label">IMAP server</span><input className="app-input w-full" required value={form.host} onChange={set('host')} /></label>
-        <label className="block"><span className="app-label">Port</span><input className="app-input w-full" required inputMode="numeric" value={form.port} onChange={set('port')} /></label>
-      </div>
+        <label className="block"><span className="app-label">IMAP port</span><input className="app-input w-full" required inputMode="numeric" value={form.port} onChange={set('port')} /></label>
+        <label className="block sm:col-span-2"><span className="app-label">SMTP server</span><input className="app-input w-full" required value={form.smtp_host} onChange={set('smtp_host')} /></label>
+        <label className="block"><span className="app-label">SMTP port</span><input className="app-input w-full" required inputMode="numeric" value={form.smtp_port} onChange={set('smtp_port')} /></label>
+      </div>}
       <label className="block"><span className="app-label">Email address / username</span><input className="app-input w-full" required autoComplete="off" value={form.username} onChange={set('username')} /></label>
       <label className="block"><span className="app-label">App password</span>
         <input className="app-input w-full" type="password" autoComplete="new-password" required={!mailbox} placeholder={mailbox ? 'Saved — leave blank to keep it' : ''} value={form.password} onChange={set('password')} />
-        <span className="mt-1 block text-xs text-slate-500">For Gmail, turn on 2-Step Verification and IMAP, then create an app password. Dispatra stores it encrypted and never shows it again.</span></label>
-      <label className="block"><span className="app-label">Folder</span><input className="app-input w-full" required value={form.folder} onChange={set('folder')} /></label>
-      <div><span className="app-label">Service when the email doesn't say</span>
-        <Select aria-label="Default service" value={form.default_service_id} onValueChange={value => setForm(f => ({ ...f, default_service_id: value }))} className="w-full"
-          options={[{ value: '', label: 'Ask the dispatcher' }, ...services.map(item => ({ value: item.id, label: item.data.name }))]} /></div>
+        <span className="mt-1 block text-xs text-slate-500">{provider === 'other' ? 'Use an app password if your provider offers one.' : PROVIDERS[provider].help}</span></label>
       <label className="flex items-center gap-2 text-sm text-slate-700"><Switch checked={form.enabled} onCheckedChange={enabled => setForm(f => ({ ...f, enabled }))} /> Read new emails automatically</label>
     </fieldset>
     {result && <p role={result.ok ? 'status' : 'alert'} className={`text-sm ${result.ok ? 'text-emerald-700' : 'text-rose-700'}`}>{result.text}</p>}

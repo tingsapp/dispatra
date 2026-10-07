@@ -211,6 +211,8 @@ test('new orders default to Same-Day Standard and no requested vehicle', () => {
   const input = createDefaultOrderInput(ctx);
   assert.equal(ctx.catalogue.services.find(service => service.id === input.serviceId)!.name, 'Same-Day Standard');
   assert.equal(input.vehicleId, null);
+  const chosen = { ...ctx, catalogue: { ...ctx.catalogue, services: ctx.catalogue.services.map(service => ({ ...service, isDefault: service.name === 'Scheduled Economy' })) } };
+  assert.equal(chosen.catalogue.services.find(service => service.id === createDefaultOrderInput(chosen).serviceId)!.name, 'Scheduled Economy');
 });
 test('the suggested vehicle type is the smallest general type the load fits; refrigerated and flatbed are never suggested', async () => {
   const { suggestVehicleType, meetsBodyRequirement } = await import('../src/lib/vehicleTypes');

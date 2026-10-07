@@ -16,17 +16,18 @@ Package,
 Mail,
 Phone,
 Plus,
-FileText
+FileText,
+Navigation
 } from 'lucide-react';
 import React,{ useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { allOperations, operations } from '../operations/api';
 import { assignableRoute, assignToDriver } from '../operations/assignment';
-import { draftToInput, inputToBooking } from '../operations/orderAdapters';
+import { draftToInput, emailDraftRow, inputToBooking } from '../operations/orderAdapters';
 import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
 import { InvoiceDialog } from '../components/orders/InvoiceDialog';
-import { EMAIL_DRAFT_STATUSES, EMAIL_ERRORS, EmailStatusBadge, IntakeDialog, emailTime, type EmailDraft } from '../components/orders/EmailIntake';
+import { EMAIL_DRAFT_STATUSES, IntakeDialog, type EmailDraft } from '../components/orders/EmailIntake';
 import { useCompanyPricingContext, useOrderAssignment, useOrderCompletion } from '../components/orders/useOrderDetails';
 import { useOrderPreview } from '../components/orders/useOrderPreview';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
@@ -57,6 +58,8 @@ import { Driver,Job } from '../types';
 import { PricingOrderInput } from '../types/pricing';
 import { defaultRateCard } from '../lib/pricingEngine';
 import { formatPhone } from '../lib/phone';
+import { formatWhen } from '../components/orders/OrderDossierSections';
+import { OrderTrackingDialog, trackable } from '../components/orders/OrderTracking';
 
 interface JobsPageProps {
   jobs: Job[];
@@ -71,6 +74,12 @@ interface JobsPageProps {
 }
 
 /** Next order number: one past the highest existing #number. */
+/** API instants in the company time zone; offset-less wall times as written; anything else (prototype time-only text) as typed. */
+const scheduleText = (value: string | undefined, timeZone: string) => {
+  if (!value || Number.isNaN(new Date(value).getTime())) return value ?? '';
+  const wall = /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.exec(value.slice(0, 16));
+  return /[zZ]$|[+-]\d\d:\d\d$/.test(value) || !wall ? formatWhen(value, timeZone) : formatWhen(`${wall[0]}Z`, 'UTC');
+};
 const nextJobNumber = (jobs: Job[]) => `#${jobs.reduce((max, job) => Math.max(max, Number(job.jobNumber.replace(/\D/g, '')) || 0), 1000) + 1}`;
 export function JobsPage({
   jobs,
@@ -88,7 +97,7 @@ export function JobsPage({
   const orderQuery = useQuery({ queryKey: ['operations', slug, 'orders'], queryFn: () => allOperations.orders(slug!), enabled: !!slug });
   const invoiceQuery = useQuery({ queryKey: ['operations', slug, 'invoices'], queryFn: () => allOperations.invoices(slug!), enabled: !!slug });
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'on_time' | 'at_risk'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'at_risk'>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<OrderDateSelection>({ kind: 'all' });
@@ -142,9 +151,10 @@ export function JobsPage({
     openEditOrder(job); onEditHandled?.();
   }, [editJobId, jobs, livePricingCtx]);
 
-  // Emails the Order agent could not book yet are listed as drafts in this same Orders list.
-  const emailQuery = useQuery({ queryKey: ['operations', slug, 'email-intakes', 'drafts'], queryFn: () => operations.emailIntakes(slug!, [...EMAIL_DRAFT_STATUSES, 'NOT_AN_ORDER']), enabled: !!slug });
+  // Order emails the agent could not book yet are listed as Draft orders in this same Orders list; other emails are ignored.
+  const emailQuery = useQuery({ queryKey: ['operations', slug, 'email-intakes', 'drafts'], queryFn: () => operations.emailIntakes(slug!, EMAIL_DRAFT_STATUSES), enabled: !!slug });
   const [reviewingEmailId, setReviewingEmailId] = useState<string | null>(null);
+  const [trackingJob, setTrackingJob] = useState<Job | null>(null);
   const openEmailDraft = (email: EmailDraft) => {
     if (!livePricingCtx) { onNotification('Pricing data is still loading. Try again in a moment.'); return; }
     setCreateMode('order'); setEditingOrder(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null; setPricingCtx(livePricingCtx);
@@ -169,7 +179,7 @@ export function JobsPage({
         (job.assignedDriverId && job.assignedDriverId.toLowerCase().includes(q)) || [job.referenceNumbers, ...(job.tags ?? []), ...(job.pricingInput?.stops.map(s => [s.label, s.contactName, s.contactPhone].join(' ')) ?? [])].join(' ').toLowerCase().includes(q);
 
       const matchesStatus =
-        statusFilter === 'all' || (statusFilter === 'at_risk' ? job.status === 'at_risk' || job.status === 'late_start' : job.status === statusFilter);
+        statusFilter === 'all' || (statusFilter === 'at_risk' ? job.status === 'at_risk' || job.status === 'late_start' : orderLifecycle(job) === 'IN_PROGRESS');
 
       const matchesType =
         typeFilter === 'all' || job.serviceId === typeFilter;
@@ -185,17 +195,16 @@ export function JobsPage({
     });
   }, [jobs, searchQuery, statusFilter, typeFilter, lifecycleFilter, dateFilter, today]);
 
-  const emailDrafts = (emailQuery.data ?? []).filter(row => EMAIL_DRAFT_STATUSES.includes(row.status));
+  const emailDrafts = useMemo(() => (emailQuery.data ?? []).filter(row => EMAIL_DRAFT_STATUSES.includes(row.status)).map(row => emailDraftRow(row, shipperQuery.data ?? [], catalogQuery.data ?? [])), [emailQuery.data, shipperQuery.data, catalogQuery.data]);
   const visibleDrafts = useMemo(() => {
-    if (statusFilter !== 'all' || typeFilter !== 'all' || dateFilter.kind !== 'all' || !['all', 'attention', 'email'].includes(lifecycleFilter)) return [];
+    if (statusFilter !== 'all' || typeFilter !== 'all' || dateFilter.kind !== 'all' || !['all', 'draft'].includes(lifecycleFilter)) return [];
     const q = searchQuery.toLowerCase().trim();
-    return (lifecycleFilter === 'email' ? emailQuery.data ?? [] : emailDrafts)
-      .filter(row => !q || [row.subject, row.from_address, row.from_name, row.shipper_name, row.summary].join(' ').toLowerCase().includes(q));
-  }, [emailQuery.data, statusFilter, typeFilter, dateFilter, lifecycleFilter, searchQuery]);
+    return emailDrafts.filter(row => !q || [row.shipper, row.from, row.pickup, row.dropoff, row.reference, row.service].join(' ').toLowerCase().includes(q));
+  }, [emailDrafts, statusFilter, typeFilter, dateFilter, lifecycleFilter, searchQuery]);
 
   // Metrics
   const totalCount = jobs.length;
-  const onTimeCount = jobs.filter((j) => j.status === 'on_time').length;
+  const inProgressCount = jobs.filter(j => orderLifecycle(j) === 'IN_PROGRESS').length;
   const atRiskCount = jobs.filter((j) => j.status === 'at_risk' || j.status === 'late_start').length;
   const noDriverCount = jobs.filter(j => orderLifecycle(j) === 'NEW').length;
   const completedCount = jobs.filter((j) => j.status === 'completed').length;
@@ -382,11 +391,11 @@ export function JobsPage({
         {slug && (orderQuery.error || settingsQuery.error || catalogQuery.error || rateQuery.error || shipperQuery.error) && <p role="alert" className="text-sm text-rose-700">Could not load order data. Retry from the workspace.</p>}
         <ListSummary label="Orders summary" items={[
           { label: 'Total', value: totalCount, icon: Package },
-          { label: 'On schedule', value: onTimeCount, icon: Clock },
-          { label: 'At risk / late', value: atRiskCount, icon: AlertTriangle },
-          { label: 'Unassigned', value: noDriverCount, icon: UserRoundSearch },
+          { label: 'In progress', value: inProgressCount, icon: Clock },
+          { label: 'At risk', value: atRiskCount, icon: AlertTriangle },
+          { label: 'New', value: noDriverCount, icon: UserRoundSearch },
           { label: 'Completed', value: completedCount, icon: CircleCheck },
-          ...(slug ? [{ label: 'Email drafts', value: emailDrafts.length, icon: Mail }] : []),
+          ...(slug ? [{ label: 'Drafts', value: emailDrafts.length, icon: Mail }] : []),
         ]} />
 
         {/* SEARCH & FILTERS BAR */}
@@ -408,11 +417,11 @@ export function JobsPage({
                 All ({jobs.length})
               </button>
               <button
-                onClick={() => setStatusFilter('on_time')}
-                aria-pressed={statusFilter === 'on_time'}
+                onClick={() => setStatusFilter('in_progress')}
+                aria-pressed={statusFilter === 'in_progress'}
                 className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
               >
-                On Schedule
+                In Progress
               </button>
               <button
                 onClick={() => setStatusFilter('at_risk')}
@@ -424,7 +433,7 @@ export function JobsPage({
             </div>
 
             <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={today} />
-            <Select aria-label="Filter by order status" value={lifecycleFilter} onValueChange={setLifecycleFilter} options={[{ value: 'all', label: 'All order statuses' }, ...ORDER_LIFECYCLES.map(value => ({ value, label: ORDER_LIFECYCLE_LABELS[value] })), { value: 'attention', label: 'Needs attention' }, ...(slug ? [{ value: 'email', label: 'Email drafts' }] : [])]} />
+            <Select aria-label="Filter by order status" value={lifecycleFilter} onValueChange={setLifecycleFilter} options={[{ value: 'all', label: 'All order statuses' }, ...ORDER_LIFECYCLES.map(value => ({ value, label: ORDER_LIFECYCLE_LABELS[value] })), { value: 'attention', label: 'Needs attention' }, ...(slug ? [{ value: 'draft', label: 'Draft' }] : [])]} />
             {/* Service Type Filter */}
             <Select
               aria-label="Filter by service level"
@@ -473,30 +482,39 @@ export function JobsPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
-                {visibleDrafts.map(email => (
-                  <tr key={email.id} className="hover:bg-slate-50/80 transition-colors cursor-pointer" onClick={() => setReviewingEmailId(email.id)}>
+                {visibleDrafts.map(draft => (
+                  <tr key={draft.id} className="hover:bg-slate-50/80 transition-colors cursor-pointer" onClick={() => setReviewingEmailId(draft.id)}>
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-500">Draft</span>
-                        <EmailStatusBadge status={email.status} />
+                        <span className="font-medium text-slate-400">—</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">Draft</span>
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" /> From email</div>
                     </td>
                     <td className="py-3.5 px-4">
-                      <div className="font-medium text-slate-800">{email.shipper_name ?? (email.from_name || email.from_address)}</div>
-                      {!email.shipper_name && <div className="text-slate-500 text-xs mt-0.5">{email.from_address}</div>}
+                      <div className="font-medium text-slate-800">{draft.shipper}</div>
+                      <div className="text-slate-500 text-xs flex items-center gap-1 mt-0.5">{draft.phone ? <><Phone className="w-3 h-3 text-slate-400" />{formatPhone(draft.phone)}</> : draft.shipper ? null : draft.from}</div>
                     </td>
                     <td className="py-3.5 px-4 max-w-xs">
-                      <div className="truncate font-medium text-slate-700">{email.subject || '(no subject)'}</div>
-                      <div className="truncate text-slate-500 mt-1">{email.missing.length ? `Missing: ${email.missing.join(' · ')}` : email.error_code ? EMAIL_ERRORS[email.error_code] ?? email.error_code : email.summary}</div>
+                      <div className="flex items-start gap-1.5 text-slate-700">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 mt-1 flex-none" />
+                        <span className="truncate font-medium">{draft.pickup}</span>
+                      </div>
+                      <div className="flex items-start gap-1.5 text-slate-500 mt-1">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-none" />
+                        <span className="truncate">{draft.dropoff}</span>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1 text-slate-700 font-medium"><Clock className="w-3.5 h-3.5 text-slate-400" />{emailTime(email.received_at)}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">Received</div>
+                      <div className="flex items-center gap-1 text-slate-700 font-medium"><Clock className="w-3.5 h-3.5 text-slate-400" />{scheduleText(draft.scheduledAt, pricingCtx.billing.general.timeZone)}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{draft.stops} stops on manifest</div>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-400">—</td>
-                    <td className="py-3.5 px-4 text-slate-400">—</td>
-                    <td className="py-3.5 px-4 text-right"><Button type="button" variant="outline" size="xs" onClick={e => { e.stopPropagation(); setReviewingEmailId(email.id); }}>Review</Button></td>
+                    <td className="py-3.5 px-4 whitespace-nowrap" />
+                    <td className="py-3.5 px-4 whitespace-nowrap"><span className="font-medium text-slate-800">{draft.service}</span></td>
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      <button type="button" onClick={e => { e.stopPropagation(); setReviewingEmailId(draft.id); }} title="Review draft"
+                        className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
+                    </td>
                   </tr>
                 ))}
                 {filteredJobs.map((job) => {
@@ -549,7 +567,7 @@ export function JobsPage({
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-1 text-slate-700 font-medium">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          {job.scheduledTime}
+                          {scheduleText(job.pricingInput?.scheduledAt ?? job.scheduledTime, pricingCtx.billing.general.timeZone)}
                         </div>
                         <div className="text-xs text-slate-400 mt-0.5">
                           {job.pricingInput?.stops.length ?? job.stopsCount} stops on manifest
@@ -608,6 +626,8 @@ export function JobsPage({
                         <div className="inline-flex items-center gap-1">
                           {readyToInvoice && <Button type="button" size="xs" variant="outline" onClick={() => setInvoicingJob(job)}><FileText /> Invoice</Button>}
                           {slug && job.lifecycleStatus === 'INVOICED' && <Button type="button" size="xs" variant="outline" onClick={() => handleSendInvoice(job)}><FileText /> Send invoice</Button>}
+                          {slug && trackable(job.lifecycleStatus) && <button type="button" onClick={() => setTrackingJob(job)} title="Track order" aria-label={`Track ${job.jobNumber}`}
+                            className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"><Navigation className="w-4 h-4" /></button>}
                           <button
                             onClick={() => onSelectJob(job.jobNumber)}
                             title="Locate on Monitor"
@@ -641,6 +661,9 @@ export function JobsPage({
       {reviewingEmailId && slug && <IntakeDialog slug={slug} id={reviewingEmailId} onClose={() => setReviewingEmailId(null)} onNotification={onNotification}
         onChanged={() => queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] })}
         onCompleteDraft={email => { setReviewingEmailId(null); openEmailDraft(email); }} onShowOrder={number => { setReviewingEmailId(null); onSelectJob(number); }} />}
+      {trackingJob && slug && <OrderTrackingDialog slug={slug} orderId={trackingJob.id} orderNumber={trackingJob.jobNumber} timeZone={pricingCtx.billing.general.timeZone}
+        version={jobs.find(job => job.id === trackingJob.id)?.version} onClose={() => setTrackingJob(null)}
+        onOpenMap={() => { onSelectJob(trackingJob.jobNumber); setTrackingJob(null); }} />}
       {invoicingJob && <InvoiceDialog job={invoicingJob} onClose={() => setInvoicingJob(null)} onSend={handleInvoice} />}
 
       {/* CREATE NEW ORDER MODAL */}

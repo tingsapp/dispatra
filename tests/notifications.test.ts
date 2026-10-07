@@ -23,6 +23,7 @@ test('changes invalidate only the reads each role uses, once per key', () => {
   assert.deepEqual(keys('SHIPPER', assigned), ['["shipper-orders","acme"]', '["tracking","acme","o1"]', '["tracking-path","acme","o1"]', '["delivery-proof","acme","o1"]', '["notifications","acme"]']);
   assert.deepEqual(keys('DRIVER', [change('duty', 'duty.ended_by_dispatcher')]), ['["driver-profile","acme"]']);
   assert.deepEqual(keys('SHIPPER', [change('vehicle', 'vehicle.updated')]), []);
+  assert.deepEqual(keys('DISPATCHER', [change('dispatch', 'dispatch.no_candidate', 'o1')]), ['["operations","acme","monitor"]']);
   assert.deepEqual(keys('DISPATCHER', [change('settings', 'settings.updated')]), ['["company-settings","acme"]', '["operations","acme","settings"]', '["operations","acme","catalog"]', '["operations","acme","rates"]']);
   assert.deepEqual(keys('DISPATCHER', [change('future', 'future.thing')]), ['["operations","acme"]']);
   assert.deepEqual([1, 2, 3, 4, 5, 9].map(retryDelay), [5_000, 10_000, 20_000, 40_000, 60_000, 60_000]);

@@ -60,6 +60,8 @@ interface JobDetailPopoverProps {
   position?: { x: number; y: number };
   /** Company time zone for scheduled times. */
   timeZone?: string;
+  /** Live Dispatch agent panel for an unassigned Order; replaces the prototype recommendation. */
+  recommendation?: React.ReactNode;
 }
 
 export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
@@ -79,7 +81,8 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   onOpenFullDetails,
   onOpenAllDrivers,
   position,
-  timeZone = 'America/Vancouver'
+  timeZone = 'America/Vancouver',
+  recommendation
 }) => {
   const overlayMotion = useOverlayMotion();
   const [activeTab, setActiveTab] = useState<'overview' | 'stops' | 'notes'>('overview');
@@ -302,7 +305,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               </div>
 
               {/* On-Demand AI Smart Recommendation trigger banner */}
-              {!live && <div
+              {(!live || recommendation) && <div
                 data-map-detail-toggle="recommendation"
                 onClick={() => setShowAiRecommendation((prev) => !prev)}
                 className={`mb-2.5 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
@@ -427,7 +430,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
 
       {/* 3. AI RECOMMENDATION GRAND-CHILD MENU - Displayed on demand with its own close icon - strictly z-[60] over parent & child */}
       <AnimatePresence>
-        {!live && showAiRecommendation && (
+        {showAiRecommendation && (!live || recommendation) && (
           <motion.div
             {...overlayMotion}
             data-map-detail-overlay="recommendation"
@@ -437,6 +440,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               top: `${aiRecTop}px`
             }}
           >
+            {live ? recommendation : <>
             {/* Grand-child Card with strong elevation above child & parent */}
             <div className="app-menu-surface w-[310px] ring-1 ring-slate-900/10 p-4 relative">
               {/* Header with Job #, ETA, and CLOSE BUTTON */}
@@ -515,6 +519,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                 </button>
               </div>
             </div>
+            </>}
           </motion.div>
         )}
       </AnimatePresence>

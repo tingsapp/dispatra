@@ -1719,7 +1719,8 @@ test('company logo accepts only PNG and JPEG uploads and preserves its draft aft
 for (const [section, singular] of [['services', 'service'], ['accessorials', 'accessorial']] as const) {
   test(`${singular} Delete asks for confirmation and removes only the chosen catalogue record`, async () => {
       const before = loadSimplePricingConfig();
-    const item = before[section][0];
+    // The first service (Same-Day Standard) is the Default and cannot be deleted; delete the next one.
+    const index = section === 'services' ? 1 : 0, item = before[section][index];
     const notifications: string[] = [];
     let changes = 0;
     const user = userEvent.setup({ document });
@@ -1734,6 +1735,11 @@ for (const [section, singular] of [['services', 'service'], ['accessorials', 'ac
     assert.equal(remove.closest('td'), screen.getByRole('button', { name: `Edit ${item.name}` }).closest('td'));
     assert.equal(remove.textContent?.trim(), '');
     assert.ok(remove.querySelector('svg'));
+    if (section === 'services') {
+      await user.click(screen.getByRole('button', { name: `Delete ${before.services[0].name}` }));
+      assert.equal(screen.queryByRole('alertdialog'), null);
+      assert.deepEqual(notifications.splice(0), ['Set another service as Default before deleting this one.']);
+    }
     await user.click(remove);
     let dialog = screen.getByRole('alertdialog', { name: `Delete ${singular} “${item.name}”?` });
     assert.match(dialog.textContent!, /Saved order prices stay unchanged/);
@@ -1744,7 +1750,7 @@ for (const [section, singular] of [['services', 'service'], ['accessorials', 'ac
     dialog = screen.getByRole('alertdialog', { name: `Delete ${singular} “${item.name}”?` });
     await user.click(within(dialog).getByRole('button', { name: `Delete ${singular}` }));
     assert.equal(screen.queryByRole('button', { name: `Delete ${item.name}` }), null);
-    assert.deepEqual(loadSimplePricingConfig()[section].map(record => record.id), before[section].slice(1).map(record => record.id));
+    assert.deepEqual(loadSimplePricingConfig()[section].map(record => record.id), before[section].filter((_, i) => i !== index).map(record => record.id));
     assert.deepEqual(loadSimplePricingConfig()[section === 'services' ? 'accessorials' : 'services'], before[section === 'services' ? 'accessorials' : 'services']);
     assert.equal(changes, 1);
     assert.deepEqual(notifications, [`${item.name} deleted.`]);

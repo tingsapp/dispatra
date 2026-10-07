@@ -30,6 +30,7 @@ import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { Customer,EMPTY_PRICING_RELATIONSHIP,loadCustomers,normalizeCustomer,saveCustomers } from '../lib/customerStorage';
 import { loadBillingConfig } from '../lib/billingStorage';
 import { paymentTermOptions, PaymentTerms, resolvePaymentTerms } from '../lib/paymentTerms';
+import { Switch } from '../components/ui/Switch';
 import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
 import { ContactInput } from '../components/ui/ContactInput';
@@ -562,6 +563,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 {formData.customerType !== 'INDIVIDUAL' && <label className="block sm:col-span-2"><span className="app-label">Company name</span><input type="text" required placeholder="e.g. Pacific Fresh Logistics" value={formData.legalName || ''} onChange={(e) => setFormData({ ...formData, legalName: e.target.value })} className="app-input w-full" /></label>}
                 <label className="block"><span className="app-label">Phone</span><ContactInput type="tel" placeholder="(604) 555-0100" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="app-input w-full" /></label>
                 <label className="block"><span className="app-label">Email</span><ContactInput type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Used for portal login, quotes and invoices.</span></label>
+                <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2"><Switch aria-label="Email order updates" checked={formData.communicationPreferences?.email ?? true} onCheckedChange={email => setFormData({ ...formData, communicationPreferences: { sms: false, tracking: true, ...formData.communicationPreferences, email } })} /> Email order updates to this Shipper</label>
                 {editingCustomer && <div><span className="app-label">Status</span><Select aria-label="Shipper status" className="w-full" value={formData.status || 'Active'} onValueChange={(v) => setFormData({ ...formData, status: v as Customer['status'] })} options={[{ value: 'Active', label: 'Active' }, { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }]} /></div>}
               </FormSection>
 

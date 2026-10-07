@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { APIProvider, Map, Marker, Polyline, useMap } from '@vis.gl/react-google-maps';
-import { AlertTriangle, Check, Truck } from 'lucide-react';
+import { AlertTriangle, Check } from 'lucide-react';
 import { operations } from '../../operations/api';
 import type { components } from '../../portal/schema';
-import { GoogleOverlayMarker } from '../monitor/GoogleOverlayMarker';
 import { formatWhen } from './OrderDossierSections';
+import { Dialog, DialogBody, DialogHeader } from '../ui/Dialog';
 
 type Tracking = components['schemas']['TrackingView'];
 const STEPS = ['Booked', 'Driver assigned', 'Picked up', 'On the way', 'Delivered'];
@@ -30,8 +29,19 @@ export function trackingHeadline(t: Tracking, timeZone: string): string {
   }
 }
 
+/** Orders worth tracking from the dispatcher's list: a driver is on them and they are not finished. */
+export const trackable = (status?: string) => status === 'ASSIGNED' || status === 'IN_PROGRESS';
+
+/** Tracking in its own dialog, opened from the Orders list Actions column. */
+export function OrderTrackingDialog({ slug, orderId, orderNumber, timeZone, version, onClose, onOpenMap }: { slug: string; orderId: string; orderNumber: string; timeZone: string; version?: number; onClose: () => void; onOpenMap?: () => void }) {
+  return <Dialog size="md" onClose={onClose}>
+    <DialogHeader onClose={onClose} title={`Track ${orderNumber}`} />
+    <DialogBody><OrderTracking slug={slug} orderId={orderId} timeZone={timeZone} version={version} onOpenMap={onOpenMap} /></DialogBody>
+  </Dialog>;
+}
+
 /** Live tracking for one Order: progress, ETA, a map (live driver position when allowed), stops and timeline. */
-export function OrderTracking({ slug, orderId, timeZone, version }: { slug: string; orderId: string; timeZone: string; version?: number }) {
+export function OrderTracking({ slug, orderId, timeZone, version, onOpenMap }: { slug: string; orderId: string; timeZone: string; version?: number; onOpenMap?: () => void }) {
   const query = useQuery({ queryKey: ['tracking', slug, orderId], queryFn: () => operations.orderTracking(slug, orderId),
     refetchInterval: data => data.state.data && ['DELIVERED', 'CANCELLED'].includes(data.state.data.stage) ? false : 30_000 });
   const [now, setNow] = useState(() => Date.now());
@@ -57,7 +67,7 @@ export function OrderTracking({ slug, orderId, timeZone, version }: { slug: stri
       </li>;
     })}</ol>}
     {t.open_issue && <p className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-amber-800"><AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />The driver reported an issue with this order. Dispatch is handling it.</p>}
-    {t.stage !== 'BOOKED' && t.stage !== 'CANCELLED' && <TrackingMap slug={slug} tracking={t} version={version} />}
+    {t.stage !== 'BOOKED' && t.stage !== 'CANCELLED' && <TrackingMap slug={slug} tracking={t} version={version} onOpenMap={onOpenMap} />}
     {active && <p className="text-xs text-slate-500">
       {t.location ? <>Live location updated {ago(t.location.captured_at, now)}.</> : t.location_stale ? 'Live location is temporarily unavailable.' : t.stage === 'ASSIGNED' ? 'Live location starts when the driver begins the route.' : 'Live location appears when the driver is heading to your stop.'}
       {' '}Tracking refreshes every 30 seconds.</p>}
@@ -75,48 +85,13 @@ export function OrderTracking({ slug, orderId, timeZone, version }: { slug: stri
   </section>;
 }
 
-function TrackingMap(props: { slug: string; tracking: Tracking; version?: number }) {
-  const apiKey = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY?.trim();
-  const [failed, setFailed] = useState(false);
-  if (!apiKey || failed || !props.tracking.stops.some(stop => stop.address.latitude != null && stop.address.longitude != null)) return null;
-  return <TrackingGoogleMap {...props} apiKey={apiKey} onError={() => setFailed(true)} />;
-}
-
-function TrackingGoogleMap({ slug, tracking, version, apiKey, onError }: { slug: string; tracking: Tracking; version?: number; apiKey: string; onError: () => void }) {
-  const stops = tracking.stops.filter(stop => stop.address.latitude != null && stop.address.longitude != null);
-  const path = useQuery({ queryKey: ['tracking-path', slug, tracking.order_id, version], queryFn: () => operations.orderRoadPath(slug, tracking.order_id),
-    enabled: stops.length > 1, staleTime: Infinity, gcTime: 30 * 60_000, retry: false });
-  const center = { lat: stops[0].address.latitude!, lng: stops[0].address.longitude! };
-  return <div className="h-64 overflow-hidden rounded-xl border border-slate-200 bg-slate-100" data-map-provider="google">
-    <APIProvider apiKey={apiKey} language="en" region="CA" onError={onError}>
-      <Map defaultCenter={center} defaultZoom={12} disableDefaultUI zoomControl clickableIcons={false} gestureHandling="cooperative">
-        <FitTracking tracking={tracking} />
-        {path.data && path.data.points.length > 1 && <Polyline path={path.data.points.map(([lat, lng]) => ({ lat, lng }))} strokeColor="#2563eb" strokeOpacity={0.8} strokeWeight={4} clickable={false} />}
-        {stops.map(stop => <Marker key={stop.id} position={{ lat: stop.address.latitude!, lng: stop.address.longitude! }} label={stop.kind === 'PICKUP' ? 'P' : 'D'} title={stop.address.text} />)}
-        {tracking.location && <GoogleOverlayMarker position={{ lat: tracking.location.latitude, lng: tracking.location.longitude }} label={`Driver ${tracking.driver?.first_name ?? ''}`.trim()}>
-          <div className="relative grid h-10 w-10 place-items-center">
-            <div className="absolute inset-0 rounded-full bg-blue-500/25 animate-radar-ping pointer-events-none" />
-            <div className="relative grid h-8 w-8 place-items-center rounded-full bg-blue-600 text-white shadow-lg ring-2 ring-white"><Truck className="h-4 w-4" /></div>
-          </div>
-        </GoogleOverlayMarker>}
-      </Map>
-    </APIProvider>
-  </div>;
-}
-
-/** Frame the stops and the driver once, then again only when the driver first appears. */
-function FitTracking({ tracking }: { tracking: Tracking }) {
-  const map = useMap();
-  const framed = useRef('');
-  const points = [...tracking.stops.filter(s => s.address.latitude != null).map(s => ({ lat: s.address.latitude!, lng: s.address.longitude! })),
-    ...(tracking.location ? [{ lat: tracking.location.latitude, lng: tracking.location.longitude }] : [])];
-  const key = `${tracking.order_id}:${!!tracking.location}`;
-  useEffect(() => {
-    if (!map || framed.current === key || !points.length) return;
-    framed.current = key;
-    if (points.length === 1) { map.setCenter(points[0]); map.setZoom(14); return; }
-    const bounds = new google.maps.LatLngBounds(); points.forEach(point => bounds.extend(point));
-    map.fitBounds(bounds, 40);
-  }, [map, key, points.length]);
-  return null;
+/** Server-drawn static map: the API renders only what this viewer's tracking allows. A new image is requested only when the
+ * Order changes or the driver has moved about 10 m; clicking opens the interactive map where one exists (dispatcher Monitor). */
+function TrackingMap({ slug, tracking, version, onOpenMap }: { slug: string; tracking: Tracking; version?: number; onOpenMap?: () => void }) {
+  const [failed, setFailed] = useState('');
+  const at = tracking.location ? `${tracking.location.latitude.toFixed(4)},${tracking.location.longitude.toFixed(4)}` : '';
+  const src = `/api/v1/companies/${encodeURIComponent(slug)}/orders/${encodeURIComponent(tracking.order_id)}/tracking/map?${new URLSearchParams({ v: String(version ?? ''), at })}`;
+  if (failed === src || !tracking.stops.some(stop => stop.address.latitude != null && stop.address.longitude != null)) return null;
+  const image = <img src={src} alt="Map of the pickup, delivery and driver position" onError={() => setFailed(src)} className="aspect-[2/1] w-full rounded-xl border border-slate-200 bg-slate-100 object-cover" />;
+  return onOpenMap ? <button type="button" onClick={onOpenMap} title="Open on Monitor" aria-label="Open on Monitor" className="block w-full cursor-pointer">{image}</button> : image;
 }

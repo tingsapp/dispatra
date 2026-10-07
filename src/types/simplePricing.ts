@@ -19,6 +19,8 @@ export interface DeliveryService {
   /** Direct: one exclusive vehicle, no unrelated stops, batching disabled. */
   exclusiveVehicle: boolean;
   active: boolean;
+  /** The company Default service (Settings → Service Level): new orders and Order agent emails that name no service start here. */
+  isDefault?: boolean;
 }
 
 /**

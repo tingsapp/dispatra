@@ -22,6 +22,8 @@ function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
     case 'quote': return [ops('quotes')];
     case 'intake': return [ops('email-intakes'), ops('orders')];
     case 'mailbox': return [ops('mailbox')];
+    // Dispatch agent decisions change Needs Attention; the assignment itself arrives as order/route changes.
+    case 'dispatch': return [ops('monitor')];
     case 'rate': return [ops('rates')];
     case 'catalog': return [ops('catalog')];
     case 'settings': case 'organization': return [companySettingsKey(slug), ops('settings'), ops('catalog'), ops('rates')];

@@ -166,9 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               checked={dispatchMode === 'AUTO'}
               aria-label="Auto dispatch"
               onCheckedChange={checked => {
-                const nextMode = checked ? 'AUTO' : 'MANUAL';
-                onDispatchModeChange(nextMode);
-                onActionNotification(`Dispatch mode set to ${checked ? 'Auto' : 'Manual'}`);
+                onDispatchModeChange(checked ? 'AUTO' : 'MANUAL');
               }}
             />
           </div>

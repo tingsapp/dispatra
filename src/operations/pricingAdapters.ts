@@ -69,9 +69,9 @@ export function catalogToAccessorial(row: CatalogItem): AccessorialItem {
 
 /** Every catalogue consumer (dispatcher and shipper order forms, settings) sees one order: company setup order, then code. */
 const catalogOrder = (a: CatalogItem, b: CatalogItem) => a.created_at.localeCompare(b.created_at) || a.code.localeCompare(b.code);
-export function catalogueFromApi(items: CatalogItem[]): PricingContext['catalogue'] {
+export function catalogueFromApi(items: CatalogItem[], defaultServiceId?: string | null): PricingContext['catalogue'] {
   const of = (kind: string) => items.filter(item => item.kind === kind).sort(catalogOrder);
-  return { services: of('SERVICE').map(catalogToService), accessorials: of('ACCESSORIAL').map(catalogToAccessorial), vehicles: of('VEHICLE_TYPE').map(catalogToVehicleType) };
+  return { services: of('SERVICE').map(row => ({ ...catalogToService(row), isDefault: row.id === defaultServiceId })), accessorials: of('ACCESSORIAL').map(catalogToAccessorial), vehicles: of('VEHICLE_TYPE').map(catalogToVehicleType) };
 }
 
 /** Builds the same context shape the existing controls expect, using only API-owned operational records. */
@@ -89,7 +89,7 @@ export function apiPricingContext(settings: Settings, catalog: CatalogItem[], ra
       fuelSurcharge: { ...base.billing.fuelSurcharge, enabled: data.fuel_enabled, percent: n(data.fuel_percent) },
       dispatch: { ...base.billing.dispatch, maxActiveOrdersPerDriver: data.maximum_active_orders },
     },
-    catalogue: catalogueFromApi(catalog),
+    catalogue: catalogueFromApi(catalog, data.default_service_id),
     pricing: { ...base.pricing, rateCards: cards, zones, zoneRates: cards.flatMap(card => card.zoneRates ?? []) },
     customers: shippers.map(shipperToCustomer),
   };
@@ -118,7 +118,7 @@ export function shipperPricingContext(preferences: BookingPreferences, options: 
       invoicing: { ...billing.invoicing, currency: preferences.currency },
       companyTax: { enabled: preferences.gst_enabled, ratePercent: n(preferences.gst_percent), provincialEnabled: preferences.provincial_enabled, provincialRatePercent: n(preferences.provincial_percent) },
       fuelSurcharge: { ...billing.fuelSurcharge, mode: 'fixed_percent', enabled: preferences.fuel_enabled, percent: n(preferences.fuel_percent) } },
-    catalogue: catalogueFromApi(options),
+    catalogue: catalogueFromApi(options, preferences.default_service_id),
     pricing: { ...structuredClone(INITIAL_PRICING_CONFIG), rateCards: [], zones: [], zoneRates: [] },
     customers: [shipperToCustomer(shipper)],
   };

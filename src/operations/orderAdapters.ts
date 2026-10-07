@@ -1,6 +1,6 @@
 import type { Job } from '../types';
 import type { PricingOrderInput, PricingSnapshot, ChargeLine } from '../types/pricing';
-import type { Order, Shipper, RateCard, CatalogItem, Booking } from './api';
+import type { Order, Shipper, RateCard, CatalogItem, Booking, EmailIntake } from './api';
 import { canadianAddress } from './adapters';
 import { bookingInstant } from './time';
 
@@ -46,6 +46,18 @@ export function draftToInput(draft: Record<string, unknown>): PricingOrderInput 
   const order = { facts: { accessorials: [], adjustments: [], external_reference: '', ...facts, stops, items }, shipper_id: facts.shipper_id, billing_shipper_id: facts.shipper_id,
     service_id: facts.service_id ?? '', scheduled_at: facts.scheduled_at ?? '', source: 'EMAIL', pricing: { stage: 'ESTIMATE' } } as unknown as Order;
   return orderToInput(order);
+}
+
+/** An Order agent draft as an Orders-list row: the same columns as an Order, blank wherever the email left a fact out. */
+export function emailDraftRow(intake: EmailIntake, shippers: Shipper[], catalog: CatalogItem[]) {
+  const draft = (intake.draft ?? {}) as { shipper_id?: string | null; service_id?: string | null; scheduled_at?: string | null; external_reference?: string; stops?: Array<{ kind: string; address?: { text?: string } | null }> };
+  const stops = draft.stops ?? [];
+  const shipper = shippers.find(row => row.id === (draft.shipper_id ?? intake.shipper_id));
+  return {
+    id: intake.id, shipper: shipper?.name ?? '', phone: shipper?.phone ?? '', from: intake.from_address,
+    pickup: stops.find(stop => stop.kind === 'PICKUP')?.address?.text ?? '', dropoff: [...stops].reverse().find(stop => stop.kind === 'DROPOFF')?.address?.text ?? '',
+    scheduledAt: draft.scheduled_at ?? '', stops: stops.length, service: catalog.find(row => row.id === draft.service_id)?.data.name ?? '', reference: draft.external_reference ?? '',
+  };
 }
 
 export function priceToUi(price: Order['pricing'], facts: Booking, createdAt: string, rate?: RateCard): PricingSnapshot {

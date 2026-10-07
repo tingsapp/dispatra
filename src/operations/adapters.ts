@@ -29,6 +29,7 @@ export function shipperToCustomer(row: Shipper): Customer {
     rateCardId: row.rate_card_id, discount: { type: row.discount.kind, value: Number(row.discount.value), scope: 'TRANSPORT_ONLY' },
     taxProfileId: null, taxExempt: false, totalShipments: 0, activeJobsCount: 0,
     notes: row.instructions, createdAt: row.created_at, paymentTerms: row.terms as Customer['paymentTerms'],
+    communicationPreferences: { sms: false, email: row.email_updates ?? true, tracking: true },
   };
 }
 
@@ -42,6 +43,7 @@ export function customerToShipper(form: Partial<Customer>, previous?: Shipper, c
     terms: (form.paymentTerms ?? 'NET30') as ShipperInput['terms'],
     discount: { kind: form.discount?.type === 'PERCENT' || form.discount?.type === 'FIXED' ? form.discount.type : 'NONE', value: form.discount?.value ?? 0 },
     instructions: form.notes ?? '',
+    email_updates: form.communicationPreferences?.email ?? previous?.email_updates ?? true,
   };
 }
 

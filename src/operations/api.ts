@@ -24,6 +24,7 @@ export type MailboxInput = components['schemas']['MailboxInput'];
 export type EmailIntake = components['schemas']['IntakeView'];
 export type EmailIntakeDetail = components['schemas']['IntakeDetail'];
 export type EmailIntakeStatus = EmailIntake['status'];
+export type DispatchDecision = components['schemas']['DecisionView'];
 
 const key = () => crypto.randomUUID();
 const company = (slug: string) => ({ slug });
@@ -86,6 +87,8 @@ export const operations = {
   createOrder: async (slug: string, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/orders', { body: booking, params: { path: company(slug), header: mutation() } })),
   updateOrder: async (slug: string, order: Order, booking: Booking) => unwrap(await client.PUT('/api/v1/companies/{slug}/orders/{identity}', { body: { version: order.version, booking }, params: { path: entity(slug, order.id), header: mutation() } })),
   assignOrder: async (slug: string, order: Order, driverId: string, vehicleId: string, route?: components['schemas']['RouteView']) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/assign', { body: { version: order.version, driver_id: driverId, vehicle_id: vehicleId, planned_at: route?.planned_at ?? order.scheduled_at, route_id: route?.id ?? null, route_version: route?.version ?? null }, params: { path: entity(slug, order.id), header: mutation() } })),
+  dispatchSuggestion: async (slug: string, orderId: string, refresh = false) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/dispatch-suggestions', { params: { path: entity(slug, orderId), query: { refresh } } })),
+  approveDispatch: async (slug: string, decision: DispatchDecision, driverId: string) => unwrap(await client.POST('/api/v1/companies/{slug}/dispatch-decisions/{identity}/approve', { body: { version: decision.version, driver_id: driverId }, params: { path: entity(slug, decision.id), header: mutation() } })),
   completeOrder: async (slug: string, order: Order) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/complete', { body: { version: order.version }, params: { path: entity(slug, order.id), header: mutation() } })),
   releaseRoute: async (slug: string, route: components['schemas']['RouteView']) => unwrap(await client.POST('/api/v1/companies/{slug}/routes/{identity}/release', { body: { version: route.version, generation: route.generation }, params: { path: entity(slug, route.id), header: mutation() } })),
   createInvoice: async (slug: string, order: Order, actualMinutes: number | null = null) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/invoice', { body: { version: order.version, actual_minutes: actualMinutes }, params: { path: entity(slug, order.id), header: mutation() } })),
@@ -96,7 +99,7 @@ export const operations = {
   driverActivity: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/drivers/{identity}/activity', { params: { path: entity(slug, identity) } })),
   mailbox: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/email-intake/mailbox', { params: { path: company(slug) } })),
   saveMailbox: async (slug: string, data: MailboxInput) => unwrap(await client.PUT('/api/v1/companies/{slug}/email-intake/mailbox', { body: data, params: { path: company(slug), header: mutation() } })),
-  testMailbox: async (slug: string, data: Pick<MailboxInput, 'host' | 'port' | 'username' | 'password' | 'folder'>) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/mailbox/test', { body: data, params: { path: company(slug) } })),
+  testMailbox: async (slug: string, data: Pick<MailboxInput, 'host' | 'port' | 'username' | 'password' | 'folder' | 'smtp_host' | 'smtp_port'>) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/mailbox/test', { body: data, params: { path: company(slug) } })),
   emailIntakes: async (slug: string, status?: EmailIntakeStatus[]) => unwrap(await client.GET('/api/v1/companies/{slug}/email-intake/messages', { params: { path: company(slug), query: { status, limit: 200 } } })),
   emailIntake: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/email-intake/messages/{identity}', { params: { path: entity(slug, identity) } })),
   discardEmailIntake: async (slug: string, row: EmailIntake) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/discard', { body: { version: row.version }, params: { path: entity(slug, row.id), header: mutation() } })),
