@@ -40,6 +40,8 @@ Page headings and content share the scrolling `.app-page` canvas and its respons
 
 `PortalShell.headerActions` holds persistent workspace controls above the scrolling page canvas, aligned with its content width and responsive gutters. The header reserves the same scrollbar space as the canvas so wide and reading columns align. The Shipper notification bell belongs there; `actions` remains for page commands such as New order. Mobile menu access moves to that shared header when it is present.
 
+`NotificationBell.surface` adds the neutral `app-icon-button-surface` background for the Shipper header. Shipper Tracking uses the shared order selector and `OrderTracking` on its own reading-width page; order details provide a real Track link. Keep links in the dialog's keyboard focus sequence.
+
 `PageHeader` contains the title, description and optional page actions. Do not add a Back to Monitor button; use the shared Dispatra brand navigation. Headers without actions do not reserve an action container.
 
 The account command menu uses `DropdownMenuContent size="trigger"` to match its account card width and edges within the sidebar, with 8px collision padding and direct Profile, Pricing, Help and Logout rows using the shared menu surface, typography and animation tokens. These widths are local design choices; exact ChatGPT account-menu measurements have not been verified.

@@ -18,7 +18,7 @@ export function useEntityDialog(open: boolean, onClose: () => void) {
       if (!topmost() || document.querySelector('[data-slot="popover-content"][data-state="open"]') || panel.querySelector('[role="listbox"]:not([aria-hidden="true"])')) return;
       if (e.key === 'Escape') { e.preventDefault(); close.current(); }
       if (e.key !== 'Tab') return;
-      const fields = Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),textarea,select,summary,[tabindex="0"]')).filter(el => el.getClientRects().length > 0);
+      const fields = Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],input:not([disabled]),textarea,select,summary,[tabindex="0"]')).filter(el => el.getClientRects().length > 0);
       const first = fields[0], last = fields.at(-1);
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }

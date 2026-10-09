@@ -31,7 +31,7 @@ export function parsePortal(path: string): PortalRoute | null {
   if (!slug) return null;
   if (pageForPath(path)) return { slug, portal:'dispatch', workspace:true };
   if (new RegExp(`^/${slug}/driver(?:/profile)?/?$`).test(path)) return { slug, portal:'driver' };
-  if (new RegExp(`^/${slug}/shipper(?:/profile)?/?$`).test(path)) return { slug, portal:'customer' };
+  if (new RegExp(`^/${slug}/shipper(?:/(?:profile|tracking))?/?$`).test(path)) return { slug, portal:'customer' };
   return null;
 }
 const ROLE = { platform:'ADMIN', dispatch:'DISPATCHER', customer:'SHIPPER', driver:'DRIVER' } as const;

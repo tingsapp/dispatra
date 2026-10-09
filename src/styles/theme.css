@@ -121,6 +121,7 @@
     transition: background-color 150ms, color 150ms;
   }
   .app-icon-button:hover { background: var(--color-app-hover); color: var(--color-app-text); }
+  .app-icon-button-surface { background: var(--color-slate-100); }
 
   .app-nav-item {
     display: flex;

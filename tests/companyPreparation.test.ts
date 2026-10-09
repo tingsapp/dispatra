@@ -25,9 +25,9 @@ test('public, admin and company paths stay separate', () => {
   assert.deepEqual(parsePortal('/acme/integrations'), { slug:'acme', portal:'dispatch', workspace:true });
   assert.equal(parsePortal('/acme/shipper/integrations'), null);
   assert.equal(parsePortal('/acme/driver/integrations'), null);
-  for (const path of ['/acme/shipper', '/acme/shipper/', '/acme/shipper/profile']) assert.deepEqual(parsePortal(path), { slug:'acme', portal:'customer' });
+  for (const path of ['/acme/shipper', '/acme/shipper/', '/acme/shipper/profile', '/acme/shipper/tracking', '/acme/shipper/tracking/']) assert.deepEqual(parsePortal(path), { slug:'acme', portal:'customer' });
   for (const path of ['/acme/driver', '/acme/driver/profile']) assert.deepEqual(parsePortal(path), { slug:'acme', portal:'driver' });
-  for (const path of ['/acme/shipper-portal', '/acme/shipper/payment-methods', '/acme/driver/unknown', '/acme/customer']) assert.equal(parsePortal(path), null);
+  for (const path of ['/acme/shipper-portal', '/acme/shipper/payment-methods', '/acme/driver/unknown', '/acme/driver/tracking', '/acme/tracking', '/acme/customer']) assert.equal(parsePortal(path), null);
 });
 
 test('singular portals never collide with plural dispatcher pages, and reserved words are not companies', () => {

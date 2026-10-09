@@ -41,20 +41,20 @@ export function OrderTrackingDialog({ slug, orderId, orderNumber, timeZone, vers
 }
 
 /** Live tracking for one Order: progress, ETA, a map (live driver position when allowed), stops and timeline. */
-export function OrderTracking({ slug, orderId, timeZone, version, onOpenMap }: { slug: string; orderId: string; timeZone: string; version?: number; onOpenMap?: () => void }) {
+export function OrderTracking({ slug, orderId, timeZone, version, onOpenMap, title = 'Tracking' }: { slug: string; orderId: string; timeZone: string; version?: number; onOpenMap?: () => void; title?: string }) {
   const query = useQuery({ queryKey: ['tracking', slug, orderId], queryFn: () => operations.orderTracking(slug, orderId),
     refetchInterval: data => data.state.data && ['DELIVERED', 'CANCELLED'].includes(data.state.data.stage) ? false : 30_000 });
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
   const t = query.data;
-  if (query.isPending) return <section className="rounded-xl border border-slate-200 p-5 text-sm"><h4 className="app-section-title">Tracking</h4><p role="status" className="mt-2 text-slate-500">Loading tracking…</p></section>;
-  if (!t) return <section className="rounded-xl border border-slate-200 p-5 text-sm"><h4 className="app-section-title">Tracking</h4><p role="alert" className="mt-2 text-red-700">{query.error instanceof Error ? query.error.message : 'Tracking is unavailable.'}</p></section>;
+  if (query.isPending) return <section className="rounded-xl border border-slate-200 p-5 text-sm"><h4 className="app-section-title">{title}</h4><p role="status" className="mt-2 text-slate-500">Loading tracking…</p></section>;
+  if (!t) return <section className="rounded-xl border border-slate-200 p-5 text-sm"><h4 className="app-section-title">{title}</h4><p role="alert" className="mt-2 text-red-700">{query.error instanceof Error ? query.error.message : 'Tracking is unavailable.'}</p></section>;
   const step = STEP_INDEX[t.stage];
   const active = !['BOOKED', 'DELIVERED', 'CANCELLED'].includes(t.stage);
   const target = t.stops.find(s => s.eta);
   return <section className="rounded-xl border border-slate-200 p-5 space-y-4 text-sm" aria-label="Tracking">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h4 className="app-section-title">Tracking</h4><p className="mt-1 text-base font-medium text-slate-900">{trackingHeadline(t, timeZone)}</p>
+      <div><h4 className="app-section-title">{title}</h4><p className="mt-1 text-base font-medium text-slate-900">{trackingHeadline(t, timeZone)}</p>
         {t.driver && t.stage !== 'DELIVERED' && <p className="text-xs text-slate-500">Driver {t.driver.first_name}{t.driver.vehicle_type ? ` · ${t.driver.vehicle_type}` : ''}</p>}</div>
       {t.eta && trackingMoving(t) && <div className="text-right"><p className="text-xs text-slate-500">{target?.kind === 'PICKUP' ? 'Pickup ETA' : 'Delivery ETA'}</p><p className="text-lg font-semibold text-slate-900">{time(t.eta, timeZone)}</p>
         {t.late ? <p className="text-xs font-medium text-rose-700">Running late</p> : t.delay_minutes >= 10 ? <p className="text-xs text-amber-700">About {t.delay_minutes} min behind schedule</p> : null}</div>}

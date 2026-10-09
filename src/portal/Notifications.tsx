@@ -75,11 +75,11 @@ export function NotificationPanel({ slug, onOpen }: { slug: string; onOpen?: (ro
 }
 
 /** Header bell for the Shipper and driver portals. */
-export function NotificationBell({ slug, onOpen }: { slug: string; onOpen?: (row: AppNotification) => void }) {
+export function NotificationBell({ slug, onOpen, surface = false }: { slug: string; onOpen?: (row: AppNotification) => void; surface?: boolean }) {
   const [open, setOpen] = useState(false);
   const unread = useUnreadNotifications(slug);
   return <FloatingPanel open={open} onOpenChange={setOpen} label="Notifications" align="end" size="rich" className="p-3" trigger={
-    <button type="button" className="app-icon-button relative" aria-expanded={open} aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} title="Notifications">
+    <button type="button" className={`app-icon-button relative ${surface ? 'app-icon-button-surface' : ''}`} aria-expanded={open} aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} title="Notifications">
       <Bell className="w-4.5 h-4.5" strokeWidth={1.75} />
       {unread > 0 && <span aria-hidden className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />}
     </button>}>

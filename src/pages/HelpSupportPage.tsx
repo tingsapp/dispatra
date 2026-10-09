@@ -55,11 +55,11 @@ const getFAQs = (units: Units): FAQItem[] => [
   },
   {
     id: 'faq-4',
-    question: 'What shipper privacy safeguards are enforced on live tracking links?',
+    question: 'How do shippers track orders, and what can they see?',
     category: 'tracking',
     categoryLabel: 'Tracking & Privacy',
     answer:
-      'Shipper tracking links (/track/:token) are strictly restricted and unauthenticated. To protect driver privacy and other clients, shippers only see the live vehicle position on the final delivery leg towards their specific address. Full day routes, other delivery stops, internal notes, and driver private cell numbers are never exposed. Tracking automatically deactivates once the delivery is marked completed.'
+      'Shippers sign in to their company portal and open Tracking below Orders, or select Track in order details. They can select only their own orders and see progress, ETA, their stops and the timeline. On a dedicated route, the live driver position can appear throughout the active route; on a shared route, it appears only when the driver is heading to one of that order’s stops. Other shippers’ stops, internal notes and private driver contact details are not exposed. Completed and cancelled orders keep their tracking history without a live location.'
   },
   {
     id: 'faq-5',

@@ -11,7 +11,7 @@ try {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('heading', { name: 'Orders', exact: true }).waitFor();
   const nav = page.getByRole('navigation', { name: 'Portal navigation' });
-  assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Orders']);
+  assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Orders', 'Tracking']);
   for (const retired of ['shipper/invoices', 'shipper-portal/invoices']) {
     await page.goto(`${origin}/${slug}/${retired}`);
     await page.waitForURL(`**/${slug}/shipper`);
@@ -20,6 +20,7 @@ try {
   }
   for (const [name,path,content] of [
     ['Orders','','Orders'],
+    ['Tracking','tracking','Tracking'],
   ]) {
     await nav.getByRole('link', { name, exact: true }).click();
     await page.waitForURL(`**/${slug}/shipper${path ? `/${path}` : ''}`);

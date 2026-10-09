@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronRight, CircleCheck, Clock, Package, Pencil, Truck } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, ChevronRight, CircleCheck, Clock, MapPin, Package, Pencil, Truck } from 'lucide-react';
 import { allOperations, operations, type Order } from '../operations/api';
 import { orderToUi } from '../operations/orderAdapters';
 import { shipperPricingContext } from '../operations/pricingAdapters';
@@ -13,7 +13,6 @@ import { ListSummary } from '../components/layout/ListSummary';
 import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
 import { OrderDossierSections, formatWhen } from '../components/orders/OrderDossierSections';
 import { ProofOfDelivery, proofAvailable } from '../components/orders/ProofOfDelivery';
-import { OrderTracking, trackingHeadline, trackingMoving } from '../components/orders/OrderTracking';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/button';
@@ -41,7 +40,7 @@ function newOrderInput(ctx: PricingContext, shipper: Shipper): PricingOrderInput
   }) };
 }
 
-export function ShipperOrders({ slug, open, onClose }: { slug: string; open: boolean; onClose: () => void }) {
+export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: string; open: boolean; onClose: () => void; onNavigate: (href: string) => void }) {
   const cache = useQueryClient();
   const profile = useQuery({ queryKey: ['shipper-profile', slug], queryFn: () => operations.ownShipper(slug) });
   const options = useQuery({ queryKey: ['booking-options', slug], queryFn: () => operations.bookingOptions(slug) });
@@ -62,9 +61,6 @@ export function ShipperOrders({ slug, open, onClose }: { slug: string; open: boo
   const detail = jobs.find(job => job.id === detailId) ?? null;
   useEntityDialog(!!detail, () => setDetailId(null));
 
-  const active = jobs.filter(job => ['ASSIGNED', 'IN_PROGRESS'].includes(orderLifecycle(job)));
-  const tracking = useQueries({ queries: active.map(job => ({ queryKey: ['tracking', slug, job.id], queryFn: () => operations.orderTracking(slug, job.id), refetchInterval: 60_000, retry: false })) });
-  const trackingById = Object.fromEntries(active.flatMap((job, index) => tracking[index]?.data ? [[job.id, tracking[index].data!]] : []));
   const filtered = jobs.filter(job => {
     const q = search.toLowerCase().trim();
     const text = [job.jobNumber, job.pickupAddress, job.dropoffAddress, job.serviceLevel, ...(job.pricingInput?.stops.map(s => [s.label, s.contactName, s.contactPhone].join(' ')) ?? [])].join(' ').toLowerCase();
@@ -122,7 +118,6 @@ export function ShipperOrders({ slug, open, onClose }: { slug: string; open: boo
               <td className="py-3.5 px-4 whitespace-nowrap">
                 <div className="flex items-center gap-2"><span className="font-medium text-slate-900">{job.jobNumber}</span><span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>{orderAttention(job).map(a => <span key={a.flag} className="text-xs text-amber-700" title={a.detail}>{a.label}</span>)}</div>
                 {job.riskText && <div className="text-xs text-slate-500 mt-0.5 font-normal">{job.riskText}</div>}
-                {trackingById[job.id] && <div className={`mt-0.5 text-xs font-normal ${trackingById[job.id].late ? 'text-rose-700' : 'text-blue-700'}`}>{trackingHeadline(trackingById[job.id], timeZone)}{trackingById[job.id].eta && trackingMoving(trackingById[job.id]) ? ` · ETA ${new Date(trackingById[job.id].eta!).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone })}` : ''}</div>}
               </td>
               <td className="py-3.5 px-4 max-w-xs">
                 <div className="flex items-start gap-1.5 text-slate-700"><span className="w-2 h-2 rounded-full bg-emerald-500 mt-1 flex-none" /><span className="truncate font-medium">{job.pickupAddress}{pickups.length > 1 && ` +${pickups.length - 1}`}</span></div>
@@ -155,7 +150,6 @@ export function ShipperOrders({ slug, open, onClose }: { slug: string; open: boo
         {detail.pricing?.status === 'PRICED' && <span className="text-sm font-normal text-slate-600">${detail.pricing.total.toFixed(2)} {detail.pricing.currency}</span>}
       </>} />
       <DialogBody className="space-y-5">
-        {detail.lifecycleStatus !== 'NEW' && <OrderTracking slug={slug} orderId={detail.id} timeZone={timeZone} version={detail.version} />}
         <OrderDossierSections job={detail} ctx={ctx} showShipper={false} showMargin={false} dispatch={<section className="rounded-xl border border-slate-200 p-5 space-y-3 text-sm">
           <h4 className="app-section-title">Delivery</h4>
           <p>Status: <span className="font-medium">{lifecycleLabel(detail)}</span>{detail.lifecycleStatus === 'NEW' && <span className="text-slate-500"> · awaiting dispatch</span>}</p>
@@ -163,6 +157,10 @@ export function ShipperOrders({ slug, open, onClose }: { slug: string; open: boo
         {proofAvailable(detail.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={detail.id} timeZone={timeZone} />}
       </DialogBody>
       <DialogFooter note={shipperEditable(detail) ? undefined : 'Orders can be edited until they are assigned to a driver.'}>
+        <Button variant="outline" asChild><a href={`/${slug}/shipper/tracking?order=${encodeURIComponent(detail.id)}`} onClick={event => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault(); setDetailId(null); onNavigate(event.currentTarget.getAttribute('href')!);
+        }}><MapPin size={16} />Track</a></Button>
         {shipperEditable(detail) && <Button variant="outline" onClick={() => startEdit(detail)}>Edit order</Button>}
         <Button onClick={() => setDetailId(null)}>Close</Button>
       </DialogFooter>
