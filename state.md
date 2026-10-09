@@ -1,8 +1,10 @@
 # Dispatra web client implementation state
 
-Updated: 2026-10-08. [Specification](spec.md) defines intended behavior.
+Updated: 2026-10-09. [Specification](spec.md) defines intended behavior.
 
 ## Implemented
+
+- 2026-10-09: Smoothed the public map activity animation. Logs remain opaque and retain their DOM identity while sliding through fixed 48px rows with 700ms easing; previous logs remain visible when the sample lifecycle loops. Removed opacity entry keyframes and the loop's list reset; old rows stay mounted until they leave the clipped viewport. Icon/background colors transition gently. Pause/play, hidden-tab suspension and the static reduced-motion view remain connected. Five focused homepage tests, TypeScript and production build passed. Browser acceptance passed persistent completion-row identity at the loop boundary, opaque rows, transform transitions, lifecycle, pause/resume, reduced motion and 390px/320px layout; screenshots inspected. This is a local/release-candidate update; production deployment still awaits the earlier credential-retrieval approval.
 
 - Release candidate verification: the complete web suite passed all 351 tests across 28 files; web TypeScript, production build and generated driver TypeScript passed. Anonymous production browser inspection found no uncaught page errors; `/shipper` and `/driver` still served the preceding generic entry, which this candidate replaces with role-selected workspace entry. The API candidate passed 113 PostgreSQL regressions. Production migration and coordinated deployment remain pending explicit approval for private production credential retrieval; no live release or authenticated production workflow verification is claimed.
 
