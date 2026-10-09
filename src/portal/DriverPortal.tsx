@@ -10,7 +10,7 @@ import { evidenceUrl } from '../components/orders/ProofOfDelivery';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
 import { Switch } from '../components/ui/Switch';
-import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
+import { Dialog, DialogBody, DialogHeader } from '../components/ui/Dialog';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { PortalShell } from './PortalShell';
 import { NotificationBell } from './Notifications';
@@ -269,7 +269,6 @@ function DriverOrderDialog({ slug, order, orders, route, online, onStartRoute, o
         {route?.status === 'IN_PROGRESS' && route.stops.every(visit => visit.status === 'COMPLETED') && <Button type="button" disabled={busy} onClick={() => call(() => onFinishRoute(route))}>Complete job</Button>}
       </section>
     </DialogBody>
-    <DialogFooter><Button onClick={onClose}>Close</Button></DialogFooter>
   </Dialog>;
 }
 

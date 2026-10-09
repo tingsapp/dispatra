@@ -73,6 +73,8 @@ test('driver orders list opens an order with its stops; starting the route needs
   const start = await screen.findByRole('button', { name: 'Start route' });
   assert.equal((start as HTMLButtonElement).disabled, true);
   assert.ok(screen.getByText(/Go On Duty from the sidebar switch/));
+  await user.click(screen.getByRole('button', { name: 'Close dialog' }));
+  assert.equal(screen.queryByRole('dialog'), null);
 });
 
 test('location sharing starts from Start route and stops locally even when End Duty fails', { timeout: 15_000 }, async () => {
