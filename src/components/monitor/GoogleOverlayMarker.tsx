@@ -8,10 +8,12 @@ interface GoogleOverlayMarkerProps {
   children: ReactNode;
   onSelect?: () => void;
   id?: string;
+  title?: string;
+  className?: string;
 }
 
 /** React content in the Google map's mouse target pane, centered on its location. */
-export function GoogleOverlayMarker({ position, label, children, onSelect, id }: GoogleOverlayMarkerProps) {
+export function GoogleOverlayMarker({ position, label, children, onSelect, id, title, className = '' }: GoogleOverlayMarkerProps) {
   const map = useMap();
   const element = useRef<HTMLDivElement | null>(null);
   if (!element.current) {
@@ -49,7 +51,7 @@ export function GoogleOverlayMarker({ position, label, children, onSelect, id }:
   useEffect(() => { overlay.current?.draw(); }, [position.lat, position.lng]);
 
   return createPortal(<div id={id} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
-    aria-label={label} className="cursor-pointer select-none"
+    aria-label={label} title={title} className={`cursor-pointer select-none ${className}`}
     onClick={event => { event.stopPropagation(); onSelect?.(); }}
     onKeyDown={event => {
       if (!onSelect || (event.key !== 'Enter' && event.key !== ' ')) return;

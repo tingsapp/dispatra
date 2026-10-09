@@ -1,5 +1,5 @@
-import { APIProvider, Map, Marker, Polyline, useMap } from '@vis.gl/react-google-maps';
-import { Clock3, Package, Plane, Truck, UserX } from 'lucide-react';
+import { APIProvider, Map, Polyline, useMap } from '@vis.gl/react-google-maps';
+import { Plane, Truck } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { operations } from '../operations/api';
@@ -7,6 +7,7 @@ import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { BLUE_ROUTE_WAYPOINTS, GREEN_ROUTE_WAYPOINTS, ORANGE_ROUTE_WAYPOINTS, INITIAL_DRIVERS, INITIAL_JOBS } from '../data/mockData';
 import type { Driver, Job, MapLayerConfig } from '../types';
 import { GoogleOverlayMarker } from './monitor/GoogleOverlayMarker';
+import { GoogleOrderMarkers } from './monitor/GoogleOrderMarkers';
 import { MONITOR_CAMERA } from './monitor/mapScene';
 export { VANCOUVER_CENTER_LNG_LAT } from './monitor/mapScene';
 
@@ -216,7 +217,7 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
     return () => cancelAnimationFrame(animationFrame);
   }, [updatePositions, props.active, props.demo]);
 
-  // Each open order keeps its status marker; its located pickups and drop-offs get default map pins joined by the black road path.
+  // Located stops use the homepage's circles; the final stop carries the order's status tag.
   const located = (lat?: number | null, lng?: number | null): lat is number => lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng);
   const orderStops = (job: Job) => {
     const stops = (job.pricingInput?.stops ?? []).filter(stop => located(stop.latitude, stop.longitude))
@@ -270,28 +271,10 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
     </GoogleOverlayMarker>
     </>}
     {visibleJobs.map(({ job, stops }) => {
-      const risk = job.status === 'at_risk';
-      const late = job.status === 'late_start';
-      const unassigned = job.status === 'no_driver';
-      const color = risk ? 'bg-rose-600' : late ? 'bg-amber-500' : unassigned ? 'bg-slate-700' : 'bg-blue-600';
-      const label = risk ? 'At Risk' : late ? 'Late Start' : unassigned ? 'No Driver' : job.statusLabel;
-      const Icon = risk ? Package : late ? Clock3 : unassigned ? UserX : Package;
       const path = roadPaths[job.id];
       return <Fragment key={job.id}>
         {path && path.length > 1 && <Polyline path={path} strokeColor={ROUTE_COLOR} strokeOpacity={0.85} strokeWeight={4} clickable={false} />}
-        {stops.map(stop => {
-          const pickup = stop.type === 'PICKUP';
-          return <Marker key={stop.id} position={{ lat: stop.lat, lng: stop.lng }} label={pickup ? 'P' : 'D'}
-            title={`${job.jobNumber} · ${pickup ? 'Pickup' : 'Drop-off'}\n${stop.label}`} onClick={() => props.onSelectJob(job.jobNumber, [stop.lng, stop.lat])} />;
-        })}
-        <GoogleOverlayMarker position={{ lat: job.lat, lng: job.lng }}
-          label={`Order ${job.jobNumber}, ${label}`} onSelect={() => props.onSelectJob(job.jobNumber, [job.lng, job.lat])}>
-          <div className="relative flex items-center justify-center w-9 h-9 group">
-            {risk && <div className="absolute inset-0 rounded-full bg-rose-500/30 animate-radar-ping-fast pointer-events-none" />}
-            <div className={`relative w-8 h-8 rounded-full ${color} text-white ring-2 ring-white shadow-lg grid place-items-center group-hover:scale-110 transition-transform`}><Icon className="w-4 h-4" /></div>
-            <div className={`absolute -top-6 left-1/2 -translate-x-1/2 ${color} text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none`}>{job.jobNumber} • {label}</div>
-          </div>
-        </GoogleOverlayMarker>
+        <GoogleOrderMarkers job={job} stops={stops} onSelect={props.onSelectJob} />
       </Fragment>;
     })}
     {props.demo !== false && <GoogleOverlayMarker id="d14-marker-container" position={{ lat: movingDriver.lat, lng: movingDriver.lng }} label="Driver D14, Arles" onSelect={() => props.onSelectDriver('D14', [movingDriverRef.current.lng, movingDriverRef.current.lat])}>

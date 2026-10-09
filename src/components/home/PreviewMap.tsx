@@ -1,4 +1,5 @@
 import { Truck } from 'lucide-react';
+import { StopMarkerCircle } from '../map/StopMarkerCircle';
 
 // The illustrative route and its road share the same geometry.
 const route = 'M225 385V277Q225 265 237 265H293Q305 265 305 253V217Q305 205 317 205H453Q465 205 465 193V93';
@@ -34,8 +35,8 @@ export function PreviewMap() {
     </g>
     <path d={route} fill="none" stroke="#3b82f6" strokeOpacity="0.12" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
     <path data-preview-route="true" d={route} fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    <circle cx="225" cy="385" r="8" fill="white" stroke="#171717" strokeWidth="3" />
-    <circle cx="465" cy="93" r="8" fill="#171717" stroke="white" strokeWidth="3" />
+    <StopMarkerCircle kind="PICKUP" cx={225} cy={385} />
+    <StopMarkerCircle kind="DROPOFF" cx={465} cy={93} />
     <g data-preview-driver="true" transform="translate(465 150)">
       <rect x="-18" y="-18" width="36" height="36" rx="10" fill="#2563eb" stroke="white" strokeWidth="2" />
       <Truck x="-8" y="-8" width="16" height="16" color="white" />
