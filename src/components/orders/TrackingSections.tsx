@@ -21,7 +21,7 @@ export function TrackingSummary({ tracking: t, timeZone, title, showDriver = tru
         <p className={`text-[11px] leading-tight ${done || current ? 'font-medium text-slate-800' : 'text-slate-400'}`}>{label}</p>
       </li>;
     })}</ol>}
-    {t.open_issue === true && <p role="status" className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-amber-800"><AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />The driver reported an issue with this order. Dispatch is handling it.</p>}
+    {t.open_issue === true && <p role="status" className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-800"><AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />The driver reported an issue with this order. Dispatch is handling it.</p>}
   </div>;
 }
 
