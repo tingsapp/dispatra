@@ -66,10 +66,10 @@ test('hero input rejects invalid workspace names and never saves them', () => {
   }
   assert.equal(localStorage.length, 0);
 });
-test('returning visitors get their company name and signed-in visitors resume their actual portal', async () => {
+test('homepage starts with an empty workspace even for returning visitors and preserves authenticated resume', async () => {
   rememberWorkspaceEntry('last-company', 'shipper');
   api.me = async () => account('DRIVER');
   render(React.createElement(PublicHome));
-  assert.equal((screen.getByLabelText('Company workspace') as HTMLInputElement).value, 'last-company');
+  assert.equal((screen.getByLabelText('Company workspace') as HTMLInputElement).value, '');
   await waitFor(() => assert.equal(screen.getByRole('link', { name: 'Open my workspace' }).getAttribute('href'), '/acme/driver'));
 });

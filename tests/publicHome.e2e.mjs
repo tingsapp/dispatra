@@ -124,7 +124,7 @@ try {
   assert.ok(await page.getByRole('radio', { name: 'Driver' }).isChecked());
   await page.getByRole('link', { name: 'Change workspace' }).click();
   await page.waitForURL(origin + '/#workspace');
-  assert.equal(await company.inputValue(), 'demo');
+  assert.equal(await company.inputValue(), '', 'Homepage workspace starts empty, including after Change workspace');
   assert.equal(await page.getByRole('radio').count(), 0);
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });

@@ -6,7 +6,7 @@ import { readWorkspaceEntry, rememberWorkspaceEntry, workspaceDestination, type 
 
 export function HeroWorkspaceEntry({ initialRole, inputRef }: { initialRole?: WorkspaceRole; inputRef: Ref<HTMLInputElement> }) {
   const [remembered] = useState(readWorkspaceEntry);
-  const [workspace, setWorkspace] = useState(remembered.slug);
+  const [workspace, setWorkspace] = useState('');
   const [error, setError] = useState('');
   const continueToLogin = (event: FormEvent) => {
     event.preventDefault();
