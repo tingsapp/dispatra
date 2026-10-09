@@ -210,6 +210,14 @@ try {
       await page.getByRole('button', { name: new RegExp(`^${number} · Drop-off:`) }).waitFor();
     }
     assert.equal(await page.getByRole('button', { name: /^DDO-104[34] · (Pickup|Drop-off):/ }).count(), 0);
+    assert.equal(await page.locator('.shipper-stop-caption').count(), 1, 'Only the active pickup has a persistent description');
+    const deliveryMarker = page.getByRole('button', { name: /^DDO-1041 · Drop-off:/ });
+    await deliveryMarker.focus();
+    await deliveryMarker.locator('[role="tooltip"]').waitFor();
+    assert.equal(await deliveryMarker.getAttribute('aria-expanded'), 'true');
+    await deliveryMarker.press('Escape');
+    assert.equal(await deliveryMarker.locator('[role="tooltip"]').count(), 0);
+    await header.getByRole('searchbox', { name: 'Search your orders' }).focus();
     assert.deepEqual([...new Set(roadReads)].sort(), ['1', '2', '5'], 'Only open own orders request road geometry');
     await checkMapBounds(); // Initial framing must work without pressing Fit.
     await page.getByRole('button', { name: 'Zoom in', exact: true }).click();

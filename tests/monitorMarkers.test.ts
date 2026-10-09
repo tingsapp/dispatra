@@ -8,7 +8,6 @@ import { roundedRoutePath } from '../src/components/map/roundedRoutePath';
 import { INITIAL_JOBS } from '../src/data/mockData';
 import { GoogleOrderMarkers, type LocatedOrderStop } from '../src/components/monitor/GoogleOrderMarkers';
 import { ShipperStopMarker } from '../src/components/orders/ShipperStopMarker';
-import { layoutShipperStopCaptions } from '../src/components/orders/useShipperStopCaptions';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'Event', 'KeyboardEvent', 'MouseEvent']) {
@@ -105,37 +104,35 @@ test('orders without located stops retain their selectable status marker', () =>
   assert.equal(screen.getAllByRole('button').length, 1);
 });
 
-test('shipper pickup and delivery captions retain accessible order selection and geographic anchors', () => {
+test('shipper shows the active pickup description and opens delivery details on click or keyboard focus', () => {
   document.body.appendChild(pane);
-  const selected: string[] = [];
+  const selections: string[] = [];
   render(React.createElement(APIProviderContext.Provider, { value: context },
-    React.createElement(ShipperStopMarker, { position: { lat: 49.2, lng: -123.1 }, kind: 'PICKUP', number: 'DDO-1041', address: 'Warehouse', selected: true, onSelect: () => selected.push('pickup') }),
-    React.createElement(ShipperStopMarker, { position: { lat: 49.3, lng: -123.2 }, kind: 'DROPOFF', ordinal: 2, number: 'DDO-1042', address: 'Second recipient', selected: false, onSelect: () => selected.push('delivery') })));
+    React.createElement(ShipperStopMarker, { position: { lat: 49.2, lng: -123.1 }, kind: 'PICKUP', number: 'DDO-1041', address: 'Warehouse', contactName: 'Dock team', selected: true, onSelect: () => selections.push('pickup') }),
+    React.createElement(ShipperStopMarker, { position: { lat: 49.3, lng: -123.2 }, kind: 'DROPOFF', ordinal: 2, number: 'DDO-1041', address: 'Second recipient', selected: true, onSelect: () => selections.push('delivery') }),
+    React.createElement(ShipperStopMarker, { position: { lat: 49.4, lng: -123.3 }, kind: 'PICKUP', number: 'DDO-1042', address: 'Other warehouse', selected: false, onSelect: () => selections.push('other') })));
   const pickup = screen.getByRole('button', { name: 'DDO-1041 · Pickup: Warehouse' });
-  const delivery = screen.getByRole('button', { name: 'DDO-1042 · Drop-off 2: Second recipient' });
-  assert.ok(screen.getByText('Pickup')); assert.ok(screen.getByText('Delivery 2'));
+  const delivery = screen.getByRole('button', { name: 'DDO-1041 · Drop-off 2: Second recipient' });
+  assert.equal(screen.getAllByRole('tooltip').length, 1);
+  assert.ok(screen.getByText('Warehouse')); assert.ok(screen.getByText('Contact: Dock team'));
+  assert.equal(screen.queryByText('Delivery 2'), null); assert.equal(screen.queryByText('Other warehouse'), null);
   assert.equal(pickup.getAttribute('aria-current'), 'true');
-  assert.equal(delivery.getAttribute('aria-current'), null);
   assert.equal(pickup.parentElement!.style.left, `${-123.1 * 100}px`);
   assert.equal(pickup.parentElement!.style.top, `${49.2 * 100}px`);
-  assert.equal(pickup.parentElement!.style.zIndex, '20');
-  fireEvent.click(pickup); fireEvent.keyDown(delivery, { key: 'Enter' }); fireEvent.keyDown(delivery, { key: ' ' });
-  assert.deepEqual(selected, ['pickup', 'delivery', 'delivery']);
-});
-
-test('crowded shipper captions prioritize the selected order and return when space becomes available', () => {
-  const canvas = document.createElement('div');
-  canvas.innerHTML = '<div class="shipper-stop-marker"><span class="shipper-stop-caption"></span></div><div class="shipper-stop-marker" aria-current="true"><span class="shipper-stop-caption"></span></div>';
-  const [background, selected] = [...canvas.children] as HTMLElement[];
-  let left = 40;
-  background.firstElementChild!.getBoundingClientRect = () => ({ left, right: left + 60, top: 10, bottom: 36 } as DOMRect);
-  selected.firstElementChild!.getBoundingClientRect = () => ({ left: 0, right: 120, top: 10, bottom: 36 } as DOMRect);
-  layoutShipperStopCaptions(canvas);
-  assert.equal(selected.dataset.captionHidden, 'false');
-  assert.equal(background.dataset.captionHidden, 'true');
-  left = 140;
-  layoutShipperStopCaptions(canvas);
-  assert.equal(background.dataset.captionHidden, 'false');
+  fireEvent.focus(delivery);
+  assert.ok(screen.getByText('Second recipient')); assert.ok(screen.getByText('Delivery 2'));
+  assert.equal(delivery.getAttribute('aria-expanded'), 'true');
+  assert.equal(delivery.querySelector('[role="tooltip"]')!.id, delivery.getAttribute('aria-describedby'));
+  fireEvent.keyDown(delivery, { key: 'Escape' });
+  assert.equal(delivery.getAttribute('aria-expanded'), 'false');
+  fireEvent.click(delivery);
+  assert.equal(document.activeElement, delivery, 'A pointer click focuses the marker so blur can dismiss its description');
+  assert.ok(screen.getByText('Second recipient'));
+  fireEvent.blur(delivery);
+  assert.equal(screen.queryByText('Second recipient'), null);
+  fireEvent.keyDown(delivery, { key: 'Enter' }); fireEvent.keyDown(delivery, { key: ' ' });
+  assert.deepEqual(selections, ['delivery', 'delivery', 'delivery']);
+  assert.ok(screen.getByText('Warehouse'), 'The active pickup description stays visible');
 });
 
 test('rounded route keeps endpoints and confines curves to the immediate turn, including duplicate points', () => {

@@ -12,10 +12,15 @@ interface GoogleOverlayMarkerProps {
   className?: string;
   current?: boolean;
   zIndex?: number;
+  expanded?: boolean;
+  descriptionId?: string;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onDismiss?: () => void;
 }
 
 /** React content in the Google map's mouse target pane, centered on its location. */
-export function GoogleOverlayMarker({ position, label, children, onSelect, id, title, className = '', current, zIndex }: GoogleOverlayMarkerProps) {
+export function GoogleOverlayMarker({ position, label, children, onSelect, id, title, className = '', current, zIndex, expanded, descriptionId, onFocus, onBlur, onDismiss }: GoogleOverlayMarkerProps) {
   const map = useMap();
   const element = useRef<HTMLDivElement | null>(null);
   if (!element.current) {
@@ -54,9 +59,11 @@ export function GoogleOverlayMarker({ position, label, children, onSelect, id, t
   useEffect(() => { if (element.current) element.current.style.zIndex = zIndex === undefined ? '' : String(zIndex); }, [zIndex]);
 
   return createPortal(<div id={id} role={onSelect ? 'button' : 'img'} tabIndex={onSelect ? 0 : undefined}
-    aria-label={label} aria-current={current || undefined} title={title} className={`cursor-pointer select-none ${className}`}
-    onClick={event => { event.stopPropagation(); onSelect?.(); }}
+    aria-label={label} aria-current={current || undefined} aria-expanded={expanded} aria-describedby={descriptionId}
+    title={title} className={`cursor-pointer select-none ${className}`} onFocus={onFocus} onBlur={onBlur}
+    onClick={event => { event.stopPropagation(); if (onSelect) { event.currentTarget.focus({ preventScroll: true }); onSelect(); } }}
     onKeyDown={event => {
+      if (event.key === 'Escape' && onDismiss) { event.preventDefault(); event.stopPropagation(); onDismiss(); return; }
       if (!onSelect || (event.key !== 'Enter' && event.key !== ' ')) return;
       event.preventDefault(); event.stopPropagation(); onSelect();
     }}>
