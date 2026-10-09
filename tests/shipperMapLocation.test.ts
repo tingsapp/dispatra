@@ -36,7 +36,10 @@ test('map fitting chooses usable space from actual card bounds, including a narr
     [rect(0, 0, 320, 844), rect(16, 80, 288, 326)],
   ]) {
     const padding = shipperMapPadding(view, card);
-    assert.ok(view.width - padding.left - padding.right > 150);
+    // The anchors can occupy a narrower band; captions extend into the reserved margins.
+    assert.ok(view.width - padding.left - padding.right > 32);
+    const halfCaption = view.width <= 480 ? 72 : 80;
+    assert.ok(padding.left >= halfCaption + 8 && padding.right >= halfCaption + 8);
     assert.ok(view.height - padding.top - padding.bottom > 150);
     assert.ok(view.left + padding.left >= card.right + 32 || view.top + padding.top >= card.bottom + 48,
       'The fitting rectangle must not overlap the card');

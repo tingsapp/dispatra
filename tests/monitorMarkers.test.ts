@@ -7,6 +7,8 @@ import { GoogleRoundedRoute } from '../src/components/map/GoogleRoundedRoute';
 import { roundedRoutePath } from '../src/components/map/roundedRoutePath';
 import { INITIAL_JOBS } from '../src/data/mockData';
 import { GoogleOrderMarkers, type LocatedOrderStop } from '../src/components/monitor/GoogleOrderMarkers';
+import { ShipperStopMarker } from '../src/components/orders/ShipperStopMarker';
+import { layoutShipperStopCaptions } from '../src/components/orders/useShipperStopCaptions';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'Event', 'KeyboardEvent', 'MouseEvent']) {
@@ -101,6 +103,39 @@ test('orders without located stops retain their selectable status marker', () =>
   fireEvent.click(screen.getByRole('button', { name: `Order ${job.jobNumber}, At Risk` }));
   assert.deepEqual(selected, [job.jobNumber, [job.lng, job.lat]]);
   assert.equal(screen.getAllByRole('button').length, 1);
+});
+
+test('shipper pickup and delivery captions retain accessible order selection and geographic anchors', () => {
+  document.body.appendChild(pane);
+  const selected: string[] = [];
+  render(React.createElement(APIProviderContext.Provider, { value: context },
+    React.createElement(ShipperStopMarker, { position: { lat: 49.2, lng: -123.1 }, kind: 'PICKUP', number: 'DDO-1041', address: 'Warehouse', selected: true, onSelect: () => selected.push('pickup') }),
+    React.createElement(ShipperStopMarker, { position: { lat: 49.3, lng: -123.2 }, kind: 'DROPOFF', ordinal: 2, number: 'DDO-1042', address: 'Second recipient', selected: false, onSelect: () => selected.push('delivery') })));
+  const pickup = screen.getByRole('button', { name: 'DDO-1041 · Pickup: Warehouse' });
+  const delivery = screen.getByRole('button', { name: 'DDO-1042 · Drop-off 2: Second recipient' });
+  assert.ok(screen.getByText('Pickup')); assert.ok(screen.getByText('Delivery 2'));
+  assert.equal(pickup.getAttribute('aria-current'), 'true');
+  assert.equal(delivery.getAttribute('aria-current'), null);
+  assert.equal(pickup.parentElement!.style.left, `${-123.1 * 100}px`);
+  assert.equal(pickup.parentElement!.style.top, `${49.2 * 100}px`);
+  assert.equal(pickup.parentElement!.style.zIndex, '20');
+  fireEvent.click(pickup); fireEvent.keyDown(delivery, { key: 'Enter' }); fireEvent.keyDown(delivery, { key: ' ' });
+  assert.deepEqual(selected, ['pickup', 'delivery', 'delivery']);
+});
+
+test('crowded shipper captions prioritize the selected order and return when space becomes available', () => {
+  const canvas = document.createElement('div');
+  canvas.innerHTML = '<div class="shipper-stop-marker"><span class="shipper-stop-caption"></span></div><div class="shipper-stop-marker" aria-current="true"><span class="shipper-stop-caption"></span></div>';
+  const [background, selected] = [...canvas.children] as HTMLElement[];
+  let left = 40;
+  background.firstElementChild!.getBoundingClientRect = () => ({ left, right: left + 60, top: 10, bottom: 36 } as DOMRect);
+  selected.firstElementChild!.getBoundingClientRect = () => ({ left: 0, right: 120, top: 10, bottom: 36 } as DOMRect);
+  layoutShipperStopCaptions(canvas);
+  assert.equal(selected.dataset.captionHidden, 'false');
+  assert.equal(background.dataset.captionHidden, 'true');
+  left = 140;
+  layoutShipperStopCaptions(canvas);
+  assert.equal(background.dataset.captionHidden, 'false');
 });
 
 test('rounded route keeps endpoints and confines curves to the immediate turn, including duplicate points', () => {

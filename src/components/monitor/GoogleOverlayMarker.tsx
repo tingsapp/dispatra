@@ -10,10 +10,12 @@ interface GoogleOverlayMarkerProps {
   id?: string;
   title?: string;
   className?: string;
+  current?: boolean;
+  zIndex?: number;
 }
 
 /** React content in the Google map's mouse target pane, centered on its location. */
-export function GoogleOverlayMarker({ position, label, children, onSelect, id, title, className = '' }: GoogleOverlayMarkerProps) {
+export function GoogleOverlayMarker({ position, label, children, onSelect, id, title, className = '', current, zIndex }: GoogleOverlayMarkerProps) {
   const map = useMap();
   const element = useRef<HTMLDivElement | null>(null);
   if (!element.current) {
@@ -49,9 +51,10 @@ export function GoogleOverlayMarker({ position, label, children, onSelect, id, t
   }, [map]);
 
   useEffect(() => { overlay.current?.draw(); }, [position.lat, position.lng]);
+  useEffect(() => { if (element.current) element.current.style.zIndex = zIndex === undefined ? '' : String(zIndex); }, [zIndex]);
 
   return createPortal(<div id={id} role={onSelect ? 'button' : 'img'} tabIndex={onSelect ? 0 : undefined}
-    aria-label={label} title={title} className={`cursor-pointer select-none ${className}`}
+    aria-label={label} aria-current={current || undefined} title={title} className={`cursor-pointer select-none ${className}`}
     onClick={event => { event.stopPropagation(); onSelect?.(); }}
     onKeyDown={event => {
       if (!onSelect || (event.key !== 'Enter' && event.key !== ' ')) return;

@@ -5,7 +5,8 @@ import { LocateFixed, Maximize, Minus, Plus, Truck } from 'lucide-react';
 import { operations, type Address, type Order } from '../../operations/api';
 import { GoogleOverlayMarker } from '../monitor/GoogleOverlayMarker';
 import { GoogleRoundedRoute } from '../map/GoogleRoundedRoute';
-import { StopMarkerCircle } from '../map/StopMarkerCircle';
+import { ShipperStopMarker } from './ShipperStopMarker';
+import { useShipperStopCaptions } from './useShipperStopCaptions';
 import { useShipperMapCamera } from './useShipperMapCamera';
 import type { Tracking } from './trackingPresentation';
 import { addressPoint, deviceLocation, initialShipperCenter, resolveShipperLocation, type MapPoint } from './shipperMapLocation';
@@ -19,7 +20,9 @@ function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect,
   const openOrders = orders.filter(order => ['NEW', 'ASSIGNED', 'IN_PROGRESS'].includes(order.status));
   const stops = openOrders.flatMap(order => order.facts.stops.flatMap(stop => {
     const point = addressPoint(stop.address);
-    return point ? [{ ...stop, point, orderId: order.id, number: order.number }] : [];
+    const matching = order.facts.stops.filter(item => item.kind === stop.kind);
+    const ordinal = matching.length > 1 ? matching.findIndex(item => item.id === stop.id) + 1 : undefined;
+    return point ? [{ ...stop, point, ordinal, orderId: order.id, number: order.number }] : [];
   }));
   const roads = useQueries({ queries: openOrders.map(order => ({
     queryKey: ['tracking-path', slug, order.id, order.version],
@@ -28,6 +31,7 @@ function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect,
     staleTime: Infinity, gcTime: 30 * 60_000, retry: false,
   })) });
   const liveTracking = tracking && openOrders.some(order => order.id === tracking.order_id) ? tracking : undefined;
+  useShipperStopCaptions(map, `${selectedOrderId ?? ''}:${stops.map(stop => `${stop.orderId}:${stop.id}:${stop.number}:${stop.ordinal ?? ''}:${stop.point.lat}:${stop.point.lng}`).join('|')}`);
   useEffect(() => {
     if (!map || !locationReady) return;
     let active = true;
@@ -51,12 +55,10 @@ function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect,
   return <>
     {roads.map((road, index) => road.data?.points && <GoogleRoundedRoute key={openOrders[index].id}
       id={openOrders[index].id} points={road.data.points} selected={openOrders[index].id === selectedOrderId} />)}
-    {stops.map(stop => <GoogleOverlayMarker key={`${stop.orderId}:${stop.id}`} position={stop.point}
-      title={`${stop.number} · ${stop.kind === 'PICKUP' ? 'Pickup' : 'Drop-off'}`}
-      label={`${stop.number} · ${stop.kind === 'PICKUP' ? 'Pickup' : 'Drop-off'}: ${stop.address.text}`} onSelect={() => onSelect(stop.orderId)}>
-      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden><StopMarkerCircle kind={stop.kind === 'PICKUP' ? 'PICKUP' : 'DROPOFF'} /></svg>
-    </GoogleOverlayMarker>)}
-    {liveTracking?.live && liveTracking.location && <GoogleOverlayMarker position={{ lat: liveTracking.location.latitude, lng: liveTracking.location.longitude }} label={`Driver ${liveTracking.driver?.first_name ?? ''}`}>
+    {stops.map(stop => <ShipperStopMarker key={`${stop.orderId}:${stop.id}`} position={stop.point}
+      kind={stop.kind} number={stop.number} address={stop.address.text} ordinal={stop.ordinal}
+      selected={stop.orderId === selectedOrderId} onSelect={() => onSelect(stop.orderId)} />)}
+    {liveTracking?.live && liveTracking.location && <GoogleOverlayMarker position={{ lat: liveTracking.location.latitude, lng: liveTracking.location.longitude }} label={`Driver ${liveTracking.driver?.first_name ?? ''}`} zIndex={30}>
       <span className="grid size-9 place-items-center rounded-xl border-2 border-white bg-blue-600 text-white shadow-md"><Truck size={18} /></span>
     </GoogleOverlayMarker>}
     <div className="shipper-map-controls" aria-label="Map controls">

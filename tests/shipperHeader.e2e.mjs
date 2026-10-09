@@ -86,8 +86,10 @@ try {
       const markers = [...main.querySelectorAll('[role="button"][aria-label*=" · Pickup:"], [role="button"][aria-label*=" · Drop-off:"]')];
       return markers.length > 0 && markers.every(marker => {
         const p = marker.getBoundingClientRect();
-        const contained = p.left >= view.left + 8 && p.right <= view.right - 8 && p.top >= view.top + 64 && p.bottom <= view.bottom - 32;
-        const uncovered = p.right <= card.left || p.left >= card.right || p.bottom <= card.top || p.top >= card.bottom;
+        const caption = marker.querySelector('.shipper-stop-caption')?.getBoundingClientRect() ?? p;
+        const bounds = { left: Math.min(p.left, caption.left), right: Math.max(p.right, caption.right), top: Math.min(p.top, caption.top), bottom: Math.max(p.bottom, caption.bottom) };
+        const contained = bounds.left >= view.left + 8 && bounds.right <= view.right - 8 && bounds.top >= view.top + 64 && bounds.bottom <= view.bottom - 32;
+        const uncovered = bounds.right <= card.left || bounds.left >= card.right || bounds.bottom <= card.top || bounds.top >= card.bottom;
         return contained && uncovered;
       });
     }, null, { timeout: 15000 });
