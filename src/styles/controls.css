@@ -13,6 +13,7 @@
   padding-bottom: 2rem;
   scrollbar-gutter: stable;
 }
+.app-page.app-page-with-header { padding-top: 2rem; }
 .app-page > .page-content:not(.app-page-header) {
   flex: 0 0 auto;
   overflow-y: visible;
@@ -26,6 +27,7 @@
 .app-page-title { font-size: 1.75rem; line-height: 2.25rem; font-weight: 500; letter-spacing: -.025em; color: var(--color-app-text); }
 @media (max-width: 767px) {
   .app-page { padding-top: 3.5rem; padding-bottom: 1rem; }
+  .app-page.app-page-with-header { padding-top: 1.5rem; }
   .app-page-title { font-size: 1.5rem; line-height: 2rem; }
 }
 

@@ -38,6 +38,8 @@ Run `tests/appearance.test.ts` and affected interaction suites for behavioral ch
 
 Page headings and content share the scrolling `.app-page` canvas and its responsive top spacing. Keep `.page-content` as the direct body/header gutter so both align. Keep all Pricing tabs on the same wide canvas as Rate Cards; do not assign per-tab reading widths. The shared `TabItem.pageWidth` option remains available for other layouts, and width changes must not remount forms. Reading columns use 48rem, while dense operational tables and two-column editors use the wider workspace. This layout follows the supplied Scheduled-page screenshot.
 
+`PortalShell.headerActions` holds persistent workspace controls above the scrolling page canvas, outside reading-width gutters. The Shipper notification bell belongs there; `actions` remains for page commands such as New order. Mobile menu access moves to that shared header when it is present.
+
 `PageHeader` contains the title, description and optional page actions. Do not add a Back to Monitor button; use the shared Dispatra brand navigation. Headers without actions do not reserve an action container.
 
 The account command menu uses `DropdownMenuContent size="trigger"` to match its account card width and edges within the sidebar, with 8px collision padding and direct Profile, Pricing, Help and Logout rows using the shared menu surface, typography and animation tokens. These widths are local design choices; exact ChatGPT account-menu measurements have not been verified.

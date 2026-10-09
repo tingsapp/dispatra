@@ -64,6 +64,20 @@ test('portal shell preserves form drafts while toggling navigation and exposes t
   assert.equal((screen.getByRole('button', { name: 'Sign out' }) as HTMLButtonElement).disabled, true);
 });
 
+test('workspace header controls persist outside page headings when portal pages change', () => {
+  const props = { ...base, primary: 'Orders', headerActions: React.createElement('button', null, 'Notifications'),
+    actions: React.createElement('button', null, 'New order'), children: React.createElement('p', null, 'Orders content') };
+  const view = render(React.createElement(PortalShell, props));
+  const header = screen.getByRole('banner', { name: 'Workspace header' });
+  const bell = within(header).getByRole('button', { name: 'Notifications' });
+  assert.equal(header.contains(screen.getByRole('button', { name: 'New order' })), false);
+  view.rerender(React.createElement(PortalShell, { ...props, primary: 'Profile', reading: true, actions: null }));
+  assert.equal(screen.getByRole('banner', { name: 'Workspace header' }), header);
+  assert.equal(screen.getByRole('button', { name: 'Notifications' }), bell);
+  assert.ok(screen.getByRole('heading', { name: 'Profile' }));
+  assert.equal(screen.queryByRole('button', { name: 'New order' }), null);
+});
+
 test('mobile workspace sidebar traps focus, dismisses with Escape and closes after navigation', async () => {
   narrow = true;
   const user = userEvent.setup({ document }); let visited = 0;

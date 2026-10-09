@@ -7,10 +7,12 @@ import { useSidebarDrawer } from '../components/layout/useSidebarDrawer';
 const initials = (name: string) => name.trim().split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('') || '?';
 
 /** Presentational workspace shell. Authentication and customer data remain in PortalApp. */
-export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, reading = false, footer, children }: {
+export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, headerActions, reading = false, footer, children }: {
   /** Sidebar controls under the Logout card (or the account card), such as the driver's duty switch. */
   footer?: (collapsed: boolean) => ReactNode;
   description?: string; reading?: boolean; actions?: ReactNode; onNavigate?: (href: string) => void;
+  /** Persistent workspace controls outside page headings and reading-width content. */
+  headerActions?: ReactNode;
   /** Dispatcher-style account card with a Profile / Logout menu instead of the plain sign-out control. */
   account?: { name: string; role: string; profileCurrent: boolean };
   navigation?: { label: string; href: string; icon: LucideIcon; current: boolean }[];
@@ -26,6 +28,8 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
     action();
     if (mobile) setOpen(false);
   };
+  const PageHeading = headerActions ? 'div' : 'header';
+  const menuButton = <button type="button" className={hidden ? 'app-icon-button' : 'hidden'} aria-hidden={!hidden} tabIndex={hidden ? 0 : -1} aria-label="Open menu" onClick={() => setOpen(true)}><PanelLeft className="h-4.5 w-4.5" strokeWidth={1.5} /></button>;
 
   return <div className="flex min-h-dvh bg-app-canvas text-app-text">
     {open && mobile && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/20 md:hidden" onClick={() => setOpen(false)} />}
@@ -59,15 +63,21 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
         <button type="button" className="app-nav-item disabled:opacity-50" aria-label="Sign out" title={collapsed ? 'Sign out' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Sign out</span></button>
       </div>}
     </aside>
-    <div className={settings || reading ? "app-page app-page-reading min-w-0 flex-1 flex flex-col min-h-dvh" : "app-page min-w-0 flex-1 flex flex-col min-h-dvh"}>
-      <header className="app-page-header page-content">
+    <div className={headerActions ? 'flex h-dvh min-w-0 flex-1 flex-col' : 'contents'}>
+      {headerActions && <header aria-label="Workspace header" className="flex h-16 shrink-0 items-center justify-between bg-app-canvas px-6">
+        <div>{menuButton}</div>
+        <div className="flex items-center gap-2">{headerActions}</div>
+      </header>}
+    <div className={`app-page min-w-0 flex-1 flex flex-col ${settings || reading ? 'app-page-reading' : ''} ${headerActions ? 'app-page-with-header min-h-0' : 'min-h-dvh'}`}>
+      <PageHeading className="app-page-header page-content">
         <div className="flex min-w-0 items-center gap-3">
-          <button type="button" className={hidden ? 'app-icon-button' : 'hidden'} aria-hidden={!hidden} tabIndex={hidden ? 0 : -1} aria-label="Open menu" onClick={() => setOpen(true)}><PanelLeft className="h-4.5 w-4.5" strokeWidth={1.5} /></button>
+          {!headerActions && menuButton}
           <div className="min-w-0"><h1 className="app-page-title">{settings ? 'Account settings' : primary}</h1><p className="mt-2 truncate text-base text-app-muted">{description ?? company}</p></div>
         </div>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
-      </header>
+      </PageHeading>
       <main className="page-content space-y-6 py-6">{children}</main>
+    </div>
     </div>
   </div>;
 }

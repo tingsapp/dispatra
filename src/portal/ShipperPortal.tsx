@@ -28,7 +28,8 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   const suffix = pathname.replace(/\/+$/, '').split('/')[3];
   const page = shipperPages.find(item => item.path === suffix) ?? shipperPages[0];
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false}
-    actions={<><NotificationBell slug={slug} onOpen={() => go(base)} />{page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}</>}
+    headerActions={<NotificationBell slug={slug} onOpen={() => go(base)} />}
+    actions={page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}
     reading={page.path !== 'orders'}
     account={{ name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}
     description={page.path === 'profile' ? 'Your details and account security.' : 'Create and track your deliveries.'}
