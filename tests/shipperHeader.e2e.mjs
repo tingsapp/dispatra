@@ -236,6 +236,17 @@ try {
     await header.getByRole('searchbox', { name: 'Search your orders' }).focus();
     assert.deepEqual([...new Set(roadReads)].sort(), ['1', '2', '5'], 'Only open own orders request road geometry');
     await checkMapBounds(); // Initial framing must work without pressing Fit.
+    // Marker focus/Escape must not disable automatic bounds on layout changes.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await checkMapBounds();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await checkMapBounds();
+    await page.getByRole('button', { name: /^DDO-1042 · Pickup:/ }).click();
+    await page.setViewportSize({ width: 1040, height: 700 });
+    await checkMapBounds();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: /^DDO-1041 · Pickup:/ }).click();
+    await checkMapBounds();
     await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
     await page.getByRole('button', { name: 'Zoom out', exact: true }).click();
     await page.getByRole('button', { name: 'Fit open orders on map', exact: true }).click();
