@@ -4,6 +4,8 @@ Updated: 2026-10-09. [Specification](spec.md) defines intended behavior.
 
 ## Implemented
 
+- 2026-10-09: Removed vehicle type from the Shipper Tracking driver contact block. It now shows the avatar, full name, phone and chat icon above Stops. Updated the contact assertion and specification; eleven Shipper tests, TypeScript and production build passed. The shared dispatcher tracking projection still consumes vehicle type. No API changes or production deployment.
+
 - 2026-10-09: Shipper Tracking's Message control now displays only the chat icon in the shared circular icon button, preserving its accessible driver-specific name, tooltip, keyboard access and SMS link. The unavailable-phone control retains its disabled state. Eleven existing Shipper tests, TypeScript and production build passed. No API changes or production deployment.
 
 - 2026-10-09: Moved Shipper Tracking driver details and call/Message controls into the first details column directly above Stops; Timeline starts at the top of the second column. The contact block uses a compact stacked layout within the narrower column. Mobile retains the single-column order and the clipped scrolling card. Removed the contact block from the summary while preserving dispatcher driver summaries. Updated existing contact component and browser placement checks. Seventeen focused Shipper/Driver tests, TypeScript and production build passed. Real Google browser acceptance with synthetic own-order responses passed desktop column placement, desktop/390px/320px layout, tracking interactions and map bounds; desktop/mobile screenshots inspected. No API changes, operational writes or production deployment.

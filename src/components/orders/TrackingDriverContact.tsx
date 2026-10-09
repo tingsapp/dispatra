@@ -13,7 +13,6 @@ export function TrackingDriverContact({ driver }: { driver: NonNullable<Tracking
       className="size-10 shrink-0 rounded-full object-cover" />
     <div className="min-w-0 flex-1">
       <p className="break-words text-sm font-medium text-app-text">{name}</p>
-      {driver.vehicle_type && <p className="text-xs text-app-muted">{driver.vehicle_type}</p>}
       {phone ? <a href={`tel:${phone}`} aria-label={`Call ${name}`} className="text-xs text-app-text">{formatPhone(phone)}</a>
         : <p className="text-xs text-app-muted">Phone unavailable</p>}
       <div className="mt-2">

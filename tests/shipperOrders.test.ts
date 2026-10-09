@@ -24,7 +24,7 @@ test('shipper tracking exposes only its provided driver contact with usable call
   const tracking = { stage: 'ASSIGNED', stops: [], events: [], eta: null, open_issue: false,
     driver: { name: 'Dana Driver', first_name: 'Dana', avatar_url: 'https://example.com/dana.png', phone: '+16045550102', vehicle_type: 'Cargo van' } } as Tracking;
   render(React.createElement(TrackingDetails, { tracking, timeZone: 'UTC', now: Date.now(), showLocationStatus: false, showDriverContact: true }));
-  assert.ok(screen.getByText('Dana Driver')); assert.ok(screen.getByText('Cargo van'));
+  assert.ok(screen.getByText('Dana Driver')); assert.equal(screen.queryByText('Cargo van'), null);
   assert.equal(screen.getByRole('img', { name: "Dana Driver's avatar" }).getAttribute('src'), 'https://example.com/dana.png');
   assert.equal(screen.getByRole('link', { name: 'Call Dana Driver' }).getAttribute('href'), 'tel:+16045550102');
   assert.equal(screen.getByRole('link', { name: 'Message Dana Driver' }).getAttribute('href'), 'sms:+16045550102');
