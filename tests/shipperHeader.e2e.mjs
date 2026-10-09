@@ -189,8 +189,9 @@ try {
   assert.equal(await driverContact.getByRole('link', { name: 'Message Dana Driver' }).getAttribute('href'), 'sms:+16045550102');
   const phoneBounds = await driverContact.getByRole('link', { name: 'Call Dana Driver' }).boundingBox();
   const chatBounds = await driverContact.getByRole('link', { name: 'Message Dana Driver' }).boundingBox();
-  assert.ok(chatBounds.x >= phoneBounds.x + phoneBounds.width && Math.abs((phoneBounds.y + phoneBounds.height / 2) - (chatBounds.y + chatBounds.height / 2)) < 1, 'Phone and chat icon share the same row');
   const contactBounds = await driverContact.boundingBox();
+  assert.ok(chatBounds.x >= phoneBounds.x + phoneBounds.width && Math.abs((contactBounds.y + contactBounds.height / 2) - (chatBounds.y + chatBounds.height / 2)) < 1, 'Chat icon is centered beside the complete driver details');
+  assert.ok(Math.abs(chatBounds.x + chatBounds.width - contactBounds.x - contactBounds.width) < 1, 'Chat icon sits at the right edge of the driver row');
   const stopsBounds = await page.getByText('Stops', { exact: true }).boundingBox();
   const timelineBounds = await page.getByText('Timeline', { exact: true }).boundingBox();
   assert.ok(stopsBounds.y >= contactBounds.y + contactBounds.height, 'Driver contact sits above Stops in the first column');
