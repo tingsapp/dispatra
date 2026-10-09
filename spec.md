@@ -10,6 +10,8 @@ Use React, strict TypeScript, Vite, shadcn/ui, Inter, a light neutral theme, bla
 
 The homepage map preview loops through sample email intake, order preparation, Auto assignment, pickup, delivery proof and completion logs. Show the latest three events with a synchronized order status and a pause/play control. Logs stay opaque and slide continuously through a clipped viewport; retain previous rows through the loop boundary rather than clearing or fading the feed. Reduced-motion preferences show a static completed view, and hidden tabs pause progression. The route follows the sample street network, with turns at intersections; pickup, delivery and driver markers share the SVG coordinate system so resizing never detaches them from the road. The preview stays explicitly illustrative and never reads or mutates operational records.
 
+The homepage preview's Completed status uses a green label and checkmark.
+
 ## 2. Routes and access
 
 | Path | Purpose |

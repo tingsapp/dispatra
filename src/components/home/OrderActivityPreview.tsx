@@ -37,7 +37,7 @@ export function OrderActivityPreview() {
   const current = events[currentStage % events.length];
   return <>
     <div className="absolute left-3 top-3 rounded-xl border border-app-border bg-white px-3 py-2.5 shadow-md">
-      <div className="flex items-center gap-5 text-[11px] font-medium"><span>Order 1042</span><span className={`flex items-center gap-1.5 ${current.status === 'Completed' ? 'text-app-muted' : 'text-blue-600'}`}>{current.status === 'Completed' ? <Check className="size-3" aria-hidden="true" /> : <span className="size-1 rounded-full bg-blue-500" />}{current.status}</span></div>
+      <div className="flex items-center gap-5 text-[11px] font-medium"><span>Order 1042</span><span className={`flex items-center gap-1.5 ${current.status === 'Completed' ? 'text-emerald-700' : 'text-blue-600'}`}>{current.status === 'Completed' ? <Check className="size-3" aria-hidden="true" /> : <span className="size-1 rounded-full bg-blue-500" />}{current.status}</span></div>
       <p className="mt-1 text-[10px] text-app-muted">Vancouver → Richmond · Email</p>
     </div>
     <section aria-label="Sample order activity" aria-live="off" className="absolute bottom-3 left-3 right-3 rounded-xl border border-app-border bg-white/95 p-3 shadow-lg backdrop-blur-sm sm:left-auto sm:w-[280px]">
