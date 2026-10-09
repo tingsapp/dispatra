@@ -4,6 +4,8 @@ Updated: 2026-10-09. [Specification](spec.md) defines intended behavior.
 
 ## Implemented
 
+- 2026-10-09: Driver sidebar On duty now uses the shared black text token. Driver Notifications moved from the page-heading action to the same persistent, content-aligned workspace header and neutral-background bell used by Shippers, on Orders and Profile. Existing duty/location behavior, inbox actions and role-scoped API reads are unchanged. Driver, appearance and notification test files passed, including header/bell persistence across driver navigation; TypeScript and production build passed. No API changes or production deployment.
+
 - 2026-10-09: Dispatcher, Shipper and Driver order-table address headers now read Pickup → Delivery. Shared date/time display uses 24-hour HH:mm with h23 (midnight 00:00), including order lists/dossiers, tracking, driver activity, email intake, quotes and admin timestamps. Existing company/device time zones and ISO booking instants are preserved; time pickers were already 24-hour. Legacy prototype clock text and service promises display in 24-hour form without rewriting saved records, and built-in fixtures/defaults now use it. Three formatter regressions cover midnight/noon, time zones/DST, empty values and legacy clock text; all eight focused web test files, TypeScript and production build passed. No API contract changes or production deployment.
 
 - 2026-10-09: Driver order-detail phone links now inherit the surrounding contact text color while retaining tap-to-call. Renamed the route completion button to Complete job and updated the manual workflow selector. Completion eligibility and API commands are unchanged. Six driver portal tests, lint and production build passed. No API changes or production deployment.

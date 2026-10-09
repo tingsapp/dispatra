@@ -47,10 +47,16 @@ test('driver sidebar lists Profile then Orders and ends with a Logout card above
   assert.equal(screen.queryByRole('button', { name: /Driver account/ }), null);
   const toggle = await screen.findByRole('switch', { name: 'Duty status' });
   await waitFor(() => assert.equal(toggle.getAttribute('aria-checked'), 'true'));
+  const header = screen.getByRole('banner', { name: 'Workspace header' });
+  const bell = within(header).getByRole('button', { name: 'Notifications' });
   await user.click(toggle);
   await waitFor(() => assert.ok(calls.includes('endDuty')));
   await waitFor(() => assert.equal(screen.getByRole('switch', { name: 'Duty status' }).getAttribute('aria-checked'), 'false'));
   assert.ok(screen.getByText('Off duty'));
+  await user.click(within(nav).getByRole('link', { name: 'Profile' }));
+  assert.ok(await screen.findByRole('heading', { name: 'Profile' }));
+  assert.equal(screen.getByRole('banner', { name: 'Workspace header' }), header);
+  assert.equal(within(header).getByRole('button', { name: 'Notifications' }), bell);
   await user.click(screen.getByRole('button', { name: 'Logout' }));
   assert.ok(calls.includes('logout'));
 });

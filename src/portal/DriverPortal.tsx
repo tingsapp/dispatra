@@ -105,10 +105,10 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     description={page.path === 'profile' ? 'Your details and account security.' : online ? 'Your assigned orders. Open an order to work its stops.' : 'Your assigned orders. Go On Duty to receive and start a route.'}
     navigation={driverPages.map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path }))}
     footer={collapsed => <div className={`mt-1 flex items-center py-3 ${collapsed ? 'justify-center' : 'justify-between px-3'}`} title={collapsed ? (online ? 'On duty' : 'Off duty') : undefined}>
-      <span className={collapsed ? 'sr-only' : `text-sm font-normal ${online ? 'text-emerald-700' : 'text-slate-700'}`}>{duty.isPending ? (duty.variables ? 'Going on duty…' : 'Going off duty…') : online ? 'On duty' : 'Off duty'}</span>
+      <span className={collapsed ? 'sr-only' : `text-sm font-normal ${online ? 'text-app-text' : 'text-slate-700'}`}>{duty.isPending ? (duty.variables ? 'Going on duty…' : 'Going off duty…') : online ? 'On duty' : 'Off duty'}</span>
       <Switch checked={online} aria-label="Duty status" disabled={!profile.data || duty.isPending} onCheckedChange={next => duty.mutate(next)} />
     </div>}
-    actions={<NotificationBell slug={slug} onOpen={() => go(base)} />}
+    headerActions={<NotificationBell slug={slug} surface onOpen={() => go(base)} />}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     <Notice error={logoutError || dutyError} />
     {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : <DriverOrders slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
