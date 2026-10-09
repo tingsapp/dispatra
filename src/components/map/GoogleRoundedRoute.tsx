@@ -30,7 +30,7 @@ export function GoogleRoundedRoute({ id, points, selected }: { id: string; point
         svg.setAttribute('width', String(width)); svg.setAttribute('height', String(height));
         svg.setAttribute('viewBox', `${left} ${top} ${width} ${height}`);
         svg.dataset.shipperRoute = current.current.id;
-        path.setAttribute('stroke-width', current.current.selected ? '8' : '6');
+        path.setAttribute('stroke-width', current.current.selected ? '6' : '4');
         path.setAttribute('stroke-opacity', current.current.selected ? '1' : '0.6');
         const pixels = current.current.points.flatMap(([lat, lng]) => {
           const pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng({ lat, lng }));

@@ -118,12 +118,12 @@ test('Google route overlay rounds caps and joins, stays projected during camera 
   const path = pane.querySelector('svg[data-shipper-route="own-order"] path')!;
   assert.equal(path.getAttribute('stroke-linecap'), 'round');
   assert.equal(path.getAttribute('stroke-linejoin'), 'round');
-  assert.equal(path.getAttribute('stroke-width'), '8');
+  assert.equal(path.getAttribute('stroke-width'), '6');
   assert.equal(path.getAttribute('d'), 'M0,0L90,0Q100,0 100,10L100,100');
   cameraOffset = 40;
   overlays.forEach(overlay => overlay.draw());
   assert.equal(path.getAttribute('d'), 'M40,0L130,0Q140,0 140,10L140,100');
   view.rerender(routeTree(false));
-  assert.equal(path.getAttribute('stroke-width'), '6');
+  assert.equal(path.getAttribute('stroke-width'), '4');
   view.unmount(); assert.equal(pane.childElementCount, 0);
 });

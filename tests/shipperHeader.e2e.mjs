@@ -199,7 +199,7 @@ try {
     await page.locator('svg[data-shipper-route="1"] path').waitFor({ timeout: 60000 });
     assert.equal(await page.getByRole('img', { name: /Your warehouse|Your device location/ }).count(), 0);
     const rounded = page.locator('svg[data-shipper-route="1"] path');
-    assert.equal(await rounded.getAttribute('stroke-width'), '8');
+    assert.equal(await rounded.getAttribute('stroke-width'), '6');
     assert.equal(await rounded.getAttribute('stroke-linecap'), 'round');
     assert.equal(await rounded.getAttribute('stroke-linejoin'), 'round');
     assert.ok((await rounded.getAttribute('d')).includes('Q'), 'Road turns are visibly rounded');
