@@ -28,20 +28,19 @@ try {
   const company = page.getByLabel('Company workspace');
   const consistentFields = async () => {
     const styles = await page.evaluate(() => [
-      document.querySelector('input[autocomplete="organization"]').parentElement,
       document.querySelector('input[autocomplete="username"]'),
       document.querySelector('input[type="password"]'),
     ].map(element => {
       const style = getComputedStyle(element);
       return ['height', 'fontSize', 'lineHeight', 'borderRadius', 'borderWidth', 'borderColor', 'backgroundColor', 'paddingLeft', 'paddingRight'].map(property => style[property]);
     }));
-    assert.deepEqual(styles[0], styles[1], 'Workspace and credentials use the same field styling');
-    assert.deepEqual(styles[1], styles[2]);
+    assert.deepEqual(styles[0], styles[1], 'Credential fields use the same styling');
     assert.equal(styles[0][0], '40px');
   };
   const noOverflow = async () => {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    const bounds = await company.boundingBox();
+    const field = await company.count() ? company : page.locator('input[autocomplete="username"]');
+    const bounds = await field.boundingBox();
     assert.ok(bounds && bounds.x >= 24 && bounds.x + bounds.width <= page.viewportSize().width - 24, 'Input stays inside the shared page gutters');
   };
   await page.goto(origin);
@@ -65,11 +64,14 @@ try {
   await company.press('Enter');
   await page.waitForURL(origin + '/demo/');
   await page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor();
-  assert.equal(await company.inputValue(), 'demo');
-  assert.equal(await company.evaluate(el => el.readOnly), true);
+  assert.equal(await company.count(), 0, 'Login has no company field');
+  await page.getByText('dispatra.com/demo', { exact: true }).waitFor();
+  const workspaceLabel = await page.locator('#login-workspace').boundingBox();
+  const roleLabel = await page.getByText('Sign in as', { exact: true }).boundingBox();
+  assert.ok(workspaceLabel.y + workspaceLabel.height < roleLabel.y, 'Workspace label is above role selection');
   await consistentFields();
   const focusedStyles = [];
-  for (const field of [company, page.getByLabel('Login ID', { exact: true }), page.getByLabel('Password', { exact: true })]) {
+  for (const field of [page.getByLabel('Login ID', { exact: true }), page.getByLabel('Password', { exact: true })]) {
     await field.focus();
     focusedStyles.push(await field.evaluate(async el => {
       const surface = el.parentElement.classList.contains('app-input-group') ? el.parentElement : el;
@@ -80,8 +82,7 @@ try {
       return [style.borderColor, style.outlineColor, style.outlineWidth, style.boxShadow];
     }));
   }
-  assert.deepEqual(focusedStyles[0], focusedStyles[1], 'Prefix fields share the native-input focus style');
-  assert.deepEqual(focusedStyles[1], focusedStyles[2]);
+  assert.deepEqual(focusedStyles[0], focusedStyles[1], 'Credential fields share focus styling');
   const loginBounds = await page.locator('[aria-labelledby="login-title"]').boundingBox();
   assert.ok(loginBounds.width <= 384, 'Login remains a compact form');
   assert.ok(Math.abs(loginBounds.x + loginBounds.width / 2 - 720) < 1, 'Login is horizontally centered');
@@ -104,7 +105,7 @@ try {
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: 'Incorrect login or password.' }).waitFor();
     assert.deepEqual(requests.at(-1), { organization: 'demo', portal, login_id: 'user@example.com', password: 'Example-Password-99' });
-    assert.equal(await company.inputValue(), 'demo');
+    assert.equal(await page.getByText('dispatra.com/demo', { exact: true }).count(), 1);
     const saved = await page.evaluate(() => Object.values(localStorage).join(' '));
     assert.equal(saved.includes('Example-Password-99'), false);
     assert.equal(saved.includes('user@example.com'), false);
@@ -134,7 +135,7 @@ try {
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor();
     await noOverflow();
-    assert.equal(await company.inputValue(), 'demo');
+    assert.equal(await page.getByText('dispatra.com/demo', { exact: true }).count(), 1);
     await consistentFields();
     for (const role of ['Dispatcher', 'Shipper', 'Driver']) assert.ok(await page.getByRole('radio', { name: role }).isVisible());
     if (width === 390) await page.screenshot({ path: '/tmp/dispatra-company-login-mobile.png', fullPage: true, animations: 'disabled' });
@@ -154,5 +155,5 @@ try {
   await page.getByRole('link', { name: 'Open my workspace' }).waitFor();
   assert.equal(await page.getByRole('link', { name: 'Open my workspace' }).getAttribute('href'), '/acme/shipper');
   assert.equal(errors.length, 0, errors.join('\n'));
-  console.log('PASS: hero workspace input, compact centered company login, role selection/payloads, failed-login retry, correct post-auth destination, no saved credentials, aliases and 390px/320px layouts.');
+  console.log('PASS: hero workspace input, compact centered company login with workspace label, role selection/payloads, failed-login retry, correct post-auth destination, no saved credentials, aliases and 390px/320px layouts.');
 } finally { await browser.close(); }

@@ -3,7 +3,6 @@ import { useMutation } from '@tanstack/react-query';
 import { api, Account, LoginInput } from './api';
 import { Field, Button, Notice } from './ui';
 import { PublicHeader } from '../components/home/PublicPageLayout';
-import { WorkspaceInput } from '../components/home/WorkspaceInput';
 import { WorkspaceRoleSelector } from '../components/home/WorkspaceRoleSelector';
 import { rememberWorkspaceEntry, workspaceDestination, workspacePortals, type WorkspaceRole } from '../lib/workspaceEntry';
 import { ArrowLeft } from 'lucide-react';
@@ -32,10 +31,11 @@ export function LoginPage({ slug, portal, onLogin }: { slug?: string; portal: Lo
         <h1 id="login-title" className="text-center text-2xl font-medium tracking-tight">Sign in</h1>
         <p className="mt-2 text-center text-sm text-app-muted">Choose your role to access your workspace.</p>
         <form onSubmit={submit} className="mt-6 space-y-5">
-          <WorkspaceRoleSelector role={role} onChange={chooseRole} disabled={mutation.isPending} />
-          <div><WorkspaceInput value={slug ?? ''} readOnly aria-describedby="login-workspace-help" />
-            <p id="login-workspace-help" className="mt-2 text-xs text-app-muted">Different company? <a href="/#workspace" className="text-app-text underline underline-offset-4">Change workspace</a></p>
+          <div className="flex items-center justify-between gap-3">
+            <p id="login-workspace" className="min-w-0 break-all text-sm text-app-muted">dispatra.com/{slug}</p>
+            <a href="/#workspace" className="shrink-0 text-xs text-app-muted underline underline-offset-4 hover:text-app-text">Change workspace</a>
           </div>
+          <WorkspaceRoleSelector role={role} onChange={chooseRole} disabled={mutation.isPending} />
           <fieldset disabled={mutation.isPending} className="min-w-0 space-y-5">{credentials}</fieldset>
         </form>
         <p className="mt-5 text-center text-xs leading-5 text-app-muted">Need access or a password reset?<br />Contact your company administrator.</p>
