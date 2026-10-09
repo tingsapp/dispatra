@@ -4,6 +4,8 @@ Updated: 2026-10-09. [Specification](spec.md) defines intended behavior.
 
 ## Implemented
 
+- 2026-10-09: The company login workspace label now renders the company slug in the shared black text color while the `dispatra.com/` prefix remains muted. All company role sign-ins share this label; tenant routing and credentials are unchanged. Updated existing text assertions for the split markup. Four company-login tests, lint and production build passed. No API changes or production deployment.
+
 - 2026-10-09: Reduced the selected Shipper route from 6px to 4px. All route strokes now use 4px; the selected route retains full opacity while other routes remain muted. Rounded styling and road coordinates are preserved. Updated connected assertions and documentation. Five focused marker/route tests, lint and production build passed. No API changes or production deployment.
 
 - 2026-10-09: Reduced Shipper route strokes from 8px/6px to 6px selected / 4px other orders. Rounded caps, joins, turn curves and existing geometry remain. Updated connected route assertions and style documentation. Five focused marker/route tests, lint and production build passed. No API changes or production deployment.

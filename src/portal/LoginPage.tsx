@@ -32,7 +32,7 @@ export function LoginPage({ slug, portal, onLogin }: { slug?: string; portal: Lo
         <p className="mt-2 text-center text-sm text-app-muted">Choose your role to access your workspace.</p>
         <form onSubmit={submit} className="mt-6 space-y-5">
           <div className="flex items-center justify-between gap-3">
-            <p id="login-workspace" className="min-w-0 break-all text-sm text-app-muted">dispatra.com/{slug}</p>
+            <p id="login-workspace" className="min-w-0 break-all text-sm text-app-muted">dispatra.com/<span className="text-app-text">{slug}</span></p>
             <a href="/#workspace" className="shrink-0 text-xs text-app-muted underline underline-offset-4 hover:text-app-text">Change workspace</a>
           </div>
           <WorkspaceRoleSelector role={role} onChange={chooseRole} disabled={mutation.isPending} />

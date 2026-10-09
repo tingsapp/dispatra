@@ -20,7 +20,8 @@ const view = (portal: LoginInput['portal'], onLogin: (account: Account) => void 
 test('company login labels the workspace above role selection without a company field', () => {
   for (const [portal, role] of [['dispatch', 'Dispatcher'], ['customer', 'Shipper'], ['driver', 'Driver']] as const) {
     view(portal);
-    const company = screen.getByText('dispatra.com/acme');
+    const company = screen.getByText('acme').parentElement!;
+    assert.equal(company.textContent, 'dispatra.com/acme');
     assert.equal(screen.queryByLabelText('Company workspace'), null);
     assert.ok(company.compareDocumentPosition(screen.getByText('Sign in as')) & Node.DOCUMENT_POSITION_FOLLOWING);
     assert.equal((screen.getByRole('radio', { name: role }) as HTMLInputElement).checked, true);
@@ -46,7 +47,7 @@ test('changing roles submits the matching API portal and retains the company and
     await waitFor(() => assert.equal(signedIn.length, index + 1));
     assert.deepEqual(requests[index], { organization: 'acme', portal, login_id: 'user@example.com', password: 'Example-Password-99' });
     assert.equal((screen.getByLabelText('Password') as HTMLInputElement).value, '');
-    assert.ok(screen.getByText('dispatra.com/acme'));
+    assert.equal(screen.getByText('acme').parentElement?.textContent, 'dispatra.com/acme');
     assert.equal(JSON.stringify(Object.values(localStorage)).includes('Example-Password-99'), false);
     assert.equal(JSON.stringify(Object.values(localStorage)).includes('user@example.com'), false);
   }
