@@ -48,7 +48,10 @@ test('homepage entry is inside the hero with a fixed prefix and no role selectio
   assert.ok(screen.getByRole('button', { name: 'Continue' }));
   assert.equal(screen.queryByRole('radio'), null);
   assert.equal(screen.queryByRole('dialog'), null);
-  fireEvent.click(screen.getByRole('link', { name: 'Log in' }));
+  assert.equal(screen.getByRole('banner').querySelectorAll('a').length, 1);
+  assert.equal(screen.queryByRole('link', { name: 'Log in' }), null);
+  assert.equal(screen.queryByRole('link', { name: 'How it works' }), null);
+  fireEvent.click(screen.getByRole('link', { name: 'Sign in to your workspace' }));
   assert.equal(document.activeElement, input);
   assert.equal(document.querySelector('a[href="/admin"]'), null);
 });

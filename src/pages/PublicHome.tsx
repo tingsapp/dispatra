@@ -1,7 +1,6 @@
 import { useRef, useState, type MouseEvent } from 'react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { ArrowRight, Mail, Route, ScanLine } from 'lucide-react';
-import { Button } from '../components/ui/button';
+import { Mail, Route, ScanLine } from 'lucide-react';
 import { MonitorPreview } from '../components/home/MonitorPreview';
 import { HeroWorkspaceEntry } from '../components/home/HeroWorkspaceEntry';
 import { PublicHeader, PublicHero } from '../components/home/PublicPageLayout';
@@ -24,9 +23,7 @@ function HomeContent({ initialRole }: { initialRole?: WorkspaceRole }) {
   const account = useQuery({ queryKey: ['public', 'account'], queryFn: api.me });
   const resume = account.data?.role === 'ADMIN' ? undefined : accountWorkspace(account.data);
   return <div className="min-h-dvh bg-app-canvas font-sans text-app-text">
-    <PublicHeader>
-      <nav aria-label="Main navigation" className="flex items-center gap-7"><a href="#how-it-works" className="hidden text-sm text-app-muted transition-colors hover:text-app-text sm:block">How it works</a><Button asChild className="gap-3 px-5"><a href={resume ?? '#workspace'} onClick={event => { if (!resume) focusWorkspace(event); }}>{resume ? 'Open my workspace' : 'Log in'}<ArrowRight className="size-3.5" aria-hidden="true" /></a></Button></nav>
-    </PublicHeader>
+    <PublicHeader />
     <main>
       <PublicHero labelledBy="home-title">
         <div className="min-w-0">
@@ -42,6 +39,6 @@ function HomeContent({ initialRole }: { initialRole?: WorkspaceRole }) {
         <div className="mt-10 grid gap-8 sm:grid-cols-3 sm:gap-9">{steps.map(({ icon: Icon, number, title, description }) => <article key={number}><div className="flex items-center gap-3"><span className="inline-flex size-10 items-center justify-center rounded-xl bg-app-surface ring-1 ring-app-border"><Icon className="size-5" strokeWidth={1.5} aria-hidden="true" /></span><span className="text-xs tabular-nums text-slate-400">{number}</span></div><h3 className="mt-5 text-base font-medium tracking-tight">{title}</h3><p className="mt-2 max-w-sm text-sm leading-6 text-app-muted">{description}</p></article>)}</div>
       </section>
     </main>
-    <footer className="mx-auto flex max-w-7xl flex-col gap-5 px-6 pb-8 pt-3 text-xs text-app-muted sm:flex-row sm:items-center sm:justify-between lg:px-10"><span>© {new Date().getFullYear()} Dispatra</span><a href="#workspace" onClick={focusWorkspace} className="w-fit hover:text-app-text">Sign in to your workspace</a></footer>
+    <footer className="mx-auto flex max-w-7xl flex-col gap-5 px-6 pb-8 pt-3 text-xs text-app-muted sm:flex-row sm:items-center sm:justify-between lg:px-10"><span>© {new Date().getFullYear()} Dispatra</span><a href={resume ?? '#workspace'} onClick={event => { if (!resume) focusWorkspace(event); }} className="w-fit hover:text-app-text">{resume ? 'Open my workspace' : 'Sign in to your workspace'}</a></footer>
   </div>;
 }

@@ -37,7 +37,9 @@ try {
   assert.equal(await page.getByRole('radio').count(), 0, 'Role selection is only on the login page');
   assert.ok(await page.locator('[aria-labelledby="home-title"]').getByLabel('Company workspace').isVisible());
   assert.equal(await page.locator('a[href="/admin"]').count(), 0);
-  await page.getByRole('link', { name: 'Log in', exact: true }).click();
+  assert.equal(await page.getByRole('banner').getByRole('link').count(), 1);
+  const homeLogo = await page.getByRole('banner').getByRole('link', { name: 'Dispatra home' }).boundingBox();
+  await page.getByRole('link', { name: 'Sign in to your workspace', exact: true }).click();
   assert.ok(await company.evaluate(el => el === document.activeElement));
   for (const invalid of ['', 'admin', 'https://dispatra.com/demo/']) {
     await company.fill(invalid);
@@ -55,7 +57,9 @@ try {
   const loginBounds = await page.locator('[aria-labelledby="login-title"]').boundingBox();
   assert.ok(loginBounds.width <= 384, 'Login remains a compact form');
   assert.ok(Math.abs(loginBounds.x + loginBounds.width / 2 - 720) < 1, 'Login is horizontally centered');
-  assert.ok(Math.abs(loginBounds.y + loginBounds.height / 2 - 500) < 1, 'Login is vertically centered');
+  const mainBounds = await page.getByRole('main').boundingBox();
+  assert.ok(Math.abs(loginBounds.y + loginBounds.height / 2 - (mainBounds.y + mainBounds.height / 2)) < 1, 'Login is vertically centered below its header');
+  assert.deepEqual(await page.getByRole('banner').getByRole('link', { name: 'Dispatra home' }).boundingBox(), homeLogo, 'Login logo matches the homepage header position');
   assert.equal(await page.getByText('Workspace preview · sample data', { exact: true }).count(), 0, 'Login has no map preview');
   assert.equal(await page.getByRole('radio').count(), 3);
   await page.screenshot({ path: '/tmp/dispatra-company-login-desktop.png', fullPage: true, animations: 'disabled' });

@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
 import { BrandMark } from '../layout/AppBrand';
 
-/** Public pages share the same container, header gutters and two-column layout. */
-export function PublicHeader({ children }: { children: ReactNode }) {
-  return <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-10">
+/** Home and sign-in pages share the same logo-only header and gutters. */
+export function PublicHeader() {
+  return <header className="mx-auto flex w-full max-w-7xl shrink-0 items-center px-6 py-6 lg:px-10">
     <a href="/" aria-label="Dispatra home" className="inline-flex items-center gap-2.5 text-xl font-medium tracking-tight"><BrandMark />Dispatra</a>
-    {children}
   </header>;
 }
 
