@@ -4,6 +4,8 @@ Updated: 2026-10-09. [Specification](spec.md) defines intended behavior.
 
 ## Implemented
 
+- 2026-10-09: Restored the rounded surrounding border on company-login role choices. Transparent backgrounds and the selected-role underline remain. Four company-login tests, lint and production build passed; no login behavior, API or routing changes.
+
 - 2026-10-09: Simplified company-login role selection to transparent text choices. Removed the gray container background/border and the selected black pill; selection now uses darker medium-weight text and an underline. Shared-size hit targets, visible keyboard focus and disabled state remain. Four company-login tests, lint and production build passed. Local browser acceptance passed keyboard role selection, company/portal requests, retries/redirects and 390px/320px layouts without overflow; desktop/mobile screenshots inspected. No API or routing changes or production deployment.
 
 - 2026-10-09: Removed the company-login Company workspace input and its field label. Login now shows the plain canonical company address (for example `dispatra.com/demo`) above Sign in as, with Change workspace alongside it. Company scope still comes from the route and survives role changes; the homepage workspace input is retained. Four company-login and six homepage tests, lint and production build passed. Local browser acceptance passed address placement above role selection, absence of the company field, matching credential styles/focus states, preserved tenant/portal requests, retries/redirects, Change workspace and 390px/320px layouts without overflow. Desktop/mobile screenshots inspected. This supersedes earlier company-login field descriptions; no API changes or production deployment.

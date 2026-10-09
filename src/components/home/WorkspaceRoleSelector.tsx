@@ -11,7 +11,7 @@ export function WorkspaceRoleSelector({ role, onChange, disabled }: {
 }) {
   return <fieldset disabled={disabled} className="min-w-0">
     <legend className="app-label">Sign in as</legend>
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-3 gap-3 rounded-xl border border-app-border p-1">
       {choices.map(choice => <label key={choice.role} className="cursor-pointer">
         <input type="radio" name="login-role" value={choice.role} aria-label={choice.label} checked={role === choice.role}
           onChange={() => onChange(choice.role)} className="peer sr-only" />
