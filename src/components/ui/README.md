@@ -4,6 +4,7 @@ Use these components for operational pages and authenticated portals. Keep busin
 
 | Need | Component | Behavior |
 | --- | --- | --- |
+| Page startup | `PageLoading` | Full-viewport centered loading status for app, session and workspace startup |
 | Fixed prefix input | `PrefixedInput` | One standard field surface with a fixed prefix; shared native-input styling and focus/invalid/disabled states |
 | Action | `Button` | Shared primary, secondary, outline and destructive variants, disabled and focus states |
 | Menu or rich dropdown | `FloatingPanel` | Portalled placement, viewport collision handling, scroll limits, outside dismissal, Escape, focus return and reduced-motion animation |

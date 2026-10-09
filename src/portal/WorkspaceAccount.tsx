@@ -4,6 +4,7 @@ import { api, type Account } from './api';
 import { Button, Notice } from './ui';
 import type { components } from './schema';
 import { setServerCompanySettings } from '../lib/serverCompanySettings';
+import { PageLoading } from '../components/ui/PageLoading';
 export type SettingsView = components['schemas']['SettingsView'];
 export const companySettingsKey = (slug: string) => ['company-settings', slug] as const;
 const Context = createContext<{ account: Account; settings: SettingsView; reload: () => Promise<SettingsView> } | null>(null);
@@ -17,7 +18,7 @@ export function WorkspaceAccount({ account, children }: { account: Account; chil
   }, [slug, query.data]);
   useLayoutEffect(() => () => setServerCompanySettings(slug, null), [slug]);
   if (query.isError && !query.data) return <main className="mx-auto max-w-lg space-y-4 p-10"><Notice error={query.error} /><Button onClick={() => query.refetch()}>Retry company settings</Button></main>;
-  if (!ready || !query.data) return <p role="status" className="p-10">Loading company settings…</p>;
+  if (!ready || !query.data) return <PageLoading>Loading company settings…</PageLoading>;
   return <Context.Provider value={{ account, settings: query.data, reload: async () => {
     const result = await query.refetch();
     if (result.error || !result.data) throw result.error ?? new Error('Unable to reload settings.');

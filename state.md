@@ -4,6 +4,8 @@ Updated: 2026-10-09. [Specification](spec.md) defines intended behavior.
 
 ## Implemented
 
+- 2026-10-09: Added shared `PageLoading` for application lazy loading, session/workspace loading, Monitor lazy loading and company-settings initialization. These startup messages now use standard muted typography centered horizontally and vertically in a full-height page canvas, retaining status announcements. Three login, five routing/company-preparation and three settings-mailbox tests, lint and production build passed. Local Chrome checks with delayed module/session responses verified exact viewport centering at desktop and 390px mobile, followed by normal login rendering. No API or routing changes or production deployment.
+
 - 2026-10-09: Homepage company-name entry now starts empty on every visit, including after returning from Change workspace, instead of restoring a remembered company name. The fixed `dispatra.com/` prefix remains; a typed company still drives the company login label and tenant-scoped request. Role preferences and authenticated footer resume remain connected. Six homepage tests, lint and production build passed; local browser acceptance passed empty return entry, company/role login flows and 390px/320px layouts. This supersedes earlier homepage prefill descriptions; no API changes or production deployment.
 
 - 2026-10-09: Removed the selected-role underline from company-login role choices. Selection uses darker medium-weight text; the rounded surrounding border, transparent backgrounds and keyboard focus remain. Four company-login tests, lint and production build passed; no API or routing changes.
