@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { shipperMapPadding } from '../src/components/orders/shipperMapViewport';
 import type { Address } from '../src/operations/api';
 import { addressPoint, initialShipperCenter, resolveShipperLocation } from '../src/components/orders/shipperMapLocation';
 
@@ -25,4 +26,19 @@ test('device fallback follows failed warehouse lookup, and denial leaves the map
 test('invalid or missing coordinates never become map points', () => {
   for (const address of [undefined, { latitude: null, longitude: null }, { latitude: NaN, longitude: -123 }, { latitude: 91, longitude: 0 }, { latitude: 0, longitude: 181 }]) assert.equal(addressPoint(address), null);
   assert.deepEqual(addressPoint({ latitude: 0, longitude: 0 }), { lat: 0, lng: 0 });
+});
+
+const rect = (left: number, top: number, width: number, height: number) => ({ left, top, width, height, right: left + width, bottom: top + height });
+test('map fitting chooses usable space from actual card bounds, including a narrow desktop canvas', () => {
+  for (const [view, card] of [
+    [rect(260, 0, 1180, 900), rect(284, 80, 520, 358)],
+    [rect(260, 0, 780, 700), rect(284, 80, 520, 465)],
+    [rect(0, 0, 320, 844), rect(16, 80, 288, 326)],
+  ]) {
+    const padding = shipperMapPadding(view, card);
+    assert.ok(view.width - padding.left - padding.right > 150);
+    assert.ok(view.height - padding.top - padding.bottom > 150);
+    assert.ok(view.left + padding.left >= card.right + 32 || view.top + padding.top >= card.bottom + 48,
+      'The fitting rectangle must not overlap the card');
+  }
 });

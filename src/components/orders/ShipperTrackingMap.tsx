@@ -1,19 +1,20 @@
 import { APIProvider, Map, Polyline, useMap } from '@vis.gl/react-google-maps';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { LocateFixed, Maximize, Minus, Plus, Truck } from 'lucide-react';
 import { operations, type Address, type Order } from '../../operations/api';
 import { GoogleOverlayMarker } from '../monitor/GoogleOverlayMarker';
 import { StopMarkerCircle } from '../map/StopMarkerCircle';
+import { useShipperMapCamera } from './useShipperMapCamera';
 import type { Tracking } from './trackingPresentation';
 import { addressPoint, deviceLocation, initialShipperCenter, resolveShipperLocation, type MapPoint } from './shipperMapLocation';
 
-interface Props { slug: string; tracking?: Tracking; orders: Order[]; selectedOrderId?: string; onSelect: (id: string) => void; warehouse?: Address; timeZone?: string; locationReady?: boolean; }
+interface Props { slug: string; tracking?: Tracking; orders: Order[]; selectedOrderId?: string; onSelect: (id: string) => void; warehouse?: Address; timeZone?: string; locationReady?: boolean; viewReady: boolean; }
 
-function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect, warehouse, timeZone, locationReady = true }: Props) {
+function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect, warehouse, timeZone, locationReady = true, viewReady }: Props) {
   const map = useMap();
   const [home, setHome] = useState<{ point: MapPoint; source: 'warehouse' | 'device' } | null>(null);
-  const focused = useRef(false);
+  const [homeReady, setHomeReady] = useState(false);
   const openOrders = orders.filter(order => ['NEW', 'ASSIGNED', 'IN_PROGRESS'].includes(order.status));
   const stops = openOrders.flatMap(order => order.facts.stops.flatMap(stop => {
     const point = addressPoint(stop.address);
@@ -36,25 +37,16 @@ function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect,
     }, () => active ? deviceLocation() : Promise.resolve(null)).then(location => {
       if (!active) return;
       setHome(location);
-      if (location && !focused.current) {
-        focused.current = true; map.setCenter(location.point); map.setZoom(13);
-      }
+      setHomeReady(true);
     });
     return () => { active = false; };
   }, [map, locationReady, warehouse?.text, warehouse?.latitude, warehouse?.longitude]);
-  const focusHome = () => { if (map) { map.panTo(home?.point ?? initialShipperCenter(warehouse, timeZone)); map.setZoom(13); } };
-  const fitOrders = () => {
-    if (!map || !stops.length) return;
-    const bounds = new google.maps.LatLngBounds(); stops.forEach(stop => bounds.extend(stop.point));
-    if (liveTracking?.live && liveTracking.location) bounds.extend({ lat: liveTracking.location.latitude, lng: liveTracking.location.longitude });
-    const width = map.getDiv().clientWidth;
-    const mapBounds = map.getDiv().getBoundingClientRect();
-    const card = map.getDiv().closest('main')?.querySelector('.shipper-tracking-card')?.getBoundingClientRect();
-    map.fitBounds(bounds, width >= 900
-      ? { top: 80, left: card ? Math.ceil(card.right - mapBounds.left + 24) : 32, right: 80, bottom: 80 }
-      : { top: card ? Math.ceil(card.bottom - mapBounds.top + 24) : 80, left: 32, right: 64, bottom: 80 });
-    google.maps.event.addListenerOnce(map, 'idle', () => { if ((map.getZoom() ?? 0) > 15) map.setZoom(15); });
-  };
+  const routePoints = roads.flatMap(road => (road.data?.points ?? []).map(([lat, lng]) => ({ lat, lng })));
+  const points = [...stops.map(stop => stop.point), ...routePoints];
+  if (home) points.push(home.point);
+  if (liveTracking?.live && liveTracking.location) points.push({ lat: liveTracking.location.latitude, lng: liveTracking.location.longitude });
+  const { focusHome, fitOrders, markManual } = useShipperMapCamera(map, points, home?.point ?? initialShipperCenter(warehouse, timeZone),
+    viewReady && homeReady && !roads.some(road => road.isFetching));
   return <>
     {roads.map((road, index) => road.data?.points && <Polyline key={openOrders[index].id}
       path={road.data.points.map(([lat, lng]) => ({ lat, lng }))} strokeColor="#171717"
@@ -76,8 +68,8 @@ function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect,
       <button type="button" className="app-metric app-map-icon" onClick={focusHome} aria-label="Focus warehouse or fallback location" title="Your location"><LocateFixed size={18} /></button>
       <button type="button" className="app-metric app-map-icon" onClick={fitOrders} disabled={!stops.length} aria-label="Fit open orders on map" title="Fit open orders"><Maximize size={18} /></button>
       <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-        <button type="button" className="app-metric app-map-icon rounded-none shadow-none" onClick={() => map?.setZoom((map.getZoom() ?? 13) + 1)} aria-label="Zoom in"><Plus size={18} /></button>
-        <button type="button" className="app-metric app-map-icon rounded-none shadow-none" onClick={() => map?.setZoom((map.getZoom() ?? 13) - 1)} aria-label="Zoom out"><Minus size={18} /></button>
+        <button type="button" className="app-metric app-map-icon rounded-none shadow-none" onClick={() => { markManual(); map?.setZoom((map.getZoom() ?? 13) + 1); }} aria-label="Zoom in"><Plus size={18} /></button>
+        <button type="button" className="app-metric app-map-icon rounded-none shadow-none" onClick={() => { markManual(); map?.setZoom((map.getZoom() ?? 13) - 1); }} aria-label="Zoom out"><Minus size={18} /></button>
       </div>
     </div>
   </>;
@@ -99,7 +91,7 @@ export function ShipperTrackingMap(props: Props) {
     {!apiKey || failed ? <p role="status" className="shipper-map-unavailable text-sm text-app-muted">Map is unavailable. Your order progress and stops are shown in the card.</p>
       : <APIProvider apiKey={apiKey} language="en" region="CA" onLoad={onLoad} onError={onError}>
         {!loaded && <p role="status" className="shipper-map-unavailable text-sm text-app-muted">Loading map…</p>}
-        <Map defaultCenter={initialShipperCenter(props.warehouse, props.timeZone)} defaultZoom={13} minZoom={4} maxZoom={19}
+        <Map defaultCenter={initialShipperCenter(props.warehouse, props.timeZone)} defaultZoom={13} maxZoom={19}
           disableDefaultUI clickableIcons={false} gestureHandling="greedy" keyboardShortcuts aria-label="Shipment map">
           <TrackingMapContent {...props} />
         </Map>

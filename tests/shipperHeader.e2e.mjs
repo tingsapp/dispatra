@@ -75,6 +75,22 @@ try {
   const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message));
   const header = page.getByRole('banner', { name: 'Workspace header' });
   const bell = header.getByRole('button', { name: /^Notifications/ });
+  const checkMapBounds = async () => {
+    // Check actual projected marker rectangles, not just that a fit button was clicked.
+    await page.waitForFunction(() => {
+      const main = document.querySelector('main[aria-label="Tracking"]');
+      const card = document.querySelector('.shipper-tracking-card')?.getBoundingClientRect();
+      if (!main || !card) return false;
+      const view = main.getBoundingClientRect();
+      const markers = [...main.querySelectorAll('[role="button"][aria-label*=" · Pickup:"], [role="button"][aria-label*=" · Drop-off:"]')];
+      return markers.length > 0 && markers.every(marker => {
+        const p = marker.getBoundingClientRect();
+        const contained = p.left >= view.left + 8 && p.right <= view.right - 8 && p.top >= view.top + 64 && p.bottom <= view.bottom - 32;
+        const uncovered = p.right <= card.left || p.left >= card.right || p.bottom <= card.top || p.top >= card.bottom;
+        return contained && uncovered;
+      });
+    }, null, { timeout: 15000 });
+  };
   const checkHeader = async () => {
     assert.equal(await page.getByRole('button', { name: /^Notifications/ }).count(), 1);
     const bounds = await bell.boundingBox();
@@ -175,10 +191,14 @@ try {
     }
     assert.equal(await page.getByRole('button', { name: /^DDO-104[34] · (Pickup|Drop-off):/ }).count(), 0);
     assert.deepEqual([...new Set(roadReads)].sort(), ['1', '2', '5'], 'Only open own orders request road geometry');
+    await checkMapBounds(); // Initial framing must work without pressing Fit.
     await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
     await page.getByRole('button', { name: 'Zoom out', exact: true }).click();
     await page.getByRole('button', { name: 'Fit open orders on map', exact: true }).click();
+    await checkMapBounds();
     await page.getByRole('button', { name: 'Focus warehouse or fallback location', exact: true }).click();
+    await page.getByRole('button', { name: 'Fit open orders on map', exact: true }).click();
+    await checkMapBounds();
     assert.equal(await page.evaluate(() => window.__shipperDeviceRequests), 0, 'Warehouse coordinates avoid device location requests');
     await page.waitForFunction(() => [...document.querySelectorAll('.gm-style img')].some(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth >= 200), null, { timeout: 60000 });
   }
@@ -242,6 +262,15 @@ try {
   failOrders = false;
   await page.getByRole('button', { name: 'Try again', exact: true }).click();
   await page.getByText('Out for delivery – your stop is next', { exact: true }).waitFor();
+  if (liveMap) {
+    await page.setViewportSize({ width: 1040, height: 700 });
+    await page.goto(origin + '/demo/shipper/tracking?order=1');
+    await page.getByText('Out for delivery – your stop is next', { exact: true }).waitFor();
+    await page.getByRole('img', { name: 'Your warehouse', exact: true }).waitFor();
+    await checkMapBounds();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await checkMapBounds(); // Resizing and sidebar width must use current measurements.
+  }
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(origin + '/demo/shipper/tracking?order=1');
@@ -256,6 +285,9 @@ try {
     if (liveMap) {
       await page.getByRole('img', { name: 'Your warehouse', exact: true }).waitFor({ timeout: 60000 });
       await page.waitForFunction(() => [...document.querySelectorAll('.gm-style img')].some(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth >= 200), null, { timeout: 60000 });
+      await checkMapBounds();
+      await page.getByRole('button', { name: 'Fit open orders on map', exact: true }).click();
+      await checkMapBounds();
       const details = page.getByRole('region', { name: 'Order progress', exact: true });
       await details.evaluate(card => { card.scrollTop = card.scrollHeight; });
       await details.getByText('Order booked', { exact: true }).waitFor();

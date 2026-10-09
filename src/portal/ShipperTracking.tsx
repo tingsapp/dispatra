@@ -18,7 +18,7 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
   const error = orders.error || preferences.error;
   const pending = orders.isPending || preferences.isPending;
   return <>
-    <ShipperTrackingMap slug={slug} tracking={tracking.error ? undefined : tracking.data} orders={rows} selectedOrderId={selected?.id} onSelect={onSelect} warehouse={profile.data?.warehouse} timeZone={timeZone} locationReady={!profile.isPending} />
+    <ShipperTrackingMap slug={slug} tracking={tracking.error ? undefined : tracking.data} orders={rows} selectedOrderId={selected?.id} onSelect={onSelect} warehouse={profile.data?.warehouse} timeZone={timeZone} locationReady={!profile.isPending} viewReady={!pending && (!selected || !tracking.isPending)} />
     <div className="shipper-tracking-overlays" role="region" aria-label="Tracking">
       <section className="shipper-tracking-card shipper-tracking-summary" aria-label="Order progress">
       <Notice error={logoutError} />
