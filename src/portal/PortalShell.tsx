@@ -11,7 +11,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
   /** Sidebar controls under the Logout card (or the account card), such as the driver's duty switch. */
   footer?: (collapsed: boolean) => ReactNode;
   description?: string; reading?: boolean; actions?: ReactNode; onNavigate?: (href: string) => void;
-  /** Persistent workspace controls outside page headings and reading-width content. */
+  /** Persistent workspace controls aligned with the page's content width and gutters. */
   headerActions?: ReactNode;
   /** Dispatcher-style account card with a Profile / Logout menu instead of the plain sign-out control. */
   account?: { name: string; role: string; profileCurrent: boolean };
@@ -63,10 +63,12 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
         <button type="button" className="app-nav-item disabled:opacity-50" aria-label="Sign out" title={collapsed ? 'Sign out' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Sign out</span></button>
       </div>}
     </aside>
-    <div className={headerActions ? 'flex h-dvh min-w-0 flex-1 flex-col' : 'contents'}>
-      {headerActions && <header aria-label="Workspace header" className="flex h-16 shrink-0 items-center justify-between bg-app-canvas px-6">
-        <div>{menuButton}</div>
-        <div className="flex items-center gap-2">{headerActions}</div>
+    <div className={headerActions ? `flex h-dvh min-w-0 flex-1 flex-col ${settings || reading ? 'app-page-reading' : ''}` : 'contents'}>
+      {headerActions && <header aria-label="Workspace header" className="app-workspace-header h-16 shrink-0 bg-app-canvas">
+        <div className="page-content flex h-full items-center justify-between">
+          <div>{menuButton}</div>
+          <div className="flex items-center gap-2">{headerActions}</div>
+        </div>
       </header>}
     <div className={`app-page min-w-0 flex-1 flex flex-col ${settings || reading ? 'app-page-reading' : ''} ${headerActions ? 'app-page-with-header min-h-0' : 'min-h-dvh'}`}>
       <PageHeading className="app-page-header page-content">

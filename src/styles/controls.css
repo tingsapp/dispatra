@@ -14,6 +14,8 @@
   scrollbar-gutter: stable;
 }
 .app-page.app-page-with-header { padding-top: 2rem; }
+/* Match the scrolling canvas's available width, including its reserved gutter. */
+.app-workspace-header { overflow-y: auto; scrollbar-gutter: stable; }
 .app-page > .page-content:not(.app-page-header) {
   flex: 0 0 auto;
   overflow-y: visible;

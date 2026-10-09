@@ -33,7 +33,11 @@ try {
     assert.equal(await page.getByRole('button', { name: /^Notifications/ }).count(), 1);
     const bounds = await bell.boundingBox();
     assert.equal(bounds.y, 14);
-    assert.equal(page.viewportSize().width - bounds.x - bounds.width, 24);
+    const contentRight = await page.locator('main.page-content').evaluate(main => {
+      const bounds = main.getBoundingClientRect();
+      return bounds.right - parseFloat(getComputedStyle(main).paddingRight);
+    });
+    assert.ok(Math.abs(bounds.x + bounds.width - contentRight) < 1, 'Header bell aligns with the content right edge');
     assert.equal(await header.getByRole('button', { name: 'New order', exact: true }).count(), 0);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   };
@@ -47,6 +51,7 @@ try {
   await page.getByRole('heading', { name: 'Contact details', exact: true }).waitFor();
   await checkHeader();
   assert.ok(await originalBell.evaluate(element => element.isConnected), 'The same bell survives page navigation');
+  await page.screenshot({ path: '/tmp/dispatra-shipper-header-profile.png', fullPage: true });
   await page.getByRole('button', { name: 'Security', exact: true }).click();
   await page.getByRole('heading', { name: 'Change password', exact: true }).waitFor();
   await checkHeader();
@@ -79,5 +84,5 @@ try {
     await checkHeader();
   }
   assert.deepEqual(errors, []);
-  console.log('PASS: one persistent top-right Shipper header bell on Orders/Profile/Security, notification navigation, scrolling, mobile panel bounds and sidebar navigation.');
+  console.log('PASS: persistent Shipper header bell aligned with Orders/Profile/Security content, notification navigation, scrolling, mobile panel bounds and sidebar navigation.');
 } finally { await browser.close(); }
