@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import React from 'react';
 import { APIProviderContext, APILoadingStatus, type APIProviderContextValue } from '@vis.gl/react-google-maps';
+import { GoogleRoundedRoute } from '../src/components/map/GoogleRoundedRoute';
+import { roundedRoutePath } from '../src/components/map/roundedRoutePath';
 import { INITIAL_JOBS } from '../src/data/mockData';
 import { GoogleOrderMarkers, type LocatedOrderStop } from '../src/components/monitor/GoogleOrderMarkers';
 
@@ -21,7 +23,7 @@ class FakeOverlay {
   onAdd() {}
   draw() {}
   onRemove() {}
-  getPanes() { return { overlayMouseTarget: pane }; }
+  getPanes() { return { overlayMouseTarget: pane, overlayLayer: pane }; }
   getProjection() {
     return { fromLatLngToDivPixel: ({ position }: FakeLatLng) => ({ x: position.lng * 100 + cameraOffset, y: position.lat * 100 }) };
   }
@@ -33,7 +35,7 @@ class FakeOverlay {
 Object.defineProperty(globalThis, 'google', { configurable: true, value: { maps: { OverlayView: FakeOverlay, LatLng: FakeLatLng } } });
 const context: APIProviderContextValue = {
   status: APILoadingStatus.LOADED, loadedLibraries: {}, importLibrary: async () => { throw new Error('Unexpected library load in overlay test'); },
-  mapInstances: { default: {} as google.maps.Map }, addMapInstance() {}, removeMapInstance() {}, clearMapInstances() {},
+  mapInstances: { default: { getCenter: () => new FakeLatLng({ lat: 0, lng: 0 }), getDiv: () => pane } as unknown as google.maps.Map }, addMapInstance() {}, removeMapInstance() {}, clearMapInstances() {},
   map3dInstances: {}, addMap3DInstance() {}, removeMap3DInstance() {}, clearMap3DInstances() {}, internalUsageAttributionIds: null,
 };
 const stops: LocatedOrderStop[] = [
@@ -99,4 +101,29 @@ test('orders without located stops retain their selectable status marker', () =>
   fireEvent.click(screen.getByRole('button', { name: `Order ${job.jobNumber}, At Risk` }));
   assert.deepEqual(selected, [job.jobNumber, [job.lng, job.lat]]);
   assert.equal(screen.getAllByRole('button').length, 1);
+});
+
+test('rounded route keeps endpoints and confines curves to the immediate turn, including duplicate points', () => {
+  const points = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }];
+  assert.equal(roundedRoutePath(points), 'M0,0L90,0Q100,0 100,10L100,100');
+  assert.equal(roundedRoutePath([{ x: 0, y: 0 }, { x: 0, y: 0 }]), '');
+  assert.ok(!roundedRoutePath([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }]).includes('NaN'));
+  assert.deepEqual(points.at(-1), { x: 100, y: 100 }, 'Rendering never mutates the road coordinates');
+});
+test('Google route overlay rounds caps and joins, stays projected during camera changes and detaches cleanly', () => {
+  document.body.appendChild(pane);
+  const props = { id: 'own-order', points: [[0, 0], [0, 1], [1, 1]], selected: true };
+  const routeTree = (selected: boolean) => React.createElement(APIProviderContext.Provider, { value: context }, React.createElement(GoogleRoundedRoute, { ...props, selected }));
+  const view = render(routeTree(true));
+  const path = pane.querySelector('svg[data-shipper-route="own-order"] path')!;
+  assert.equal(path.getAttribute('stroke-linecap'), 'round');
+  assert.equal(path.getAttribute('stroke-linejoin'), 'round');
+  assert.equal(path.getAttribute('stroke-width'), '8');
+  assert.equal(path.getAttribute('d'), 'M0,0L90,0Q100,0 100,10L100,100');
+  cameraOffset = 40;
+  overlays.forEach(overlay => overlay.draw());
+  assert.equal(path.getAttribute('d'), 'M40,0L130,0Q140,0 140,10L140,100');
+  view.rerender(routeTree(false));
+  assert.equal(path.getAttribute('stroke-width'), '6');
+  view.unmount(); assert.equal(pane.childElementCount, 0);
 });

@@ -20,14 +20,14 @@ export function TrackingSummary({ tracking: t, timeZone, title }: { tracking: Tr
         <p className={`text-[11px] leading-tight ${done || current ? 'font-medium text-slate-800' : 'text-slate-400'}`}>{label}</p>
       </li>;
     })}</ol>}
-    {t.open_issue && <p className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-amber-800"><AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />The driver reported an issue with this order. Dispatch is handling it.</p>}
+    {t.open_issue === true && <p role="status" className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-amber-800"><AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />The driver reported an issue with this order. Dispatch is handling it.</p>}
   </div>;
 }
 
-export function TrackingDetails({ tracking: t, timeZone, now }: { tracking: Tracking; timeZone: string; now: number }) {
+export function TrackingDetails({ tracking: t, timeZone, now, showLocationStatus = true }: { tracking: Tracking; timeZone: string; now: number; showLocationStatus?: boolean }) {
   const active = !['BOOKED', 'DELIVERED', 'CANCELLED'].includes(t.stage);
   return <div className="space-y-4">
-    {active && <p className="text-xs text-slate-500">
+    {showLocationStatus && active && <p className="text-xs text-slate-500">
       {t.location ? <>Live location updated {ago(t.location.captured_at, now)}.</> : t.location_stale ? 'Live location is temporarily unavailable.' : t.stage === 'ASSIGNED' ? 'Live location starts when the driver begins the route.' : 'Live location appears when the driver is heading to your stop.'}
       {' '}Tracking refreshes every 30 seconds.</p>}
     <div className="grid gap-4 sm:grid-cols-2">

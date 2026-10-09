@@ -34,8 +34,8 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
         : tracking.error ? <><Notice error={tracking.error} /><Button variant="outline" onClick={() => void tracking.refetch()}>Retry tracking</Button></>
         : tracking.data && <>
           <TrackingSummary tracking={tracking.data} timeZone={timeZone} title={selected.number} />
-          <section className="mt-5 border-t border-app-border pt-5" aria-label="Stops and timeline">
-            <TrackingDetails tracking={tracking.data} timeZone={timeZone} now={now} />
+          <section className="mt-5" aria-label="Stops and timeline">
+            <TrackingDetails tracking={tracking.data} timeZone={timeZone} now={now} showLocationStatus={false} />
           </section>
         </>}
       </>}

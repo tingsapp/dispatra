@@ -19,7 +19,7 @@ try {
   const profile = { id: 'shipper-1', version: 1, number: 'DDS-1042', name: 'Example Shipper', company_name: 'Example Shipper', kind: 'BUSINESS',
     email: 'shipper@example.com', phone: '6045550100', status: 'ACTIVE', warehouse: { text: '100 Main St, Vancouver, BC V6A 2S5', city: 'Vancouver', province: 'BC', country: 'CA', postal_code: 'V6A 2S5', latitude: 49.28, longitude: -123.1 },
     discount: { kind: 'NONE', value: '0' }, instructions: '', rate_card_id: null };
-  let orders = [], failOrders = false, failTracking = false;
+  let orders = [], failOrders = false, failTracking = false, openIssue = false;
   const trackingReads = [], roadReads = [];
   const stops = ['PICKUP', 'DROPOFF'].map((kind, index) => ({ id: `stop-${index}`, kind,
     address: { ...profile.warehouse, text: index ? '200 Granville St, Vancouver, BC' : profile.warehouse.text, latitude: 49.28 + index * 0.01, longitude: -123.1 },
@@ -35,7 +35,7 @@ try {
       stops: row.facts.stops.map(stop => ({ ...stop, planned_at: row.scheduled_at, eta: stage === 'OUT_FOR_DELIVERY' ? row.scheduled_at : null,
         arrived_at: null, completed_at: stage === 'DELIVERED' ? row.scheduled_at : null, status: stage === 'DELIVERED' ? 'COMPLETED' : 'PENDING' })),
       stops_before_next: 0, eta: stage === 'OUT_FOR_DELIVERY' ? row.scheduled_at : null, delay_minutes: 0, late: false, live: false,
-      location: null, location_stale: false, events: [{ kind: 'BOOKED', label: 'Order booked', at: row.created_at }], open_issue: false, updated_at: row.created_at };
+      location: null, location_stale: stage === 'OUT_FOR_DELIVERY', events: [{ kind: 'BOOKED', label: 'Order booked', at: row.created_at }], open_issue: row.id === '1' && openIssue, updated_at: row.created_at };
   };
   const liveMap = process.env.TRACKING_LIVE_MAP === '1';
   await context.route('**/*', route => {
@@ -66,7 +66,8 @@ try {
     else if (path.endsWith('/road-path')) {
       const id = path.split('/').at(-2); roadReads.push(id);
       const row = orders.find(order => order.id === id);
-      json = { points: row?.facts.stops.map(stop => [stop.address.latitude, stop.address.longitude]) ?? [] };
+      const points = row?.facts.stops.map(stop => [stop.address.latitude, stop.address.longitude]) ?? [];
+      json = { points: points.length === 2 ? [points[0], [points[0][0] + 0.004, points[0][1]], [points[0][0] + 0.004, points[0][1] + 0.003], [points[1][0], points[0][1] + 0.003], points[1]] : points };
     }
     else if (['/booking-options', '/booking-drivers'].some(suffix => path.endsWith(suffix))) json = [];
     else return route.fulfill({ status: 404, json: { error: { message: 'Outside this local layout check.' } } });
@@ -95,7 +96,7 @@ try {
     assert.equal(await page.getByRole('button', { name: /^Notifications/ }).count(), 1);
     const bounds = await bell.boundingBox();
     assert.equal(bounds.y, 14);
-    assert.equal(await bell.evaluate(button => getComputedStyle(button).backgroundColor), 'rgb(240, 240, 240)');
+    await page.waitForFunction(button => getComputedStyle(button).backgroundColor === 'rgb(240, 240, 240)', await bell.elementHandle(), { timeout: 3000 });
     const isMap = await page.locator('[aria-label="Shipment map"][data-map-provider="google"]').count();
     const contentRight = isMap ? await page.getByRole('main', { name: 'Tracking', exact: true }).evaluate(main => {
       const bounds = main.getBoundingClientRect();
@@ -183,8 +184,25 @@ try {
   assert.equal(await nav.getByRole('link', { name: 'Tracking', exact: true }).getAttribute('aria-current'), 'page');
   await checkHeader();
   await page.getByRole('region', { name: 'Stops and timeline', exact: true }).waitFor();
+  assert.equal(await page.getByText(/Live location|Tracking refreshes every 30 seconds/).count(), 0);
+  assert.equal(await page.getByRole('region', { name: 'Stops and timeline' }).evaluate(section => parseFloat(getComputedStyle(section).borderTopWidth)), 0);
+  const issue = page.getByText('The driver reported an issue with this order. Dispatch is handling it.', { exact: true });
+  assert.equal(await issue.count(), 0, 'No issue warning when the API reports no open issue');
+  openIssue = true; changes = [{ entity: 'issue', order_id: '1' }];
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await issue.waitFor();
+  openIssue = false; changes = [{ entity: 'issue', order_id: '1' }];
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await issue.waitFor({ state: 'detached' });
+
   if (liveMap) {
-    await page.getByRole('img', { name: 'Your warehouse', exact: true }).waitFor({ timeout: 60000 });
+    await page.locator('svg[data-shipper-route="1"] path').waitFor({ timeout: 60000 });
+    assert.equal(await page.getByRole('img', { name: /Your warehouse|Your device location/ }).count(), 0);
+    const rounded = page.locator('svg[data-shipper-route="1"] path');
+    assert.equal(await rounded.getAttribute('stroke-width'), '8');
+    assert.equal(await rounded.getAttribute('stroke-linecap'), 'round');
+    assert.equal(await rounded.getAttribute('stroke-linejoin'), 'round');
+    assert.ok((await rounded.getAttribute('d')).includes('Q'), 'Road turns are visibly rounded');
     for (const number of ['DDO-1041', 'DDO-1042', 'DDO-1045']) {
       await page.getByRole('button', { name: new RegExp(`^${number} · Pickup:`) }).waitFor();
       await page.getByRole('button', { name: new RegExp(`^${number} · Drop-off:`) }).waitFor();
@@ -266,7 +284,7 @@ try {
     await page.setViewportSize({ width: 1040, height: 700 });
     await page.goto(origin + '/demo/shipper/tracking?order=1');
     await page.getByText('Out for delivery – your stop is next', { exact: true }).waitFor();
-    await page.getByRole('img', { name: 'Your warehouse', exact: true }).waitFor();
+    await page.locator('svg[data-shipper-route="1"] path').waitFor({ timeout: 60000 });
     await checkMapBounds();
     await page.setViewportSize({ width: 1440, height: 900 });
     await checkMapBounds(); // Resizing and sidebar width must use current measurements.
@@ -283,7 +301,7 @@ try {
     assert.ok(searchBounds.x >= 8 && searchBounds.x + searchBounds.width <= width - 8, 'Order search stays inside the mobile viewport');
     await page.keyboard.press('Escape');
     if (liveMap) {
-      await page.getByRole('img', { name: 'Your warehouse', exact: true }).waitFor({ timeout: 60000 });
+      await page.locator('svg[data-shipper-route="1"] path').waitFor({ timeout: 60000 });
       await page.waitForFunction(() => [...document.querySelectorAll('.gm-style img')].some(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth >= 200), null, { timeout: 60000 });
       await checkMapBounds();
       await page.getByRole('button', { name: 'Fit open orders on map', exact: true }).click();

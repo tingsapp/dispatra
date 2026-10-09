@@ -1,9 +1,10 @@
-import { APIProvider, Map, Polyline, useMap } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
 import { useCallback, useEffect, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { LocateFixed, Maximize, Minus, Plus, Truck } from 'lucide-react';
 import { operations, type Address, type Order } from '../../operations/api';
 import { GoogleOverlayMarker } from '../monitor/GoogleOverlayMarker';
+import { GoogleRoundedRoute } from '../map/GoogleRoundedRoute';
 import { StopMarkerCircle } from '../map/StopMarkerCircle';
 import { useShipperMapCamera } from './useShipperMapCamera';
 import type { Tracking } from './trackingPresentation';
@@ -48,19 +49,13 @@ function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect,
   const { focusHome, fitOrders, markManual } = useShipperMapCamera(map, points, home?.point ?? initialShipperCenter(warehouse, timeZone),
     viewReady && homeReady && !roads.some(road => road.isFetching));
   return <>
-    {roads.map((road, index) => road.data?.points && <Polyline key={openOrders[index].id}
-      path={road.data.points.map(([lat, lng]) => ({ lat, lng }))} strokeColor="#171717"
-      strokeWeight={openOrders[index].id === selectedOrderId ? 4 : 3} strokeOpacity={openOrders[index].id === selectedOrderId ? 0.85 : 0.4} clickable={false} />)}
+    {roads.map((road, index) => road.data?.points && <GoogleRoundedRoute key={openOrders[index].id}
+      id={openOrders[index].id} points={road.data.points} selected={openOrders[index].id === selectedOrderId} />)}
     {stops.map(stop => <GoogleOverlayMarker key={`${stop.orderId}:${stop.id}`} position={stop.point}
       title={`${stop.number} · ${stop.kind === 'PICKUP' ? 'Pickup' : 'Drop-off'}`}
       label={`${stop.number} · ${stop.kind === 'PICKUP' ? 'Pickup' : 'Drop-off'}: ${stop.address.text}`} onSelect={() => onSelect(stop.orderId)}>
       <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden><StopMarkerCircle kind={stop.kind === 'PICKUP' ? 'PICKUP' : 'DROPOFF'} /></svg>
     </GoogleOverlayMarker>)}
-    {home && <GoogleOverlayMarker position={home.point} label={home.source === 'warehouse' ? 'Your warehouse' : 'Your device location'}>
-      {stops.some(stop => Math.abs(stop.point.lat - home.point.lat) < 0.00001 && Math.abs(stop.point.lng - home.point.lng) < 0.00001)
-        ? <span className="block -translate-y-7 whitespace-nowrap rounded-full border border-app-border bg-white px-2 py-1 text-xs shadow-sm">{home.source === 'warehouse' ? 'Your warehouse' : 'Your location'}</span>
-        : <span className="block size-4 rounded-full border-[3px] border-white bg-blue-600 shadow-md ring-4 ring-blue-600/15" />}
-    </GoogleOverlayMarker>}
     {liveTracking?.live && liveTracking.location && <GoogleOverlayMarker position={{ lat: liveTracking.location.latitude, lng: liveTracking.location.longitude }} label={`Driver ${liveTracking.driver?.first_name ?? ''}`}>
       <span className="grid size-9 place-items-center rounded-xl border-2 border-white bg-blue-600 text-white shadow-md"><Truck size={18} /></span>
     </GoogleOverlayMarker>}
