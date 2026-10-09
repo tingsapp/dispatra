@@ -4,6 +4,8 @@ Updated: 2026-10-09. [Specification](spec.md) defines intended behavior.
 
 ## Implemented
 
+- 2026-10-09: Removed the selected-role underline from company-login role choices. Selection uses darker medium-weight text; the rounded surrounding border, transparent backgrounds and keyboard focus remain. Four company-login tests, lint and production build passed; no API or routing changes.
+
 - 2026-10-09: Restored the rounded surrounding border on company-login role choices. Transparent backgrounds and the selected-role underline remain. Four company-login tests, lint and production build passed; no login behavior, API or routing changes.
 
 - 2026-10-09: Simplified company-login role selection to transparent text choices. Removed the gray container background/border and the selected black pill; selection now uses darker medium-weight text and an underline. Shared-size hit targets, visible keyboard focus and disabled state remain. Four company-login tests, lint and production build passed. Local browser acceptance passed keyboard role selection, company/portal requests, retries/redirects and 390px/320px layouts without overflow; desktop/mobile screenshots inspected. No API or routing changes or production deployment.
