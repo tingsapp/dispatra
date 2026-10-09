@@ -98,7 +98,8 @@ try {
     assert.equal(await page.getByRole('button', { name: /^Notifications/ }).count(), 1);
     const bounds = await bell.boundingBox();
     assert.equal(bounds.y, 14);
-    await page.waitForFunction(button => getComputedStyle(button).backgroundColor === 'rgb(240, 240, 240)', await bell.elementHandle(), { timeout: 3000 });
+    const background = new URL(page.url()).pathname.endsWith('/tracking') ? 'rgb(255, 255, 255)' : 'rgb(240, 240, 240)';
+    await page.waitForFunction(({ button, background }) => getComputedStyle(button).backgroundColor === background, { button: await bell.elementHandle(), background }, { timeout: 3000 });
     const isMap = await page.locator('[aria-label="Shipment map"][data-map-provider="google"]').count();
     const contentRight = isMap ? await page.getByRole('main', { name: 'Tracking', exact: true }).evaluate(main => {
       const bounds = main.getBoundingClientRect();

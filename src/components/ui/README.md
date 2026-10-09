@@ -40,7 +40,7 @@ Page headings and content share the scrolling `.app-page` canvas and its respons
 
 `PortalShell.headerActions` holds persistent workspace controls above the scrolling page canvas, aligned with its content width and responsive gutters. The header reserves the same scrollbar space as the canvas so wide and reading columns align. The Shipper order search and notification bell belong there; `actions` remains for page commands such as New order. Mobile menu access moves to that shared header when it is present.
 
-`NotificationBell.surface` adds the neutral `app-icon-button-surface` background for the Shipper header. Shipper Tracking uses `PortalShell.map` for a full workspace canvas with floating header controls, the shared search input and reusable `TrackingSummary` / `TrackingDetails` in one white overlay card; order details provide a real Track link. Keep links in the dialog's keyboard focus sequence.
+`NotificationBell.surface={true}` adds the neutral `app-icon-button-surface` background for Shipper Orders/Profile and the Driver header. `surface="white"` adds the white background used on Shipper Tracking. Shipper Tracking uses `PortalShell.map` for a full workspace canvas with floating header controls, the shared search input and reusable `TrackingSummary` / `TrackingDetails` in one white overlay card; order details provide a real Track link. Keep links in the dialog's keyboard focus sequence.
 
 `PageHeader` contains the title, description and optional page actions. Do not add a Back to Monitor button; use the shared Dispatra brand navigation. Headers without actions do not reserve an action container.
 

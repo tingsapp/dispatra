@@ -122,6 +122,7 @@
   }
   .app-icon-button:hover { background: var(--color-app-hover); color: var(--color-app-text); }
   .app-icon-button-surface { background: var(--color-slate-100); }
+  .app-icon-button-white, .app-icon-button-white:hover { background: var(--color-app-surface); }
 
   .app-nav-item {
     display: flex;
