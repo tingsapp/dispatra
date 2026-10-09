@@ -6,6 +6,7 @@ import { PortalShell } from './PortalShell';
 import { CustomerProfile } from './ProfilePage';
 import { PasswordPage } from './PasswordPage';
 import { ShipperOrders } from './ShipperOrders';
+import { ShipperOrderSearch } from './ShipperOrderSearch';
 import { ShipperTracking } from './ShipperTracking';
 import { Button, Notice } from './ui';
 import { NotificationBell } from './Notifications';
@@ -30,7 +31,7 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   const suffix = url.pathname.replace(/\/+$/, '').split('/')[3];
   const page = shipperPages.find(item => item.path === suffix) ?? shipperPages[0];
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false}
-    headerActions={<NotificationBell slug={slug} surface onOpen={() => go(base)} />}
+    headerActions={<><ShipperOrderSearch slug={slug} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} /><NotificationBell slug={slug} surface onOpen={() => go(base)} /></>}
     actions={page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}
     reading={page.path === 'profile'} map={page.path === 'tracking'}
     account={{ name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}

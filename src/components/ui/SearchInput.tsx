@@ -8,6 +8,7 @@ interface SearchInputProps {
   /** Extra classes for the wrapper — use to control width (defaults to flex-1). */
   className?: string;
   'aria-label'?: string;
+  inputProps?: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'onChange' | 'placeholder' | 'className'>;
 }
 
 /**
@@ -19,11 +20,13 @@ export const SearchInput: React.FC<SearchInputProps> = ({
   onChange,
   placeholder = 'Search…',
   className = 'flex-1',
-  'aria-label': ariaLabel
+  'aria-label': ariaLabel,
+  inputProps
 }) => (
   <div className={`relative ${className}`}>
     <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
     <input
+      {...inputProps}
       type="search"
       value={value}
       aria-label={ariaLabel || placeholder}

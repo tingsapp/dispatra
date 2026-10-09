@@ -59,7 +59,7 @@ const getFAQs = (units: Units): FAQItem[] => [
     category: 'tracking',
     categoryLabel: 'Tracking & Privacy',
     answer:
-      'Shippers sign in to their company portal and open Tracking below Orders, or select Track in order details. They can select only their own orders and see progress, ETA, their stops and the timeline. On a dedicated route, the live driver position can appear throughout the active route; on a shared route, it appears only when the driver is heading to one of that order’s stops. Other shippers’ stops, internal notes and private driver contact details are not exposed. Completed and cancelled orders keep their tracking history without a live location.'
+      'Shippers sign in to their company portal and open Tracking below Orders, or select Track in order details. The search beside Notifications finds only their own orders by number, reference or address. The map displays their New, Assigned and In progress orders; selecting a search result or map marker shows progress, ETA, stops and timeline in one card. On a dedicated route, the live driver position can appear throughout the active route; on a shared route, it appears only when the driver is heading to one of that order’s stops. Other shippers’ stops, internal notes and private driver contact details are not exposed. Completed and cancelled orders keep their tracking history without a live location.'
   },
   {
     id: 'faq-5',

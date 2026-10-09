@@ -1,11 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { MapPin } from 'lucide-react';
 import { allOperations, operations } from '../operations/api';
-import { ORDER_LIFECYCLE_LABELS, normalizeLifecycle } from '../domain/operations';
 import { useOrderTracking } from '../components/orders/OrderTracking';
 import { TrackingSummary, TrackingDetails } from '../components/orders/TrackingSections';
 import { ShipperTrackingMap } from '../components/orders/ShipperTrackingMap';
-import { Select } from '../components/ui/Select';
 import { Button, Notice } from './ui';
 
 /** The same authorized Shipper orders feed powers selection and order details. */
@@ -20,7 +18,7 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
   const error = orders.error || preferences.error;
   const pending = orders.isPending || preferences.isPending;
   return <>
-    <ShipperTrackingMap slug={slug} tracking={tracking.error ? undefined : tracking.data} version={selected?.version} warehouse={profile.data?.warehouse} timeZone={timeZone} locationReady={!profile.isPending} />
+    <ShipperTrackingMap slug={slug} tracking={tracking.error ? undefined : tracking.data} orders={rows} selectedOrderId={selected?.id} onSelect={onSelect} warehouse={profile.data?.warehouse} timeZone={timeZone} locationReady={!profile.isPending} />
     <div className="shipper-tracking-overlays" role="region" aria-label="Tracking">
       <section className="shipper-tracking-card shipper-tracking-summary" aria-label="Order progress">
       <Notice error={logoutError} />
@@ -31,20 +29,17 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
           <h2 className="app-section-title">No orders to track</h2>
           <p className="mt-1 text-sm text-app-muted">Your orders will appear here after booking.</p>
         </div> : <>
-      <div className="space-y-1.5">
-      <p className="app-label">Order</p>
-      <Select aria-label="Order to track" className="w-full" value={selected?.id ?? ''} onValueChange={onSelect} placeholder="Choose an order"
-        options={rows.map(order => ({ value: order.id, label: `${order.number} · ${ORDER_LIFECYCLE_LABELS[normalizeLifecycle(order.status) ?? 'NEW']}` }))} />
-      </div>
-      {!selected ? <Notice error={new Error('This order is unavailable. Choose one of your orders to track.')} />
+      {!selected ? <Notice error={new Error('This order is unavailable. Search for one of your orders to track.')} />
         : tracking.isPending ? <p role="status" className="text-sm text-app-muted">Loading tracking…</p>
         : tracking.error ? <><Notice error={tracking.error} /><Button variant="outline" onClick={() => void tracking.refetch()}>Retry tracking</Button></>
-        : tracking.data && <TrackingSummary tracking={tracking.data} timeZone={timeZone} title={selected.number} />}
+        : tracking.data && <>
+          <TrackingSummary tracking={tracking.data} timeZone={timeZone} title={selected.number} />
+          <section className="mt-5 border-t border-app-border pt-5" aria-label="Stops and timeline">
+            <TrackingDetails tracking={tracking.data} timeZone={timeZone} now={now} />
+          </section>
+        </>}
       </>}
       </section>
-      {!error && !pending && selected && tracking.data && <section className="shipper-tracking-card shipper-tracking-details" aria-label="Stops and timeline">
-        <TrackingDetails tracking={tracking.data} timeZone={timeZone} now={now} />
-      </section>}
     </div>
   </>;
 }

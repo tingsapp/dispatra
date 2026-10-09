@@ -13,26 +13,26 @@ try {
       success({ coords: { latitude: 43.65, longitude: -79.38 } });
     } } });
   });
-  let unread = 1;
+  let unread = 1, changes = [];
   const notification = { id: 'n1', version: 1, created_at: new Date().toISOString(), kind: 'order.assigned', severity: 'INFO',
     title: 'Order assigned', body: 'Your delivery has a driver.', order_id: 'order-1', route_id: null, read_at: null };
   const profile = { id: 'shipper-1', version: 1, number: 'DDS-1042', name: 'Example Shipper', company_name: 'Example Shipper', kind: 'BUSINESS',
     email: 'shipper@example.com', phone: '6045550100', status: 'ACTIVE', warehouse: { text: '100 Main St, Vancouver, BC V6A 2S5', city: 'Vancouver', province: 'BC', country: 'CA', postal_code: 'V6A 2S5', latitude: 49.28, longitude: -123.1 },
     discount: { kind: 'NONE', value: '0' }, instructions: '', rate_card_id: null };
   let orders = [], failOrders = false, failTracking = false;
-  const trackingReads = [];
+  const trackingReads = [], roadReads = [];
   const stops = ['PICKUP', 'DROPOFF'].map((kind, index) => ({ id: `stop-${index}`, kind,
     address: { ...profile.warehouse, text: index ? '200 Granville St, Vancouver, BC' : profile.warehouse.text, latitude: 49.28 + index * 0.01, longitude: -123.1 },
     contact_name: '', phone: '', instructions: '', window_start: null, window_end: null }));
   const order = (id, status) => ({ id, version: 1, number: `DDO-104${id}`, shipper_id: profile.id, billing_shipper_id: profile.id,
     service_id: 'service-1', route_id: status === 'NEW' ? null : 'route-1', source: 'SHIPPER_PORTAL', status,
     scheduled_at: '2026-10-10T16:00:00Z', completed_at: null, created_at: '2026-10-09T16:00:00Z', booking: {},
-    facts: { stops, items: [], accessorials: [], adjustments: [], external_reference: '', internal_notes: '' },
+    facts: { stops: stops.map((stop, index) => ({ ...stop, id: `${id}-${stop.id}`, address: { ...stop.address, text: id === '1' ? stop.address.text : `${id}00 ${index ? 'Granville' : 'Main'} St, Vancouver, BC`, longitude: stop.address.longitude + (Number(id) - 1) * 0.008 } })), items: [], accessorials: [], adjustments: [], external_reference: `REF-${id}`, internal_notes: '' },
     pricing: { status: 'PRICED', stage: 'ESTIMATE', currency: 'CAD', subtotal: '25', tax: '0', total: '25', lines: [], context: {} } });
   const tracking = row => {
-    const stage = { NEW: 'BOOKED', ASSIGNED: 'OUT_FOR_DELIVERY', COMPLETED: 'DELIVERED', CANCELLED: 'CANCELLED' }[row.status];
+    const stage = { NEW: 'BOOKED', ASSIGNED: 'OUT_FOR_DELIVERY', IN_PROGRESS: 'OUT_FOR_DELIVERY', COMPLETED: 'DELIVERED', CANCELLED: 'CANCELLED' }[row.status];
     return { order_id: row.id, status: row.status, stage, dedicated: true, driver: { first_name: 'Dana', vehicle_type: 'Cargo van' },
-      stops: stops.map(stop => ({ ...stop, planned_at: row.scheduled_at, eta: stage === 'OUT_FOR_DELIVERY' ? row.scheduled_at : null,
+      stops: row.facts.stops.map(stop => ({ ...stop, planned_at: row.scheduled_at, eta: stage === 'OUT_FOR_DELIVERY' ? row.scheduled_at : null,
         arrived_at: null, completed_at: stage === 'DELIVERED' ? row.scheduled_at : null, status: stage === 'DELIVERED' ? 'COMPLETED' : 'PENDING' })),
       stops_before_next: 0, eta: stage === 'OUT_FOR_DELIVERY' ? row.scheduled_at : null, delay_minutes: 0, late: false, live: false,
       location: null, location_stale: false, events: [{ kind: 'BOOKED', label: 'Order booked', at: row.created_at }], open_issue: false, updated_at: row.created_at };
@@ -48,7 +48,7 @@ try {
     if (path === '/api/v1/auth/me') json = { id: 'user-1', login_id: profile.email, display_name: profile.name, role: 'SHIPPER', organization: { id: 'company-1', slug: 'demo', name: 'Demo Delivery', active: true } };
     else if (path.endsWith('/shipper/profile')) json = profile;
     else if (path.endsWith('/booking-preferences')) json = { currency: 'CAD', time_zone: 'America/Vancouver', weight_unit: 'kg', dimension_unit: 'cm', distance_unit: 'km', gst_enabled: false, provincial_enabled: false, fuel_enabled: false };
-    else if (path.endsWith('/sync')) json = { cursor: '1-0', changes: [], unread, reset: false, next_poll_ms: 60000 };
+    else if (path.endsWith('/sync')) { json = { cursor: '1-0', changes, unread, reset: false, next_poll_ms: 60000 }; changes = []; }
     else if (path.endsWith('/notifications/n1/read')) { unread = 0; notification.read_at = new Date().toISOString(); json = notification; }
     else if (path.endsWith('/notifications')) json = [notification];
     else if (path.endsWith('/orders')) {
@@ -63,7 +63,11 @@ try {
       if (!row) return route.fulfill({ status: 404, json: { error: { message: 'Order unavailable.' } } });
       json = tracking(row);
     }
-    else if (path.endsWith('/road-path')) json = { points: [[49.28, -123.1], [49.285, -123.1], [49.285, -123.09], [49.29, -123.09], [49.29, -123.1]] };
+    else if (path.endsWith('/road-path')) {
+      const id = path.split('/').at(-2); roadReads.push(id);
+      const row = orders.find(order => order.id === id);
+      json = { points: row?.facts.stops.map(stop => [stop.address.latitude, stop.address.longitude]) ?? [] };
+    }
     else if (['/booking-options', '/booking-drivers'].some(suffix => path.endsWith(suffix))) json = [];
     else return route.fulfill({ status: 404, json: { error: { message: 'Outside this local layout check.' } } });
     return route.fulfill({ json });
@@ -143,7 +147,7 @@ try {
     assert.equal(await page.getByRole('dialog', { name: 'Workspace sidebar' }).count(), 0);
     await checkHeader();
   }
-  orders = [order('1', 'ASSIGNED'), order('2', 'NEW'), order('3', 'COMPLETED'), order('4', 'CANCELLED')];
+  orders = [order('1', 'ASSIGNED'), order('2', 'NEW'), order('3', 'COMPLETED'), order('4', 'CANCELLED'), order('5', 'IN_PROGRESS')];
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(origin + '/demo/shipper');
   await page.getByRole('button', { name: 'View DDO-1041', exact: true }).click();
@@ -165,20 +169,44 @@ try {
   await page.getByRole('region', { name: 'Stops and timeline', exact: true }).waitFor();
   if (liveMap) {
     await page.getByRole('img', { name: 'Your warehouse', exact: true }).waitFor({ timeout: 60000 });
-    await page.getByRole('img', { name: /^Pickup:/ }).waitFor();
-    await page.getByRole('img', { name: /^Drop-off:/ }).waitFor();
+    for (const number of ['DDO-1041', 'DDO-1042', 'DDO-1045']) {
+      await page.getByRole('button', { name: new RegExp(`^${number} · Pickup:`) }).waitFor();
+      await page.getByRole('button', { name: new RegExp(`^${number} · Drop-off:`) }).waitFor();
+    }
+    assert.equal(await page.getByRole('button', { name: /^DDO-104[34] · (Pickup|Drop-off):/ }).count(), 0);
+    assert.deepEqual([...new Set(roadReads)].sort(), ['1', '2', '5'], 'Only open own orders request road geometry');
     await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
     await page.getByRole('button', { name: 'Zoom out', exact: true }).click();
-    await page.getByRole('button', { name: 'Fit order on map', exact: true }).click();
+    await page.getByRole('button', { name: 'Fit open orders on map', exact: true }).click();
     await page.getByRole('button', { name: 'Focus warehouse or fallback location', exact: true }).click();
     assert.equal(await page.evaluate(() => window.__shipperDeviceRequests), 0, 'Warehouse coordinates avoid device location requests');
     await page.waitForFunction(() => [...document.querySelectorAll('.gm-style img')].some(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth >= 200), null, { timeout: 60000 });
   }
+  if (liveMap) await page.waitForTimeout(1200);
   await page.screenshot({ path: '/tmp/dispatra-shipper-tracking-desktop.png', fullPage: true });
+  assert.equal(await page.getByRole('combobox', { name: 'Order to track' }).count(), 0);
+  assert.equal(await page.locator('.shipper-tracking-card').count(), 1, 'Progress, stops and timeline share one card');
+  const search = header.getByRole('searchbox', { name: 'Search your orders' });
   const selectOrder = async number => {
-    await page.getByRole('combobox', { name: 'Order to track' }).click();
-    await page.getByRole('option', { name: new RegExp(`^${number} ·`) }).click();
+    await search.fill(number);
+    await page.getByRole('dialog', { name: 'Your order search results' }).getByRole('button', { name: new RegExp(`^${number}`) }).click();
   };
+  await search.fill('REF-2');
+  await page.getByRole('dialog', { name: 'Your order search results' }).getByRole('button', { name: /^DDO-1042/ }).waitFor();
+  await search.fill('another-shipper-order');
+  await page.getByText('No matching orders.', { exact: true }).waitFor();
+  await page.keyboard.press('Escape');
+  assert.ok(!trackingReads.includes('another-shipper-order'));
+  await search.fill('1045');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await page.waitForURL(origin + '/demo/shipper/tracking?order=5');
+  if (liveMap) {
+    const pickup = page.getByRole('button', { name: /^DDO-1041 · Pickup:/ });
+    await pickup.focus(); await page.keyboard.press('Enter');
+    await page.waitForURL(origin + '/demo/shipper/tracking?order=1');
+  }
+
   await selectOrder('DDO-1042');
   await page.waitForURL(origin + '/demo/shipper/tracking?order=2');
   await page.getByText('Booked – waiting for a driver', { exact: true }).waitFor();
@@ -192,6 +220,16 @@ try {
   await page.getByRole('region', { name: 'Tracking' }).getByText(/^Delivered /).first().waitFor();
   await selectOrder('DDO-1044');
   await page.getByText('Order cancelled', { exact: true }).waitFor();
+  if (liveMap) {
+    assert.equal(await page.getByRole('button', { name: /^DDO-104[34] · (Pickup|Drop-off):/ }).count(), 0, 'Historical selection never draws terminal orders');
+    assert.equal(await page.getByRole('button', { name: /^DDO-104[125] · (Pickup|Drop-off):/ }).count(), 6);
+    orders = orders.map(row => row.id === '5' ? { ...row, status: 'COMPLETED', version: 2 } : row);
+    changes = [{ entity: 'order', order_id: '5' }];
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.getByRole('button', { name: /^DDO-1045 · Pickup:/ }).waitFor({ state: 'detached' });
+    assert.equal(await page.getByRole('button', { name: /^DDO-104[12] · (Pickup|Drop-off):/ }).count(), 4, 'Completion sync removes closed-order markers');
+
+  }
   await page.goto(origin + '/demo/shipper/tracking?order=other-shipper-order');
   await page.getByRole('alert').filter({ hasText: 'This order is unavailable' }).waitFor();
   assert.ok(!trackingReads.includes('other-shipper-order'), 'Unlisted identities never trigger tracking requests');
@@ -209,13 +247,25 @@ try {
     await page.goto(origin + '/demo/shipper/tracking?order=1');
     await page.getByText('Out for delivery – your stop is next', { exact: true }).waitFor();
     await checkHeader();
+    await search.fill('1042');
+    const searchPanel = page.getByRole('dialog', { name: 'Your order search results' });
+    await searchPanel.waitFor();
+    const searchBounds = await searchPanel.boundingBox();
+    assert.ok(searchBounds.x >= 8 && searchBounds.x + searchBounds.width <= width - 8, 'Order search stays inside the mobile viewport');
+    await page.keyboard.press('Escape');
     if (liveMap) {
       await page.getByRole('img', { name: 'Your warehouse', exact: true }).waitFor({ timeout: 60000 });
       await page.waitForFunction(() => [...document.querySelectorAll('.gm-style img')].some(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth >= 200), null, { timeout: 60000 });
-      const details = page.getByRole('region', { name: 'Stops and timeline', exact: true });
+      const details = page.getByRole('region', { name: 'Order progress', exact: true });
       await details.evaluate(card => { card.scrollTop = card.scrollHeight; });
       await details.getByText('Order booked', { exact: true }).waitFor();
       await details.evaluate(card => { card.scrollTop = 0; });
+    }
+    await search.fill('');
+    if (liveMap) {
+      const card = await page.locator('.shipper-tracking-card').boundingBox();
+      assert.ok(card.y + card.height < page.viewportSize().height / 2, 'Combined mobile card leaves the map center accessible');
+      await page.waitForTimeout(1200);
     }
     if (width === 390) await page.screenshot({ path: '/tmp/dispatra-shipper-tracking-mobile.png', fullPage: true });
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
@@ -226,5 +276,5 @@ try {
     await checkHeader();
   }
   assert.deepEqual(errors, []);
-  console.log('PASS: Shipper header background/alignment, persistent navigation, separate tracking, Track links, order selection/history/reload, all delivery states, unavailable/error/retry states and desktop/mobile bounds.');
+  console.log('PASS: Shipper header background/alignment, persistent navigation, separate tracking, Track links, own-order search/keyboard selection/history/reload, one combined card, all open orders on map, terminal-map exclusion, all delivery states, unavailable/error/retry states and desktop/mobile bounds.');
 } finally { await browser.close(); }

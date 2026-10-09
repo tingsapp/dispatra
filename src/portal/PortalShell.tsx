@@ -69,7 +69,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
       {headerActions && <header aria-label="Workspace header" className={map ? 'absolute inset-x-0 top-0 z-30 h-16 pointer-events-none' : 'app-workspace-header h-16 shrink-0 bg-app-canvas'}>
         <div className="page-content flex h-full items-center justify-between">
           <div className="pointer-events-auto">{menuButton}</div>
-          <div className="flex items-center gap-2 pointer-events-auto">{headerActions}</div>
+          <div className="flex min-w-0 items-center gap-2 pointer-events-auto">{headerActions}</div>
         </div>
       </header>}
     {map ? <main className="relative min-h-0 flex-1 overflow-hidden" aria-label={primary}>

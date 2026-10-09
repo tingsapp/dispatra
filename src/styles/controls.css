@@ -14,6 +14,7 @@
   scrollbar-gutter: stable;
 }
 .app-page.app-page-with-header { padding-top: 2rem; }
+.shipper-order-search { width: 18rem; max-width: calc(100vw - 128px); min-width: 0; }
 /* Match the scrolling canvas's available width, including its reserved gutter. */
 .app-workspace-header { overflow-y: auto; scrollbar-gutter: stable; }
 .shipper-tracking-overlays {
@@ -27,15 +28,14 @@
   box-shadow: 0 4px 24px #0000000a; pointer-events: auto; font-size: .875rem;
   overscroll-behavior: contain;
 }
-.shipper-tracking-summary { flex-shrink: 0; max-height: 55%; overflow-y: auto; }
+.shipper-tracking-summary { flex-shrink: 0; max-height: 75%; overflow-y: auto; }
 .shipper-tracking-summary > :not(:first-child) { margin-top: 1rem; }
-.shipper-tracking-details { margin-top: auto; max-height: 35%; min-height: 0; overflow-y: auto; }
 .shipper-map-controls { position: absolute; right: 1.5rem; bottom: 2.5rem; z-index: 20; display: grid; gap: .5rem; }
 .shipper-map-unavailable { position: absolute; top: 45%; left: max(1.5rem, 52%); right: 1.5rem; text-align: center; }
 @media (max-width: 767px) {
   .shipper-tracking-overlays { inset: 5rem 1rem 5rem; }
   .shipper-tracking-card { padding: 1rem; }
-  .shipper-tracking-details { max-height: 32%; }
+  .shipper-tracking-summary { max-height: min(60%, calc(50dvh - 6rem)); }
   .shipper-map-controls { right: 1rem; bottom: 2rem; display: flex; align-items: flex-end; }
   .shipper-map-controls > div { display: flex; }
   .shipper-map-unavailable { top: 52%; left: 1.5rem; }
