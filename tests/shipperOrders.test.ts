@@ -2,6 +2,7 @@ import { JSDOM } from 'jsdom';
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import React from 'react';
+import type { Tracking } from '../src/components/orders/trackingPresentation';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true });
 for (const name of ['window','document','navigator','HTMLElement','HTMLInputElement','Element','Node','Event','CustomEvent','MutationObserver','getComputedStyle','localStorage']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
 HTMLElement.prototype.scrollIntoView=()=>{};
@@ -13,10 +14,38 @@ const { OrderPricingForm } = await import('../src/components/pricing/OrderPricin
 const { shipperPricingContext, catalogueFromApi } = await import('../src/operations/pricingAdapters');
 const { inputToShipperBooking, orderToInput, orderToUi } = await import('../src/operations/orderAdapters');
 const { ShipperOrderDialog } = await import('../src/portal/ShipperOrderDialog');
+const { TrackingSummary } = await import('../src/components/orders/TrackingSections');
 const { companyRateRows, travelRows } = await import('../src/lib/companyTax');
 const { priceToUi } = await import('../src/operations/orderAdapters');
 const { createDefaultOrderInput, createBookingInput, priceOrder } = await import('../src/lib/orderPricing');
 afterEach(() => { cleanup(); localStorage.clear(); });
+
+test('shipper tracking exposes only its provided driver contact with usable call and SMS links', async () => {
+  const tracking = { stage: 'ASSIGNED', stops: [], eta: null, open_issue: false,
+    driver: { name: 'Dana Driver', first_name: 'Dana', avatar_url: 'https://example.com/dana.png', phone: '+16045550102', vehicle_type: 'Cargo van' } } as Tracking;
+  render(React.createElement(TrackingSummary, { tracking, timeZone: 'UTC', title: 'DDO-1041', showDriverContact: true }));
+  assert.ok(screen.getByText('Dana Driver')); assert.ok(screen.getByText('Cargo van'));
+  assert.equal(screen.getByRole('img', { name: "Dana Driver's avatar" }).getAttribute('src'), 'https://example.com/dana.png');
+  assert.equal(screen.getByRole('link', { name: 'Call Dana Driver' }).getAttribute('href'), 'tel:+16045550102');
+  assert.equal(screen.getByRole('link', { name: 'Message Dana Driver' }).getAttribute('href'), 'sms:+16045550102');
+  assert.ok(screen.getByText('+1 (604) 555-0102'));
+  const user = userEvent.setup();
+  await user.tab(); assert.equal(document.activeElement, screen.getByRole('link', { name: 'Call Dana Driver' }));
+  await user.tab(); assert.equal(document.activeElement, screen.getByRole('link', { name: 'Message Dana Driver' }));
+});
+
+test('shipper tracking handles an absent photo, phone or assigned driver', () => {
+  const tracking = { stage: 'DELIVERED', stops: [], eta: null, open_issue: false,
+    driver: { name: '', first_name: 'Dana', avatar_url: '', phone: '', vehicle_type: null } } as Tracking;
+  const view = render(React.createElement(TrackingSummary, { tracking, timeZone: 'UTC', title: 'DDO-1041', showDriverContact: true }));
+  assert.equal(screen.getByRole('img', { name: "Dana's avatar" }).textContent, 'D');
+  assert.ok(screen.getByText('Phone unavailable'));
+  assert.equal((screen.getByRole('button', { name: 'Message Dana: phone unavailable' }) as HTMLButtonElement).disabled, true);
+  assert.equal(screen.queryByRole('link'), null);
+  view.rerender(React.createElement(TrackingSummary, { tracking: { ...tracking, stage: 'BOOKED', driver: null } as never, timeZone: 'UTC', title: 'DDO-1042', showDriverContact: true }));
+  assert.equal(screen.queryByRole('region', { name: 'Assigned driver' }), null);
+  assert.equal(screen.queryByRole('img'), null);
+});
 
 const catalog = (id: string, kind: string, name: string) => ({ id, kind, code: id, active: true, version: 1, data: { name, description: '', amount: '12.50', taxable: true, fuel_eligible: false, exclusive_vehicle: false, payload_kg: 1000, volume_m3: null, length_cm: null, width_cm: null, height_cm: null, pallet_capacity: 0, equipment: [], required_equipment: [], required_crew: 1 } });
 const options = [catalog('11111111-1111-4111-8111-111111111111', 'SERVICE', 'Same day'), catalog('22222222-2222-4222-8222-222222222222', 'ACCESSORIAL', 'Liftgate'), catalog('33333333-3333-4333-8333-333333333333', 'VEHICLE_TYPE', 'Cargo van')] as never[];

@@ -1,0 +1,26 @@
+import { MessageSquare } from 'lucide-react';
+import { DriverAvatar } from '../DriverAvatar';
+import { Button } from '../ui/button';
+import { formatPhone } from '../../lib/phone';
+import type { Tracking } from './trackingPresentation';
+
+/** Contact details come only from the selected order's authorized tracking view. */
+export function TrackingDriverContact({ driver }: { driver: NonNullable<Tracking['driver']> }) {
+  const name = driver.name || driver.first_name;
+  const phone = driver.phone?.trim();
+  return <section aria-label="Assigned driver" className="flex flex-wrap items-center gap-3">
+    <DriverAvatar name={name} avatar={driver.avatar_url} alt={`${name}'s avatar`} referrerPolicy="no-referrer"
+      className="size-10 shrink-0 rounded-full object-cover" />
+    <div className="min-w-0 flex-1 basis-28">
+      <p className="break-words text-sm font-medium text-app-text">{name}</p>
+      {driver.vehicle_type && <p className="text-xs text-app-muted">{driver.vehicle_type}</p>}
+      {phone ? <a href={`tel:${phone}`} aria-label={`Call ${name}`} className="text-xs text-app-text">{formatPhone(phone)}</a>
+        : <p className="text-xs text-app-muted">Phone unavailable</p>}
+    </div>
+    {phone ? <Button asChild variant="outline" size="sm"><a href={`sms:${phone}`} aria-label={`Message ${name}`} title="Open SMS app">
+      <MessageSquare aria-hidden="true" />Message
+    </a></Button> : <Button variant="outline" size="sm" disabled aria-label={`Message ${name}: phone unavailable`}>
+      <MessageSquare aria-hidden="true" />Message
+    </Button>}
+  </section>;
+}

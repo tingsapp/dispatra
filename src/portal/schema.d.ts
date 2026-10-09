@@ -4749,6 +4749,21 @@ export interface components {
             first_name: string;
             /** Vehicle Type */
             vehicle_type: string | null;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Avatar Url
+             * @default
+             */
+            avatar_url: string;
+            /**
+             * Phone
+             * @default
+             */
+            phone: string;
         };
         /** TrackingEvent */
         TrackingEvent: {

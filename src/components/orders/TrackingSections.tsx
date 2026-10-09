@@ -1,18 +1,20 @@
 import { AlertTriangle, Check } from 'lucide-react';
 import { formatWhen } from './OrderDossierSections';
 import { ago, STEP_INDEX, STEPS, time, trackingHeadline, trackingMoving, type Tracking } from './trackingPresentation';
+import { TrackingDriverContact } from './TrackingDriverContact';
 
 /** Shared tracking presentation for the dispatcher dialog and floating Shipper cards. */
-export function TrackingSummary({ tracking: t, timeZone, title }: { tracking: Tracking; timeZone: string; title: string }) {
+export function TrackingSummary({ tracking: t, timeZone, title, showDriverContact = false }: { tracking: Tracking; timeZone: string; title: string; showDriverContact?: boolean }) {
   const step = STEP_INDEX[t.stage];
   const target = t.stops.find(s => s.eta);
   return <div className="space-y-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h4 className="app-section-title">{title}</h4><p className="mt-1 text-base font-medium text-slate-900">{trackingHeadline(t, timeZone)}</p>
-        {t.driver && t.stage !== 'DELIVERED' && <p className="text-xs text-slate-500">Driver {t.driver.first_name}{t.driver.vehicle_type ? ` · ${t.driver.vehicle_type}` : ''}</p>}</div>
+        {!showDriverContact && t.driver && t.stage !== 'DELIVERED' && <p className="text-xs text-slate-500">Driver {t.driver.first_name}{t.driver.vehicle_type ? ` · ${t.driver.vehicle_type}` : ''}</p>}</div>
       {t.eta && trackingMoving(t) && <div className="text-right"><p className="text-xs text-slate-500">{target?.kind === 'PICKUP' ? 'Pickup ETA' : 'Delivery ETA'}</p><p className="text-lg font-semibold text-slate-900">{time(t.eta, timeZone)}</p>
         {t.late ? <p className="text-xs font-medium text-rose-700">Running late</p> : t.delay_minutes >= 10 ? <p className="text-xs text-amber-700">About {t.delay_minutes} min behind schedule</p> : null}</div>}
     </div>
+    {showDriverContact && t.driver && <TrackingDriverContact driver={t.driver} />}
     {step >= 0 && <ol className="grid grid-cols-5 gap-1" aria-label="Shipment progress">{STEPS.map((label, index) => {
       const done = index < step || t.stage === 'DELIVERED'; const current = index === step && t.stage !== 'DELIVERED';
       return <li key={label} aria-current={current ? 'step' : undefined} className="space-y-1.5">

@@ -31,7 +31,7 @@ try {
     pricing: { status: 'PRICED', stage: 'ESTIMATE', currency: 'CAD', subtotal: '25', tax: '0', total: '25', lines: [], context: {} } });
   const tracking = row => {
     const stage = { NEW: 'BOOKED', ASSIGNED: 'OUT_FOR_DELIVERY', IN_PROGRESS: 'OUT_FOR_DELIVERY', COMPLETED: 'DELIVERED', CANCELLED: 'CANCELLED' }[row.status];
-    return { order_id: row.id, status: row.status, stage, dedicated: true, driver: { first_name: 'Dana', vehicle_type: 'Cargo van' },
+    return { order_id: row.id, status: row.status, stage, dedicated: true, driver: stage === 'BOOKED' ? null : { first_name: 'Dana', name: 'Dana Driver', avatar_url: '', phone: '+16045550102', vehicle_type: 'Cargo van' },
       stops: row.facts.stops.map(stop => ({ ...stop, planned_at: row.scheduled_at, eta: stage === 'OUT_FOR_DELIVERY' ? row.scheduled_at : null,
         arrived_at: null, completed_at: stage === 'DELIVERED' ? row.scheduled_at : null, status: stage === 'DELIVERED' ? 'COMPLETED' : 'PENDING' })),
       stops_before_next: 0, eta: stage === 'OUT_FOR_DELIVERY' ? row.scheduled_at : null, delay_minutes: 0, late: false, live: false,
@@ -182,6 +182,11 @@ try {
   await page.keyboard.press('Enter');
   await page.waitForURL(origin + '/demo/shipper/tracking?order=1');
   await page.getByText('Out for delivery – your stop is next', { exact: true }).waitFor();
+  const driverContact = page.getByRole('region', { name: 'Assigned driver' });
+  await driverContact.getByText('Dana Driver', { exact: true }).waitFor();
+  await driverContact.getByRole('img', { name: "Dana Driver's avatar" }).waitFor();
+  assert.equal(await driverContact.getByRole('link', { name: 'Call Dana Driver' }).getAttribute('href'), 'tel:+16045550102');
+  assert.equal(await driverContact.getByRole('link', { name: 'Message Dana Driver' }).getAttribute('href'), 'sms:+16045550102');
   assert.equal(await page.getByRole('dialog').count(), 0);
   assert.equal(await nav.getByRole('link', { name: 'Tracking', exact: true }).getAttribute('aria-current'), 'page');
   await checkHeader();
@@ -322,6 +327,7 @@ try {
       await details.locator('.shipper-tracking-scroll').evaluate(scroller => { scroller.scrollTop = 0; });
     }
     await search.fill('');
+    await page.waitForTimeout(300); // Let the dismissed search panel finish its exit animation before screenshots.
     if (liveMap) {
       const card = await page.locator('.shipper-tracking-card').boundingBox();
       assert.ok(card.y + card.height < page.viewportSize().height / 2, 'Combined mobile card leaves the map center accessible');
