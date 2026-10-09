@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { shipperMapPadding } from '../src/components/orders/shipperMapViewport';
+import { shipperMapPadding, shipperMapSpan } from '../src/components/orders/shipperMapViewport';
 import type { Address } from '../src/operations/api';
 import { addressPoint, initialShipperCenter, resolveShipperLocation } from '../src/components/orders/shipperMapLocation';
 
@@ -35,13 +35,31 @@ test('map fitting chooses usable space from actual card bounds, including a narr
     [rect(260, 0, 780, 700), rect(284, 80, 520, 465)],
     [rect(0, 0, 320, 844), rect(16, 80, 288, 326)],
   ]) {
-    const padding = shipperMapPadding(view, card);
+    const padding = shipperMapPadding(view, card, { top: 12, right: 80, bottom: 112, left: 80 });
     // The anchors can occupy a narrower band; captions extend into the reserved margins.
     assert.ok(view.width - padding.left - padding.right > 32);
     const halfCaption = view.width <= 480 ? 72 : 80;
     assert.ok(padding.left >= halfCaption + 8 && padding.right >= halfCaption + 8);
     assert.ok(view.height - padding.top - padding.bottom > 150);
-    assert.ok(view.left + padding.left >= card.right + 32 || view.top + padding.top >= card.bottom + 48,
+    assert.ok(view.left + padding.left >= card.right + 8 || view.top + padding.top >= card.bottom + 8,
       'The fitting rectangle must not overlap the card');
+    if (view.top + padding.top >= card.bottom) assert.ok(view.top + padding.top - card.bottom <= 24,
+      'The card must not add a large blank gap above the routes');
   }
+});
+
+test('route shape chooses the area allowing a closer fit instead of the largest empty area', () => {
+  const view = rect(260, 0, 1180, 900), card = rect(284, 80, 520, 358);
+  const insets = { top: 12, right: 12, bottom: 12, left: 12 };
+  const horizontal = shipperMapPadding(view, card, insets, { width: 10, height: 1 });
+  const vertical = shipperMapPadding(view, card, insets, { width: 1, height: 10 });
+  assert.ok(view.top + horizontal.top > card.bottom, 'Wide routes use the full map width below the card');
+  assert.ok(view.left + vertical.left > card.right, 'Tall routes use the full height beside the card');
+  assert.ok(horizontal.left < 32 && horizontal.right < 32, 'Bare stop circles need only a small edge gap');
+});
+
+test('Mercator route dimensions account for latitude and support a single focus point', () => {
+  const span = shipperMapSpan([{ lat: 49, lng: -123 }, { lat: 50, lng: -122 }]);
+  assert.ok(span.height > span.width);
+  assert.deepEqual(shipperMapSpan([warehouse].map(address => addressPoint(address)!)), { width: 0, height: 0 });
 });

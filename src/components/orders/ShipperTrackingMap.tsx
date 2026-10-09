@@ -46,7 +46,6 @@ function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect,
   }, [map, locationReady, warehouse?.text, warehouse?.latitude, warehouse?.longitude]);
   const routePoints = roads.flatMap(road => (road.data?.points ?? []).map(([lat, lng]) => ({ lat, lng })));
   const points = [...stops.map(stop => stop.point), ...routePoints];
-  if (home) points.push(home.point);
   if (liveTracking?.live && liveTracking.location) points.push({ lat: liveTracking.location.latitude, lng: liveTracking.location.longitude });
   const { focusHome, fitOrders, markManual } = useShipperMapCamera(map, points, home?.point ?? initialShipperCenter(warehouse, timeZone),
     viewReady && homeReady && !roads.some(road => road.isFetching));
@@ -87,7 +86,7 @@ export function ShipperTrackingMap(props: Props) {
     {!apiKey || failed ? <p role="status" className="shipper-map-unavailable text-sm text-app-muted">Map is unavailable. Your order progress and stops are shown in the card.</p>
       : <APIProvider apiKey={apiKey} language="en" region="CA" onLoad={onLoad} onError={onError}>
         {!loaded && <p role="status" className="shipper-map-unavailable text-sm text-app-muted">Loading map…</p>}
-        <Map defaultCenter={initialShipperCenter(props.warehouse, props.timeZone)} defaultZoom={13} maxZoom={19}
+        <Map defaultCenter={initialShipperCenter(props.warehouse, props.timeZone)} defaultZoom={13} maxZoom={19} isFractionalZoomEnabled
           disableDefaultUI clickableIcons={false} gestureHandling="greedy" keyboardShortcuts aria-label="Shipment map">
           <TrackingMapContent {...props} />
         </Map>

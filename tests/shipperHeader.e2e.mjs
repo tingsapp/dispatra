@@ -84,7 +84,7 @@ try {
       if (!main || !card) return false;
       const view = main.getBoundingClientRect();
       const markers = [...main.querySelectorAll('[role="button"][aria-label*=" · Pickup:"], [role="button"][aria-label*=" · Drop-off:"]')];
-      return markers.length > 0 && markers.every(marker => {
+      const contained = markers.length > 0 && markers.every(marker => {
         const p = marker.getBoundingClientRect();
         const caption = marker.querySelector('.shipper-stop-caption')?.getBoundingClientRect() ?? p;
         const bounds = { left: Math.min(p.left, caption.left), right: Math.max(p.right, caption.right), top: Math.min(p.top, caption.top), bottom: Math.max(p.bottom, caption.bottom) };
@@ -92,6 +92,16 @@ try {
         const uncovered = bounds.right <= card.left || bounds.left >= card.right || bounds.bottom <= card.top || bounds.top >= card.bottom;
         return contained && uncovered;
       });
+      if (!contained) return false;
+      const anchors = markers.map(marker => marker.getBoundingClientRect());
+      const left = Math.min(...anchors.map(rect => rect.left)), right = Math.max(...anchors.map(rect => rect.right));
+      const top = Math.min(...anchors.map(rect => rect.top)), bottom = Math.max(...anchors.map(rect => rect.bottom));
+      const beside = left >= card.right;
+      const availableWidth = beside ? view.right - card.right : view.width;
+      const availableHeight = beside ? view.height - 96 : view.bottom - card.bottom - 32;
+      // Visibility alone missed the excessive padding: routes must fill a useful
+      // share of at least one axis of the uncovered area on initial load and Fit.
+      return Math.max((right - left) / availableWidth, (bottom - top) / availableHeight) >= 0.5;
     }, null, { timeout: 15000 });
   };
   const checkHeader = async () => {

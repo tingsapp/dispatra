@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { MapPoint } from './shipperMapLocation';
-import { shipperMapPadding } from './shipperMapViewport';
+import { shipperMapPadding, shipperMapSpan, shipperMarkerInsets } from './shipperMapViewport';
 
 function extent(points: MapPoint[]) {
   let south = Infinity, north = -Infinity, west = Infinity, east = -Infinity;
@@ -41,9 +41,10 @@ export function useShipperMapCamera(map: google.maps.Map | null, points: MapPoin
     mode.current = target;
     fittedExtent.current = extent(positions);
     layoutChanged.current = false;
-    // Set a temporary limit before fitting so single-point views retain the padded center.
-    map.setOptions({ maxZoom: target === 'home' || positions.length === 1 ? 13 : 15 });
-    map.fitBounds(bounds, shipperMapPadding(view, card));
+    const span = shipperMapSpan(positions);
+    // Keep home/single-point views useful; real routes may fit up to street level.
+    map.setOptions({ maxZoom: target === 'home' ? 13 : !span.width && !span.height ? 17 : 19 });
+    map.fitBounds(bounds, shipperMapPadding(view, card, shipperMarkerInsets(map.getDiv()), span));
     idle.current = google.maps.event.addListenerOnce(map, 'idle', () => { map.setOptions({ maxZoom: 19 }); idle.current = null; });
   }, [map]);
 
@@ -63,15 +64,30 @@ export function useShipperMapCamera(map: google.maps.Map | null, points: MapPoin
   useEffect(() => {
     if (!map) return;
     let tick = 0;
-    const observe = new ResizeObserver(() => {
+    const changed = () => {
       layoutChanged.current = true;
       cancelAnimationFrame(tick);
       tick = requestAnimationFrame(() => { if (current.current.ready && mode.current !== 'manual') frame(mode.current); });
-    });
+    };
+    const observe = new ResizeObserver(changed);
     observe.observe(map.getDiv());
     const card = map.getDiv().closest('main')?.querySelector('.shipper-tracking-card');
     if (card) observe.observe(card);
     const canvas = map.getDiv();
+    const captions = new Set<Element>();
+    const watchCaptions = () => {
+      const visible = new Set(canvas.querySelectorAll('.shipper-stop-caption'));
+      for (const caption of captions) if (!visible.has(caption)) { observe.unobserve(caption); captions.delete(caption); }
+      for (const caption of visible) if (!captions.has(caption)) { observe.observe(caption); captions.add(caption); }
+    };
+    watchCaptions();
+    const labels = new MutationObserver(records => {
+      if (records.some(record => [...record.addedNodes, ...record.removedNodes].some(node => node instanceof Element
+        && (node.matches('.shipper-stop-caption') || node.querySelector('.shipper-stop-caption'))))) {
+        watchCaptions(); changed();
+      }
+    });
+    labels.observe(canvas, { childList: true, subtree: true });
     const drag = map.addListener('dragstart', markManual);
     // Marker selection, focus and Escape do not move the camera. Map controls
     // explicitly mark zoom actions; native gestures apply only to the canvas.
@@ -88,7 +104,7 @@ export function useShipperMapCamera(map: google.maps.Map | null, points: MapPoin
     canvas.addEventListener('dblclick', doubleClick, true);
     canvas.addEventListener('touchstart', pinch, true);
     return () => {
-      observe.disconnect(); cancelAnimationFrame(tick); idle.current?.remove();
+      observe.disconnect(); labels.disconnect(); cancelAnimationFrame(tick); idle.current?.remove();
       drag.remove();
       canvas.removeEventListener('wheel', wheel, true);
       canvas.removeEventListener('keydown', keyboard, true);
