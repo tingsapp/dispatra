@@ -9,6 +9,7 @@ import { AdminPortal } from './admin/AdminPortal';
 import { isAdminPath } from './admin/adminRoutes';
 import { Button, Notice } from './ui';
 import { companySlugForPath, pageForPath, roleHome } from '../lib/pageRoutes';
+import { accountWorkspace } from '../lib/workspaceEntry';
 const Workspace = lazy(() => import('../App'));
 const cache = new QueryClient({ defaultOptions: { queries: { retry:false, gcTime:0, refetchOnWindowFocus:true }, mutations:{ retry:false, gcTime:0 } } });
 type PortalRoute = { slug?: string; portal: LoginInput['portal'] | 'driver'; workspace?: boolean };
@@ -47,7 +48,7 @@ function Portal() {
   if (me.isPending) return <p role="status" className="p-10">Loading your workspace…</p>;
   if (me.error && !(me.error instanceof ApiError && me.error.status === 401)) return <main className="mx-auto max-w-lg space-y-4 p-10"><Notice error={me.error} /><Button onClick={() => me.refetch()}>Try again</Button></main>;
   // Owner deep links (/admin/companies/{id}) survive sign-in; other portals open their home page.
-  if (!me.data) return <LoginPage slug={route.slug} portal={route.portal as LoginInput['portal']} onLogin={() => { client.clear(); location.replace(route!.portal === 'platform' ? location.pathname : portalHome(route!)); }} />;
+  if (!me.data) return <LoginPage slug={route.slug} portal={route.portal as LoginInput['portal']} onLogin={account => { client.clear(); location.replace(account.role === 'ADMIN' ? location.pathname : accountWorkspace(account) ?? '/'); }} />;
   const account: Account = me.data;
   // A signed-in account that opens another role's area of its own company goes to its own home.
   if (route.slug && account.organization?.slug === route.slug && account.role !== ROLE[route.portal]) {

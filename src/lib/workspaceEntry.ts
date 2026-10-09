@@ -3,6 +3,7 @@ import { companySlugForPath, roleHome } from './pageRoutes';
 
 export type WorkspaceRole = 'dispatcher' | 'shipper' | 'driver';
 const roles = { dispatcher: 'DISPATCHER', shipper: 'SHIPPER', driver: 'DRIVER' } as const;
+export const workspacePortals = { dispatcher: 'dispatch', shipper: 'customer', driver: 'driver' } as const;
 export const WORKSPACE_ENTRY_KEY = 'dispatra_public_workspace_v1';
 
 export function workspaceSlug(input: string): string | undefined {
@@ -15,7 +16,7 @@ export function workspaceSlug(input: string): string | undefined {
   }
   return companySlugForPath(path);
 }
-/** The popup accepts only the company name after its fixed domain prefix. */
+/** Public entry accepts only the company name after its fixed domain prefix. */
 export function workspaceDestination(input: string, role: WorkspaceRole): string | undefined {
   const slug = input.trim().toLowerCase();
   return slug.length >= 2 && slug.length <= 63 && workspaceSlug(slug) === slug ? roleHome(slug, roles[role]) : undefined;
