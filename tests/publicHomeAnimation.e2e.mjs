@@ -8,11 +8,36 @@ try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'no-preference' });
   await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
   const page = await context.newPage();
+  const checkMapGeometry = async () => {
+    const alignment = await page.locator('[data-preview-route]').evaluate(route => {
+      const svg = route.ownerSVGElement;
+      const driver = svg.querySelector('[data-preview-driver]');
+      const driverPoint = new DOMPoint(0, 0).matrixTransform(driver.getScreenCTM());
+      const length = route.getTotalLength();
+      let closest = Infinity;
+      for (let i = 0; i <= 1000; i++) {
+        const point = route.getPointAtLength(length * i / 1000).matrixTransform(route.getScreenCTM());
+        closest = Math.min(closest, Math.hypot(point.x - driverPoint.x, point.y - driverPoint.y));
+      }
+      const markers = [...svg.querySelectorAll(':scope > circle')];
+      const endpointOffsets = markers.map((marker, i) => {
+        const endpoint = route.getPointAtLength(i === 0 ? 0 : length).matrixTransform(route.getScreenCTM());
+        const point = new DOMPoint(marker.cx.baseVal.value, marker.cy.baseVal.value).matrixTransform(marker.getScreenCTM());
+        return Math.hypot(endpoint.x - point.x, endpoint.y - point.y);
+      });
+      return { closest, endpointOffsets, driverBottom: driver.getBoundingClientRect().bottom };
+    });
+    assert.ok(alignment.closest < 1, 'Driver remains centered on the displayed road route');
+    assert.ok(alignment.endpointOffsets.every(offset => offset < 1), 'Stop markers remain at the route endpoints');
+    const feedBounds = await page.getByRole('region', { name: 'Sample order activity' }).boundingBox();
+    assert.ok(alignment.driverBottom < feedBounds.y, 'Activity overlay does not cover the driver');
+  };
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.clock.install();
   await page.goto(origin);
   const feed = page.getByRole('region', { name: 'Sample order activity' });
   await feed.getByText('Order received from email').waitFor();
+  await checkMapGeometry();
   for (const title of ['Order details prepared', 'Eligible driver assigned', 'Pickup confirmed', 'Delivery proof captured', 'Order completed']) {
     await page.clock.fastForward(2600);
     await page.clock.runFor(50);
@@ -39,6 +64,7 @@ try {
     await page.clock.fastForward(2600);
     await page.clock.fastForward(2600);
     await page.clock.runFor(50);
+    await checkMapGeometry();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     const bounds = await feed.boundingBox();
     assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width);
