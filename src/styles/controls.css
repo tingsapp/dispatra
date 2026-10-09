@@ -358,9 +358,14 @@ svg.lucide { stroke-width: 1.75; }
 .app-danger { background: var(--color-rose-600); color: white; border-color: transparent; }
 .app-danger:hover:not(:disabled) { background: var(--color-rose-700); }
 .app-action:disabled, .app-button:disabled { cursor: not-allowed; }
-.app-input:hover:not(:disabled):not(:focus) { border-color: var(--color-slate-300); }
-.app-input:focus { border-color: var(--app-focus-color); outline: 1px solid var(--app-focus-color); outline-offset: -1px; box-shadow: none; }
+.app-input:hover:not(:disabled):not(:focus):not(:focus-within):not(:has(input:disabled)) { border-color: var(--color-slate-300); }
+.app-input:focus, .app-input-group:focus-within { border-color: var(--app-focus-color); outline: 1px solid var(--app-focus-color); outline-offset: -1px; box-shadow: none; }
 .app-input[aria-invalid="true"], .app-input[aria-invalid="true"]:focus { border-color: var(--color-rose-600); outline-color: var(--color-rose-600); }
+.app-input-group { display: flex; align-items: center; height: var(--app-control-height); padding-block: 0; overflow: hidden; }
+.app-input-prefix { flex-shrink: 0; color: var(--color-slate-400); }
+.app-input-group-control { flex: 1 1 0; min-width: 0; height: 100%; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; outline: none; }
+.app-input-group-control::placeholder { color: var(--color-slate-400); }
+.app-input-group:has(input:disabled) { background: var(--color-slate-50); color: var(--color-app-muted); opacity: .6; }
 textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-input.app-search-input { border-radius: var(--app-radius-action); background: var(--color-slate-50); padding-inline: 2.5rem; }
 .app-input.app-search-input:focus { background: var(--color-app-surface); }
@@ -376,7 +381,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-dialog-surface { background: var(--color-app-surface); border: 0; border-radius: var(--app-radius-dialog); box-shadow: var(--app-menu-shadow); }
 .app-dialog-surface :where(h2) { font-size: 1.125rem; line-height: 1.5rem; font-weight: 500; }
 @media (forced-colors: active) {
-  .app-input:focus, .app-button:focus-visible, .app-choice-row:focus-visible { outline: 2px solid Highlight; }
+  .app-input:focus, .app-input-group:focus-within, .app-button:focus-visible, .app-choice-row:focus-visible { outline: 2px solid Highlight; }
   .app-choice-row[aria-pressed="true"] { outline: 1px solid Highlight; }
   .app-menu-surface, .app-dialog-surface { border: 1px solid CanvasText; }
 }

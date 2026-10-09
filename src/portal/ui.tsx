@@ -4,11 +4,11 @@ import { Button } from '../components/ui/button';
 import { ContactInput } from '../components/ui/ContactInput';
 export { Button };
 export function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
-  return <label className="grid gap-1.5 text-sm font-medium text-slate-700">{label}<ContactInput {...props} className="app-input font-normal" /></label>;
+  return <label className="grid gap-1.5 text-sm font-normal text-slate-700">{label}<ContactInput {...props} className="app-input font-normal" /></label>;
 }
 export function AddressField({ label, value, onChange, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & { label: string; value: string; onChange: (address: string, selected?: SelectedAddress) => void }) {
   const id = useId();
-  return <div className="grid gap-1.5 text-sm font-medium text-slate-700"><label htmlFor={id}>{label}</label><AddressAutocomplete {...props} id={id} value={value} includeCoordinates onChange={onChange} className="app-input font-normal" /></div>;
+  return <div className="grid gap-1.5 text-sm font-normal text-slate-700"><label htmlFor={id}>{label}</label><AddressAutocomplete {...props} id={id} value={value} includeCoordinates onChange={onChange} className="app-input font-normal" /></div>;
 }
 export function Notice({ error, success }: { error?: unknown; success?: string }) {
   if (error) return <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error instanceof Error ? error.message : 'Unable to complete this request.'}</p>;

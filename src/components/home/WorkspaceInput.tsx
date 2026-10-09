@@ -1,4 +1,5 @@
 import { forwardRef, useId, type InputHTMLAttributes } from 'react';
+import { PrefixedInput } from '../ui/PrefixedInput';
 
 interface WorkspaceInputProps extends InputHTMLAttributes<HTMLInputElement> {
   hideLabel?: boolean;
@@ -9,11 +10,8 @@ export const WorkspaceInput = forwardRef<HTMLInputElement, WorkspaceInputProps>(
   const generatedId = useId();
   const inputId = id ?? generatedId;
   return <div className="min-w-0 flex-1">
-    <label htmlFor={inputId} className={hideLabel ? 'sr-only' : 'mb-2 block text-sm font-medium'}>Company workspace</label>
-    <div className={`flex h-12 items-center overflow-hidden rounded-xl border bg-white focus-within:border-slate-900 focus-within:ring-2 focus-within:ring-slate-900/10 ${props['aria-invalid'] ? 'border-rose-600' : 'border-app-border'}`}>
-      <span className="flex h-full shrink-0 items-center pl-3 text-base text-slate-400 sm:text-sm" aria-hidden="true">dispatra.com/</span>
-      <input ref={ref} id={inputId} autoCapitalize="none" autoComplete="organization" spellCheck={false} maxLength={63}
-        placeholder="company-name" {...props} className="h-full min-w-0 flex-1 bg-transparent pl-0 pr-3 text-base text-app-text outline-none placeholder:text-slate-400 sm:text-sm" />
-    </div>
+    <label htmlFor={inputId} className={hideLabel ? 'sr-only' : 'app-label'}>Company workspace</label>
+    <PrefixedInput ref={ref} id={inputId} prefix="dispatra.com/" autoCapitalize="none" autoComplete="organization" spellCheck={false} maxLength={63}
+      placeholder="company-name" {...props} />
   </div>;
 });

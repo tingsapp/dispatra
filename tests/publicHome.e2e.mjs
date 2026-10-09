@@ -26,6 +26,19 @@ try {
   });
   const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message));
   const company = page.getByLabel('Company workspace');
+  const consistentFields = async () => {
+    const styles = await page.evaluate(() => [
+      document.querySelector('input[autocomplete="organization"]').parentElement,
+      document.querySelector('input[autocomplete="username"]'),
+      document.querySelector('input[type="password"]'),
+    ].map(element => {
+      const style = getComputedStyle(element);
+      return ['height', 'fontSize', 'lineHeight', 'borderRadius', 'borderWidth', 'borderColor', 'backgroundColor', 'paddingLeft', 'paddingRight'].map(property => style[property]);
+    }));
+    assert.deepEqual(styles[0], styles[1], 'Workspace and credentials use the same field styling');
+    assert.deepEqual(styles[1], styles[2]);
+    assert.equal(styles[0][0], '40px');
+  };
   const noOverflow = async () => {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     const bounds = await company.boundingBox();
@@ -54,6 +67,21 @@ try {
   await page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor();
   assert.equal(await company.inputValue(), 'demo');
   assert.equal(await company.evaluate(el => el.readOnly), true);
+  await consistentFields();
+  const focusedStyles = [];
+  for (const field of [company, page.getByLabel('Login ID', { exact: true }), page.getByLabel('Password', { exact: true })]) {
+    await field.focus();
+    focusedStyles.push(await field.evaluate(async el => {
+      const surface = el.parentElement.classList.contains('app-input-group') ? el.parentElement : el;
+      // Compare settled focus states after the shared border transition.
+      getComputedStyle(surface).borderColor;
+      await Promise.all(surface.getAnimations().map(animation => animation.finished));
+      const style = getComputedStyle(surface);
+      return [style.borderColor, style.outlineColor, style.outlineWidth, style.boxShadow];
+    }));
+  }
+  assert.deepEqual(focusedStyles[0], focusedStyles[1], 'Prefix fields share the native-input focus style');
+  assert.deepEqual(focusedStyles[1], focusedStyles[2]);
   const loginBounds = await page.locator('[aria-labelledby="login-title"]').boundingBox();
   assert.ok(loginBounds.width <= 384, 'Login remains a compact form');
   assert.ok(Math.abs(loginBounds.x + loginBounds.width / 2 - 720) < 1, 'Login is horizontally centered');
@@ -107,6 +135,7 @@ try {
     await page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor();
     await noOverflow();
     assert.equal(await company.inputValue(), 'demo');
+    await consistentFields();
     for (const role of ['Dispatcher', 'Shipper', 'Driver']) assert.ok(await page.getByRole('radio', { name: role }).isVisible());
     if (width === 390) await page.screenshot({ path: '/tmp/dispatra-company-login-mobile.png', fullPage: true, animations: 'disabled' });
   }
