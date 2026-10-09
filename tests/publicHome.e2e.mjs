@@ -47,17 +47,16 @@ try {
   }
   await company.fill('demo');
   await page.screenshot({ path: '/tmp/dispatra-public-home-desktop.png', fullPage: true, animations: 'disabled' });
-  const homeBounds = await page.locator('[aria-labelledby="home-title"]').boundingBox();
-  const homeHeader = await page.getByRole('banner').boundingBox();
   await company.press('Enter');
   await page.waitForURL(origin + '/demo/');
-  await page.getByRole('heading', { name: 'Welcome back.', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor();
   assert.equal(await company.inputValue(), 'demo');
   assert.equal(await company.evaluate(el => el.readOnly), true);
   const loginBounds = await page.locator('[aria-labelledby="login-title"]').boundingBox();
-  const loginHeader = await page.getByRole('banner').boundingBox();
-  assert.equal(loginBounds.x, homeBounds.x); assert.equal(loginBounds.width, homeBounds.width);
-  assert.equal(loginHeader.x, homeHeader.x); assert.equal(loginHeader.width, homeHeader.width);
+  assert.ok(loginBounds.width <= 384, 'Login remains a compact form');
+  assert.ok(Math.abs(loginBounds.x + loginBounds.width / 2 - 720) < 1, 'Login is horizontally centered');
+  assert.ok(Math.abs(loginBounds.y + loginBounds.height / 2 - 500) < 1, 'Login is vertically centered');
+  assert.equal(await page.getByText('Workspace preview · sample data', { exact: true }).count(), 0, 'Login has no map preview');
   assert.equal(await page.getByRole('radio').count(), 3);
   await page.screenshot({ path: '/tmp/dispatra-company-login-desktop.png', fullPage: true, animations: 'disabled' });
   await page.getByRole('radio', { name: 'Dispatcher' }).focus();
@@ -101,7 +100,7 @@ try {
     await company.fill('demo');
     if (width === 390) await page.screenshot({ path: '/tmp/dispatra-public-home-mobile.png', fullPage: true, animations: 'disabled' });
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await page.getByRole('heading', { name: 'Welcome back.', exact: true }).waitFor();
+    await page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor();
     await noOverflow();
     assert.equal(await company.inputValue(), 'demo');
     for (const role of ['Dispatcher', 'Shipper', 'Driver']) assert.ok(await page.getByRole('radio', { name: role }).isVisible());
@@ -122,5 +121,5 @@ try {
   await page.getByRole('link', { name: 'Open my workspace' }).waitFor();
   assert.equal(await page.getByRole('link', { name: 'Open my workspace' }).getAttribute('href'), '/acme/shipper');
   assert.equal(errors.length, 0, errors.join('\n'));
-  console.log('PASS: hero workspace input, prefilled company login, matching homepage/login widths, role selection/payloads, failed-login retry, correct post-auth destination, no saved credentials, aliases and 390px/320px layouts.');
+  console.log('PASS: hero workspace input, compact centered company login, role selection/payloads, failed-login retry, correct post-auth destination, no saved credentials, aliases and 390px/320px layouts.');
 } finally { await browser.close(); }
