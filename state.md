@@ -4,6 +4,8 @@ Updated: 2026-10-09. [Specification](spec.md) defines intended behavior.
 
 ## Implemented
 
+- 2026-10-09: Shipper Tracking now renders the driver's phone in 11px muted gray beside the chat icon on one centered row below the name. The smaller shared icon button retains its accessible label, tooltip, SMS link and disabled-phone state. Updated the specification and existing browser row-alignment assertion. Eleven Shipper tests, TypeScript and production build passed. Focused local browser checks with synthetic own-order responses passed row alignment, phone size/color, keyboard access and bounds at 1440px, 390px and 320px; desktop/mobile screenshots inspected. Google loading was intentionally blocked in this contact layout check. No API changes, message sends or production deployment.
+
 - 2026-10-09: Removed vehicle type from the Shipper Tracking driver contact block. It now shows the avatar, full name, phone and chat icon above Stops. Updated the contact assertion and specification; eleven Shipper tests, TypeScript and production build passed. The shared dispatcher tracking projection still consumes vehicle type. No API changes or production deployment.
 
 - 2026-10-09: Shipper Tracking's Message control now displays only the chat icon in the shared circular icon button, preserving its accessible driver-specific name, tooltip, keyboard access and SMS link. The unavailable-phone control retains its disabled state. Eleven existing Shipper tests, TypeScript and production build passed. No API changes or production deployment.

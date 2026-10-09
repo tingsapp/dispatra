@@ -187,6 +187,9 @@ try {
   await driverContact.getByRole('img', { name: "Dana Driver's avatar" }).waitFor();
   assert.equal(await driverContact.getByRole('link', { name: 'Call Dana Driver' }).getAttribute('href'), 'tel:+16045550102');
   assert.equal(await driverContact.getByRole('link', { name: 'Message Dana Driver' }).getAttribute('href'), 'sms:+16045550102');
+  const phoneBounds = await driverContact.getByRole('link', { name: 'Call Dana Driver' }).boundingBox();
+  const chatBounds = await driverContact.getByRole('link', { name: 'Message Dana Driver' }).boundingBox();
+  assert.ok(chatBounds.x >= phoneBounds.x + phoneBounds.width && Math.abs((phoneBounds.y + phoneBounds.height / 2) - (chatBounds.y + chatBounds.height / 2)) < 1, 'Phone and chat icon share the same row');
   const contactBounds = await driverContact.boundingBox();
   const stopsBounds = await page.getByText('Stops', { exact: true }).boundingBox();
   const timelineBounds = await page.getByText('Timeline', { exact: true }).boundingBox();
