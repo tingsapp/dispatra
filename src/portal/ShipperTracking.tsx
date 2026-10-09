@@ -21,6 +21,7 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
     <ShipperTrackingMap slug={slug} tracking={tracking.error ? undefined : tracking.data} orders={rows} selectedOrderId={selected?.id} onSelect={onSelect} warehouse={profile.data?.warehouse} timeZone={timeZone} locationReady={!profile.isPending} viewReady={!pending && (!selected || !tracking.isPending)} />
     <div className="shipper-tracking-overlays" role="region" aria-label="Tracking">
       <section className="shipper-tracking-card shipper-tracking-summary" aria-label="Order progress">
+      <div className="shipper-tracking-scroll">
       <Notice error={logoutError} />
       {error ? <><Notice error={error} /><Button variant="outline" onClick={() => { void orders.refetch(); void preferences.refetch(); }}>Try again</Button></>
         : pending ? <p role="status" className="text-sm text-app-muted">Loading tracking…</p>
@@ -39,6 +40,7 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
           </section>
         </>}
       </>}
+      </div>
       </section>
     </div>
   </>;

@@ -307,9 +307,9 @@ try {
       await page.getByRole('button', { name: 'Fit open orders on map', exact: true }).click();
       await checkMapBounds();
       const details = page.getByRole('region', { name: 'Order progress', exact: true });
-      await details.evaluate(card => { card.scrollTop = card.scrollHeight; });
+      await details.locator('.shipper-tracking-scroll').evaluate(scroller => { scroller.scrollTop = scroller.scrollHeight; });
       await details.getByText('Order booked', { exact: true }).waitFor();
-      await details.evaluate(card => { card.scrollTop = 0; });
+      await details.locator('.shipper-tracking-scroll').evaluate(scroller => { scroller.scrollTop = 0; });
     }
     await search.fill('');
     if (liveMap) {
