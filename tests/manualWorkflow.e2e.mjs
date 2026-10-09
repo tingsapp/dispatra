@@ -118,7 +118,7 @@ try {
   await driver.getByRole('button',{name:'Save signature',exact:true}).click();
   await driver.getByText('Signature saved',{exact:true}).waitFor();
   await driver.getByRole('button',{name:'Confirm delivery',exact:true}).click();
-  await driver.getByRole('button',{name:'Finish route',exact:true}).click();
+  await driver.getByRole('button',{name:'Complete job',exact:true}).click();
   const completed=await monitor(data=>!data.orders.some(o=>o.id===order.id));
   assert.equal(completed.routes.some(r=>r.status==='IN_PROGRESS'),false);
   const done=await json(await desk.request.get(base+`/orders/${order.id}`));
