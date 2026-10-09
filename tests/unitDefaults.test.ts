@@ -128,3 +128,17 @@ test('zone weight fields use default pounds and preserve weight-price pairing in
   assert.equal(central.weightBands[0].maxWeightKg, 200 * 0.45359237);
   assert.equal(central.weightBands[0].amount, 40);
 });
+
+test('retired invoicing settings preserve currency and tax as Quote settings without late fees', () => {
+  localStorage.setItem(BILLING_STORAGE_KEY,JSON.stringify({invoicing:{currency:'USD',taxRegistrationNumber:'OLD-TAX',quoteValidityDays:21,latePaymentFeePercent:1.5,defaultPaymentTerms:'NET30'}}));
+  const config=loadBillingConfig();
+  assert.equal(config.quoteSettings.currency,'USD');
+  assert.equal(config.quoteSettings.taxRegistrationNumber,'OLD-TAX');
+  assert.equal(config.quoteSettings.quoteValidityDays,21);
+  assert.equal('latePaymentFeePercent' in config.quoteSettings,false);
+  assert.equal('defaultPaymentTerms' in config.quoteSettings,false);
+  saveBillingConfig(config);
+  const saved=JSON.parse(localStorage.getItem(BILLING_STORAGE_KEY)!);
+  assert.equal('invoicing' in saved,false);
+  assert.equal(saved.quoteSettings.currency,'USD');
+});

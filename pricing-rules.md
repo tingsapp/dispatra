@@ -1,6 +1,6 @@
 # Adopted pricing requirements — September 12, 2026
 
-Current UI (September 21): Pricing tabs are Rate Cards, Fuel Charge, Service Level and Accessorials. Fuel Charge has one nonnegative percentage input; 0 disables it. New settings start at 28.5%, the September 2026 Novex courier benchmark. Existing percentages and quoted terms are preserved, except that the old unversioned active 8% default now migrates to 28.5% (future explicitly saved 8% values remain valid); live indexed settings migrate to their effective percentage. Fuel-price rules below apply only to historical frozen contexts. Zone cards expose their own dimensional divisor; Distance, Fixed and Hourly do not expose or require one. Distance has no Included Weight or Weight Rate fields. Its base freight is Base Fee + max(0, billable distance − Included Distance) × Distance Rate; stored weight terms and divisors cannot affect new quotes or explicit repricing. New contexts freeze distanceWeightMode NONE; historical contexts preserve legacy weight rules and saved amounts. Package weight and dimensions remain available for operational capacity. Zone bands use the greater of actual and dimensional weight separately for each pickup-to-delivery movement, including package quantities. The matrix stores maximum weight limits; the engine performs the comparison automatically. There is no opt-out checkbox. New contexts record METHOD_SPECIFIC; frozen MAX and legacy contexts retain their prior calculations. Active legacy opt-outs normalize to enabled without changing divisors. Frozen historical quotes retain their original dimensional settings at settlement. Service Fee and Extra Stops are retired from new pricing; their legacy calculations below apply only to frozen historical contexts. The Vehicle & Labour Costs tab is removed, with stored estimates preserved. Current Accessorials are fixed dollar charges added once per order only when selected. Their form contains Name, Rate, Description and Taxable; percentage, automatic/per-stop rules, allowances, limits and fuel eligibility below apply only to frozen historical contexts. Existing numeric rates become dollar amounts; names, taxability and status are retained.
+Current UI (September 21): Pricing tabs are Rate Cards, Fuel Charge, Service Level and Accessorials. Fuel Charge has one nonnegative percentage input; 0 disables it. New settings start at 28.5%, the September 2026 Novex courier benchmark. Existing percentages and quoted terms are preserved, except that the old unversioned active 8% default now migrates to 28.5% (future explicitly saved 8% values remain valid); live indexed settings migrate to their effective percentage. Fuel-price rules below apply only to historical frozen contexts. Zone cards expose their own dimensional divisor; Distance, Fixed and Hourly do not expose or require one. Distance has no Included Weight or Weight Rate fields. Its base freight is Base Fee + max(0, billable distance − Included Distance) × Distance Rate; stored weight terms and divisors cannot affect new quotes or explicit repricing. New contexts freeze distanceWeightMode NONE; historical contexts preserve legacy weight rules and saved amounts. Package weight and dimensions remain available for operational capacity. Zone bands use the greater of actual and dimensional weight separately for each pickup-to-delivery movement, including package quantities. The matrix stores maximum weight limits; the engine performs the comparison automatically. There is no opt-out checkbox. New contexts record METHOD_SPECIFIC; frozen MAX and legacy contexts retain their prior calculations. Active legacy opt-outs normalize to enabled without changing divisors. Frozen historical quotes retain their original dimensional settings. Service Fee and Extra Stops are retired from new pricing; their legacy calculations below apply only to frozen historical contexts. The Vehicle & Labour Costs tab is removed, with stored estimates preserved. Current Accessorials are fixed dollar charges added once per order only when selected. Their form contains Name, Rate, Description and Taxable; percentage, automatic/per-stop rules, allowances, limits and fuel eligibility below apply only to frozen historical contexts. Existing numeric rates become dollar amounts; names, taxability and status are retained.
 
 
 Service Level now uses a fixed additional charge once per order, in company currency, across all four current methods. Editable starting amounts are Standard 0, Rush 20, Direct 35 and Economy 0. The charge is taxable transport, fuel-eligible and included in transport discounts using existing calculation order. New quotes record FIXED service pricing; multiplier rules below apply only to historical frozen contexts. Imported final agreed totals still bypass modifiers. No multiplier-to-dollar arithmetic conversion is performed: known built-in services receive the approved starting amounts only when missing, while custom nonneutral legacy services require an explicit amount.
@@ -191,7 +191,7 @@ Each Base + Distance, Fixed, Zone and Imported (non-final-total) rate card owns 
 
 Discount controls live only on the Shipper creation/edit form and offer No discount, Percentage (0–100), or Fixed amount. The shipper discount applies across selected rate cards; new shippers start with no discount. Apply one discount to freight, service multiplier, freight minimum and vehicle surcharge, excluding fuel, Accessorials, service fee and tax.
 
-Existing effective card discounts migrate once to shippers using the attached card or Default. Current pricing ignores the retained historical card discount field. Frozen quotes, including hourly settlement, retain the discount source and values captured at quote time.
+Existing effective card discounts migrate once to shippers using the attached card or Default. Current pricing ignores the retained historical card discount field. Frozen quotes retain the discount source and values captured at quote time.
 
 Define the discount scope by named charge groups. Show the discount and any minimum adjustment separately.
 
@@ -244,7 +244,7 @@ Any service-multiplier control shown for imported pricing must actually affect t
 
 Always preserve the external source, reference and original imported amount.
 
-## 11. Connect operational and invoicing settings
+## 11. Connect operational and Quote settings
 
 Enforce operational settings in their relevant workflows:
 
@@ -256,15 +256,15 @@ Enforce operational settings in their relevant workflows:
 | Maximum active orders | Apply during automatic and manual assignment validation. |
 | Vehicle capacity and equipment | Validate against the order and route requirements. |
 
-Connect invoicing settings to:
+Connect Quote settings to:
 
-- Invoice due dates.
+- Quote validity dates.
 - Quote expiry.
 - Tax registration display.
 - Applicable tax profiles and exemptions.
 - Finalized charge lines.
 
-Late-payment fees need a defined assessment rule before automatic application. Until then, clearly identify the field as configuration only.
+V1 has no invoices, due dates, late-payment fees or receivables workflows.
 
 Hide unfinished controls or explain their current limitation beside the setting.
 
@@ -288,7 +288,7 @@ For tax-inclusive pricing, normalize monetary bases consistently so minimums, di
 
 Imported final agreed totals follow their preservation rule.
 
-Order entry and pricing previews must use the centralized engine. The standalone Pricing Simulator was removed at the user’s request. Saved quotes and finalized orders must retain their pricing snapshot, rate-card version and calculation details.
+Order entry and pricing previews must use the centralized engine. The standalone Pricing Simulator was removed at the user’s request. Saved quotes and completed orders must retain their pricing snapshot, rate-card version and calculation details.
 
 Reassignment, route merging and optimization must preserve the agreed customer price.
 
@@ -308,7 +308,7 @@ Add contract-specific matrices, explicit inheritance and pickup-to-delivery rela
 
 **Fourth: enforce workflows and verify the complete journey**
 
-Connect operational constraints, quote validity and invoicing settings.
+Connect operational constraints, quote validity and Quote settings.
 
 Before completion, verify at least these scenarios:
 

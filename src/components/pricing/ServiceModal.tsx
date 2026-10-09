@@ -23,7 +23,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [charge, setCharge] = useState('0');
-  const currency = loadBillingConfig().invoicing.currency;
+  const currency = loadBillingConfig().quoteSettings.currency;
 
   useEffect(() => {
     if (initialService) {

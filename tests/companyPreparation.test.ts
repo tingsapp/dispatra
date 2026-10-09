@@ -22,7 +22,10 @@ test('public, admin and company paths stay separate', () => {
   for (const path of ['/acme/shipper', '/acme/driver', '/acme/shipper-portal']) assert.equal(pageForPath(path), undefined);
   assert.equal(pathForPage('jobs','/acme/'), '/acme/orders');
   assert.deepEqual(parsePortal('/acme/'), { slug:'acme', portal:'dispatch', workspace:true });
-  for (const path of ['/acme/shipper', '/acme/shipper/', '/acme/shipper/invoices', '/acme/shipper/profile']) assert.deepEqual(parsePortal(path), { slug:'acme', portal:'customer' });
+  assert.deepEqual(parsePortal('/acme/integrations'), { slug:'acme', portal:'dispatch', workspace:true });
+  assert.equal(parsePortal('/acme/shipper/integrations'), null);
+  assert.equal(parsePortal('/acme/driver/integrations'), null);
+  for (const path of ['/acme/shipper', '/acme/shipper/', '/acme/shipper/profile']) assert.deepEqual(parsePortal(path), { slug:'acme', portal:'customer' });
   for (const path of ['/acme/driver', '/acme/driver/profile']) assert.deepEqual(parsePortal(path), { slug:'acme', portal:'driver' });
   for (const path of ['/acme/shipper-portal', '/acme/shipper/payment-methods', '/acme/driver/unknown', '/acme/customer']) assert.equal(parsePortal(path), null);
 });
@@ -33,7 +36,7 @@ test('singular portals never collide with plural dispatcher pages, and reserved 
 });
 
 test('old portal links redirect to the clean paths and each role has one home', () => {
-  const cases: [string, string | undefined][] = [['/acme/shipper-portal', '/acme/shipper'], ['/acme/shipper-portal/orders/', '/acme/shipper'], ['/acme/shipper-portal/invoices', '/acme/shipper/invoices'],
+  const cases: [string, string | undefined][] = [['/acme/shipper-portal', '/acme/shipper'], ['/acme/shipper-portal/orders/', '/acme/shipper'], ['/acme/shipper-portal/invoices', '/acme/shipper'], ['/acme/shipper/invoices', '/acme/shipper'],
     ['/acme/shipper-portal/settings', '/acme/shipper/profile'], ['/acme/shipper-portal/payment-methods', '/acme/shipper'], ['/acme/shipper/orders', '/acme/shipper'], ['/acme/driver/orders', '/acme/driver'],
     ['/acme/customer/login', '/acme/shipper'], ['/acme/dispatch', '/acme/'], ['/acme/dispatch/settings', '/acme/profile'], ['/acme/shipper', undefined], ['/acme/orders', undefined], ['/admin', undefined]];
   for (const [path, next] of cases) assert.equal(canonicalPortalPath(path), next, path);

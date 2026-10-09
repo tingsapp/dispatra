@@ -108,3 +108,13 @@ test('prototype navigation keeps its prefix', async () => {
   click('monitor'); await at('/prototype', 'monitor');
   window.history.back(); await at('/prototype/drivers', 'drivers');
 });
+
+test('Integrations retains company scope and restores through Back, Forward and direct loading', async () => {
+  const view = render(React.createElement(Navigation));
+  click('integrations'); await at('/acme/integrations', 'integrations');
+  click('jobs'); await at('/acme/orders', 'jobs');
+  window.history.back(); await at('/acme/integrations', 'integrations');
+  window.history.forward(); await at('/acme/orders', 'jobs');
+  view.unmount(); window.history.replaceState(null, '', '/other/integrations');
+  render(React.createElement(Navigation)); await at('/other/integrations', 'integrations');
+});

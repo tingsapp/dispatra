@@ -21,7 +21,7 @@ export const RATE_CARD_BACKGROUND_DEFAULTS = {
   fuelPercent: null, waitFreeMinutes: null, waitIncrementMinutes: null,
   vehicleSurchargeOverrides: {}, accessorialRateOverrides: {},
   zoneFallbackToOrganization: false, zoneMatrixMode: 'CONTRACT' as const, zoneNoMatchFallback: 'NEEDS_ATTENTION' as const,
-  hourlyClockStart: 'Arrival at first pickup', hourlyClockStop: 'Completion of final delivery', hourlyIncludesHandling: true, hourlyIncludesWaiting: true, hourlySettleActual: true,
+  hourlyClockStart: 'Arrival at first pickup', hourlyClockStop: 'Completion of final delivery', hourlyIncludesHandling: true, hourlyIncludesWaiting: true,
 } satisfies Partial<RateCard>;
 
 /** Background code for zones; not shown in the UI. */
@@ -67,7 +67,6 @@ export const createEmptyRateCard = (overrides: Partial<RateCard> = {}): RateCard
   hourlyClockStop: 'Completion of final delivery',
   hourlyIncludesHandling: true,
   hourlyIncludesWaiting: true,
-  hourlySettleActual: true,
   hourlyRate: 85,
   minimumBillableMinutes: 120,
   billingIncrementMinutes: 30,
@@ -173,14 +172,15 @@ const normaliseZoneRates = (rates: ZoneRate[]): ZoneRate[] => {
 
 /** V1 cards are flat: every card applies to every service, vehicle and customer, with no background contract terms. */
 const isSimple = (card: RateCard): boolean =>
-  card.status !== 'DRAFT' && card.scope !== 'SHIPPER' && card.serviceId === null && card.customerId === null && card.currency === loadBillingConfig().invoicing.currency &&
+  card.status !== 'DRAFT' && card.scope !== 'SHIPPER' && card.serviceId === null && card.customerId === null && card.currency === loadBillingConfig().quoteSettings.currency &&
   (Object.keys(RATE_CARD_BACKGROUND_DEFAULTS) as (keyof typeof RATE_CARD_BACKGROUND_DEFAULTS)[]).every(key => JSON.stringify(card[key]) === JSON.stringify(RATE_CARD_BACKGROUND_DEFAULTS[key]));
 
 /** Retire obsolete routine time rates and background contract terms; saved quote contexts remain untouched. */
 const normaliseCard = (stored: Partial<RateCard>, standardZoneRates: ZoneRate[] = []): RateCard => {
+  const current = Object.fromEntries(Object.entries(stored).filter(([key]) => key !== 'hourlySettleActual'));
   const base: RateCard = {
     ...createEmptyRateCard(),
-    ...stored,
+    ...current,
     serviceOverrides: stored.serviceOverrides || {},
     vehicleSurchargeOverrides: stored.vehicleSurchargeOverrides || {},
     accessorialRateOverrides: stored.accessorialRateOverrides || {},
@@ -211,7 +211,7 @@ const normaliseCard = (stored: Partial<RateCard>, standardZoneRates: ZoneRate[] 
     Object.assign(card, RATE_CARD_BACKGROUND_DEFAULTS, {
       status: card.status === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE',
       scope: card.scope === 'ORGANIZATION' ? 'ORGANIZATION' : 'ORDER',
-      serviceId: null, customerId: null, currency: loadBillingConfig().invoicing.currency
+      serviceId: null, customerId: null, currency: loadBillingConfig().quoteSettings.currency
     });
   }
   // One version bump per migration so historical PricingSnapshots stay pinned to the old version.

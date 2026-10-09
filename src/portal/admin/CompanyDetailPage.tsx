@@ -72,7 +72,7 @@ function StatusSection({ company, onReload }: { company: CompanyDetail; onReload
   const change = async () => {
     const suspend = company.active;
     const ok = await confirmDialog(suspend
-      ? { title: `Suspend ${company.name}?`, message: 'Every dispatcher, shipper and driver is signed out immediately, open driver duty is ended, and nobody can sign in until the company is activated again. Orders, invoices and audit history are kept.', confirmLabel: 'Suspend company', tone: 'danger' }
+      ? { title: `Suspend ${company.name}?`, message: 'Every dispatcher, shipper and driver is signed out immediately, open driver duty is ended, and nobody can sign in until the company is activated again. Orders and audit history are kept.', confirmLabel: 'Suspend company', tone: 'danger' }
       : { title: `Activate ${company.name}?`, message: 'Existing accounts can sign in again with their current passwords. Sessions ended by the suspension are not restored.', confirmLabel: 'Activate company' });
     if (ok) mutation.mutate(!suspend);
   };

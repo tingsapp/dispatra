@@ -24,25 +24,25 @@ export interface VehicleOperations extends AuditFields {
 }
 export interface CustomerOperations extends AuditFields {
   customerType?: 'BUSINESS' | 'INDIVIDUAL'; legalName?: string; addresses?: SavedAddress[]; currency?: string;
-  paymentTerms?: 'INHERIT' | 'COD' | 'NET7' | 'NET15' | 'NET30' | 'NET45' | 'NET60'; defaultServiceId?: string;
+  defaultServiceId?: string;
   defaultWindowStart?: string; defaultWindowEnd?: string; instructions?: string; communicationPreferences?: Communications;
   tags?: string[]; permittedBranchIds?: string[]; metadata?: Record<string, unknown>;
 }
 /** Where an order is in its life. Exceptions (pricing problems, risk, failed attempts) are attention flags layered on top, never statuses. */
-export type OrderLifecycle = 'NEW' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'INVOICED' | 'CANCELLED';
-export const ORDER_LIFECYCLES: OrderLifecycle[] = ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'INVOICED', 'CANCELLED'];
-export const ORDER_LIFECYCLE_LABELS: Record<OrderLifecycle, string> = { NEW: 'New', ASSIGNED: 'Assigned', IN_PROGRESS: 'In progress', COMPLETED: 'Completed', INVOICED: 'Invoiced', CANCELLED: 'Cancelled' };
-/** Retired statuses from older saved records collapse onto the six current ones. */
-const LEGACY_LIFECYCLES: Record<string, OrderLifecycle> = { DRAFT: 'NEW', SUBMITTED: 'NEW', PRICED: 'NEW', READY_FOR_DISPATCH: 'NEW', NEEDS_ATTENTION: 'NEW', IN_EXECUTION: 'IN_PROGRESS', BILLING_FINALIZATION: 'COMPLETED', FAILED: 'CANCELLED' };
+export type OrderLifecycle = 'NEW' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export const ORDER_LIFECYCLES: OrderLifecycle[] = ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+export const ORDER_LIFECYCLE_LABELS: Record<OrderLifecycle, string> = { NEW: 'New', ASSIGNED: 'Assigned', IN_PROGRESS: 'In progress', COMPLETED: 'Completed', CANCELLED: 'Cancelled' };
+/** Retired statuses from older saved records collapse onto the five current ones. */
+const LEGACY_LIFECYCLES: Record<string, OrderLifecycle> = { INVOICED: 'COMPLETED', DRAFT: 'NEW', SUBMITTED: 'NEW', PRICED: 'NEW', READY_FOR_DISPATCH: 'NEW', NEEDS_ATTENTION: 'NEW', IN_EXECUTION: 'IN_PROGRESS', BILLING_FINALIZATION: 'COMPLETED', FAILED: 'CANCELLED' };
 export const normalizeLifecycle = (value?: string | null): OrderLifecycle | undefined => value ? (ORDER_LIFECYCLES as string[]).includes(value) ? value as OrderLifecycle : LEGACY_LIFECYCLES[value] : undefined;
 export type OrderAttentionFlag = 'PRICING' | 'AT_RISK' | 'LATE_START' | 'FAILED_ATTEMPT';
 export const ORDER_ATTENTION_LABELS: Record<OrderAttentionFlag, string> = { PRICING: 'Pricing needs review', AT_RISK: 'At risk', LATE_START: 'Late start', FAILED_ATTEMPT: 'Failed attempt' };
 export interface OrderOperations extends AuditFields {
   lifecycleStatus?: OrderLifecycle; completedAt?: string; priority?: 'NORMAL' | 'HIGH' | 'URGENT'; orderType?: 'DELIVERY' | 'PICKUP' | 'RETURN' | 'TRANSFER' | 'SERVICE_CALL';
-  billingCustomerId?: string | null; customerSnapshot?: { id: string | null; name: string; phone: string; email: string; billingEmail: string; legalName?: string; address?: string; paymentTerms?: string };
+  billingCustomerId?: string | null; customerSnapshot?: { id: string | null; name: string; phone: string; email: string; billingEmail: string; legalName?: string; address?: string };
   billingCustomerSnapshot?: OrderOperations['customerSnapshot']; referenceNumbers?: string; commodityDescription?: string;
   requiredSkills?: string[]; requiredEquipment?: string[]; serviceAreaId?: string; tags?: string[]; dispatcherNotes?: string;
-  notificationPreferences?: Communications; version?: number; cancellationReason?: string; cancelledAt?: string; invoicedAt?: string; metadata?: Record<string, unknown>;
+  notificationPreferences?: Communications; version?: number; cancellationReason?: string; cancelledAt?: string; metadata?: Record<string, unknown>;
 }
 export interface StopOperations {
   countryCode?: string; city?: string; provinceCode?: string; postalCode?: string;

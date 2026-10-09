@@ -1,44 +1,48 @@
-import { useState, type FormEvent } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { useState } from 'react';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { ArrowDown, ArrowRight, Mail, Route, ScanLine } from 'lucide-react';
 import { BrandMark } from '../components/layout/AppBrand';
 import { Button } from '../components/ui/button';
-import { companySlugForPath } from '../lib/pageRoutes';
+import { MonitorPreview } from '../components/home/MonitorPreview';
+import { WorkspaceEntry } from '../components/home/WorkspaceEntry';
+import { accountWorkspace, type WorkspaceRole } from '../lib/workspaceEntry';
+import { api } from '../portal/api';
 
-/** Public site entry. Company workspaces live beneath their own slug. */
-export function PublicHome() {
-  const [slug, setSlug] = useState('');
-  const [error, setError] = useState('');
-  const openWorkspace = (event: FormEvent) => {
-    event.preventDefault();
-    const value = slug.trim().toLowerCase();
-    if (companySlugForPath(`/${value}/`) !== value) {
-      setError('Enter the company name used in your workspace address.');
-      return;
-    }
-    window.location.assign(`/${value}/`);
-  };
-  return <main className="min-h-dvh bg-app-canvas text-app-text">
-    <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-      <a href="/" className="inline-flex items-center gap-2.5 text-lg font-semibold tracking-tight"><BrandMark />Dispatra</a>
-      <a href="/admin" className="text-sm text-app-muted underline-offset-4 hover:text-app-text hover:underline">Platform administration</a>
+const steps = [
+  { icon: Mail, number: '01', title: 'Orders come in.', description: 'The email agent reads incoming order requests and brings them into your workspace.' },
+  { icon: Route, number: '02', title: 'The right driver goes out.', description: 'The dispatch agent finds an eligible driver and assigns the order in Auto mode.' },
+  { icon: ScanLine, number: '03', title: 'Every delivery comes together.', description: 'Drivers follow their routes, capture delivery proof, and complete each order.' },
+];
+
+export function PublicHome({ initialRole }: { initialRole?: WorkspaceRole }) {
+  const [cache] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } }));
+  return <QueryClientProvider client={cache}><HomeContent initialRole={initialRole} /></QueryClientProvider>;
+}
+function HomeContent({ initialRole }: { initialRole?: WorkspaceRole }) {
+  const account = useQuery({ queryKey: ['public', 'account'], queryFn: api.me });
+  const resume = accountWorkspace(account.data);
+  return <div className="min-h-dvh bg-app-canvas font-sans text-app-text">
+    <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-10">
+      <a href="/" aria-label="Dispatra home" className="inline-flex items-center gap-2.5 text-xl font-medium tracking-tight"><BrandMark />Dispatra</a>
+      <nav aria-label="Main navigation" className="flex items-center gap-7"><a href="#how-it-works" className="hidden text-sm text-app-muted transition-colors hover:text-app-text sm:block">How it works</a><Button asChild className="gap-3 px-5"><a href={resume ?? '#workspace'}>{resume ? 'Open my workspace' : 'Sign in'}<ArrowRight className="size-3.5" aria-hidden="true" /></a></Button></nav>
     </header>
-    <section className="mx-auto grid max-w-6xl gap-12 px-6 py-20 md:grid-cols-2 md:items-center md:py-28">
-      <div>
-        <p className="text-sm font-medium text-blue-700">AI-powered delivery operations</p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">Automatic dispatch. Smarter deliveries.</h1>
-        <p className="mt-5 max-w-xl text-lg leading-8 text-app-muted">Dispatra is an AI-powered dispatch system that helps your team assign orders automatically and manage drivers, vehicles, and deliveries in one workspace.</p>
-      </div>
-      <form onSubmit={openWorkspace} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <h2 className="text-xl font-semibold">Open your workspace</h2>
-        <p className="mt-2 text-sm text-app-muted">Enter the company name from your Dispatra web address.</p>
-        <label htmlFor="company-slug" className="app-label mt-6 block">Company name</label>
-        <div className="mt-2 flex items-center overflow-hidden rounded-lg border border-slate-300 focus-within:ring-2 focus-within:ring-blue-500">
-          <span className="pl-3 text-sm text-slate-500">dispatra.com/</span>
-          <input id="company-slug" value={slug} onChange={event => { setSlug(event.target.value); setError(''); }} autoCapitalize="none" autoComplete="organization" spellCheck={false} className="min-w-0 flex-1 px-2 py-2.5 text-sm outline-none" placeholder="your-company" />
+    <main>
+      <section aria-labelledby="home-title" className="mx-auto grid max-w-7xl items-center gap-12 px-6 pb-16 pt-12 sm:pt-16 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14 lg:px-10 lg:pb-20 lg:pt-20">
+        <div>
+          <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-blue-700"><span className="size-1.5 rounded-full bg-blue-600" />AI FOR DELIVERY TEAMS</p>
+          <h1 id="home-title" className="mt-6 max-w-xl text-[42px] font-medium leading-[1.08] tracking-[-0.045em] sm:text-[54px] lg:text-[58px]">From order to delivery.<br /><span className="text-app-muted">One clear workflow.</span></h1>
+          <p className="mt-6 max-w-md text-base leading-7 text-app-muted">Read orders from email, assign the right driver, and follow every delivery through completion. Your whole team, in one connected workspace.</p>
+          <div className="mt-8 flex flex-wrap items-center gap-5"><Button asChild className="h-11 gap-3 px-6"><a href={resume ?? '#workspace'}>{resume ? 'Open my workspace' : 'Open your workspace'}<ArrowRight className="size-4" aria-hidden="true" /></a></Button><a href="#how-it-works" className="inline-flex items-center gap-2 text-sm text-app-muted hover:text-app-text">See how it works<ArrowDown className="size-3.5" aria-hidden="true" /></a></div>
+          <p className="mt-7 text-xs text-app-muted">Email intake<span className="mx-2 text-slate-300">/</span>Smart dispatch<span className="mx-2 text-slate-300">/</span>Delivery proof</p>
         </div>
-        {error && <p role="alert" className="mt-2 text-sm text-rose-700">{error}</p>}
-        <Button type="submit" className="mt-5 w-full">Continue <ArrowRight className="ml-1 size-4" /></Button>
-      </form>
-    </section>
-  </main>;
+        <MonitorPreview />
+      </section>
+      <div className="mx-auto max-w-7xl px-6 lg:px-10"><WorkspaceEntry initialRole={initialRole} /></div>
+      <section id="how-it-works" aria-labelledby="workflow-title" className="mx-auto max-w-7xl scroll-mt-8 px-6 py-16 sm:py-20 lg:px-10">
+        <div className="max-w-xl"><p className="text-xs font-medium uppercase tracking-[0.16em] text-app-muted">A SIMPLER DELIVERY DAY</p><h2 id="workflow-title" className="mt-3 text-3xl font-medium tracking-tight">Three steps. One connected team.</h2></div>
+        <div className="mt-10 grid gap-8 sm:grid-cols-3 sm:gap-9">{steps.map(({ icon: Icon, number, title, description }) => <article key={number}><div className="flex items-center gap-3"><span className="inline-flex size-10 items-center justify-center rounded-xl bg-app-surface ring-1 ring-app-border"><Icon className="size-5" strokeWidth={1.5} aria-hidden="true" /></span><span className="text-xs tabular-nums text-slate-400">{number}</span></div><h3 className="mt-5 text-base font-medium tracking-tight">{title}</h3><p className="mt-2 max-w-sm text-sm leading-6 text-app-muted">{description}</p></article>)}</div>
+      </section>
+    </main>
+    <footer className="mx-auto flex max-w-7xl flex-col gap-5 px-6 pb-8 pt-3 text-xs text-app-muted sm:flex-row sm:items-center sm:justify-between lg:px-10"><span>© {new Date().getFullYear()} Dispatra</span><div className="flex flex-wrap items-center gap-6"><a href="#workspace" className="hover:text-app-text">Workspace access</a><a href="/admin" className="inline-flex items-center gap-1.5 hover:text-app-text">Platform administration<ArrowRight className="size-3" aria-hidden="true" /></a></div></footer>
+  </div>;
 }

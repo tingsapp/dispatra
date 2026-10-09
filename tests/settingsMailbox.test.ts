@@ -74,7 +74,7 @@ test('a provider fills the mail servers; Other shows them and SMTP follows IMAP 
   Object.assign(operations, { saveMailbox: async (_slug: string, body: Record<string, unknown>) => { saved.push(body); return body; }, testMailbox: async (_slug: string, body: Record<string, unknown>) => { tested.push(body); return { ok: true }; } });
   mount(React.createElement(RateCardsPage, {}));
   await user.click(await screen.findByRole('tab', { name: 'Mailbox' }));
-  assert.ok(await screen.findByText(/Dispatra also sends your invoices and notifications from this address\./));
+  assert.ok(await screen.findByText(/Dispatra also sends your quotes and delivery notifications from this address\./));
   const provider = screen.getByRole('combobox', { name: 'Email provider' });
   assert.match(provider.textContent!, /Gmail/);
   assert.equal(screen.queryByLabelText('IMAP server'), null);

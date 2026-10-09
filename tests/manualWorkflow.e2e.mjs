@@ -56,9 +56,11 @@ async function book(page, dispatcher) {
     await page.getByRole('option',{name:text,exact:true}).click();
   }
   await dialog.getByRole('button',{name:/^Stop 1 ready at date:/}).click();
-  await page.getByRole('button',{name:'Today',exact:true}).click();
+  const pickupTime = new Date(Date.now() + 15 * 60 * 1000);
+  const day = date => date.toLocaleDateString('en-CA', { timeZone: 'America/Vancouver' });
+  await page.getByRole('button',{name:day(pickupTime) === day(new Date()) ? 'Today' : 'Tomorrow',exact:true}).click();
   await page.getByLabel('Stop 1 ready at date calendar',{exact:true}).waitFor({state:'hidden'});
-  const clock=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Vancouver',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).map(p=>[p.type,p.value]));
+  const clock=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Vancouver',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(pickupTime).map(p=>[p.type,p.value]));
   await select(page,'Stop 1 ready at time hours',clock.hour);
   await select(page,'Stop 1 ready at time minutes',clock.minute);
   const response = page.waitForResponse(r => r.url() === base+'/orders' && r.request().method()==='POST',{timeout:15000});
@@ -73,17 +75,17 @@ try {
   const desk=await open('/demo/orders','Login ID','dispatcher@example.com');
   const shipper=await open('/demo/shipper','Email or login ID','shipper@example.com');
   const driver=await open('/demo/driver','Login ID','driver@example.com');
-  // Real driver activation verifies the first location belongs to the newly created duty.
+  // Duty starts explicitly; location sharing starts from the driver's Start route action.
   const existing=await json(await driver.request.get(base+'/driver/profile'));
   if (existing.duty) {
-    await driver.getByRole('switch',{name:'Online'}).click();
+    await driver.getByRole('switch',{name:/^(Online|Duty status)$/}).click();
     await driver.waitForFunction(() => document.querySelector('[role=switch]')?.getAttribute('aria-checked')==='false');
   }
-  const gps=driver.waitForResponse(r=>r.url()===base+'/driver/location' && r.request().method()==='POST');
-  await driver.getByRole('switch',{name:'Online'}).click();
-  await json(await gps);
+  await driver.getByRole('switch',{name:/^(Online|Duty status)$/}).click();
+  await driver.waitForFunction(() => document.querySelector('[role=switch]')?.getAttribute('aria-checked')==='true');
   const dispatcherOrder=await book(desk,true);
   const order=await book(shipper,false);
+  const bookedPrice=(await json(await desk.request.get(base+`/orders/${order.id}`))).pricing;
   assert.equal(order.source,'SHIPPER_PORTAL'); assert.equal(dispatcherOrder.source,'DISPATCHER');
   // Orders from another account appear without a page reload.
   const row=desk.getByRole('row').filter({hasText:order.number});
@@ -99,7 +101,9 @@ try {
     return response.json();
   };
   await driver.getByRole('button',{name:`View ${order.number}`,exact:true}).click();
+  const gps=driver.waitForResponse(r=>r.url()===base+'/driver/location' && r.request().method()==='POST');
   await driver.getByRole('button',{name:'Start route',exact:true}).click();
+  await json(await gps);
   await driver.getByRole('button',{name:'Record arrival',exact:true}).waitFor();
   await monitor(data=>data.orders.some(o=>o.id===order.id && o.status==='IN_PROGRESS'));
   await driver.getByRole('button',{name:'Record arrival',exact:true}).click();
@@ -118,16 +122,11 @@ try {
   const completed=await monitor(data=>!data.orders.some(o=>o.id===order.id));
   assert.equal(completed.routes.some(r=>r.status==='IN_PROGRESS'),false);
   const done=await json(await desk.request.get(base+`/orders/${order.id}`));
-  assert.equal(done.status,'INVOICED');
-  const invoices=await json(await desk.request.get(base+'/invoices'));
-  const invoice=invoices.find(i=>i.order_id===order.id); assert.ok(invoice);
-  assert.equal(invoice.total,order.pricing.total);
+  assert.equal(done.status,'COMPLETED');
+  assert.deepEqual(done.pricing,bookedPrice);
+  assert.equal((await desk.request.get(base+'/invoices')).status(),404);
   const proof=await json(await shipper.request.get(base+`/orders/${order.id}/delivery-proof`));
   assert.equal(proof[0].recipient_name,'Browser Test Receiver'); assert.equal(proof[0].evidence[0].kind,'SIGNATURE');
-  await shipper.getByRole('link',{name:'Invoices',exact:true}).click();
-  const invoiceRow=shipper.getByRole('row').filter({hasText:invoice.number}); await invoiceRow.waitFor();
-  const pdf=await shipper.request.get(new URL(await invoiceRow.getByRole('link',{name:'View invoice'}).getAttribute('href'),origin).href);
-  assert.equal(pdf.headers()['content-type'],'application/pdf'); assert.ok((await pdf.body()).subarray(0,5).equals(Buffer.from('%PDF-')));
   await desk.getByRole('button',{name:'1 Available Drivers',exact:true}).waitFor();
   let vehicle=(await json(await desk.request.get(base+'/vehicles')))[0];
   const originalVehicle=vehicle.data;
@@ -143,11 +142,11 @@ try {
   } finally { await saveVehicle(originalVehicle); }
   await desk.getByRole('button',{name:'1 Available Drivers',exact:true}).waitFor();
   await driver.getByRole('button',{name:'Close',exact:true}).click();
-  await driver.getByRole('switch',{name:'Online'}).click();
+  await driver.getByRole('switch',{name:/^(Online|Duty status)$/}).click();
   await monitor(data=>data.drivers.every(d=>!d.on_duty && d.location===null));
   await desk.getByRole('button',{name:'0 Available Drivers',exact:true}).waitFor();
   assert.deepEqual(errors,[]);
-  console.log('PASS: cross-account order refresh, browser assignment, driver duty/GPS, route start, pickup, signature POD, delivery, automatic frozen invoice, shipper PDF, Monitor order/driver/vehicle updates.');
+  console.log('PASS: cross-account order refresh, browser assignment, driver duty/GPS, route start, pickup, signature POD, delivery, unchanged saved price, no invoicing, Monitor order/driver/vehicle updates.');
 } catch (error) {
   for (const [i,page] of pages.entries()) {
     await page.screenshot({path:`/tmp/dispatra-manual-${i}.png`,fullPage:true}).catch(()=>{});

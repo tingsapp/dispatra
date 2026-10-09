@@ -294,50 +294,21 @@ test('Taxes and Preferences save independently', async () => {
   const saved = loadBillingConfig();
   assert.equal(saved.general.timeZone, 'America/Toronto');
   assert.equal(saved.companyTax.ratePercent, 12);
-  assert.equal(saved.invoicing.taxRegistrationNumber, '');
+  assert.equal(saved.quoteSettings.taxRegistrationNumber, '');
 });
 
-test('customer payment terms create, reload and edit independently of company settings', async () => {
+test('shipper create and edit forms have no payment-term controls', async () => {
   const { CustomersPage } = await import('../src/pages/CustomersPage');
-  const { loadCustomers } = await import('../src/lib/customerStorage');
   const user = userEvent.setup({ document });
-  const billing = loadBillingConfig(); billing.invoicing.defaultPaymentTerms = 'NET15'; saveBillingConfig(billing);
-  const page = render(React.createElement(CustomersPage, { onBackToMonitor: noop }));
+  render(React.createElement(CustomersPage, { onBackToMonitor: noop }));
   await user.click(screen.getByRole('button', { name: 'New Shipper' }));
-  assert.match(screen.getByRole('combobox', { name: 'Default payment terms' }).textContent!, /Net 15 days/);
-  await user.click(screen.getByRole('combobox', { name: 'Default payment terms' }));
-  assert.deepEqual(screen.getAllByRole('option').map(option => option.textContent), ['COD — Due on delivery', 'Net 15 days', 'Net 30 days', 'Net 45 days']);
-  await user.click(screen.getByRole('option', { name: 'Net 45 days' }));
-  await user.type(screen.getByRole('textbox', { name: 'Shipper name' }), 'Terms Shipper');
-  await user.type(screen.getByRole('textbox', { name: 'Company name' }), 'Terms Logistics');
-  await user.type(screen.getByRole('textbox', { name: /^Email / }), 'terms@example.ca');
-  await user.click(screen.getByRole('button', { name: 'Create Shipper' }));
-  assert.equal(loadCustomers().find(customer => customer.name === 'Terms Shipper')?.paymentTerms, 'NET45');
-  page.unmount();
-  render(React.createElement(CustomersPage, { onBackToMonitor: noop }));
-  await user.click(within(screen.getByRole('row', { name: /Terms Shipper/ })).getByTitle('Edit shipper account'));
-  assert.match(screen.getByRole('combobox', { name: 'Default payment terms' }).textContent!, /Net 45 days/);
-  await select(user, 'Default payment terms', 'COD — Due on delivery');
-  await user.click(screen.getByRole('button', { name: 'Save Changes' }));
-  assert.equal(loadCustomers().find(customer => customer.name === 'Terms Shipper')?.paymentTerms, 'COD');
-  assert.deepEqual(loadBillingConfig(), billing);
-});
-
-test('editing older customers displays inherited and legacy payment terms without losing them', async () => {
-  const { CustomersPage } = await import('../src/pages/CustomersPage');
-  const { loadCustomers, saveCustomers } = await import('../src/lib/customerStorage');
-  const user = userEvent.setup({ document });
-  const billing = loadBillingConfig(); billing.invoicing.defaultPaymentTerms = 'NET45'; saveBillingConfig(billing);
-  const customers = loadCustomers(); customers[0].paymentTerms = 'INHERIT'; customers[1].paymentTerms = 'NET7'; saveCustomers(customers);
-  render(React.createElement(CustomersPage, { onBackToMonitor: noop }));
+  assert.equal(screen.queryByRole('combobox', { name: /payment terms/i }), null);
+  assert.equal(screen.queryByText(/payment terms/i), null);
+  await user.keyboard('{Escape}');
   await user.click(screen.getAllByTitle('Edit shipper account')[0]);
-  assert.match(screen.getByRole('combobox', { name: 'Default payment terms' }).textContent!, /Net 45 days/);
-  await user.click(screen.getByRole('button', { name: 'Save Changes' }));
-  assert.equal(loadCustomers()[0].paymentTerms, 'NET45');
-  await user.click(screen.getAllByTitle('Edit shipper account')[1]);
-  assert.match(screen.getByRole('combobox', { name: 'Default payment terms' }).textContent!, /Net 7 days/);
-  await user.click(screen.getByRole('button', { name: 'Save Changes' }));
-  assert.equal(loadCustomers()[1].paymentTerms, 'NET7');
+  assert.equal(screen.queryByRole('combobox', { name: /payment terms/i }), null);
+  assert.equal(screen.queryByText(/payment terms/i), null);
+  assert.ok(screen.getByRole('textbox', { name: 'Shipper name' }));
 });
 
 test('Preferences save while preserving stored contact details and internal costs', async () => {
@@ -345,19 +316,19 @@ test('Preferences save while preserving stored contact details and internal cost
   const initial = loadBillingConfig();
   initial.company.phone = '604-555-0100';
   initial.company.email = 'billing@pacific.test';
-  initial.invoicing.taxRegistrationNumber = 'REG-OLD';
+  initial.quoteSettings.taxRegistrationNumber = 'REG-OLD';
   saveBillingConfig(initial);
   const company = render(React.createElement(PreferencesPage, {}));
   assert.equal(screen.queryByLabelText('Company phone'), null);
   assert.equal(screen.queryByLabelText('Company email'), null);
   await select(user, 'Organization timezone', 'Toronto');
-  const other = loadBillingConfig(); other.invoicing.quoteValidityDays = 21; saveBillingConfig(other);
+  const other = loadBillingConfig(); other.quoteSettings.quoteValidityDays = 21; saveBillingConfig(other);
   await user.click(screen.getByRole('button', { name: 'Save Preferences' }));
   const saved = loadBillingConfig();
   assert.equal(saved.general.timeZone, 'America/Toronto');
-  assert.equal(saved.invoicing.quoteValidityDays, 21);
+  assert.equal(saved.quoteSettings.quoteValidityDays, 21);
   assert.deepEqual(saved.company, initial.company);
-  assert.equal(saved.invoicing.taxRegistrationNumber, 'REG-OLD');
+  assert.equal(saved.quoteSettings.taxRegistrationNumber, 'REG-OLD');
   company.unmount();
   assert.deepEqual(loadBillingConfig().operatingCost, other.operatingCost);
 });
@@ -905,7 +876,7 @@ test('Company saves logo, contact and address while Taxes saves registration ind
   const { loadUserProfile, PROFILE_STORAGE_KEY } = await import('../src/lib/profileStorage');
   localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ name: 'Sam', organization: 'Old Org', hub: 'Old Hub', timezone: 'America/Toronto', orgLogoUrl: 'data:image/png;base64,x', avatarUrl: 'data:image/png;base64,YXZhdGFy' }));
   const initialBilling = loadBillingConfig();
-  initialBilling.invoicing.taxRegistrationNumber = 'REG-OLD';
+  initialBilling.quoteSettings.taxRegistrationNumber = 'REG-OLD';
   initialBilling.companyTax.enabled = false;
   saveBillingConfig(initialBilling);
   const user = userEvent.setup({ document });
@@ -931,22 +902,22 @@ test('Company saves logo, contact and address while Taxes saves registration ind
   await user.click(await screen.findByRole('button', { name: 'Keep editing' }));
   const concurrent = loadBillingConfig();
   concurrent.company.phone = '604-555-0100';
-  concurrent.invoicing.quoteValidityDays = 21;
+  concurrent.quoteSettings.quoteValidityDays = 21;
   saveBillingConfig(concurrent);
   await user.click(screen.getByRole('button', { name: 'Save Company' }));
   assert.equal(loadBillingConfig().company.name, 'Pacific Couriers');
   assert.equal(loadBillingConfig().company.address, '100 Main St, Vancouver');
   assert.equal(loadBillingConfig().company.phone, '604-555-0100');
   assert.equal(loadUserProfile().name, 'Alex Morgan');
-  assert.equal(loadBillingConfig().invoicing.taxRegistrationNumber, 'REG-OLD');
+  assert.equal(loadBillingConfig().quoteSettings.taxRegistrationNumber, 'REG-OLD');
   page.unmount();
   const taxes = render(React.createElement(TaxesPage));
   const registration = screen.getByRole('textbox', { name: 'GST/HST registration number' }) as HTMLInputElement;
   assert.equal(registration.value, 'REG-OLD');
   await user.clear(registration); await user.type(registration, 'REG-123');
   await user.click(screen.getByRole('button', { name: 'Save Taxes' }));
-  assert.equal(loadBillingConfig().invoicing.taxRegistrationNumber, 'REG-123');
-  assert.equal(loadBillingConfig().invoicing.quoteValidityDays, 21);
+  assert.equal(loadBillingConfig().quoteSettings.taxRegistrationNumber, 'REG-123');
+  assert.equal(loadBillingConfig().quoteSettings.quoteValidityDays, 21);
   assert.equal(loadBillingConfig().companyTax.enabled, false);
   assert.equal(loadBillingConfig().company.name, 'Pacific Couriers');
   taxes.unmount();
@@ -1292,7 +1263,7 @@ test('active cards enable maximum weight once while preserving divisors and arch
 });
 
 
-test('legacy catalogue settings normalize without changing names, dollar values, tax or status', async () => {
+test('legacy catalogue settings preserve custom values while upgrading the built-in package charges', async () => {
   const { LEGACY_ACCESSORIALS } = await import('./fixtures/legacyAccessorials');
   const config = loadSimplePricingConfig();
   const legacy = structuredClone(LEGACY_ACCESSORIALS);
@@ -1301,8 +1272,10 @@ test('legacy catalogue settings normalize without changing names, dollar values,
   const loaded = loadSimplePricingConfig();
   for (let i = 0; i < legacy.length; i++) {
     const item = loaded.accessorials[i];
-    assert.deepEqual([item.id, item.name, item.rate, item.taxable, item.active], [legacy[i].id, legacy[i].name, legacy[i].rate, legacy[i].taxable, legacy[i].active]);
-    assert.deepEqual([item.calculationType, item.appliesAt, item.autoRule, item.fuelEligible, item.minimumCharge, item.maximumCharge, item.freeAllowance, item.incrementMinutes], ['FLAT', 'ORDER', 'NONE', false, null, null, null, null]);
+    const packageCharge = item.code === 'FRAGILE' || item.code === 'DG';
+    const migratedPreset = legacy[i].code === 'FRAGILE' && legacy[i].name === 'Fragile Blanket Wrap';
+    assert.deepEqual([item.id, item.name, item.rate, item.taxable, item.active], [legacy[i].id, migratedPreset ? 'Fragile' : legacy[i].name, legacy[i].rate, legacy[i].taxable, legacy[i].active]);
+    assert.deepEqual([item.calculationType, item.appliesAt, item.autoRule, item.fuelEligible, item.minimumCharge, item.maximumCharge, item.freeAllowance, item.incrementMinutes], [packageCharge ? 'PER_UNIT' : 'FLAT', 'ORDER', 'NONE', false, null, null, null, null]);
   }
   assert.equal(loaded.accessorials[0].description, 'Custom conditions');
   saveSimplePricingConfig(loaded);
@@ -1647,7 +1620,7 @@ test('custom legacy service shows Set charge and accepts a company-currency fixe
   const config = structuredClone(loadSimplePricingConfig());
   config.services = [{ ...config.services[0], id: 'custom', name: 'Custom legacy', defaultMultiplier: 1.6, additionalCharge: null }];
   saveSimplePricingConfig(config);
-  const billing = loadBillingConfig(); billing.invoicing.currency = 'USD'; saveBillingConfig(billing);
+  const billing = loadBillingConfig(); billing.quoteSettings.currency = 'USD'; saveBillingConfig(billing);
   const user = userEvent.setup({ document });
   render(React.createElement(CatalogueSection, { section: 'services' }));
   assert.ok(screen.getByText('Set charge')); assert.equal(screen.queryByText('Price multiplier'), null);

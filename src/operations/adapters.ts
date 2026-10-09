@@ -28,7 +28,7 @@ export function shipperToCustomer(row: Shipper): Customer {
     accountType: 'Standard Freight', status, defaultRequirements: [], billingEmail: '',
     rateCardId: row.rate_card_id, discount: { type: row.discount.kind, value: Number(row.discount.value), scope: 'TRANSPORT_ONLY' },
     taxProfileId: null, taxExempt: false, totalShipments: 0, activeJobsCount: 0,
-    notes: row.instructions, createdAt: row.created_at, paymentTerms: row.terms as Customer['paymentTerms'],
+    notes: row.instructions, createdAt: row.created_at,
     communicationPreferences: { sms: false, email: row.email_updates ?? true, tracking: true },
   };
 }
@@ -40,7 +40,6 @@ export function customerToShipper(form: Partial<Customer>, previous?: Shipper, c
     email: form.email?.trim().toLowerCase() ?? '', phone: form.phone?.trim() ?? '',
     warehouse: canadianAddress(form.address ?? '', previous?.warehouse, coordinates),
     rate_card_id: form.rateCardId || null,
-    terms: (form.paymentTerms ?? 'NET30') as ShipperInput['terms'],
     discount: { kind: form.discount?.type === 'PERCENT' || form.discount?.type === 'FIXED' ? form.discount.type : 'NONE', value: form.discount?.value ?? 0 },
     instructions: form.notes ?? '',
     email_updates: form.communicationPreferences?.email ?? previous?.email_updates ?? true,
@@ -87,7 +86,7 @@ export function vehicleToUi(row: ApiVehicle, type?: CatalogItem, driver?: ApiDri
   const status = available === 'UNAVAILABLE' ? 'maintenance' : available === 'INACTIVE' ? 'standby' : 'available';
   return {
     id: row.id, vehicleNumber: row.number, unitNumber: data.unit_number, plateNumber: row.plate, vin: data.vin,
-    category: (['1 Tonne Van', '2 Tonne Cube', '3 Tonne Box', '5 Tonne Freight', 'Flatbed', 'Refrigerated Reefer'] as const).find(name => name === type?.data.name) ?? (data.equipment.includes('REFRIGERATION') ? 'Refrigerated Reefer' : '1 Tonne Van'), makeModel: data.make_model, year: data.year ?? new Date().getFullYear(),
+    category: (['1 Tonne Van', '2 Tonne Cube', '3 Tonne Box', '5 Tonne Freight', 'Flatbed', 'Refrigerated Reefer'] as const).find(name => name === type?.data.name) ?? (data.equipment.includes('REFRIGERATION') ? 'Refrigerated Reefer' : '1 Tonne Van'), makeModel: data.make_model, year: data.year ?? 0,
     status, statusLabel: available === 'UNAVAILABLE' ? 'Unavailable' : available === 'INACTIVE' ? 'Inactive' : 'Available',
     currentDriverId: driver?.id, currentDriverName: driver?.name, currentLocation: '',
     fuelBatteryPercent: 0, fuelType: 'Diesel', odometerKm: 0, payloadCapacityKg: Number(data.payload_kg),

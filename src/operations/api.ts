@@ -9,7 +9,6 @@ export type CatalogItem = components['schemas']['CatalogView'];
 export type RateCard = components['schemas']['RateView'];
 export type Order = components['schemas']['OrderView'];
 export type Quote = components['schemas']['QuoteView'];
-export type Invoice = components['schemas']['InvoiceView'];
 export type ShipperInput = components['schemas']['ShipperData'];
 export type DriverInput = components['schemas']['DriverData'];
 export type VehicleInput = components['schemas']['VehicleData-Input'];
@@ -91,11 +90,8 @@ export const operations = {
   approveDispatch: async (slug: string, decision: DispatchDecision, driverId: string) => unwrap(await client.POST('/api/v1/companies/{slug}/dispatch-decisions/{identity}/approve', { body: { version: decision.version, driver_id: driverId }, params: { path: entity(slug, decision.id), header: mutation() } })),
   completeOrder: async (slug: string, order: Order) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/complete', { body: { version: order.version }, params: { path: entity(slug, order.id), header: mutation() } })),
   releaseRoute: async (slug: string, route: components['schemas']['RouteView']) => unwrap(await client.POST('/api/v1/companies/{slug}/routes/{identity}/release', { body: { version: route.version, generation: route.generation }, params: { path: entity(slug, route.id), header: mutation() } })),
-  createInvoice: async (slug: string, order: Order, actualMinutes: number | null = null) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/invoice', { body: { version: order.version, actual_minutes: actualMinutes }, params: { path: entity(slug, order.id), header: mutation() } })),
-  sendInvoice: async (slug: string, invoice: Invoice) => unwrap(await client.POST('/api/v1/companies/{slug}/invoices/{identity}/send', { body: { version: invoice.version }, params: { path: entity(slug, invoice.id), header: mutation() } })),
   orders: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders', { params: { path: company(slug), query: { limit: 200, after } } })),
   quotes: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/quotes', { params: { path: company(slug), query: { limit: 200, after } } })),
-  invoices: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/invoices', { params: { path: company(slug), query: { limit: 100, after } } })),
   driverActivity: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/drivers/{identity}/activity', { params: { path: entity(slug, identity) } })),
   mailbox: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/email-intake/mailbox', { params: { path: company(slug) } })),
   saveMailbox: async (slug: string, data: MailboxInput) => unwrap(await client.PUT('/api/v1/companies/{slug}/email-intake/mailbox', { body: data, params: { path: company(slug), header: mutation() } })),
@@ -132,5 +128,4 @@ export const allOperations = {
   routes: (slug: string) => allPages(after => operations.routes(slug, after), 100),
   orders: (slug: string) => allPages(after => operations.orders(slug, after)),
   quotes: (slug: string) => allPages(after => operations.quotes(slug, after)),
-  invoices: (slug: string) => allPages(after => operations.invoices(slug, after), 100),
 };

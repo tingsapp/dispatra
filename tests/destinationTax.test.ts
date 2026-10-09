@@ -3,15 +3,14 @@ import { test } from 'node:test';
 import { INITIAL_BILLING_CONFIG } from '../src/lib/billingStorage';
 import { INITIAL_ACCESSORIALS, INITIAL_SERVICES, INITIAL_VEHICLES } from '../src/lib/simplePricingStorage';
 import { createEmptyRateCard } from '../src/lib/pricingStorage';
-import { createDefaultOrderInput, createStop, finalizeOrderPrice, priceOrder } from '../src/lib/orderPricing';
-import { createInvoicePreview } from '../src/lib/organizationWorkflows';
+import { createDefaultOrderInput, createStop, priceOrder } from '../src/lib/orderPricing';
 import { calculatePricing, PricingContext } from '../src/lib/pricingEngine';
 import { addressChange, resolveStopLocation } from '../src/lib/taxAddress';
 import { DEFAULT_SHIPPERS } from '../src/lib/customerStorage';
 
 function setup() {
   const billing = structuredClone(INITIAL_BILLING_CONFIG);
-  Object.assign(billing.invoicing, { taxRegistrationStatus: 'REGISTERED', taxRegistrationNumber: '123456789 RT0001' });
+  Object.assign(billing.quoteSettings, { taxRegistrationStatus: 'REGISTERED', taxRegistrationNumber: '123456789 RT0001' });
   billing.fuelSurcharge.enabled = false; billing.serviceCharge.enabled = false; billing.rules.minimumChargePerJob = 0;
   const card = createEmptyRateCard({ id: 'tax-card', scope: 'ORGANIZATION', effectiveFrom: '2020-01-01', pricingMethod: 'FIXED', fixedAmount: 100, applyVehicleSurcharge: false, applyAdminFee: false, applyServiceMultiplier: false, applyAccessorials: false });
   const ctx: PricingContext = { billing, catalogue: { services: structuredClone(INITIAL_SERVICES), vehicles: structuredClone(INITIAL_VEHICLES), accessorials: structuredClone(INITIAL_ACCESSORIALS) }, pricing: { rateCards: [card], zones: [], zoneRates: [], customerGroups: [] }, customers: [], asOf: new Date('2026-09-17T12:00:00Z') };
@@ -22,7 +21,7 @@ function setup() {
 }
 function assertReview(s: ReturnType<typeof setup>, pattern: RegExp) {
   const result = priceOrder(s.order, s.ctx); assert.equal(result.status, 'NEEDS_ATTENTION'); assert.match(result.errors.map(e => e.message).join(' '), pattern);
-  assert.equal(result.taxTotal, 0); assert.throws(() => createInvoicePreview('order', { ...result, stage: 'FINAL' }, s.ctx));
+  assert.equal(result.taxTotal, 0);
 }
 
 test('historical destination-mode orders retain their supported province rates', () => {
@@ -67,7 +66,7 @@ test('Quebec movements and special freight treatment require review', () => {
 test('destination tax applies without registration setup and ignores legacy registration choices', () => {
   for (const status of [undefined, 'UNCONFIRMED', 'REGISTERED', 'NOT_REGISTERED'] as const) {
     for (const number of ['', 'invalid', '123456789 RT0001']) {
-      const s = setup(); s.billing.invoicing.taxRegistrationStatus = status; s.billing.invoicing.taxRegistrationNumber = number;
+      const s = setup(); s.billing.quoteSettings.taxRegistrationStatus = status; s.billing.quoteSettings.taxRegistrationNumber = number;
       const result = priceOrder(s.order, s.ctx);
       assert.equal(result.status, 'PRICED'); assert.equal(result.taxTotal, 5); assert.equal(result.total, 105);
       assert.match(result.taxDecision!.description, /GST 5%/);
@@ -81,48 +80,40 @@ test('destination rates ignore manually configured profiles and review customer 
   customer.taxExempt = true; assertReview(s, /exemption documents/);
 });
 test('new quotes add destination tax even when legacy inclusive pricing is enabled', () => {
-  const s = setup(); s.billing.invoicing.pricesIncludeTax = true; s.card.fixedAmount = 113;
+  const s = setup(); s.billing.quoteSettings.pricesIncludeTax = true; s.card.fixedAmount = 113;
   s.order.stops[1] = { ...s.order.stops[1], ...addressChange('200 Main St, Toronto ON M5V 2T6') };
   const result = priceOrder(s.order, s.ctx); assert.equal(result.subtotal, 113); assert.equal(result.taxTotal, 14.69); assert.equal(result.total, 127.69);
-  assert.equal(result.context!.billing.invoicing.pricesIncludeTax, false);
-  assert.equal(s.billing.invoicing.pricesIncludeTax, true);
+  assert.equal(result.context!.billing.quoteSettings.pricesIncludeTax, false);
+  assert.equal(s.billing.quoteSettings.pricesIncludeTax, true);
 });
 test('unhandled historical rate periods need review', () => {
   const s = setup(); s.ctx.asOf = new Date('2025-03-31'); assertReview(s, /Historical tax dates/);
 });
-test('saved quotes and invoices keep their tax after company settings change', () => {
+test('saved quotes keep their tax after company settings change', () => {
   const s = setup(); const quote = priceOrder(s.order, s.ctx); const stored = JSON.parse(JSON.stringify(quote));
-  s.billing.invoicing.taxRegistrationStatus = 'NOT_REGISTERED'; const final = finalizeOrderPrice(s.order, null, s.ctx, stored);
-  assert.equal(final.snapshot.taxTotal, 5); assert.equal(createInvoicePreview('order', final.snapshot, s.ctx).tax, 5); assert.equal(final.snapshot.taxDecision?.ruleVersion, quote.taxDecision?.ruleVersion);
+  s.billing.quoteSettings.taxRegistrationStatus = 'NOT_REGISTERED';
+  assert.equal(stored.taxTotal, 5); assert.equal(stored.taxDecision?.ruleVersion, quote.taxDecision?.ruleVersion);
 });
-test('hourly settlement reuses the saved tax decision and rejects changed destinations', () => {
-  const s = setup(); Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true }); s.order.hourlyBillableMinutes = 60;
-  const quote = priceOrder(s.order, s.ctx); assert.equal(quote.status, 'PRICED', JSON.stringify(quote.errors)); s.billing.invoicing.taxRegistrationStatus = 'NOT_REGISTERED';
-  const settled = finalizeOrderPrice(s.order, 120, s.ctx, JSON.parse(JSON.stringify(quote))); assert.equal(settled.snapshot.taxTotal, 10);
-  s.order.stops[1] = { ...s.order.stops[1], ...addressChange('20 King St, Toronto ON M5V 2T6') };
-  assert.equal(finalizeOrderPrice(s.order, 120, s.ctx, quote).snapshot.status, 'NEEDS_ATTENTION');
-});
+
 test('historical no-tax hourly quotes retain their frozen treatment while new quotes collect tax', () => {
-  const s = setup(); Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true }); s.order.hourlyBillableMinutes = 60;
+  const s = setup(); Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1 }); s.order.hourlyBillableMinutes = 60;
   const decision = structuredClone(priceOrder(s.order, s.ctx).taxDecision!);
   decision.ruleVersion = 'ca-domestic-freight-2026-09-17';
   decision.profile!.taxes = [];
   decision.description = 'GST/HST not collected · company marked as not registered';
   const oldQuote = priceOrder(s.order, { ...s.ctx, destinationTax: decision });
   assert.equal(oldQuote.taxTotal, 0);
-  const final = finalizeOrderPrice(s.order, 120, s.ctx, JSON.parse(JSON.stringify(oldQuote)));
-  assert.equal(final.snapshot.status, 'PRICED'); assert.equal(final.snapshot.taxTotal, 0); assert.equal(final.snapshot.total, 200);
+  const saved = JSON.parse(JSON.stringify(oldQuote));
+  assert.equal(saved.status, 'PRICED'); assert.equal(saved.taxTotal, 0); assert.equal(saved.total, 100);
   assert.equal(priceOrder(s.order, s.ctx).taxTotal, 5);
 });
 test('saved inclusive hourly quotes retain their original tax treatment', () => {
-  const s = setup(); s.billing.invoicing.pricesIncludeTax = true;
-  Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 105, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true }); s.order.hourlyBillableMinutes = 60;
+  const s = setup(); s.billing.quoteSettings.pricesIncludeTax = true;
+  Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 105, minimumBillableMinutes: 0, billingIncrementMinutes: 1 }); s.order.hourlyBillableMinutes = 60;
   const oldQuote = calculatePricing(s.order, s.ctx);
   assert.equal(oldQuote.total, 105); assert.equal(oldQuote.taxTotal, 5);
-  const settled = finalizeOrderPrice(s.order, 120, s.ctx, JSON.parse(JSON.stringify(oldQuote)));
-  assert.equal(settled.snapshot.total, 210); assert.equal(settled.snapshot.taxTotal, 10);
+  assert.equal(JSON.parse(JSON.stringify(oldQuote)).total, 105);
   assert.equal(priceOrder(s.order, s.ctx).total, 110.25);
-  assert.equal(finalizeOrderPrice(s.order, 120, s.ctx).snapshot.total, 220.5);
 });
 test('historical profile orders preserve the previous tax calculation', () => {
   const s = setup(); s.order.taxCalculation = undefined; s.billing.taxProfiles[0].taxes[0].ratePercent = 8;
@@ -146,18 +137,17 @@ test('saved province overrides drive new tax with zero supported and defaults fo
     assert.equal(priceOrder(s.order, s.ctx).taxTotal, 5);
   }
 });
-test('invalid saved rates need review and cannot become an untaxed invoice', () => {
+test('invalid saved rates need review and cannot become an untaxed price', () => {
   for (const rate of [null, -1, 101, NaN, Infinity]) {
     const s = setup(); s.billing.destinationTaxRates = { BC: rate }; assertReview(s, /tax rate from 0 to 100%/);
   }
 });
-test('province changes preserve saved quotes and hourly settlement rates', () => {
+test('province changes preserve saved hourly quotes', () => {
   const s = setup(); s.billing.destinationTaxRates = { BC: 7.25 };
-  Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true }); s.order.hourlyBillableMinutes = 60;
+  Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1 }); s.order.hourlyBillableMinutes = 60;
   const quote = JSON.parse(JSON.stringify(priceOrder(s.order, s.ctx)));
   s.billing.destinationTaxRates.BC = 9;
   assert.equal(priceOrder(s.order, s.ctx).taxTotal, 9);
-  const final = finalizeOrderPrice(s.order, 120, s.ctx, quote);
-  assert.equal(final.snapshot.taxTotal, 14.5);
-  assert.equal(createInvoicePreview('order', final.snapshot, s.ctx).tax, 14.5);
+  assert.equal(quote.taxTotal, 7.25);
+
 });

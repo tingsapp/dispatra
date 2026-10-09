@@ -11,12 +11,18 @@ try {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('heading', { name: 'Orders', exact: true }).waitFor();
   const nav = page.getByRole('navigation', { name: 'Portal navigation' });
-  assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Orders','Invoices']);
+  assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Orders']);
+  for (const retired of ['shipper/invoices', 'shipper-portal/invoices']) {
+    await page.goto(`${origin}/${slug}/${retired}`);
+    await page.waitForURL(`**/${slug}/shipper`);
+    await page.getByRole('heading', { name: 'Orders', exact: true }).waitFor();
+    assert.equal(await page.getByText('Invoices', { exact: true }).count(), 0);
+  }
   for (const [name,path,content] of [
-    ['Orders','orders','Orders'], ['Invoices','invoices','Invoices'],
+    ['Orders','','Orders'],
   ]) {
     await nav.getByRole('link', { name, exact: true }).click();
-    await page.waitForURL(`**/${slug}/shipper/${path}`);
+    await page.waitForURL(`**/${slug}/shipper${path ? `/${path}` : ''}`);
     await page.getByRole('heading', { name: content, exact: true }).last().waitFor();
     assert.equal(await nav.getByRole('link', { name, exact: true }).getAttribute('aria-current'), 'page');
     await page.reload();

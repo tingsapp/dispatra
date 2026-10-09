@@ -15,9 +15,9 @@ export function BillingSettingsForm({ section, onNotification }: { section: keyo
         <div className="mt-4 max-w-md">
           <label htmlFor="tax-registration" className={labelClass}>GST/HST Registration Number</label>
           <input id="tax-registration" type="text" aria-label="GST/HST registration number" className={fieldClass}
-            value={editor.config.invoicing.taxRegistrationNumber} placeholder="123456789 RT0001"
-            onChange={event => editor.patch('invoicing', { taxRegistrationNumber: event.target.value })} />
-          <p className="mt-1 text-xs text-slate-500">Optional. Printed on invoices.</p>
+            value={editor.config.quoteSettings.taxRegistrationNumber} placeholder="123456789 RT0001"
+            onChange={event => editor.patch('quoteSettings', { taxRegistrationNumber: event.target.value })} />
+          <p className="mt-1 text-xs text-slate-500">Optional. Company tax registration number.</p>
         </div>
       </section>
       <TaxSettings editor={editor} />

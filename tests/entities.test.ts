@@ -8,12 +8,22 @@ import { loadVehicles, saveVehicles, INITIAL_VEHICLES_FLEET, normalizeVehicle, s
 import { DEFAULT_SHIPPERS, loadCustomers, saveCustomers, normalizeCustomer } from '../src/lib/customerStorage';
 import { INITIAL_DRIVERS, INITIAL_JOBS } from '../src/data/mockData';
 import { createDefaultOrderInput, createStop, loadPricingContext, priceOrder, loadSavedOrders, saveOrders } from '../src/lib/orderPricing';
-import { createInvoicePreview, validateAssignment } from '../src/lib/organizationWorkflows';
+import { validateAssignment } from '../src/lib/organizationWorkflows';
 const store = new Map<string,string>();
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (k:string) => store.get(k) ?? null, setItem: (k:string,v:string) => store.set(k,v), removeItem: (k:string) => store.delete(k), clear: () => store.clear() } });
 function facts() { const input = createDefaultOrderInput(loadPricingContext()); input.taxCalculation = undefined; // Historical entity fixtures.
  input.stops[0].label = 'Pickup A'; input.stops[1].label = 'Delivery A'; return input; }
 function fleetVehicle() { return normalizeVehicle({ ...INITIAL_VEHICLES_FLEET[2], currentDriverId: undefined, availability:'AVAILABLE', payloadCapacityKg: 100, cargoVolumeM3: 5, cargoLengthCm: 200, cargoWidthCm: 120, cargoHeightCm: 150 }); }
+test('vehicle public IDs follow normalized unit numbers while preserving internal ID and company prefix', () => {
+  const vehicle = normalizeVehicle({ ...fleetVehicle(), unitNumber: ' v12 ', vehicleNumber: 'DAV-3748' });
+  assert.equal(vehicle.vehicleNumber, 'DAV-V12'); assert.equal(vehicle.unitNumber, 'V12');
+  const renamed = syncVehicle({ ...vehicle, unitNumber: 'v14' });
+  assert.equal(renamed.id, vehicle.id); assert.equal(renamed.vehicleNumber, 'DAV-V14');
+  const duplicate = { ...renamed, id: 'other', unitNumber: ' V12 ', plateNumber: 'NEW-PLATE' };
+  assert.match(validateVehicle(duplicate, [vehicle]).join(' '), /already exists/);
+  saveVehicles([renamed]); assert.equal(loadVehicles()[0].vehicleNumber, 'DAV-V14');
+  store.clear();
+});
 test('default order has valid stable movement links; removing a stop clears dangling item and movement links', () => {
   const input = facts(); assert.deepEqual(validateOrderFacts(input), []);
   const removed = removeOrderStop(input,input.stops[0].id); assert.equal(removed.packages[0].pickupStopId, undefined); assert.deepEqual(removed.stops[0].pickupIds, []); assert.ok(validateOrderFacts(removed).length);
@@ -49,7 +59,7 @@ test('driver duty, work, connectivity and GPS are independent and persist throug
   assert.equal(connectivity(undefined),'Unknown'); assert.equal(connectivity('2026-09-14T10:00:00Z',Date.parse('2026-09-14T10:01:00Z')),'Online'); assert.equal(connectivity('2026-09-14T10:00:00Z',Date.parse('2026-09-14T10:05:00Z')),'Stale');
 });
 test('customer locations and defaults persist while booking snapshot remains unchanged', () => {
-  const c=normalizeCustomer({...DEFAULT_SHIPPERS[0], paymentTerms:'NET7', defaultServiceId:'srv_direct', instructions:'Call receiving', tags:['Retail']});
+  const c=normalizeCustomer({...DEFAULT_SHIPPERS[0], defaultServiceId:'srv_direct', instructions:'Call receiving', tags:['Retail']});
   const snapshot=snapshotCustomer(c)!; saveCustomers([{...c,phone:'Changed',addresses:[{id:'loc',type:'DELIVERY',label:'Warehouse',address:'200 Main St'}]}]);
   assert.equal(snapshot.phone,DEFAULT_SHIPPERS[0].phone); assert.equal(loadCustomers()[0].addresses![0].address,'200 Main St');
   const input=applyCustomerDefaults(facts(),c); assert.equal(input.serviceId,'srv_direct'); assert.equal(input.stops[0].instructions,'Call receiving');
@@ -87,13 +97,16 @@ test('assignment respects skills, duty, service area, fleet type, equipment and 
   const order={pricingInput:input,requiredSkills:['Furniture'],requiredEquipment:['Liftgate'],serviceAreaId:'Vancouver'};
   const errors=validateOperationalAssignment(order,driver,[v]).join(' '); assert.match(errors,/on duty/); assert.match(errors,/skills/); assert.match(errors,/service area/); assert.match(errors,/shift/); assert.match(errors,/equipment/);
 });
+test('dangerous goods packages require a DG-qualified driver in local assignment checks', () => {
+  const input=facts(); input.packages[0].handlingTags=['DANGEROUS_GOODS'];
+  const vehicle=fleetVehicle();
+  const driver=normalizeDriver({...INITIAL_DRIVERS[0],currentVehicleId:vehicle.id,skills:[]});
+  const order={pricingInput:input};
+  assert.match(validateOperationalAssignment(order,driver,[vehicle]).join(' '),/verified DG qualification/);
+  assert.doesNotMatch(validateOperationalAssignment(order,{...driver,skills:['DG']},[vehicle]).join(' '),/DG qualification/);
+});
 test('final, completed and executing orders cannot be edited; risk is independent of lifecycle', () => {
   const order={...INITIAL_JOBS[0],status:'at_risk' as const,lifecycleStatus:'ASSIGNED' as const}; assert.equal(orderLifecycle(order),'ASSIGNED'); assert.equal(orderEditable({...order,lifecycleStatus:'IN_PROGRESS'}),false); assert.equal(orderLifecycle({...order,lifecycleStatus:'IN_EXECUTION' as any}),'IN_PROGRESS'); assert.equal(orderLifecycle({...order,lifecycleStatus:'READY_FOR_DISPATCH' as any}),'NEW'); assert.deepEqual(orderAttention(order).map(a=>a.flag),['AT_RISK']); assert.equal(orderEditable({...order,status:'completed',lifecycleStatus:'COMPLETED'}),false);
-});
-test('invoice payer and payment terms come from the frozen booking context', () => {
-  store.clear(); const ctx=loadPricingContext(); const buyer=normalizeCustomer({...DEFAULT_SHIPPERS[0],rateCardId:null}), payer=normalizeCustomer({...DEFAULT_SHIPPERS[1],paymentTerms:'NET7',billingEmail:'payer@example.test'}); ctx.customers=[buyer,payer];
-  const input=facts(); input.customerId=buyer.id; input.billingCustomerId=payer.id; input.stage='FINAL'; input.routeKm=12; const priced=priceOrder(input,ctx); assert.equal(priced.status,'PRICED');
-  payer.billingEmail='changed@example.test'; const invoice=createInvoicePreview('o',priced,ctx,new Date('2026-09-14T12:00:00Z')); assert.equal(invoice.billingEmail,payer.email); assert.equal(invoice.dueAt,'2026-09-21T12:00:00.000Z');
 });
 test('saved order operational fields and frozen amounts survive a roundtrip', () => {
   store.clear(); const input=facts(); const order={...INITIAL_JOBS[0],pricingInput:input,pricing:priceOrder(input),priority:'URGENT' as const,referenceNumbers:'PO-42',customerSnapshot:snapshotCustomer(DEFAULT_SHIPPERS[0]),version:2}; saveOrders([order]); const loaded=loadSavedOrders([])[0]; assert.equal(loaded.referenceNumbers,'PO-42'); assert.deepEqual(loaded.pricing,JSON.parse(JSON.stringify(order.pricing))); assert.deepEqual(loaded.customerSnapshot,JSON.parse(JSON.stringify(order.customerSnapshot)));
@@ -103,21 +116,6 @@ test('legacy Preferred customer status becomes an active account with a stable c
   const c=normalizeCustomer({...DEFAULT_SHIPPERS[0],status:'Preferred'}); assert.equal(c.status,'Active'); assert.deepEqual(c.tags,['Preferred']); assert.deepEqual(normalizeCustomer(c),c);
 });
 
-test('customer payment terms determine invoice due dates and stay frozen after later edits', () => {
-  for (const [terms, days] of [['COD', 0], ['NET15', 15], ['NET30', 30], ['NET45', 45], ['NET60', 60], ['INHERIT', 15]] as const) {
-    store.clear();
-    const ctx = loadPricingContext();
-    ctx.billing.invoicing.defaultPaymentTerms = 'NET15';
-    const customer = normalizeCustomer({ ...DEFAULT_SHIPPERS[0], rateCardId: null, paymentTerms: terms });
-    ctx.customers = [customer];
-    const input = facts(); input.customerId = customer.id; input.stage = 'FINAL'; input.routeKm = 12;
-    const snapshot = priceOrder(input, ctx); assert.equal(snapshot.status, 'PRICED');
-    customer.paymentTerms = 'NET7'; ctx.billing.invoicing.defaultPaymentTerms = 'NET30';
-    const issued = new Date('2026-09-20T12:00:00Z');
-    const invoice = createInvoicePreview('terms', snapshot, ctx, issued);
-    assert.equal(invoice.dueAt, new Date(issued.getTime() + days * 86400000).toISOString(), terms);
-  }
-});
 
 
 test('driver limits validate whole positive counts and preserve legacy defaults on load', () => {
@@ -129,4 +127,16 @@ test('driver limits validate whole positive counts and preserve legacy defaults 
   assert.deepEqual(validateDriver({ ...driver, maxActiveOrders: 1 }, [driver]), []);
   saveDrivers([{ ...driver, maxActiveOrders: 8 }]);
   assert.equal(loadDrivers([])[0].maxActiveOrders, 8);
+});
+
+test('legacy invoiced orders read as completed without changing their saved price', () => {
+  store.clear();
+  const input=facts(); const pricing=priceOrder(input);
+  const old={...INITIAL_JOBS[0],lifecycleStatus:'INVOICED',pricingInput:input,pricing,completedAt:'2026-09-20T12:00:00Z'} as any;
+  saveOrders([old]);
+  const restored=loadSavedOrders([])[0];
+  assert.equal(restored.lifecycleStatus,'COMPLETED');
+  assert.equal(orderEditable(restored),false);
+  assert.equal(restored.completedAt,old.completedAt);
+  assert.deepEqual(restored.pricing,JSON.parse(JSON.stringify(pricing)));
 });

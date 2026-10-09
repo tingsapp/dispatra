@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { operations } from '../../operations/api';
 import { formatWhen } from './OrderDossierSections';
 
-export const proofAvailable = (status?: string | null) => status === 'COMPLETED' || status === 'INVOICED';
+export const proofAvailable = (status?: string | null) => status === 'COMPLETED';
 export const evidenceUrl = (slug: string, id: string) => `/api/v1/companies/${slug}/evidence/${id}`;
 
 /** Proof of delivery for a completed Order: recipient, signature and photos, shared by the shipper and dispatcher order details. */

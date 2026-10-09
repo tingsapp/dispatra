@@ -28,8 +28,6 @@ import { Select } from '../components/ui/Select';
 import { validateCustomer } from '../domain/validation';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { Customer,EMPTY_PRICING_RELATIONSHIP,loadCustomers,normalizeCustomer,saveCustomers } from '../lib/customerStorage';
-import { loadBillingConfig } from '../lib/billingStorage';
-import { paymentTermOptions, PaymentTerms, resolvePaymentTerms } from '../lib/paymentTerms';
 import { Switch } from '../components/ui/Switch';
 import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
@@ -124,7 +122,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       name: '',
       customerType: 'BUSINESS',
       legalName: '',
-      paymentTerms: loadBillingConfig().invoicing.defaultPaymentTerms,
       contactName: '',
       email: '',
       phone: '',
@@ -142,7 +139,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const handleOpenEditModal = (c: Customer) => {
     setEditingCustomer(c);
     setWarehouseCoordinates(undefined);
-    setFormData({ ...c, city: '', paymentTerms: resolvePaymentTerms(c.paymentTerms, loadBillingConfig().invoicing.defaultPaymentTerms) });
+    setFormData({ ...c, city: '' });
     setIsModalOpen(true);
   };
 
@@ -452,7 +449,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 </span>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-5 text-xs space-y-2"><h4 className="app-section-title">Order history</h4>{jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-slate-500">No linked orders yet.</p>}{jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => <button key={j.id} className="block text-slate-700 text-left" onClick={() => onSelectJob?.(j.jobNumber)}>{j.jobNumber} · {j.statusLabel} · {j.invoicePreview ? 'Invoice preview available' : 'No invoice'}</button>)}</div>
+              <div className="rounded-xl border border-slate-200 p-5 text-xs space-y-2"><h4 className="app-section-title">Order history</h4>{jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-slate-500">No linked orders yet.</p>}{jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => <button key={j.id} className="block text-slate-700 text-left" onClick={() => onSelectJob?.(j.jobNumber)}>{j.jobNumber} · {j.statusLabel}</button>)}</div>
               {/* Contact Information */}
               <div className="space-y-3 rounded-xl border border-slate-200 p-5">
                 <h4 className="app-section-title text-slate-900">
@@ -562,7 +559,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 <div><span className="app-label">Shipper type</span><Select aria-label="Shipper type" className="w-full" value={formData.customerType ?? 'BUSINESS'} onValueChange={(v) => setFormData({ ...formData, customerType: v as Customer['customerType'] })} options={[{ value: 'BUSINESS', label: 'Business' }, { value: 'INDIVIDUAL', label: 'Individual' }]} /></div>
                 {formData.customerType !== 'INDIVIDUAL' && <label className="block sm:col-span-2"><span className="app-label">Company name</span><input type="text" required placeholder="e.g. Pacific Fresh Logistics" value={formData.legalName || ''} onChange={(e) => setFormData({ ...formData, legalName: e.target.value })} className="app-input w-full" /></label>}
                 <label className="block"><span className="app-label">Phone</span><ContactInput type="tel" placeholder="(604) 555-0100" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="app-input w-full" /></label>
-                <label className="block"><span className="app-label">Email</span><ContactInput type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Used for portal login, quotes and invoices.</span></label>
+                <label className="block"><span className="app-label">Email</span><ContactInput type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Used for portal login, quotes and delivery updates.</span></label>
                 <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2"><Switch aria-label="Email order updates" checked={formData.communicationPreferences?.email ?? true} onCheckedChange={email => setFormData({ ...formData, communicationPreferences: { sms: false, tracking: true, ...formData.communicationPreferences, email } })} /> Email order updates to this Shipper</label>
                 {editingCustomer && <div><span className="app-label">Status</span><Select aria-label="Shipper status" className="w-full" value={formData.status || 'Active'} onValueChange={(v) => setFormData({ ...formData, status: v as Customer['status'] })} options={[{ value: 'Active', label: 'Active' }, { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }]} /></div>}
               </FormSection>
@@ -573,7 +570,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
               <FormSection title="Billing">
                 <div><span className="app-label">Shipper rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.filter(c => !importedCardIds.has(c.id) || c.id === formData.rateCardId).map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">New orders start on it; dispatch can change it per order.</span></div>
-                <div><span className="app-label">Default payment terms</span><Select aria-label="Default payment terms" className="w-full" value={formData.paymentTerms ?? ''} onValueChange={value => setFormData({ ...formData, paymentTerms: value as PaymentTerms })} options={paymentTermOptions(editingCustomer?.paymentTerms)} /><span className="mt-1 block text-xs text-slate-500">Sets invoice due dates.</span></div>
               </FormSection>
 
               <section aria-label="Discount" className="space-y-3">

@@ -52,6 +52,8 @@ export interface Order extends OrderOperations {
   lat: number;
   lng: number;
   routeId?: string;
+  /** Saved API creation channel, independent of editable pricing facts. */
+  creationSource?: string;
   // ---- Commercial side (see types/pricing.ts) ----
   customerId?: string | null;
   serviceId?: string;
@@ -60,7 +62,6 @@ export interface Order extends OrderOperations {
   pricingInput?: PricingOrderInput;
   /** Frozen result. Re-priced only by an explicit action; FINAL stage locks it. */
   pricing?: PricingSnapshot;
-  invoicePreview?: import('./lib/organizationWorkflows').InvoicePreview;
 }
 
 export interface NeedsAttentionItem {

@@ -30,7 +30,7 @@ export interface TaxProfileConfig {
 
 export interface ServiceChargeSettings {
   enabled: boolean;
-  /** Shipper-facing label on the quote and invoice. */
+  /** Shipper-facing label on the quote. */
   label: string;
   mode: 'percentage' | 'flat' | 'greater_of';
   percent: number;
@@ -92,7 +92,7 @@ export interface OrganizationDefaults {
   defaultExtraStopRate: number;
 }
 
-export interface InvoicingSettings {
+export interface QuoteSettings {
   /** Legacy stored value; new company tax applies regardless of registration. */
   taxRegistrationStatus?: 'UNCONFIRMED' | 'REGISTERED' | 'NOT_REGISTERED';
   currency: 'CAD' | 'USD';
@@ -101,9 +101,7 @@ export interface InvoicingSettings {
   taxRegistrationNumber: string;
   /** Legacy quote context only. New quotes always add tax to the subtotal. */
   pricesIncludeTax: boolean;
-  defaultPaymentTerms: 'COD' | 'NET15' | 'NET30' | 'NET45';
   quoteValidityDays: number;
-  latePaymentFeePercent: number;
 }
 
 /** Assignment policy. Never read by the pricing engine — it does not change shipper price. */
@@ -113,13 +111,13 @@ export interface DispatchSettings {
   hubAddress?: string;
 }
 
-/** Who the organization is, as shown on invoices and customer communication. */
+/** Who the organization is, as shown on quotes and customer communication. */
 export interface CompanyDetails {
   name: string;
   address: string;
   phone: string;
   email: string;
-  /** Data URL of the invoice logo; empty means none. */
+  /** Data URL of the company logo; empty means none. */
   logoDataUrl: string;
 }
 
@@ -131,7 +129,7 @@ export interface BillingConfig {
   company: CompanyDetails;
   general: OrganizationDefaults;
   dispatch: DispatchSettings;
-  invoicing: InvoicingSettings;
+  quoteSettings: QuoteSettings;
   taxProfiles: TaxProfileConfig[];
   serviceCharge: ServiceChargeSettings;
   fuelSurcharge: FuelSurchargeSettings;

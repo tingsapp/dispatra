@@ -12,7 +12,7 @@ export function resolveCompanyTax(order: PricingOrderInput, billing: BillingConf
   const base = { ruleVersion: 'company-tax-v2', destinationKey: taxDestinationKey(order) };
   const fail = (error: string): DestinationTaxDecision => ({ ...base, profile: null, description: 'Company tax needs review', error });
   if (order.freightTaxTreatment === 'REVIEW' || order.source === 'IMPORT' || order.importedPrice != null || customer?.taxExempt) {
-    return fail('This order has special tax treatment. Review the freight or exemption documents before invoicing.');
+    return fail('This order has special tax treatment. Review the freight or exemption documents before pricing.');
   }
   const { enabled, ratePercent, provincialEnabled, provincialRatePercent } = billing.companyTax;
   if (enabled && !isValidTaxRate(ratePercent)) return fail('Set a GST/HST rate from 0 to 100% in Company.');

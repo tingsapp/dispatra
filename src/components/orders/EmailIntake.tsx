@@ -174,7 +174,7 @@ function MailboxForm({ slug, mailbox, onSaved }: { slug: string; mailbox: Mailbo
   return <form onSubmit={save} className="max-w-2xl space-y-5">
     <div>
       <h3 className="app-section-title text-slate-900">Mailbox</h3>
-      <p className="mt-1 text-sm text-slate-500">The Order agent reads new emails sent to this mailbox and turns them into Orders. Dispatra also sends your invoices and notifications from this address.</p>
+      <p className="mt-1 text-sm text-slate-500">The Order agent reads new emails sent to this mailbox and turns them into Orders. Dispatra also sends your quotes and delivery notifications from this address.</p>
       {mailbox && (mailbox.last_error
         ? <p role="alert" className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">Dispatra cannot read {mailbox.username}. {ERRORS[mailbox.last_error] ?? 'Check the settings and app password.'}</p>
         : <p className="mt-3 text-sm text-slate-600">{mailbox.enabled ? <>Last checked {when(mailbox.last_polled_at)}</> : <>Reading new emails is paused.</>}</p>)}

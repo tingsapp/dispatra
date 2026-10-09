@@ -112,6 +112,50 @@ test('service calendar preserves organization wall time and arbitrary minutes wh
   assert.ok((screen.getByRole('combobox', { name: 'Service window time hours' }) as HTMLButtonElement).disabled);
 });
 
+test('new booking picker blocks past dates and minutes while leaving future times selectable', async () => {
+  const user = userEvent.setup({ document });
+  let selected = '';
+  function BookingTime() {
+    const [value, setValue] = useState('');
+    return React.createElement(DateTimePicker, { value, timeZone: 'UTC', currentTime: new Date('2026-09-14T17:25:40Z'), futureOnly: true,
+      'aria-label': 'Pickup', onValueChange: next => { selected = next; setValue(next); } });
+  }
+  render(React.createElement(BookingTime));
+  await user.click(screen.getByRole('button', { name: 'Pickup date: Pick a date' }));
+  assert.equal((screen.getByRole('button', { name: /September 13th, 2026/ }) as HTMLButtonElement).disabled, true);
+  await user.click(screen.getByRole('button', { name: 'Today' }));
+  assert.equal(selected, '2026-09-14T17:26');
+  await user.click(screen.getByRole('combobox', { name: 'Pickup time hours' }));
+  assert.equal(screen.getByRole('option', { name: '16' }).getAttribute('aria-disabled'), 'true');
+  await user.click(screen.getByRole('option', { name: '18' }));
+  assert.equal(selected, '2026-09-14T18:26');
+  await user.click(screen.getByRole('combobox', { name: 'Pickup time minutes' }));
+  assert.equal(screen.getByRole('option', { name: '10' }).getAttribute('aria-disabled'), null);
+  await user.click(screen.getByRole('option', { name: '10' }));
+  assert.equal(selected, '2026-09-14T18:10');
+});
+
+test('drop-off picker allows the pickup day from the following minute and blocks older dates', async () => {
+  const user = userEvent.setup({ document });
+  let selected = '';
+  function DropoffTime() {
+    const [value, setValue] = useState('');
+    return React.createElement(DateTimePicker, { value, timeZone: 'UTC', currentTime: new Date('2026-09-14T08:00:00Z'), futureOnly: true,
+      after: '2026-09-16T15:45', 'aria-label': 'Drop-off', onValueChange: next => { selected = next; setValue(next); } });
+  }
+  render(React.createElement(DropoffTime));
+  await user.click(screen.getByRole('button', { name: 'Drop-off date: Pick a date' }));
+  assert.equal((screen.getByRole('button', { name: /September 15th, 2026/ }) as HTMLButtonElement).disabled, true);
+  assert.equal((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled, true);
+  await user.click(screen.getByRole('button', { name: /September 16th, 2026/ }));
+  assert.equal(selected, '2026-09-16T15:46');
+  await user.click(screen.getByRole('combobox', { name: 'Drop-off time hours' }));
+  assert.equal(screen.getByRole('option', { name: '14' }).getAttribute('aria-disabled'), 'true');
+  await user.click(screen.getByRole('option', { name: '15' }));
+  await user.click(screen.getByRole('combobox', { name: 'Drop-off time minutes' }));
+  assert.equal(screen.getByRole('option', { name: '45' }).getAttribute('aria-disabled'), 'true');
+});
+
 test('shared calendar uses real dates and shortcuts across year boundaries', async () => {
   const user = userEvent.setup({ document });
   let last = '';

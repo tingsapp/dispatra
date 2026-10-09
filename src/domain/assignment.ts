@@ -38,6 +38,7 @@ export function validateOperationalAssignment(order: Partial<Order>, driver: Dri
   const area = order.serviceAreaId ?? (pickupCity ? cityAreaId(pickupCity) : undefined);
   if (area && !contains(driver.serviceAreaIds, [area])) errors.push(order.serviceAreaId ? 'Driver does not cover the service area.' : 'Driver does not cover the pickup city.');
   if (!input) return errors;
+  if (input.packages.some(p => p.handlingTags?.includes('DANGEROUS_GOODS')) && !contains(driver.skills, ['DG'])) errors.push('Driver requires a verified DG qualification.');
   if (input.packages.some(p => p.requiresTwoPeople) && !contains(driver.skills, ['Two people'])) errors.push('A two-person crew is required.');
   const requested = input.scheduledAt;
   // Organization wall values can be compared lexically. Existing non-ISO legacy shift labels are not interpreted.

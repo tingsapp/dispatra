@@ -19,7 +19,7 @@ export const taxDestinationKey = (order: PricingOrderInput) => JSON.stringify(or
 export function resolveDestinationTax(order: PricingOrderInput, billing: BillingConfig, customer: Customer | undefined, asOf: Date): DestinationTaxDecision {
   const base = { ruleVersion: TAX_RULE_VERSION, destinationKey: taxDestinationKey(order) };
   const fail = (error: string): DestinationTaxDecision => ({ ...base, profile: null, description: 'Automatic tax needs review', error });
-  if (order.freightTaxTreatment === 'REVIEW' || order.source === 'IMPORT' || order.importedPrice != null || customer?.taxExempt) return fail('This order has special tax treatment. Review the freight or exemption documents before invoicing.');
+  if (order.freightTaxTreatment === 'REVIEW' || order.source === 'IMPORT' || order.importedPrice != null || customer?.taxExempt) return fail('This order has special tax treatment. Review the freight or exemption documents before pricing.');
   if (!order.stops.some(s => s.type === 'PICKUP') || !order.stops.some(s => s.type === 'DROPOFF')) return fail('Add a pickup and delivery address to calculate tax.');
   const locations = order.stops.map(stop => ({ stop, ...resolveStopLocation(stop) }));
   for (const [index, location] of locations.entries()) {
@@ -28,13 +28,13 @@ export function resolveDestinationTax(order: PricingOrderInput, billing: Billing
     if (location.country !== 'CA') return fail('International freight needs tax review. Automatic domestic tax has not been applied.');
     if (!location.province) return fail(`Confirm the province for stop ${index + 1} to calculate tax.`);
   }
-  if (locations.some(location => location.province === 'QC')) return fail('Quebec freight needs a GST/QST review before invoicing. Automatic provincial tax is not yet supported for this movement.');
+  if (locations.some(location => location.province === 'QC')) return fail('Quebec freight needs a GST/QST review before pricing. Automatic provincial tax is not yet supported for this movement.');
   const destinations = [...new Set(locations.filter(location => location.stop.type === 'DROPOFF').map(location => location.province!))];
-  if (destinations.length !== 1) return fail('Deliveries span different provinces. Allocate the freight charge to each destination for tax review before invoicing.');
+  if (destinations.length !== 1) return fail('Deliveries span different provinces. Allocate the freight charge to each destination for tax review before pricing.');
   if (!Number.isFinite(asOf.getTime()) || asOf.toISOString().slice(0, 10) < DESTINATION_TAX_RATES_EFFECTIVE_FROM) return fail('Historical tax dates before April 1, 2025 need review.');
   const province = destinations[0];
   const defaultRate = DESTINATION_TAX_RATES[province];
-  if (!defaultRate) return fail('This destination needs tax review before invoicing.');
+  if (!defaultRate) return fail('This destination needs tax review before pricing.');
   const { name } = defaultRate;
   const override = billing.destinationTaxRates?.[province];
   const rate = override === undefined ? defaultRate.ratePercent : override;

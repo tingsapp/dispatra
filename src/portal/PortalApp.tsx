@@ -8,13 +8,13 @@ import { LoginPage } from './LoginPage';
 import { AdminPortal } from './admin/AdminPortal';
 import { isAdminPath } from './admin/adminRoutes';
 import { Button, Notice } from './ui';
-import { companySlugForPath, pageForPath } from '../lib/pageRoutes';
+import { companySlugForPath, pageForPath, roleHome } from '../lib/pageRoutes';
 const Workspace = lazy(() => import('../App'));
 const cache = new QueryClient({ defaultOptions: { queries: { retry:false, gcTime:0, refetchOnWindowFocus:true }, mutations:{ retry:false, gcTime:0 } } });
 type PortalRoute = { slug?: string; portal: LoginInput['portal'] | 'driver'; workspace?: boolean };
 /** Old portal URLs → clean ones: /{company}, /{company}/shipper, /{company}/driver. */
 const LEGACY: Record<string, string> = {
-  '/shipper-portal': '/shipper', '/shipper-portal/orders': '/shipper', '/shipper-portal/invoices': '/shipper/invoices', '/shipper-portal/profile': '/shipper/profile',
+  '/shipper-portal': '/shipper', '/shipper-portal/orders': '/shipper', '/shipper-portal/invoices': '/shipper', '/shipper/invoices': '/shipper', '/shipper-portal/profile': '/shipper/profile',
   '/shipper-portal/settings': '/shipper/profile', '/shipper-portal/payment-methods': '/shipper', '/shipper/orders': '/shipper', '/driver/orders': '/driver',
   '/customer': '/shipper', '/customer/login': '/shipper', '/customer/settings': '/shipper/profile', '/dispatch': '/', '/dispatch/login': '/', '/dispatch/settings': '/profile',
 };
@@ -29,12 +29,11 @@ export function parsePortal(path: string): PortalRoute | null {
   if (!slug) return null;
   if (pageForPath(path)) return { slug, portal:'dispatch', workspace:true };
   if (new RegExp(`^/${slug}/driver(?:/profile)?/?$`).test(path)) return { slug, portal:'driver' };
-  if (new RegExp(`^/${slug}/shipper(?:/(?:profile|invoices))?/?$`).test(path)) return { slug, portal:'customer' };
+  if (new RegExp(`^/${slug}/shipper(?:/profile)?/?$`).test(path)) return { slug, portal:'customer' };
   return null;
 }
 const ROLE = { platform:'ADMIN', dispatch:'DISPATCHER', customer:'SHIPPER', driver:'DRIVER' } as const;
-/** Each company account's home: dispatchers at the root, Shippers and drivers in their portals. */
-export const roleHome = (slug: string, role: string) => role === 'SHIPPER' ? `/${slug}/shipper` : role === 'DRIVER' ? `/${slug}/driver` : `/${slug}/`;
+export { roleHome } from '../lib/pageRoutes';
 const portalHome = (route: PortalRoute) => route.portal === 'platform' ? '/admin' : roleHome(route.slug!, ROLE[route.portal]);
 export default function PortalApp() { return <QueryClientProvider client={cache}><Portal /></QueryClientProvider>; }
 function Portal() {

@@ -274,7 +274,8 @@ const retiredSeedDescriptions: Record<string, string> = {
 
 /** Current catalogue rules; frozen quote catalogues bypass storage normalization. */
 export function normalizeAccessorial(item: AccessorialItem): AccessorialItem {
-  return { ...item, description: retiredSeedDescriptions[item.description] ?? item.description, calculationType: 'FLAT', unitLabel: 'per order', appliesAt: 'ORDER',
+  const packageCharge = item.code === 'FRAGILE' || item.code === 'DG';
+  return { ...item, description: retiredSeedDescriptions[item.description] ?? item.description, calculationType: packageCharge ? 'PER_UNIT' : 'FLAT', unitLabel: packageCharge ? 'per package' : 'per order', appliesAt: 'ORDER',
     autoRule: 'NONE', fuelEligible: false, freeAllowance: null, incrementMinutes: null,
     minimumCharge: null, maximumCharge: null };
 }
@@ -289,10 +290,11 @@ export const INITIAL_ACCESSORIALS: AccessorialItem[] = [
   {"taxable": true, "id": "acc_after_hours", "code": "AFTER_HOURS", "name": "After-Hours Service", "description": "Pickup or delivery outside 08:00\u201318:00.", "rate": 30},
   {"taxable": true, "id": "acc_weekend", "code": "WEEKEND", "name": "Weekend Service", "description": "Saturday or Sunday service.", "rate": 20},
   {"taxable": true, "id": "acc_heavy_item", "code": "HEAVY_ITEM", "name": "Heavy Item Handling", "description": "Special handling for items over 150 lb.", "rate": 15},
-  {"taxable": true, "id": "acc_fragile", "code": "FRAGILE", "name": "Fragile Blanket Wrap", "description": "Padded furniture blankets, protective corner guards, and tie-down strap security.", "rate": 15},
+  {"taxable": true, "id": "acc_fragile", "code": "FRAGILE", "name": "Fragile", "description": "Extra handling for fragile packages.", "rate": 15},
+  {"taxable": true, "id": "acc_dg", "code": "DG", "name": "DG", "description": "Dangerous goods handling for each flagged package.", "rate": 25},
   {"taxable": false, "id": "acc_insurance", "code": "INSURANCE", "name": "Declared Value Insurance", "description": "Cargo insurance for the order.", "rate": 1.5},
   {"taxable": false, "id": "acc_parking", "code": "PARKING", "name": "Parking / Toll Pass-through", "description": "Parking or toll charge for the order.", "rate": 1},
-].map(item => ({ ...item, calculationType: 'FLAT', unitLabel: 'per order', appliesAt: 'ORDER',
+].map(item => ({ ...item, calculationType: item.code === 'FRAGILE' || item.code === 'DG' ? 'PER_UNIT' : 'FLAT', unitLabel: item.code === 'FRAGILE' || item.code === 'DG' ? 'per package' : 'per order', appliesAt: 'ORDER',
   autoRule: 'NONE', active: true, fuelEligible: false, freeAllowance: null,
   incrementMinutes: null, minimumCharge: null, maximumCharge: null }));
 
@@ -306,7 +308,14 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
         return {
           services: parsed.services.map(normalizeService),
           vehicles: Array.isArray(parsed.vehicles) && parsed.vehicles.length > 0 ? withNewPresets(parsed.vehicles.map(withCurrentPreset)) : structuredClone(INITIAL_VEHICLES),
-          accessorials: parsed.accessorials.map(normalizeAccessorial)
+          accessorials: (() => {
+            const saved = parsed.accessorials.map(normalizeAccessorial) as AccessorialItem[];
+            if ((parsed.schemaVersion ?? 0) >= 5) return saved;
+            const updated = saved.map(item => item.code === 'FRAGILE' && item.name === 'Fragile Blanket Wrap'
+              ? { ...item, name: 'Fragile', description: 'Extra handling for fragile packages.' } : item);
+            return [...updated, ...INITIAL_ACCESSORIALS.filter(item =>
+              (item.code === 'FRAGILE' || item.code === 'DG') && !updated.some(existing => existing.code === item.code))];
+          })()
         };
       }
     }
@@ -319,7 +328,7 @@ export function loadSimplePricingConfig(): SimplePricingConfig {
 
 export function saveSimplePricingConfig(config: SimplePricingConfig): void {
   try {
-    localStorage.setItem(scopedStorageKey(SIMPLE_PRICING_STORAGE_KEY), JSON.stringify({ ...config, services: config.services.map(normalizeService), accessorials: config.accessorials.map(normalizeAccessorial), schemaVersion: 4 }));
+    localStorage.setItem(scopedStorageKey(SIMPLE_PRICING_STORAGE_KEY), JSON.stringify({ ...config, services: config.services.map(normalizeService), accessorials: config.accessorials.map(normalizeAccessorial), schemaVersion: 5 }));
   } catch (err) {
     console.error('Could not save pricing config:', err);
   }

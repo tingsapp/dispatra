@@ -9,6 +9,7 @@ import { useOrderPreview } from '../components/orders/useOrderPreview';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { operations, type Order } from '../operations/api';
 import { inputToShipperBooking } from '../operations/orderAdapters';
+import { validateBookingSchedule } from '../lib/organizationWorkflows';
 import type { PricingContext } from '../lib/pricingEngine';
 import type { PricingOrderInput } from '../types/pricing';
 
@@ -38,6 +39,7 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setErrors([]); setBusy(true);
     try {
+      if (!editing) { const scheduleErrors = validateBookingSchedule(input, timeZone); if (scheduleErrors.length) throw new Error(scheduleErrors.join(' ')); }
       const booking = inputToShipperBooking(input, timeZone);
       const saved = editing ? await operations.updateOrder(slug, editing, booking) : await operations.createOrder(slug, booking);
       onSaved(saved, !editing);
@@ -50,7 +52,7 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-7 space-y-5 text-xs">
           {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
-          <OrderPricingForm customerMode="self" showVehicleSelection suggestVehicle={!editing} showStopAddresses startIndex={1} value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
+          <OrderPricingForm customerMode="self" showVehicleSelection suggestVehicle={!editing} showStopAddresses futureOnly={!editing} value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
         </div>
         <div className="lg:col-span-5 lg:sticky lg:top-0">
           <PriceBreakdown snapshot={snapshot} title="Live estimate" showMargin={false} showPricingDetail={false} rateRows={companyRateRows(ctx.billing)} />

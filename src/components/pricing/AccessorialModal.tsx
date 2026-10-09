@@ -8,7 +8,7 @@ import { normalizeAccessorial } from '../../lib/simplePricingStorage';
 interface AccessorialModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (accessorial: AccessorialItem) => void;
+  onSave: (accessorial: AccessorialItem) => void | Promise<void>;
   initialAccessorial?: AccessorialItem | null;
 }
 
@@ -31,8 +31,11 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
   const [description, setDescription] = useState('');
   const [rate, setRate] = useState<number>(15);
   const [taxable, setTaxable] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    setError('');
     if (initialAccessorial) {
       setName(initialAccessorial.name);
       setCode(initialAccessorial.code);
@@ -50,12 +53,14 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!name.trim()) return;
     if (!Number.isFinite(rate) || rate < 0) return;
 
-    onSave(normalizeAccessorial({
+    setSaving(true); setError('');
+    try { await onSave(normalizeAccessorial({
       id: initialAccessorial?.id || `acc_${Date.now()}`,
       code: (code.trim() || name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_')).slice(0, 24),
       name: name.trim(),
@@ -73,13 +78,16 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
       autoRule: 'NONE',
       active: initialAccessorial?.active ?? true
     }));
-    onClose();
+      onClose();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save accessorial.'); }
+    finally { setSaving(false); }
   };
 
   return (
     <Dialog size="form" onClose={onClose}>
-      <DialogHeader onClose={onClose} closeLabel="Close Accessorial" title={initialAccessorial ? 'Edit Accessorial' : 'Add New Accessorial'} description="A fixed dollar charge, added once when selected on an order." />
+      <DialogHeader onClose={onClose} closeLabel="Close Accessorial" title={initialAccessorial ? 'Edit Accessorial' : 'Add New Accessorial'} description={initialAccessorial?.code === 'FRAGILE' || initialAccessorial?.code === 'DG' ? 'A fixed dollar charge for each package with this box checked.' : 'A fixed dollar charge, added once when selected on an order.'} />
         <form onSubmit={handleSubmit} className="app-dialog-body space-y-4">
+          {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
             <div className="min-w-0">
               <label className={labelClass}>
@@ -102,7 +110,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
                   value={rate} onChange={e => setRate(parseFloat(e.target.value) || 0)}
                   className={`${fieldClass} pl-7`} />
               </div>
-              <p className={hintClass}>Once per order.</p>
+              <p className={hintClass}>{initialAccessorial?.code === 'FRAGILE' || initialAccessorial?.code === 'DG' ? 'Per flagged package, including its Qty.' : 'Once per order.'}</p>
             </div>
           </div>
 
@@ -122,7 +130,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
             Taxable
           </label>
           <div className="flex items-center justify-end gap-2 pt-2">
-            <Button type="submit">{initialAccessorial ? 'Save Changes' : 'Create Accessorial'}</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Saving…' : initialAccessorial ? 'Save Changes' : 'Create Accessorial'}</Button>
           </div>
         </form>
     </Dialog>

@@ -6,7 +6,7 @@ import { bookingInstant } from './time';
 
 const amount = (value: number | string | null | undefined) => Number(value ?? 0);
 const validStatus = (status: string): Job['lifecycleStatus'] =>
-  ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'INVOICED', 'CANCELLED'].includes(status) ? status as Job['lifecycleStatus'] : 'NEW';
+  status === 'INVOICED' ? 'COMPLETED' : ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status) ? status as Job['lifecycleStatus'] : 'NEW';
 
 export function orderToInput(order: Order): PricingOrderInput {
   const facts = order.facts;
@@ -23,7 +23,6 @@ export function orderToInput(order: Order): PricingOrderInput {
       pickupIds: stop.kind === 'DROPOFF' ? [...new Set(facts.items.filter(item => item.delivery_id === stop.id).map(item => item.pickup_id))] : undefined,
     })),
     routeKm: facts.distance_km == null ? null : Number(facts.distance_km), estimatedMinutes: facts.estimated_minutes ?? null,
-    actualMinutes: null,
     packages: facts.items.map(item => ({ id: item.id, quantity: item.quantity, weightKg: Number(item.weight_kg),
       lengthCm: Number(item.length_cm), widthCm: Number(item.width_cm), heightCm: Number(item.height_cm),
       declaredValue: 0, description: item.description, fragile: item.fragile, pickupStopId: item.pickup_id, deliveryStopId: item.delivery_id,
@@ -95,10 +94,11 @@ export function orderToUi(order: Order, shippers: Shipper[], catalog: CatalogIte
   const pickup = order.facts.stops.find(stop => stop.kind === 'PICKUP');
   const drop = [...order.facts.stops].reverse().find(stop => stop.kind === 'DROPOFF');
   const status = validStatus(order.status);
-  const visualStatus = status === 'COMPLETED' || status === 'INVOICED' ? 'completed' : status === 'NEW' ? 'no_driver' : 'on_time';
+  const visualStatus = status === 'COMPLETED' ? 'completed' : status === 'NEW' ? 'no_driver' : 'on_time';
   return {
     id: order.id, version: order.version, jobNumber: order.number, lifecycleStatus: status,
-    status: visualStatus, statusLabel: status === 'NEW' ? 'No Driver' : status === 'COMPLETED' ? 'Completed' : status === 'INVOICED' ? 'Invoiced' : 'On Time',
+    creationSource: order.source, externalReference: order.facts.external_reference,
+    status: visualStatus, statusLabel: status === 'NEW' ? 'No Driver' : status === 'COMPLETED' ? 'Completed' : 'On Time',
     riskText: order.pricing.review_reason ?? undefined,
     customerName: shipper?.name ?? 'Unknown shipper', customerPhone: shipper?.phone ?? '', customerEmail: shipper?.email,
     pickupAddress: pickup?.address.text ?? '', dropoffAddress: drop?.address.text ?? '',

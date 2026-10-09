@@ -11,7 +11,7 @@ const { ClipboardList } = await import('lucide-react');
 const { PortalShell } = await import('../src/portal/PortalShell');
 const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
 const { shipperPricingContext, catalogueFromApi } = await import('../src/operations/pricingAdapters');
-const { inputToShipperBooking, orderToInput } = await import('../src/operations/orderAdapters');
+const { inputToShipperBooking, orderToInput, orderToUi } = await import('../src/operations/orderAdapters');
 const { ShipperOrderDialog } = await import('../src/portal/ShipperOrderDialog');
 const { companyRateRows, travelRows } = await import('../src/lib/companyTax');
 const { priceToUi } = await import('../src/operations/orderAdapters');
@@ -110,6 +110,15 @@ test('the optional preferred driver travels with the booking and back from the o
   const order = { id: 'o1', version: 1, number: 'O-1', shipper_id: 'S', billing_shipper_id: 'S', service_id: booking.service_id, route_id: null, source: 'SHIPPER_PORTAL', status: 'NEW',
     scheduled_at: booking.scheduled_at, completed_at: null, created_at: '2026-01-01T00:00:00Z', booking: {}, facts: { ...booking, adjustments: [], accessorials: [] }, pricing: { status: 'PRICED', stage: 'ESTIMATE', lines: [], context: {} } } as never;
   assert.equal(orderToInput(order).preferredDriverId, driverA.id);
+  assert.equal(orderToInput(order).source, 'SHIPPER_PORTAL');
+  const imported = { ...(order as unknown as object), source: 'IMPORT', facts: { ...booking, adjustments: [], accessorials: [], external_reference: 'TMS-482' } } as never;
+  assert.equal(orderToInput(imported).source, 'IMPORT');
+  assert.equal(orderToInput(imported).externalReference, 'TMS-482');
+  for (const source of ['SHIPPER_PORTAL', 'DISPATCHER', 'EMAIL', 'IMPORT', 'UNRECOGNIZED']) {
+    const job = orderToUi({ ...(imported as unknown as object), source } as never, [], [], []);
+    assert.equal(job.creationSource, source);
+    assert.equal(job.externalReference, 'TMS-482');
+  }
 });
 
 test('shipper order form offers an optional "Want specific driver?" choice and names its rate card only in the live estimate', async () => {

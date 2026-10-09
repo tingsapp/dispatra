@@ -21,23 +21,26 @@ interface DatePickerProps {
   onOpenChange?: (open: boolean) => void;
   showTomorrow?: boolean;
   today?: string;
+  minDate?: string;
 }
 
 /** shadcn/ui date picker: a Calendar inside a portalled Radix Popover. */
 export function DatePicker({
   value, onValueChange, 'aria-label': label, id, placeholder = 'Pick a date',
   clearable = true, disabled = false, className, align = 'start',
-  open: controlledOpen, onOpenChange, showTomorrow = false, today: todayValue,
+  open: controlledOpen, onOpenChange, showTomorrow = false, today: todayValue, minDate,
 }: DatePickerProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const selected = parseDateValue(value);
   const today = parseDateValue(todayValue ?? '') ?? new Date();
+  const minimum = parseDateValue(minDate ?? '');
   const changeOpen = (next: boolean) => {
     setInternalOpen(next);
     onOpenChange?.(next);
   };
   const selectDate = (date: Date) => {
+    if (minimum && formatDateValue(date) < formatDateValue(minimum)) return;
     onValueChange(formatDateValue(date));
     changeOpen(false);
   };
@@ -59,9 +62,9 @@ export function DatePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent align={align} className="w-auto max-w-[calc(100vw-1rem)] p-0" aria-label={`${label} calendar`}>
-        <Calendar mode="single" selected={selected} defaultMonth={selected ?? today} today={today} onSelect={date => date && selectDate(date)} required autoFocus />
+        <Calendar mode="single" selected={selected} defaultMonth={selected ?? today} today={today} disabled={minimum ? date => formatDateValue(date) < formatDateValue(minimum) : undefined} onSelect={date => date && selectDate(date)} required autoFocus />
         <div className="flex items-center gap-1 p-2">
-          <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => selectDate(today)}>Today</Button>
+          <Button type="button" variant="ghost" size="sm" disabled={!!minimum && today < minimum} className="text-xs" onClick={() => selectDate(today)}>Today</Button>
           {showTomorrow && <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => {
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);

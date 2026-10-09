@@ -5,6 +5,7 @@ import { formatDimension, formatWeight } from '../../lib/units';
 import type { PricingContext } from '../../lib/pricingEngine';
 import type { Job } from '../../types';
 import type { PricingStopInput } from '../../types/pricing';
+import { orderOrigin } from '../../domain/orderOrigin';
 
 const priorityLabel = (p: Job['priority'] | undefined) => ({ NORMAL: 'Normal', HIGH: 'High', URGENT: 'Urgent' } as Record<string, string>)[p ?? 'NORMAL'] ?? 'Normal';
 const trimUnit = (s: string) => s.replace(/\s\S+$/, '');
@@ -23,6 +24,7 @@ export function Detail({ label, value, hint, className = '' }: { label: string; 
 export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, showMargin = true }: { job: Job; ctx: PricingContext; dispatch?: ReactNode; showShipper?: boolean; showMargin?: boolean }) {
   const units = ctx.billing.general;
   const accessorials = dossierAccessorials(job, ctx);
+  const origin = orderOrigin(job);
   return <>
     <section className="rounded-xl border border-slate-200 p-5">
       <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{showShipper ? 'Shipper & Service' : 'Service'}</span></h4>
@@ -30,6 +32,8 @@ export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, s
         {showShipper && <Detail label="Shipper" value={job.customerName} hint={job.customerPhone} />}
         <Detail label="Service" value={job.serviceLevel || job.jobType} />
         <Detail label="Priority" value={priorityLabel(job.priority)} />
+        <Detail label="Order source" value={origin.label} />
+        {origin.tmsReference !== null && <Detail label="TMS reference number" value={origin.tmsReference} />}
       </dl>
     </section>
 

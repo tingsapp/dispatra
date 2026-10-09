@@ -89,7 +89,6 @@ export interface RateCard {
   hourlyClockStop?: string;
   hourlyIncludesHandling?: boolean;
   hourlyIncludesWaiting?: boolean;
-  hourlySettleActual?: boolean;
   hourlyRate: number;
   minimumBillableMinutes: number;
   billingIncrementMinutes: number;
@@ -155,7 +154,7 @@ export interface ZoneRate {
   serviceId: string | null;
 }
 
-/** Retained only to read historical quote contexts during settlement. */
+/** Retained only to read historical quote contexts. */
 export interface CustomerGroup {
   id: string;
   name: string;
@@ -230,13 +229,10 @@ export interface PricingOrderInput {
   /** Standalone route for this order's stops. Never the driver's approach. */
   routeKm: number | null;
   estimatedMinutes: number | null;
-  /** Settled duration for HOURLY at completion. */
-  actualMinutes: number | null;
   /** Explicit duration semantics prevent counting handling/waiting twice. */
   durationBasis?: 'DRIVING_ONLY' | 'TOTAL_SERVICE';
   handlingMinutes?: number | null;
   hourlyBillableMinutes?: number | null;
-  actualHourlyBillableMinutes?: number | null;
   packages: PricingPackageInput[];
   accessorials: PricingAccessorialInput[];
   /** ISO datetime the service window starts — drives after-hours / weekend rules. */

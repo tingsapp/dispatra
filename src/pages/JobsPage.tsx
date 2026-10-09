@@ -16,29 +16,28 @@ Package,
 Mail,
 Phone,
 Plus,
-FileText,
 Navigation
 } from 'lucide-react';
 import React,{ useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
-import { allOperations, operations } from '../operations/api';
+import { allOperations, operations, type CatalogItem } from '../operations/api';
+import { catalogFromUi } from '../operations/pricingAdapters';
 import { assignableRoute, assignToDriver } from '../operations/assignment';
 import { draftToInput, emailDraftRow, inputToBooking } from '../operations/orderAdapters';
 import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
-import { InvoiceDialog } from '../components/orders/InvoiceDialog';
 import { EMAIL_DRAFT_STATUSES, IntakeDialog, type EmailDraft } from '../components/orders/EmailIntake';
 import { useCompanyPricingContext, useOrderAssignment, useOrderCompletion } from '../components/orders/useOrderDetails';
 import { useOrderPreview } from '../components/orders/useOrderPreview';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
+import { AccessorialModal } from '../components/pricing/AccessorialModal';
 import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
 import { withSurchargeRows } from '../lib/surchargeRows';
 import { resolveFuelPercent } from '../lib/billingEngine';
 import { QuotationMenu } from '../components/pricing/QuotationMenu';
 import { buildQuotation } from '../lib/quotation';
-import { invoiceOrder, invoiceState } from '../lib/invoicing';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
 import { companyRateRows, travelRows } from '../lib/companyTax';
@@ -52,11 +51,13 @@ describePrice,
 loadPricingContext,
 priceOrder
 } from '../lib/orderPricing';
-import { validateAssignment,validateBooking } from '../lib/organizationWorkflows';
+import { validateAssignment,validateBooking,validateBookingSchedule } from '../lib/organizationWorkflows';
 import { formatWeight } from '../lib/units';
 import { Driver,Job } from '../types';
 import { PricingOrderInput } from '../types/pricing';
 import { defaultRateCard } from '../lib/pricingEngine';
+import { loadSimplePricingConfig, saveSimplePricingConfig } from '../lib/simplePricingStorage';
+import type { AccessorialItem } from '../types/simplePricing';
 import { formatPhone } from '../lib/phone';
 import { formatWhen } from '../components/orders/OrderDossierSections';
 import { OrderTrackingDialog, trackable } from '../components/orders/OrderTracking';
@@ -95,7 +96,6 @@ export function JobsPage({
   const queryClient = useQueryClient();
   const { ctx: livePricingCtx, settings: settingsQuery, catalog: catalogQuery, rates: rateQuery, shippers: shipperQuery } = useCompanyPricingContext(slug);
   const orderQuery = useQuery({ queryKey: ['operations', slug, 'orders'], queryFn: () => allOperations.orders(slug!), enabled: !!slug });
-  const invoiceQuery = useQuery({ queryKey: ['operations', slug, 'invoices'], queryFn: () => allOperations.invoices(slug!), enabled: !!slug });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'at_risk'>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState('all');
@@ -106,10 +106,10 @@ export function JobsPage({
   
   // Selected job for detail drawer
   const [activeJobDossier, setActiveJobDossier] = useState<Job | null>(null);
-  const [invoicingJob, setInvoicingJob] = useState<Job | null>(null);
   
   // Create Job Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAddAccessorial, setShowAddAccessorial] = useState(false);
   const [newScheduledTime, setNewScheduledTime] = useState('01:00 PM – 03:00 PM');
   const [newDriverId, setNewDriverId] = useState<string>('unassigned');
   const [newInstructions, setNewInstructions] = useState('');
@@ -124,6 +124,24 @@ export function JobsPage({
   const newOrderSnapshot = useOrderPreview({ slug, input: newOrderInput, ctx: pricingCtx, enabled: showCreateModal, toBooking: input => inputToBooking(input, '', pricingCtx.billing.general.timeZone), rates: rateQuery.data });
   const pendingQuote = useRef<{ key: string; quote: Awaited<ReturnType<typeof operations.createQuote>> } | null>(null);
   const selectedCustomer = pricingCtx.customers.find((c) => c.id === newOrderInput.customerId);
+  const closeCreateModal = () => { setShowAddAccessorial(false); setShowCreateModal(false); };
+  const addAccessorial = async (item: AccessorialItem) => {
+    const existing = pricingCtx.catalogue.accessorials.find(row => row.code === item.code || row.name.toLowerCase() === item.name.toLowerCase());
+    if (existing) throw new Error(existing.active ? 'This accessorial already exists. Select it from the list or edit it in Settings.' : 'This accessorial already exists but is inactive. Activate it in Settings.');
+    let id = item.id;
+    if (slug) {
+      const saved = await operations.createCatalog(slug, 'ACCESSORIAL', item.code, catalogFromUi(item));
+      id = saved.id;
+      queryClient.setQueryData<CatalogItem[]>(['operations', slug, 'catalog'], current => current ? [...current, saved] : [saved]);
+      void queryClient.invalidateQueries({ queryKey: ['operations', slug, 'catalog'] });
+    } else {
+      const config = loadSimplePricingConfig();
+      saveSimplePricingConfig({ ...config, accessorials: [...config.accessorials, item] });
+      setPricingCtx(loadPricingContext());
+    }
+    setNewOrderInput(current => ({ ...current, accessorials: [...current.accessorials, { accessorialId: id, quantity: 1 }] }));
+    onNotification(`${item.name} added to accessorials and selected for this order.`);
+  };
 
   const openCreateModal = (mode: 'order' | 'quote') => {
     const ctx = slug ? livePricingCtx : loadPricingContext();
@@ -227,6 +245,10 @@ export function JobsPage({
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingOrder) {
+      const scheduleErrors = validateBookingSchedule(newOrderInput, pricingCtx.billing.general.timeZone);
+      if (scheduleErrors.length) { setFormErrors(scheduleErrors); onNotification(scheduleErrors.join(' ')); return; }
+    }
     if (slug) {
       try {
         const driver = newDriverId === 'unassigned' ? undefined : drivers.find(row => row.id === newDriverId);
@@ -241,7 +263,7 @@ export function JobsPage({
         const saved = previous ? await operations.updateOrder(slug, previous, booking)
           : emailSource ? await operations.createOrderFromEmail(slug, emailSource, booking) : await operations.createOrder(slug, booking);
         if (emailSource) { setEmailSource(null); void queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] }); }
-        setShowCreateModal(false);
+        closeCreateModal();
         try {
           if (newDriverId !== 'unassigned' && saved.status === 'NEW') {
             await assignToDriver(slug, saved, driver!.id, driver!.currentVehicleId!);
@@ -323,7 +345,7 @@ export function JobsPage({
     };
 
     if (editingOrder) onUpdateJob(newJob); else onCreateJob(newJob);
-    setShowCreateModal(false);
+    closeCreateModal();
     onNotification(
       snapshot.status === 'PRICED'
         ? `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber} — quoted $${snapshot.total.toFixed(2)} ${snapshot.currency}`
@@ -331,34 +353,10 @@ export function JobsPage({
     );
   };
 
-  const handleInvoice = async (job: Job, actualMinutes: number | null = null): Promise<boolean> => {
-    if (slug) {
-      const record = orderQuery.data?.find(row => row.id === job.id);
-      if (!record) { onNotification('Order is still loading. Try again.'); return false; }
-      let invoice;
-      try { invoice = await operations.createInvoice(slug, record, actualMinutes); }
-      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not create invoice.'); return false; }
-      finally { await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'invoices'] })]); }
-      onNotification(`Invoice ${invoice.number} for ${job.jobNumber} — $${Number(invoice.total).toFixed(2)} queued for the shipper.`);
-      return true;
-    }
-    try {
-      const updated = invoiceOrder(job, loadPricingContext());
-      onUpdateJob(updated);
-      if (activeJobDossier?.id === job.id) setActiveJobDossier(updated);
-      onNotification(`${job.jobNumber} invoiced — $${updated.pricing!.total.toFixed(2)} ${updated.pricing!.currency} to ${updated.invoicePreview?.billingEmail || 'the shipper'}`);
-      return true;
-    } catch (error) { onNotification(error instanceof Error ? error.message : 'The order could not be invoiced.'); return false; }
-  };
-  const handleSendInvoice = async (job: Job) => {
-    if (!slug) return;
-    const invoice = invoiceQuery.data?.find(row => row.order_id === job.id);
-    if (!invoice) { onNotification('Invoice is still loading. Try again.'); return; }
-    try { const delivery = await operations.sendInvoice(slug, invoice); onNotification(`Invoice ${invoice.number} queued for ${delivery.recipient}.`); }
-    catch (error) { onNotification(error instanceof Error ? error.message : 'Could not send invoice.'); }
-  };
   const sendLiveQuote = async (recipient: string) => {
     if (!slug) return;
+    const scheduleErrors = validateBookingSchedule(newOrderInput, pricingCtx.billing.general.timeZone);
+    if (scheduleErrors.length) throw new Error(scheduleErrors.join(' '));
     const booking = inputToBooking(newOrderInput, '', pricingCtx.billing.general.timeZone);
     const key = JSON.stringify(booking);
     const quote = pendingQuote.current?.key === key ? pendingQuote.current.quote : await operations.createQuote(slug, booking);
@@ -366,9 +364,9 @@ export function JobsPage({
     await operations.sendQuote(slug, quote, recipient);
     pendingQuote.current = null;
     await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'quotes'] });
-    setShowCreateModal(false); onNotification(`Quote queued for ${recipient}.`);
+    closeCreateModal(); onNotification(`Quote queued for ${recipient}.`);
   };
-  useEntityDialog(!!activeJobDossier || showCreateModal, () => { setActiveJobDossier(null); setShowCreateModal(false); });
+  useEntityDialog(!!activeJobDossier || showCreateModal, () => { setActiveJobDossier(null); closeCreateModal(); });
 
   return (
     <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
@@ -519,7 +517,6 @@ export function JobsPage({
                 ))}
                 {filteredJobs.map((job) => {
                   const assignedDriver = drivers.find((d) => d.id === job.assignedDriverId);
-                  const readyToInvoice = invoiceState(job) === 'READY';
 
                   return (
                     <tr
@@ -533,7 +530,6 @@ export function JobsPage({
                           <span className="font-medium text-slate-900">{job.jobNumber}</span>
                           <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>
                           {orderAttention(job).map(a => <span key={a.flag} className="text-xs text-amber-700" title={a.detail}>{a.label}</span>)}
-                          {readyToInvoice && <button type="button" className="text-xs text-amber-700 hover:underline underline-offset-2 cursor-pointer" title="Completed order ready for invoicing" onClick={e => { e.stopPropagation(); setInvoicingJob(job); }}>Invoice</button>}
                         </div>
                         {job.riskText && (
                           <div className="text-xs text-slate-500 mt-0.5 font-normal">
@@ -624,8 +620,6 @@ export function JobsPage({
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center gap-1">
-                          {readyToInvoice && <Button type="button" size="xs" variant="outline" onClick={() => setInvoicingJob(job)}><FileText /> Invoice</Button>}
-                          {slug && job.lifecycleStatus === 'INVOICED' && <Button type="button" size="xs" variant="outline" onClick={() => handleSendInvoice(job)}><FileText /> Send invoice</Button>}
                           {slug && trackable(job.lifecycleStatus) && <button type="button" onClick={() => setTrackingJob(job)} title="Track order" aria-label={`Track ${job.jobNumber}`}
                             className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"><Navigation className="w-4 h-4" /></button>}
                           <button
@@ -664,12 +658,11 @@ export function JobsPage({
       {trackingJob && slug && <OrderTrackingDialog slug={slug} orderId={trackingJob.id} orderNumber={trackingJob.jobNumber} timeZone={pricingCtx.billing.general.timeZone}
         version={jobs.find(job => job.id === trackingJob.id)?.version} onClose={() => setTrackingJob(null)}
         onOpenMap={() => { onSelectJob(trackingJob.jobNumber); setTrackingJob(null); }} />}
-      {invoicingJob && <InvoiceDialog job={invoicingJob} onClose={() => setInvoicingJob(null)} onSend={handleInvoice} />}
 
       {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (
-        <Dialog size="xl" onClose={() => setShowCreateModal(false)}>
-          <DialogHeader onClose={() => setShowCreateModal(false)} title={editingOrder ? 'Edit Order' : createMode === 'quote' ? 'New Quote' : emailSource ? 'New Order from Email' : 'New Order'} description={createMode === 'quote' ? 'Enter shipment details to prepare a quotation without creating an order.' : 'Enter the order details on the left to see its live price estimate on the right.'} />
+        <Dialog size="xl" onClose={closeCreateModal}>
+          <DialogHeader onClose={closeCreateModal} title={editingOrder ? 'Edit Order' : createMode === 'quote' ? 'New Quote' : emailSource ? 'New Order from Email' : 'New Order'} description={createMode === 'quote' ? 'Enter shipment details to prepare a quotation without creating an order.' : 'Enter the order details on the left to see its live price estimate on the right.'} />
             <form onSubmit={createMode === 'quote' ? event => event.preventDefault() : handleCreateSubmit} className="app-dialog-body bg-slate-50 pt-5">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-7 space-y-5 text-xs">
@@ -683,7 +676,8 @@ export function JobsPage({
                     ctx={pricingCtx}
                     snapshot={newOrderSnapshot}
                     showStopAddresses
-                    startIndex={1}
+                    futureOnly={!editingOrder}
+                    onAddAccessorial={() => setShowAddAccessorial(true)}
                   />
 
                   {/* Dispatch applies only when creating or editing an order. */}
@@ -739,6 +733,7 @@ export function JobsPage({
             </DialogFooter>
         </Dialog>
       )}
+      {showCreateModal && showAddAccessorial && <AccessorialModal isOpen initialAccessorial={null} onClose={() => setShowAddAccessorial(false)} onSave={addAccessorial} />}
     </div>
   );
 }

@@ -58,7 +58,8 @@ export function validateDriver(d: Driver, all: Driver[]): string[] {
 }
 export function validateVehicle(v: VehicleAsset, all: VehicleAsset[]): string[] {
   if (!v.unitNumber.trim() || !v.plateNumber.trim() || !v.vehicleTypeId) return ['Unit number, licence plate and vehicle type are required.'];
-  if (all.some(x => x.id !== v.id && (x.unitNumber.toLowerCase() === v.unitNumber.toLowerCase() || x.plateNumber.toLowerCase() === v.plateNumber.toLowerCase() && x.plateProvince === v.plateProvince))) return ['Unit number or plate/province already exists.'];
+  if (v.unitNumber.trim().toUpperCase().length > 50) return ['Unit number must contain no more than 50 characters.'];
+  if (all.some(x => x.id !== v.id && (x.unitNumber.trim().toUpperCase() === v.unitNumber.trim().toUpperCase() || x.plateNumber.toLowerCase() === v.plateNumber.toLowerCase() && x.plateProvince === v.plateProvince))) return ['Unit number or plate/province already exists.'];
   if (![v.payloadCapacityKg,v.palletCapacity,v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm,v.cargoVolumeM3].every(nonnegative) || !Number.isInteger(v.palletCapacity)) return ['Enter nonnegative capacities and whole pallet counts.'];
   if ([v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm].some(value => value == null || !Number.isFinite(value) || value <= 0)) return ['Box length, width and height must be greater than zero.'];
   if (v.maxStops != null && (!Number.isSafeInteger(v.maxStops) || v.maxStops < 1)) return ['Maximum stops must be a positive whole number.'];
@@ -66,13 +67,13 @@ export function validateVehicle(v: VehicleAsset, all: VehicleAsset[]): string[] 
   return windowErrors(v.unavailableFrom, v.unavailableUntil, 'Unavailability');
 }
 export const orderLifecycle = (o: Order): OrderLifecycle => normalizeLifecycle(o.lifecycleStatus) ?? (o.status === 'completed' ? 'COMPLETED' : o.assignedDriverId ? 'ASSIGNED' : 'NEW');
-export const orderClosed = (o: Order) => ['IN_PROGRESS', 'COMPLETED', 'INVOICED', 'CANCELLED'].includes(orderLifecycle(o));
-export const orderEditable = (o: Order) => !o.invoicePreview && o.pricing?.stage !== 'FINAL' && !orderClosed(o);
+export const orderClosed = (o: Order) => ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(orderLifecycle(o));
+export const orderEditable = (o: Order) => o.pricing?.stage !== 'FINAL' && !orderClosed(o);
 export const lifecycleLabel = (o: Order) => ORDER_LIFECYCLE_LABELS[orderLifecycle(o)];
 /** Exceptions overlaying the status; each clears itself when its cause goes away. */
 export const orderAttention = (o: Order): { flag: OrderAttentionFlag; label: string; detail?: string }[] => {
   const flags: { flag: OrderAttentionFlag; label: string; detail?: string }[] = [];
-  const open = !['COMPLETED', 'INVOICED', 'CANCELLED'].includes(orderLifecycle(o));
+  const open = !['COMPLETED', 'CANCELLED'].includes(orderLifecycle(o));
   if (open && o.pricing && o.pricing.status !== 'PRICED') flags.push({ flag: 'PRICING', label: ORDER_ATTENTION_LABELS.PRICING, detail: o.pricing.errors[0]?.message });
   if (open && o.status === 'at_risk') flags.push({ flag: 'AT_RISK', label: ORDER_ATTENTION_LABELS.AT_RISK, detail: o.riskText });
   if (open && o.status === 'late_start') flags.push({ flag: 'LATE_START', label: ORDER_ATTENTION_LABELS.LATE_START, detail: o.riskText });

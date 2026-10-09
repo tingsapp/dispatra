@@ -50,7 +50,7 @@ export function useOrderAssignment({ slug, jobs, drivers, onUpdateJob, onNotific
       } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not change assignment.'); return null; }
       finally { await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'routes'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]); }
     }
-    if (!orderEditable(job)) { onNotification('This order is locked for operational or billing changes.'); return null; }
+    if (!orderEditable(job)) { onNotification('This order is locked for operational changes.'); return null; }
     const driver = drivers.find((d) => d.id === driverId);
     if (driver) { const errors = validateAssignment(job, driver, jobs, loadPricingContext()); if (errors.length) { onNotification(errors.join(' ')); return null; } }
     const updated: Job = {
@@ -85,8 +85,8 @@ export function useOrderCompletion({ slug, onUpdateJob, onNotification }: {
       const record = orders.data?.find(row => row.id === job.id);
       if (!record) return null;
       try {
-        const done = await operations.completeOrder(slug, record);
-        onNotification(done.status === 'INVOICED' ? `${job.jobNumber} completed. Invoice queued for email.` : `${job.jobNumber} completed. Review the invoice.`);
+        await operations.completeOrder(slug, record);
+        onNotification(`${job.jobNumber} completed.`);
         return {};
       }
       catch (error) { onNotification(error instanceof Error ? error.message : 'Could not complete the order.'); return null; }

@@ -23,6 +23,7 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
   useEffect(() => () => onAddressBlockedChange?.(false), [onAddressBlockedChange]);
   const patch = (p: Partial<Driver>) => setDraft(current => ({ ...current, ...p }));
   const selectedVehicle = vehicles.find(vehicle => vehicle.id === draft.currentVehicleId);
+  const dgQualified = draft.skills?.includes('DG') ?? false;
   return <form id={formId} className="space-y-6" onSubmit={e => { e.preventDefault(); if (addressState !== 'idle') { setErrors([addressState === 'resolving' ? 'Wait for the selected address details to load.' : 'Edit the address and select a suggestion again.']); return; } if (isEditing && (!draft.accountStatus || !draft.dutyStatus)) { setErrors(['Account and duty are required when editing a driver.']); return; } const number = isEditing ? draft.driverNumber : nextDriverNumber(drivers); const next = syncDriver({ ...draft, id: isEditing ? draft.id : number!, driverNumber: number }); const problems = validateDriver(next, drivers); setErrors(problems); if (!problems.length) { try { onSave(next); } catch (error) { setErrors([error instanceof Error ? error.message : 'Driver could not be saved.']); } } }}>
     <FormSection title="Contact">
       <TextField className="sm:col-span-2" label="Driver name" value={draft.name} onChange={name => patch({ name })} required placeholder="Full name" />
@@ -54,6 +55,13 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
             {vehicles.map(v => <DropdownMenuItem key={v.id} onSelect={() => patch({ currentVehicleId: v.id, vehicle: `${v.vehicleNumber ?? v.unitNumber} · ${v.plateNumber}` })}>{v.unitNumber} · {v.plateNumber}</DropdownMenuItem>)}
           </DropdownMenuContent>
         </DropdownMenu>      </div>
+      <label className="sm:col-span-2 flex items-start gap-2.5 cursor-pointer text-sm text-slate-800">
+        <input type="checkbox" className="app-checkbox mt-0.5" checked={dgQualified} onChange={event => patch({ skills: event.target.checked
+          ? [...(draft.skills ?? []).filter(skill => skill !== 'DG'), 'DG']
+          : (draft.skills ?? []).filter(skill => skill !== 'DG') })} />
+        <span><span className="font-medium">Qualified to handle dangerous goods (DG)</span>
+          <span className="block text-xs text-slate-500 mt-0.5">Check only after confirming the driver’s qualification. DG orders require this before assignment.</span></span>
+      </label>
     </FormSection>
     {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
     {!hideActions && <div className="flex justify-end gap-2"><Button type="submit" disabled={addressState !== 'idle'}>Save driver</Button></div>}

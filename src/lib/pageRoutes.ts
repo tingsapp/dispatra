@@ -7,6 +7,7 @@ export const PAGE_PATHS: Record<string, string> = {
   customers: '/shippers',
   reports: '/analytics',
   'rate-cards': '/settings',
+  integrations: '/integrations',
   profile: '/profile',
   help: '/help',
 };
@@ -44,3 +45,6 @@ export function pathForPage(page: string, pathname: string): string | undefined 
 }
 
 export const companySlugForCurrentPath = () => companySlugForPath(typeof location === 'undefined' ? '' : location.pathname);
+
+/** One destination mapping shared by sign-in and the public workspace entry. */
+export const roleHome = (slug: string, role: string) => role === 'SHIPPER' ? `/${slug}/shipper` : role === 'DRIVER' ? `/${slug}/driver` : `/${slug}/`;

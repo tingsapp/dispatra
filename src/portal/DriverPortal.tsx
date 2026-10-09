@@ -165,7 +165,7 @@ function DriverOrders({ slug, online, onStartRoute, onFinishRoute }: { slug: str
     return (!q || text.includes(q)) && inDate && (lifecycle === 'all' || order.status === lifecycle);
   });
   const active = rows.filter(order => ['ASSIGNED', 'IN_PROGRESS'].includes(order.status)).length;
-  const delivered = rows.filter(order => ['COMPLETED', 'INVOICED'].includes(order.status)).length;
+  const delivered = rows.filter(order => ['COMPLETED'].includes(order.status)).length;
   const today = rows.filter(order => dateIn(order.scheduled_at) === dateIn(new Date().toISOString())).length;
   return <div className="space-y-6">
     <Notice error={orders.error || routes.error} />
@@ -235,7 +235,7 @@ function DriverOrderDialog({ slug, order, orders, route, online, onStartRoute, o
   const visits = route?.stops.filter(visit => stopIds.has(visit.stop_id)) ?? [];
   const next = route?.stops.find(visit => visit.status !== 'COMPLETED');
   const nextOrder = next && !stopIds.has(next.stop_id) ? orders.find(row => row.stops.some(stop => stop.id === next.stop_id)) : undefined;
-  const done = ['COMPLETED', 'INVOICED'].includes(order.status);
+  const done = ['COMPLETED'].includes(order.status);
   return <Dialog size="md" onClose={onClose}>
     <DialogHeader onClose={onClose} title={<><span>{order.number}</span><span className="px-2 py-0.5 text-xs font-medium rounded-full bg-slate-100 text-slate-700">{statusLabel(order.status)}</span></>} description={`${order.service_name || 'Delivery'} · scheduled ${formatWhen(order.scheduled_at, timeZone)}`} />
     <DialogBody className="space-y-5">

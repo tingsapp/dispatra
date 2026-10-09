@@ -1,3 +1,4 @@
+import { quoteSettingsFor } from './quoteSettings';
 import { toDisplayWeight, toDisplayWeightRate, toDisplayDistance, toDisplayDistanceRate } from './units';
 import { hasDimensionalWeightSetting } from './dimensionalWeight';
 import { zoneAmountForWeight } from './zoneWeightBands';
@@ -148,7 +149,7 @@ const resolveDiscount = (card: RateCard): Discount | null =>
   card.discount && (card.discount.type === 'PERCENT' || card.discount.type === 'FIXED') ? card.discount : null;
 
 const resolveTaxProfile = (customer: Customer | undefined, billing: BillingConfig): TaxProfileConfig | null => {
-  const id = customer?.taxProfileId || billing.invoicing.defaultTaxProfileId;
+  const id = customer?.taxProfileId || billing.quoteSettings.defaultTaxProfileId;
   return billing.taxProfiles.find((p) => p.id === id) ?? null;
 };
 
@@ -235,7 +236,8 @@ export const estimateInternalCost = (input: CostInput, billing: BillingConfig, r
 // ---------------------------------------------------------------------------
 
 export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext): PricingSnapshot => {
-  const { billing, catalogue } = ctx;
+  const { catalogue } = ctx;
+  const billing = { ...ctx.billing, quoteSettings: quoteSettingsFor(ctx.billing) };
   const errors: PricingError[] = [];
   const warnings: string[] = [];
   const lines: ChargeLine[] = [];
@@ -254,7 +256,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   const ratesFor = (group: ChargeGroup, taxable = true): TaxRate[] =>
     taxExempt || !taxable ? [] : (taxProfile?.taxes ?? []).filter(t => t.active && t.ratePercent > 0 && t.appliesTo.includes(group));
   const netValue = (amount: number, group: ChargeGroup, taxable = true): number =>
-    billing.invoicing.pricesIncludeTax ? amount / (1 + ratesFor(group, taxable).reduce((n, t) => n + t.ratePercent, 0) / 100) : amount;
+    billing.quoteSettings.pricesIncludeTax ? amount / (1 + ratesFor(group, taxable).reduce((n, t) => n + t.ratePercent, 0) / 100) : amount;
   const netAmount = (amount: number, group: ChargeGroup, taxable = true): number =>
     round2(netValue(amount, group, taxable));
 
@@ -265,7 +267,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     context: structuredClone({ ...ctx, distanceWeightMode: ctx.distanceWeightMode ?? 'NONE', servicePricingMode: ctx.servicePricingMode ?? 'FIXED', dimensionalWeightMode: ctx.dimensionalWeightMode ?? 'METHOD_SPECIFIC', asOf: ctx.asOf ?? new Date(), ...(taxDecision ? { destinationTax: taxDecision } : {}) }),
     taxDecision,
     orderFacts: structuredClone(order),
-    quoteExpiresAt: new Date((ctx.asOf ?? new Date()).getTime() + billing.invoicing.quoteValidityDays * 86400000).toISOString(),
+    quoteExpiresAt: new Date((ctx.asOf ?? new Date()).getTime() + billing.quoteSettings.quoteValidityDays * 86400000).toISOString(),
     imported: order.importedPrice != null ? { source: order.externalSource, reference: order.externalReference, amount: order.importedPrice, mode: resolutionMode() } : undefined,
     engineVersion: PRICING_ENGINE_VERSION,
     pricedAt: new Date().toISOString(),
@@ -273,7 +275,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     status,
     errors,
     warnings,
-    currency: billing.invoicing.currency,
+    currency: billing.quoteSettings.currency,
     rateCard: null,
     candidates: [],
     method: null,
@@ -326,16 +328,16 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     source: resolution.source!,
     pricingMethod: card.pricingMethod
   };
-  if (card.currency !== billing.invoicing.currency) {
+  if (card.currency !== billing.quoteSettings.currency) {
     errors.push({
       code: 'CURRENCY_MISMATCH',
-      message: `Rate Card "${card.name}" is in ${card.currency} but the organization bills in ${billing.invoicing.currency}.`
+      message: `Rate Card "${card.name}" is in ${card.currency} but the organization bills in ${billing.quoteSettings.currency}.`
     });
     return base('NEEDS_ATTENTION', { rateCard: resolved, candidates: resolution.candidates, method: card.pricingMethod });
   }
 
   if (taxDecision && (taxDecision.error || taxDecision.destinationKey !== taxDestinationKey(order))) {
-    errors.push({ code: 'TAX_REVIEW_REQUIRED', message: taxDecision.error ?? 'Destinations changed from the saved quote. Re-price the order before settlement.' });
+    errors.push({ code: 'TAX_REVIEW_REQUIRED', message: taxDecision.error ?? 'Destinations changed from the saved quote. Re-price the order.' });
     return base('NEEDS_ATTENTION', { rateCard: resolved, method: card.pricingMethod });
   }
   if (!taxProfile && !taxExempt && !(card.importedPriceMode === 'FINAL_TOTAL' && ['SUPPLIED', 'EXEMPT'].includes(order.importedTaxTreatment ?? ''))) {
@@ -379,8 +381,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   const chargeableWeight = dimEnabled ? Math.max(actualWeight, dimWeight) : actualWeight;
   const declaredValue = round2(order.packages.reduce((n, p) => n + p.quantity * Math.max(0, p.declaredValue), 0));
   const stopCount = order.stops.length;
-  const minutesForPricing =
-    order.stage === 'FINAL' && order.actualMinutes != null ? order.actualMinutes : order.estimatedMinutes;
+  const minutesForPricing = order.estimatedMinutes;
 
   Object.assign(inputs, {
     routeKm: order.routeKm,
@@ -405,7 +406,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
     routeKm: order.routeKm, stopCount, driveMinutes: minutesForPricing ?? undefined,
     durationBasis: order.durationBasis, handlingMinutes: order.handlingMinutes,
     waitMinutes: order.stops.reduce((n, stop) => n + Math.max(0, stop.waitMinutes), 0),
-    timeSource: order.stage === 'FINAL' && order.actualMinutes != null ? 'Actual' : 'Estimated', vehicleId: order.vehicleId
+    timeSource: 'Estimated', vehicleId: order.vehicleId
   }, billing, revenue);
 
   // ---- 4. Freight by pricing method ----------------------------------------
@@ -471,10 +472,9 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
         errors.push({ code: 'INVALID_CONFIGURATION', message: 'Define when this hourly contract starts and stops its billable clock.' });
         break;
       }
-      const useActual = order.stage === 'FINAL' && (card.hourlySettleActual ?? true);
-      let duration = useActual ? order.actualHourlyBillableMinutes : order.hourlyBillableMinutes;
+      let duration = order.hourlyBillableMinutes;
       if (duration == null) {
-        const supplied = useActual ? order.actualMinutes : order.estimatedMinutes;
+        const supplied = order.estimatedMinutes;
         if (supplied != null && order.durationBasis === 'TOTAL_SERVICE' && (card.hourlyIncludesHandling ?? true) && (card.hourlyIncludesWaiting ?? true)) duration = supplied;
         if (supplied != null && order.durationBasis === 'DRIVING_ONLY') {
           const handling = order.handlingMinutes;
@@ -482,13 +482,13 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
         }
       }
       if (duration == null || !Number.isFinite(duration) || duration < 0) {
-        errors.push({ code: 'MISSING_DURATION', message: `Enter ${useActual ? 'actual' : 'estimated'} billable minutes for the agreed hourly clock.` });
+        errors.push({ code: 'MISSING_DURATION', message: 'Enter estimated billable minutes for the agreed hourly clock.' });
         break;
       }
       const billable = Math.max(card.minimumBillableMinutes, ceilToIncrement(duration, card.billingIncrementMinutes));
       inputs.billableMinutes = billable;
       freight = round2((billable / 60) * card.hourlyRate);
-      lines.push(line({ key: 'hourly', group: 'FREIGHT', label: 'Hourly Charge', detail: `${card.hourlyClockStart} → ${card.hourlyClockStop}; ${billable} min × ${money(card.hourlyRate)}/h (${useActual ? 'actual' : 'estimated'})`, amount: freight, fuelEligible: true }));
+      lines.push(line({ key: 'hourly', group: 'FREIGHT', label: 'Hourly Charge', detail: `${card.hourlyClockStart} → ${card.hourlyClockStop}; ${billable} min × ${money(card.hourlyRate)}/h (estimated)`, amount: freight, fuelEligible: true }));
       serviceFreight = card.applyServiceMultiplier ? round2(freight * multiplier) : freight;
       multiplierApplied = card.applyServiceMultiplier;
       break;
@@ -639,6 +639,14 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
   if (applyAccessorials) {
     const reasons = new Map<string, string>();
     const requested = new Map(order.accessorials.map((a) => [a.accessorialId, Math.max(0, a.quantity)]));
+    for (const acc of catalogue.accessorials) {
+      if (!acc.active || acc.calculationType !== 'PER_UNIT' || (acc.code !== 'FRAGILE' && acc.code !== 'DG')) continue;
+      const count = order.packages.reduce((total, pkg) => total + ((
+        acc.code === 'FRAGILE' ? pkg.fragile : pkg.handlingTags?.includes('DANGEROUS_GOODS')
+      ) ? pkg.quantity : 0), 0);
+      if (count > 0) requested.set(acc.id, count);
+      else requested.delete(acc.id);
+    }
 
     // Auto rules add an accessorial the dispatcher did not tick.
     for (const acc of catalogue.accessorials) {
@@ -674,7 +682,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
       const rawRate = inherit(override, acc.rate);
       // Preserve unit-rate and per-stop-limit precision; round the completed charge.
       const rate = acc.calculationType.startsWith('PERCENT_') ? rawRate : netValue(rawRate, 'accessorials', acc.taxable);
-      const rateLabel = `${money(rawRate)}${billing.invoicing.pricesIncludeTax && ratesFor('accessorials', acc.taxable).length ? ' incl. tax' : ''}`;
+      const rateLabel = `${money(rawRate)}${billing.quoteSettings.pricesIncludeTax && ratesFor('accessorials', acc.taxable).length ? ' incl. tax' : ''}`;
       const minimumCharge = acc.minimumCharge == null ? null : netValue(acc.minimumCharge, 'accessorials', acc.taxable);
       const maximumCharge = acc.maximumCharge == null ? null : netValue(acc.maximumCharge, 'accessorials', acc.taxable);
       let amount = 0;

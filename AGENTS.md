@@ -1,6 +1,6 @@
 # Dispatra Web Client Agent Instructions
 
-Last updated: **2026-09-27**
+Last updated: **2026-10-08**
 
 Read `spec.md` and `state.md` before work. `spec.md` is normative; `state.md` is verified status.
 
@@ -12,17 +12,17 @@ Read `spec.md` and `state.md` before work. `spec.md` is normative; `state.md` is
 
 ## Authority and architecture
 
-- The FastAPI/PostgreSQL API owns tenant security, state transitions, pricing authority, dispatch feasibility, route optimization, POD acceptance, and invoices.
-- Use one shared mock/store layer and centralized pricing, dispatch, routing, and billing modules. Pages and visual components must not duplicate business rules.
+- The FastAPI/PostgreSQL API owns tenant security, state transitions, pricing authority, dispatch feasibility, route optimization, POD acceptance.
+- Use one shared mock/store layer and centralized pricing, dispatch, routing, and pricing modules. Pages and visual components must not duplicate business rules.
 - Use small cohesive components and shared status/formatting/validation. Review components over roughly 250 lines and hooks/functions over roughly 50 lines for mixed responsibilities; do not split cohesive logic mechanically.
 - Do not put API/business logic in visual primitives or use ad hoc fetch calls. When integration begins, use generated typed OpenAPI clients and TanStack Query or the approved existing server-state layer.
 
 ## Product rules
 
 - Exactly `AUTO` and `MANUAL` dispatch. AUTO assigns eligible Ready Orders; MANUAL leaves them unassigned until dispatcher assignment. Both automatically optimize afterward.
-- Order is the commercial/pricing/invoice unit. Routes contain multiple Orders and bind one driver and one vehicle. Multiple pickups/drop-offs, explicit precedence, intermediate capacity, and stable RouteStops are mandatory.
+- Order is the commercial/pricing unit. Routes contain multiple Orders and bind one driver and one vehicle. Multiple pickups/drop-offs, explicit precedence, intermediate capacity, and stable RouteStops are mandatory.
 - Driver self-assignment, arbitrary route reorder, customer price changes from assignment, and silent active-route mutation are prohibited.
-- Show customer price separately from operational route distance/internal cost. Display immutable PricingSnapshot/ChargeLine detail and idempotent Invoice status after completion.
+- Show customer price separately from operational route distance/internal cost. Display immutable PricingSnapshot/ChargeLine detail. Completed is the final successful Order status.
 
 ## UX rules
 
@@ -45,3 +45,7 @@ Use the generated OpenAPI contract in `src/portal/schema.d.ts`, centralized `src
 ## Cross-project change impact
 
 For every code or behavior change, use the `changes-detector` skill at `.agents/skills/changes-detector/SKILL.md`. Trace affected code and update connected parts across this project and the other Dispatra projects when the change reaches them.
+
+## V1 financial scope
+
+Keep order prices and Quotes. Completed is the final successful Order status. Do not add invoice generation, invoice documents, invoice email, an Invoiced status, payment terms, payment collection or receivables workflows. Historical invoice data is retained only in private migration archives.

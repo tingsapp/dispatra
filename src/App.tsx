@@ -1,6 +1,6 @@
 import { LocateFixed,PanelLeft,Sparkles } from 'lucide-react';
 import { AnimatePresence,motion } from 'motion/react';
-import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
+import { lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from './lib/pageRoutes';
 import { allOperations, operations } from './operations/api';
@@ -38,17 +38,21 @@ import { HelpSupportPage } from './pages/HelpSupportPage';
 import { JobsPage } from './pages/JobsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { RateCardsPage } from './pages/RateCardsPage';
-import { ReportsPage } from './pages/ReportsPage';
 import { VehiclesPage } from './pages/VehiclesPage';
+import { IntegrationsPage } from './pages/IntegrationsPage';
+import { createIntegrationsPreview } from './integrations/preview';
 import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from './types';
 
+const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ default: module.ReportsPage })));
+
 /** API attention kinds as dispatcher-facing labels. */
-const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', INVOICE: 'Invoice review', NO_DRIVER: 'No driver' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
+const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', NO_DRIVER: 'No driver' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
 
 export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = usePageNavigation();
+  const [integrationsPreview, setIntegrationsPreview] = useState(createIntegrationsPreview);
   useSync(slug, 'DISPATCHER');
   // Record changes arrive through /sync; only driver locations and time-based attention still need a Monitor refresh.
   const liveRefresh = activeTab === 'monitor' ? 30_000 : false;
@@ -541,6 +545,8 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
           <RateCardsPage
             onNotification={showToast}
           />
+        ) : activeTab === 'integrations' ? (
+          <IntegrationsPage preview={integrationsPreview} onChange={setIntegrationsPreview} />
         ) : activeTab === 'profile' ? (
           <ProfilePage
             onNotification={showToast}
@@ -586,9 +592,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
             onNotification={showToast}
           />
         ) : activeTab === 'reports' ? (
-          <ReportsPage
-            onNotification={showToast}
-          />
+          <Suspense fallback={<p role="status" className="page-content py-10 text-sm text-slate-500">Loading analytics…</p>}><ReportsPage /></Suspense>
         ) : null)}
 
         {mapEverOpened && <div className={`absolute inset-0 z-0 ${activeTab === 'monitor' ? '' : 'hidden'}`} aria-label="Monitor map">

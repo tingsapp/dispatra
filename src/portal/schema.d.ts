@@ -811,40 +811,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/companies/{slug}/orders/{identity}/invoice": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Invoice */
-        post: operations["invoice_api_v1_companies__slug__orders__identity__invoice_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/companies/{slug}/invoices/{identity}/send": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Send Invoice */
-        post: operations["send_invoice_api_v1_companies__slug__invoices__identity__send_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/companies/{slug}/email-deliveries/{identity}": {
         parameters: {
             query?: never;
@@ -854,57 +820,6 @@ export interface paths {
         };
         /** Email Delivery */
         get: operations["email_delivery_api_v1_companies__slug__email_deliveries__identity__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/companies/{slug}/invoices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Invoices */
-        get: operations["invoices_api_v1_companies__slug__invoices_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/companies/{slug}/invoices/{identity}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Invoice */
-        get: operations["get_invoice_api_v1_companies__slug__invoices__identity__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/companies/{slug}/invoices/{identity}/document": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Document */
-        get: operations["document_api_v1_companies__slug__invoices__identity__document_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1914,8 +1829,15 @@ export interface components {
             scheduled_at: string;
             /** Status */
             status: string;
-            /** Total */
-            total: string | null;
+            /** Source */
+            source: string;
+            /**
+             * Shipper Id
+             * Format: uuid
+             */
+            shipper_id: string;
+            /** Driver Id */
+            driver_id: string | null;
             /**
              * Shipper Name
              * @default
@@ -1941,36 +1863,27 @@ export interface components {
              * @default
              */
             service_name: string;
-            /** Window Start */
-            window_start?: string | null;
-            /** Window End */
-            window_end?: string | null;
-            /** Actual Arrival */
-            actual_arrival?: string | null;
+            /** Delivered At */
+            delivered_at?: string | null;
             /**
-             * Sla Status
-             * @default UNKNOWN
+             * Delivery Outcome
+             * @default NOT_MEASURED
              * @enum {string}
              */
-            sla_status: "ON_TIME" | "AHEAD" | "LATE" | "UNKNOWN";
-            /** Variance Minutes */
-            variance_minutes?: number | null;
-            /** Accessorials */
-            accessorials?: string[];
+            delivery_outcome: "ON_TIME" | "LATE" | "NOT_MEASURED";
             /**
              * Pod Verified
              * @default false
              */
             pod_verified: boolean;
+            /**
+             * Open Issues
+             * @default 0
+             */
+            open_issues: number;
         };
         /** AnalyticsView */
         AnalyticsView: {
-            /** Hourly Completed */
-            hourly_completed: components["schemas"]["HourlyMetric"][];
-            /** Accessorial Counts */
-            accessorial_counts: {
-                [key: string]: number;
-            };
             /** Pod Verified Orders */
             pod_verified_orders: number;
             /** On Time Orders */
@@ -1979,8 +1892,6 @@ export interface components {
             sla_known_orders: number;
             /** On Time Percent */
             on_time_percent: number | null;
-            /** Average Arrival Variance Minutes */
-            average_arrival_variance_minutes: number | null;
             /** Orders */
             orders: number;
             /** Statuses */
@@ -1989,8 +1900,12 @@ export interface components {
             };
             /** Completed Orders */
             completed_orders: number;
-            /** Completed Revenue Before Tax */
-            completed_revenue_before_tax: string;
+            /** Open Issues */
+            open_issues: number;
+            /** Source Counts */
+            source_counts: {
+                [key: string]: number;
+            };
             /** Daily */
             daily: components["schemas"]["DailyMetric"][];
             /** Rows */
@@ -2635,8 +2550,6 @@ export interface components {
             orders: number;
             /** Completed */
             completed: number;
-            /** Revenue */
-            revenue: string;
             /**
              * On Time
              * @default 0
@@ -2648,10 +2561,10 @@ export interface components {
              */
             late: number;
             /**
-             * Sla Known
+             * Not Measured
              * @default 0
              */
-            sla_known: number;
+            not_measured: number;
         };
         /** DecisionApproval */
         DecisionApproval: {
@@ -3190,8 +3103,6 @@ export interface components {
             created_at: string;
             /** Quote Id */
             quote_id: string | null;
-            /** Invoice Id */
-            invoice_id: string | null;
             /** Notification Id */
             notification_id?: string | null;
             /**
@@ -3266,20 +3177,6 @@ export interface components {
             driver_number: string;
             /** Reason */
             reason: string;
-        };
-        /** Finalize */
-        Finalize: {
-            /** Version */
-            version: number;
-            /** Actual Minutes */
-            actual_minutes?: number | null;
-        };
-        /** HourlyMetric */
-        HourlyMetric: {
-            /** Hour */
-            hour: number;
-            /** Orders */
-            orders: number;
         };
         /** IntakeDetail */
         IntakeDetail: {
@@ -3405,38 +3302,6 @@ export interface components {
             draft: {
                 [key: string]: unknown;
             } | null;
-        };
-        /** InvoiceView */
-        InvoiceView: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Version */
-            version: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Number */
-            number: string;
-            /**
-             * Order Id
-             * Format: uuid
-             */
-            order_id: string;
-            /** Snapshot */
-            snapshot: {
-                [key: string]: unknown;
-            };
-            /** Subtotal */
-            subtotal: string;
-            /** Tax */
-            tax: string;
-            /** Total */
-            total: string;
         };
         /** IssueInput */
         IssueInput: {
@@ -4074,11 +3939,6 @@ export interface components {
              */
             increment_minutes: number;
             /**
-             * Settle Actual
-             * @default true
-             */
-            settle_actual: boolean;
-            /**
              * Minimum Subtotal
              * @default 0
              */
@@ -4157,11 +4017,6 @@ export interface components {
              * @default 30
              */
             increment_minutes: number;
-            /**
-             * Settle Actual
-             * @default true
-             */
-            settle_actual: boolean;
             /**
              * Minimum Subtotal
              * @default 0
@@ -4631,12 +4486,6 @@ export interface components {
             warehouse: components["schemas"]["Address"];
             /** Rate Card Id */
             rate_card_id?: string | null;
-            /**
-             * Terms
-             * @default NET30
-             * @enum {string}
-             */
-            terms: "COD" | "NET7" | "NET15" | "NET30" | "NET45" | "NET60";
             discount?: components["schemas"]["Discount-Input"];
             /**
              * Instructions
@@ -4703,8 +4552,6 @@ export interface components {
             rate_card_id: string | null;
             /** Rate Card Name */
             rate_card_name?: string | null;
-            /** Terms */
-            terms: string;
             discount: components["schemas"]["Discount-Output"];
             /** Instructions */
             instructions: string;
@@ -10134,7 +9981,7 @@ export interface operations {
                 limit?: number;
                 date_from?: string | null;
                 date_to?: string | null;
-                status?: ("NEW" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED" | "CANCELLED") | null;
+                status?: ("NEW" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED") | null;
                 service_id?: string | null;
                 pricing_status?: ("PRICED" | "NEEDS_ATTENTION") | null;
                 search?: string | null;
@@ -11312,208 +11159,6 @@ export interface operations {
             };
         };
     };
-    invoice_api_v1_companies__slug__orders__identity__invoice_post: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": string;
-            };
-            path: {
-                slug: string;
-                identity: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Finalize"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvoiceView"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Too Many Requests */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    send_invoice_api_v1_companies__slug__invoices__identity__send_post: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": string;
-            };
-            path: {
-                slug: string;
-                identity: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Version"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailDeliveryView"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Too Many Requests */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
     email_delivery_api_v1_companies__slug__email_deliveries__identity__get: {
         parameters: {
             query?: never;
@@ -11533,293 +11178,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmailDeliveryView"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Too Many Requests */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    invoices_api_v1_companies__slug__invoices_get: {
-        parameters: {
-            query?: {
-                after?: string | null;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvoiceView"][];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Too Many Requests */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    get_invoice_api_v1_companies__slug__invoices__identity__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-                identity: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvoiceView"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Too Many Requests */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    document_api_v1_companies__slug__invoices__identity__document_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-                identity: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/pdf": unknown;
                 };
             };
             /** @description Bad Request */

@@ -92,7 +92,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
 
   const addCard = async () => {
     if (dirty && !(await confirmDialog(DISCARD_CHANGES))) return;
-    const card = createEmptyRateCard({ name: 'New Rate Card', currency: billing.invoicing.currency });
+    const card = createEmptyRateCard({ name: 'New Rate Card', currency: billing.quoteSettings.currency });
     setDraft(card);
     setIsNew(true);
     setIsSaved(false);

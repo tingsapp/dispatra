@@ -16,7 +16,7 @@ export interface Customer extends CustomerOperations {
   accountType: 'Enterprise' | 'Scheduled Contract' | 'Express / On-Demand' | 'Standard Freight';
   status: 'Active' | 'Preferred' | 'On Hold' | 'Inactive';
   defaultRequirements: string[];
-  /** Retained for older saved records; the shipper's single `email` is used for quotes and invoices. */
+  /** Retained for older saved records; the shipper's single `email` is used for quotes and delivery updates. */
   billingEmail: string;
   // ---- Pricing relationship (see types/pricing.ts) ----
   /** Customer-specific Rate Card. `null` = inherit from organization. */
@@ -244,7 +244,7 @@ export function loadCustomers(): Customer[] {
             ...discount, type: discount.type === 'INHERIT' ? 'NONE' : discount.type, scope: 'TRANSPORT_ONLY'
           } } as Customer);
         });
-        if (legacy) {
+        if (legacy || records.some((record: object) => 'paymentTerms' in record)) {
           try { saveCustomers(customers); } catch { /* Return the existing records even if migration cannot be persisted. */ }
         }
         return customers;
@@ -286,7 +286,8 @@ export function normalizeCustomer(stored: Customer): Customer {
     if (primary) addresses.splice(c.addresses!.indexOf(primary), 0, updatedPrimary);
     else addresses.push(updatedPrimary);
   }
-  return { customerType: 'BUSINESS', legalName: c.name, currency: 'CAD', paymentTerms: 'INHERIT',
-    communicationPreferences: { sms: false, email: true, tracking: true }, ...c, address, addresses, status: c.status === 'Preferred' ? 'Active' : c.status,
+  const current = Object.fromEntries(Object.entries(c).filter(([key]) => key !== 'paymentTerms')) as unknown as Customer;
+  return { customerType: 'BUSINESS', legalName: c.name, currency: 'CAD',
+    communicationPreferences: { sms: false, email: true, tracking: true }, ...current, address, addresses, status: c.status === 'Preferred' ? 'Active' : c.status,
     tags: [...new Set([...(c.tags ?? []), ...(c.status === 'Preferred' ? ['Preferred'] : [])])] };
 }

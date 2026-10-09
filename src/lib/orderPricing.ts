@@ -4,7 +4,7 @@ import { normalizeOrderInput } from '../domain/orderAdapters';
 import { normalizeLifecycle } from '../domain/operations';
 // Glue between Orders (the legacy `Job` mock) and the pricing engine.
 //
-// Pages call `priceOrder()` / `finalizeOrderPrice()`; they never compute a
+// Pages call `priceOrder()`; they never compute a
 // price themselves. `enrichJobsWithPricing()` gives the static mock orders a
 // real snapshot so every surface shows engine output.
 
@@ -56,7 +56,6 @@ export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput 
   // Filled by routing once addresses are entered; until then dispatch may enter the distance.
   routeKm: null,
   estimatedMinutes: null,
-  actualMinutes: null,
   durationBasis: 'DRIVING_ONLY',
   handlingMinutes: null,
   packages: [
@@ -85,40 +84,8 @@ export const priceOrder = (input: PricingOrderInput, ctx: PricingContext = loadP
     servicePricingMode: 'FIXED',
     distanceWeightMode: 'NONE',
     dimensionalWeightMode: 'METHOD_SPECIFIC',
-    billing: { ...ctx.billing, fuelSurcharge: normalizeFuelSurcharge(ctx.billing.fuelSurcharge), invoicing: { ...ctx.billing.invoicing, pricesIncludeTax: false } }
+    billing: { ...ctx.billing, fuelSurcharge: normalizeFuelSurcharge(ctx.billing.fuelSurcharge), quoteSettings: { ...ctx.billing.quoteSettings, pricesIncludeTax: false } }
   });
-
-/**
- * Completion uses quoted terms. Only an hourly clock that permits actual
- * settlement changes the customer amount; operational time remains separate.
- */
-export const finalizeOrderPrice = (
-  input: PricingOrderInput,
-  actualMinutes: number | null,
-  ctx: PricingContext = loadPricingContext(),
-  quoted?: PricingSnapshot
-): { input: PricingOrderInput; snapshot: PricingSnapshot } => {
-  if (quoted?.stage === 'FINAL') return { input, snapshot: quoted };
-  const finalInput: PricingOrderInput = { ...input, stage: 'FINAL', actualHourlyBillableMinutes: actualMinutes }; // Billable-clock minutes are not driving minutes.
-  const frozenContext = quoted?.context ? { ...structuredClone(quoted.context), distanceWeightMode: quoted.context.distanceWeightMode ?? 'LEGACY' as const, servicePricingMode: quoted.context.servicePricingMode ?? 'LEGACY_MULTIPLIER' as const, dimensionalWeightMode: quoted.context.dimensionalWeightMode ?? 'LEGACY_CARD_SETTING' as const, asOf: quoted.context.asOf ? new Date(quoted.context.asOf) : undefined } : ctx;
-  if (quoted?.method === 'HOURLY' && !quoted.context) {
-    return { input: finalInput, snapshot: { ...structuredClone(quoted), status: 'NEEDS_ATTENTION', errors: [{ code: 'INVALID_CONFIGURATION', message: 'This legacy quote has no frozen contract terms. Review and re-price it explicitly before hourly settlement.' }] } };
-  }
-  const card = frozenContext.pricing.rateCards.find(c => c.id === quoted?.rateCard?.id);
-  if (quoted?.status === 'PRICED' && (quoted.method !== 'HOURLY' || card?.hourlySettleActual === false)) {
-    return { input: finalInput, snapshot: { ...structuredClone(quoted), stage: 'FINAL', orderFacts: structuredClone(finalInput) } };
-  }
-  // Historical hourly quotes may have inherited group terms. Preserve only their frozen terms.
-  if (quoted?.context && card) {
-    const customer = frozenContext.customers.find(item => item.id === input.customerId);
-    const legacyGroup = frozenContext.pricing.customerGroups?.find(item => item.id === customer?.customerGroupId);
-    if (legacyGroup && (!customer?.discount || customer.discount.type === 'INHERIT') && (!card.discount || card.discount.type === 'INHERIT')) {
-      card.discount = structuredClone(legacyGroup.discount);
-    }
-    if (card.scope === 'SHIPPER_GROUP') finalInput.rateCardOverrideId = card.id;
-  }
-  return { input: finalInput, snapshot: quoted?.context ? calculatePricing(finalInput, frozenContext) : priceOrder(finalInput, ctx) };
-};
 
 // ---------------------------------------------------------------------------
 // Legacy mock orders → priced orders
@@ -194,9 +161,9 @@ export const legacyJobToPricingInput = (job: Job, ctx: PricingContext): PricingO
 
 export const enrichJobsWithPricing = (jobs: Job[], ctx: PricingContext = loadPricingContext()): Job[] =>
   jobs.map((stored) => {
-    // Older saves carry retired lifecycle values; collapse them onto the current six.
+    // Older saves carry retired lifecycle values; collapse them onto the current five.
     const job: Job = stored.lifecycleStatus ? { ...stored, lifecycleStatus: normalizeLifecycle(stored.lifecycleStatus) } : stored;
-    const retryLegacyFailure = job.status !== 'completed' && !job.invoicePreview &&
+    const retryLegacyFailure = job.status !== 'completed' && job.lifecycleStatus !== 'COMPLETED' && job.lifecycleStatus !== 'CANCELLED' &&
       job.pricing?.stage === 'ESTIMATE' && job.pricing.status !== 'PRICED' &&
       job.pricingInput?.stage === 'ESTIMATE' &&
       job.pricing.errors.some(error => error.code === 'LEGACY_TIME_PRICING');

@@ -18,7 +18,7 @@ type Section = 'services' | 'accessorials';
 type Item = DeliveryService | AccessorialItem;
 const descriptions = {
   services: ['Services', 'Delivery promises and fixed charges added once per order. New orders, and emails that don’t name a service, use the Default.', 'Service'],
-  accessorials: ['Accessorials', 'Fixed charges added once per order when selected.', 'Accessorial'],
+  accessorials: ['Accessorials', 'Fragile and DG are charged for each flagged package; other selected charges apply once per order.', 'Accessorial'],
 };
 const button = 'inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shrink-0';
 
@@ -49,7 +49,7 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
         else await operations.createCatalog(slug, section === 'services' ? 'SERVICE' : 'ACCESSORIAL', (item as DeliveryService | AccessorialItem).code, catalogFromUi(item as DeliveryService | AccessorialItem));
         await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'catalog'] });
         onChanged?.(); onNotification?.(`${singular} saved.`);
-      } catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not save ${singular.toLowerCase()}.`); }
+      } catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not save ${singular.toLowerCase()}.`); if (section === 'accessorials') throw error; }
       return;
     }
     const records: Item[] = loadSimplePricingConfig()[section];
@@ -96,13 +96,13 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       <th className="px-4 py-3 font-medium">Name</th>
       <th className="px-4 py-3 font-medium">{section === 'services' ? 'Delivery promise' : 'Rate'}</th>
       <th className="px-4 py-3 font-medium">{section === 'services' ? 'Booking requirements' : 'Applies when'}</th>
-      {section === 'services' && <th className="px-4 py-3 font-medium">Additional charge ({billing.invoicing.currency})</th>}
+      {section === 'services' && <th className="px-4 py-3 font-medium">Additional charge ({billing.quoteSettings.currency})</th>}
       <th className="px-4 py-3 font-medium">Action</th>
     </tr></thead><tbody>{items.map(item => <tr key={item.id} className="border-t border-slate-100">
       <td className="px-4 py-3 font-medium text-slate-900">{item.name}{item.id === defaultId && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">Default</span>}</td>
       {section === 'services' ? <><td className="px-4 py-3 text-slate-600">{(item as DeliveryService).estimatedTime || 'Not specified'}</td><td className="px-4 py-3 text-slate-500">{(item as DeliveryService).bookingCutoffTime ? `Book by ${(item as DeliveryService).bookingCutoffTime}` : 'No cutoff'} · {(item as DeliveryService).exclusiveVehicle ? 'Exclusive vehicle' : 'Shared vehicle'}</td></> : <>
-        <td className="px-4 py-3 text-slate-600">${(item as AccessorialItem).rate.toFixed(2)} <span className="text-slate-400">per order</span></td>
-        <td className="px-4 py-3 text-slate-500">Selected on order</td>
+        <td className="px-4 py-3 text-slate-600">${(item as AccessorialItem).rate.toFixed(2)} <span className="text-slate-400">{item.code === 'FRAGILE' || item.code === 'DG' ? 'per package' : 'per order'}</span></td>
+        <td className="px-4 py-3 text-slate-500">{item.code === 'FRAGILE' || item.code === 'DG' ? 'Package checkbox' : 'Selected on order'}</td>
       </>}
       {section === 'services' && <td className="px-4 py-3 text-slate-600 tabular-nums">{(item as DeliveryService).additionalCharge == null ? 'Set charge' : `$${(item as DeliveryService).additionalCharge!.toFixed(2)}`}</td>}
       <td className="px-4 py-3"><div className="inline-flex items-center gap-1">

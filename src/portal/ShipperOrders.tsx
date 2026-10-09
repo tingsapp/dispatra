@@ -74,7 +74,7 @@ export function ShipperOrders({ slug, open, onClose }: { slug: string; open: boo
     return (!q || text.includes(q)) && inDate && inStatus;
   });
   const openCount = jobs.filter(job => ['NEW', 'ASSIGNED', 'IN_PROGRESS'].includes(orderLifecycle(job))).length;
-  const doneCount = jobs.filter(job => ['COMPLETED', 'INVOICED'].includes(orderLifecycle(job))).length;
+  const doneCount = jobs.filter(job => ['COMPLETED'].includes(orderLifecycle(job))).length;
   const attentionCount = jobs.filter(job => orderAttention(job).length > 0).length;
 
   const startEdit = (job: Job) => { const record = orders.data?.find(row => row.id === job.id); if (record) { setDetailId(null); setEditing(record); } };

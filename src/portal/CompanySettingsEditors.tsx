@@ -31,7 +31,7 @@ export function TaxEditor() {
   return <form className="space-y-5" onSubmit={e => { e.preventDefault(); editor.save(); }}>
     <fieldset disabled={editor.pending} className="app-sections">
       <section className="app-panel app-panel-plain space-y-4"><h2 className="app-section-title">Tax Registration</h2>
-        <div className="max-w-md"><Field label="GST/HST Registration Number" maxLength={100} value={data.tax_registration_number} onChange={e => editor.patch({ tax_registration_number: e.target.value })} /><p className="mt-1 text-xs text-slate-500">Optional. Printed on invoices.</p></div>
+        <div className="max-w-md"><Field label="GST/HST Registration Number" maxLength={100} value={data.tax_registration_number} onChange={e => editor.patch({ tax_registration_number: e.target.value })} /><p className="mt-1 text-xs text-slate-500">Optional. Company tax registration number.</p></div>
       </section>
       <TaxSettings editor={{ config, patch }} />
     </fieldset>

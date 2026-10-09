@@ -1,6 +1,6 @@
 # Dispatra web client
 
-The public website is `/`. The dispatcher workspace, including Monitor, Orders and Pricing settings, is available at `/{company}/` after API login. Company workspaces use the FastAPI/PostgreSQL API for operational records. `/prototype` provides a separate local demonstration.
+The public website is `/`, with Dispatcher, Shipper and Driver workspace entry. `/dispatch`, `/shipper` and `/driver` preselect the corresponding role; enter a workspace name or link to reach its sign-in page. The dispatcher workspace, including Monitor, Orders and Pricing settings, is available at `/{company}/` after API login. Company workspaces use the FastAPI/PostgreSQL API for operational records. `/prototype` provides a separate local demonstration.
 
 ```sh
 npm ci
@@ -11,7 +11,7 @@ Vite serves port 3000 and proxies `/api` to `http://127.0.0.1:8000`. Set `API_PR
 
 The explicitly seeded local `demo` company has `dispatcher@example.com`, `shipper@example.com`, and `driver@example.com`, initially using `123456`. The dispatcher workspace is `/demo/`; Shippers book and track orders at `/demo/shipper`; Drivers manage duty and execute assigned deliveries at `/demo/driver`. Old `/demo/shipper-portal`, `/demo/customer` and `/demo/dispatch` links redirect to these paths. Platform administration is at `/admin`. Company Profile, pricing settings and account security use the API. API demo data is separate from browser fixtures and is not silently imported.
 
-Every signed-in workspace follows the API `/sync` feed and refetches only changed records (about every 15 seconds by default); the open Monitor also refreshes driver locations every 30 seconds. Notifications appear in the Monitor bell and in the Shipper and Driver portal headers. Completion automatically issues an Invoice and queues its PDF email, except hourly orders that require manual actual-time review. Run the [API email worker](../api/README.md#quote-and-invoice-email) to deliver queued messages.
+Every signed-in workspace follows the API `/sync` feed and refetches only changed records (about every 15 seconds by default); the open Monitor also refreshes driver locations every 30 seconds. Notifications appear in the Monitor bell and in the Shipper and Driver portal headers. Completed is the final successful Order status; completion preserves saved pricing and POD. V1 has no invoicing. The [API email worker](../api/README.md#quote-and-delivery-update-email) delivers explicit Quotes and configured delivery updates.
 
 ## Google map and addresses
 
@@ -33,4 +33,4 @@ For the full manual browser journey, use a disposable `*_test` database migrated
 E2E_ORIGIN=http://127.0.0.1:3001 E2E_DISPOSABLE=true node tests/manualWorkflow.e2e.mjs
 ```
 
-This creates test orders through both booking forms, assigns through the dispatcher UI, executes signature delivery through the driver UI, checks automatic invoicing and the Shipper PDF, and observes Monitor updates. Places and GPS use deterministic fixtures; the API and PostgreSQL are real. It does not submit email or verify a recipient inbox.
+This creates test orders through both booking forms, assigns through the dispatcher UI, executes signature delivery through the driver UI, checks Completed status, unchanged pricing and Shipper delivery proof, and observes Monitor updates. Places and GPS use deterministic fixtures; the API and PostgreSQL are real. It does not submit email or verify a recipient inbox.

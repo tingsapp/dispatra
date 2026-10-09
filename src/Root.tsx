@@ -11,7 +11,8 @@ export const LOGIN_PATH = '/login';
 const isPrototypePath = (pathname: string) => pathname === LOGIN_PATH || pathname === '/prototype' || pathname.startsWith('/prototype/');
 export default function Root() {
   const [session, setSession] = useState(loadSession);
-  if (location.pathname === '/') return <PublicHome />;
+  const publicPath = location.pathname.replace(/\/+$/, '') || '/';
+  if (['/', '/shipper', '/driver', '/dispatch'].includes(publicPath)) return <PublicHome initialRole={publicPath === '/shipper' ? 'shipper' : publicPath === '/driver' ? 'driver' : publicPath === '/dispatch' ? 'dispatcher' : undefined} />;
   if (!isPrototypePath(location.pathname)) return <Suspense fallback={<p className="p-8" role="status">Loading Dispatra…</p>}><Portal /></Suspense>;
   if (location.pathname !== LOGIN_PATH && pageForPath(location.pathname) === undefined) return <PublicHome />;
   if (!session) {

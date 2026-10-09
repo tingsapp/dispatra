@@ -1,373 +1,48 @@
-import { ListSummary } from '../components/layout/ListSummary';
-import { Button } from '../components/ui/button';
-import {
-PackageCheck,
-Timer,
-ClipboardCheck,
-Wallet,
-Truck,
-Snowflake,
-HandHeart,
-AlertTriangle,
-CheckCircle2,
-Clock,
-Download
-} from 'lucide-react';
-import { useMemo,useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Package, PackageCheck, PackageX, Truck } from 'lucide-react';
+import { ListSummary } from '../components/layout/ListSummary';
+import { PageHeader } from '../components/layout/PageHeader';
+import { Button } from '../components/ui/button';
+import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
+import { AnalyticsCharts } from '../components/analytics/AnalyticsCharts';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
+import { prototypeAnalytics } from '../lib/reportStorage';
 import { companySettingsKey } from '../portal/WorkspaceAccount';
 import { api } from '../portal/api';
 import { operations } from '../operations/api';
-import { analyticsBounds, analyticsDisplay, analyticsRows } from '../operations/analyticsAdapters';
-import { PageHeader } from '../components/layout/PageHeader';
-import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
-import { formatDateValue, parseDateValue } from '../lib/dateValues';
-import { format } from 'date-fns';
-import { SearchInput } from '../components/ui/SearchInput';
-import { Select } from '../components/ui/Select';
-import { AUDIT_LOG_ITEMS, summarizeAuditLogs } from '../lib/reportStorage';
+import { analyticsBounds } from '../operations/analyticsAdapters';
 
-interface ReportsPageProps {
-  onNotification: (message: string) => void;
-  today?: string;
-}
-
-export function ReportsPage({ onNotification, today: todayValue }: ReportsPageProps) {
+interface ReportsPageProps { today?: string }
+export function ReportsPage({ today }: ReportsPageProps) {
   const slug = companySlugForCurrentPath();
-  const settingsQuery = useQuery({ queryKey: companySettingsKey(slug!), queryFn: () => api.companySettings(slug!), enabled: !!slug });
   const [dateFilter, setDateFilter] = useState<OrderDateSelection>({ kind: 'all' });
-  const today = todayValue ?? formatDateValue(new Date());
-  const [auditSearchQuery, setAuditSearchQuery] = useState('');
-  const [slaFilter, setSlaFilter] = useState<'all' | 'on_time' | 'late' | 'ahead'>('all');
-
-  const timeZone = settingsQuery.data?.data.time_zone ?? 'America/Vancouver';
+  const settings = useQuery({ queryKey: companySettingsKey(slug!), queryFn: () => api.companySettings(slug!), enabled: !!slug });
+  const timeZone = settings.data?.data.time_zone ?? 'America/Vancouver';
   const bounds = analyticsBounds(dateFilter, timeZone);
-  const analyticsQuery = useQuery({ queryKey: ['operations', slug, 'analytics', bounds.start, bounds.end], queryFn: () => operations.analytics(slug!, bounds.start, bounds.end), enabled: !!slug && !!settingsQuery.data });
-  const sourceAuditLogs = slug ? analyticsQuery.data ? analyticsRows(analyticsQuery.data) : [] : AUDIT_LOG_ITEMS;
-  const datedAuditLogs = useMemo(() => sourceAuditLogs.filter(item => {
-    const date = item.timestamp.slice(0, 10);
-    return !!slug || dateFilter.kind === 'all' || (dateFilter.kind === 'day'
-      ? date === dateFilter.date : date >= dateFilter.from && date <= dateFilter.to);
-  }), [dateFilter, sourceAuditLogs, slug]);
-  const localAnalytics = useMemo(() => summarizeAuditLogs(datedAuditLogs), [datedAuditLogs]);
-  const analytics = slug && analyticsQuery.data ? analyticsDisplay(analyticsQuery.data) : slug ? summarizeAuditLogs([]) : localAnalytics;
-  const filteredAuditLogs = useMemo(() => datedAuditLogs.filter(item => {
-    const q = auditSearchQuery.toLowerCase().trim();
-    const matchesSearch = !q || [item.jobNumber, item.customerName, item.driverName, item.serviceType]
-      .some(value => value.toLowerCase().includes(q));
-    return matchesSearch && (slaFilter === 'all' || item.slaStatus === slaFilter);
-  }), [datedAuditLogs, auditSearchQuery, slaFilter]);
-
-  const handleExportCSV = () => {
-    const headers = [
-      'Timestamp',
-      'Job Number',
-      'Shipper',
-      'Driver',
-      'Service',
-      'Vehicle',
-      'Scheduled',
-      'Actual Arrival',
-      'SLA Status',
-      'Variance (min)',
-      'Billed Amount ($)',
-      'Accessorials'
-    ];
-    const rows = filteredAuditLogs.map((log) => [
-      log.timestamp,
-      log.jobNumber,
-      `"${log.customerName}"`,
-      `"${log.driverName} (${log.driverCode})"`,
-      `"${log.serviceType}"`,
-      log.vehicleUnit,
-      `"${log.scheduledTime}"`,
-      log.actualArrival,
-      log.slaStatus,
-      log.varianceMinutes,
-      Number.isFinite(log.totalBilled) ? log.totalBilled : '',
-      `"${log.accessorialsCharged.join(', ')}"`
-    ]);
-    const csvContent =
-      'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `dispatra_sla_audit_report_${dateFilter.kind === 'all' ? 'all_dates' : dateFilter.kind === 'day' ? dateFilter.date : `${dateFilter.from}_to_${dateFilter.to}`}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    onNotification(`Downloaded SLA Audit Log report (${filteredAuditLogs.length} records)`);
-  };
-
-  return (
-    <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
-      {/* TOP BAR */}
-      <PageHeader title="Analytics" description="Delivery performance, audit activity and billing summaries." actions={<>
-          <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={today} subject="analytics" />
-          <Button
-            type="button"
-            onClick={handleExportCSV}
-            className="app-action app-primary flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
-          </Button>
-      </>} />
-
-      {/* BODY CONTENT */}
-      <div className="page-content flex-1 overflow-y-auto py-6">
-        {slug && analyticsQuery.isPending && <p role="status" className="text-sm text-slate-500">Loading analytics…</p>}
-        {slug && analyticsQuery.error && <p role="alert" className="text-sm text-rose-700">{analyticsQuery.error.message}</p>}
-        <div className="space-y-6">
-          {/* TOP KPI PERFORMANCE TILES */}
+  const query = useQuery({ queryKey: ['operations', slug, 'analytics', bounds.start, bounds.end], queryFn: () => operations.analytics(slug!, bounds.start, bounds.end), enabled: !!slug && !!settings.data });
+  const data = slug ? query.data : prototypeAnalytics(bounds.start, bounds.end);
+  const error = settings.error ?? query.error;
+  const failed = !!slug && !!error;
+  const loading = !!slug && !failed && !data;
+  const companyToday = today ?? new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
+    <PageHeader title="Analytics" description="A clear view of your delivery performance." actions={<>
+      <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={companyToday} subject="analytics" />
+    </>} />
+    <div className="page-content flex-1 overflow-y-auto py-5">
+      {failed ? <div role="alert" className="rounded-xl border border-slate-200 bg-white p-6"><p className="text-sm text-slate-700">{error.message}</p><Button variant="outline" className="mt-3" onClick={() => { void settings.refetch(); void query.refetch(); }}>Try again</Button></div>
+        : loading ? <div role="status" className="space-y-4"><span className="text-sm text-slate-500">Loading analytics…</span><div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-100" />)}</div><div className="h-72 animate-pulse rounded-2xl bg-slate-100" /></div>
+        : data && <div className="space-y-5">
           <ListSummary label="Analytics summary" items={[
-            { label: 'On-time SLA', value: analytics.onTimePercent == null ? '—' : `${analytics.onTimePercent}%`, icon: CheckCircle2, description: `${analytics.onTime} of ${"slaKnown" in analytics ? analytics.slaKnown : analytics.total} measured dispatches` },
-            { label: 'Dispatches completed', value: analytics.total, icon: PackageCheck, description: 'In selected dates' },
-            { label: 'Average arrival variance', value: analytics.averageVariance == null ? '—' : `${analytics.averageVariance.toFixed(1)} min`, icon: Timer, description: 'From scheduled arrival' },
-            { label: 'POD verified', value: analytics.podVerified, icon: ClipboardCheck, description: `${analytics.podVerified} of ${analytics.total} dispatches` },
-            { label: 'Dispatched revenue', value: `$${analytics.revenue.toLocaleString('en-CA', { maximumFractionDigits: 2 })}`, icon: Wallet, description: analytics.total ? `Avg $${(analytics.revenue / analytics.total).toFixed(2)} per stop` : 'No dispatches in selected dates' },
+            { label: 'Total', value: data.orders, icon: Package },
+            { label: 'In progress', value: data.statuses.IN_PROGRESS ?? 0, icon: Truck },
+            { label: 'Completed', value: data.completed_orders, icon: PackageCheck },
+            { label: 'Canceled', value: data.statuses.CANCELLED ?? 0, icon: PackageX },
           ]} />
-
-          {/* VISUAL ANALYTICS: HOURLY THROUGHPUT & DAILY COMPLIANCE */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Chart 1: Hourly Dispatch Volume */}
-            <div className="app-panel min-w-0">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div>
-                  <h3 className="app-section-title text-slate-900">Hourly Dispatch Volume</h3>
-                  <p className="text-xs text-slate-500">Dispatches by hour in the selected dates</p>
-                </div>
-                <span className="text-xs font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700">
-                  {analytics.peakHour ? `Peak: ${analytics.peakHour.hour} (${analytics.peakHour.volume} jobs)` : 'No dispatches'}
-                </span>
-              </div>
-
-              {/* Bar Chart Visualization */}
-              <div className="overflow-x-auto"><div className="h-44 min-w-[30rem] flex items-end gap-1 pt-6 pb-2">
-                {analytics.hourlyVolumes.map((item) => {
-                  const heightPercent = Math.round((item.volume / (analytics.peakHour?.volume || 1)) * 100);
-                  return (
-                    <div key={item.hour} role="img" aria-label={`${item.hour}: ${item.volume} dispatches`} className="flex-1 h-full flex flex-col items-center gap-1 group">
-                      <div className="text-xs font-mono text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {item.volume}
-                      </div>
-                      {/* flex-1 gives this track a resolved height so the bar's % height applies */}
-                      <div className="flex-1 w-full flex items-end">
-                        <div
-                          className={`w-full rounded-t-sm transition-all duration-300 ${
-                            item.peak
-                              ? 'bg-slate-900 group-hover:bg-slate-700'
-                              : 'bg-slate-200 group-hover:bg-slate-300'
-                          }`}
-                          style={{ height: `${heightPercent}%` }}
-                        />
-                      </div>
-                      <div className="text-xs text-slate-400 font-mono mt-1">{item.hour}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              </div>
-              {analytics.hourlyVolumes.length === 0 && <p className="text-sm text-slate-500">No hourly activity for the selected dates.</p>}
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mt-3">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-slate-900 rounded-xs" /> Peak hour
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-slate-200 rounded-xs" /> Other hours
-                </span>
-              </div>
-            </div>
-
-            {/* Chart 2: Daily Performance & SLA Trend */}
-            <div className="app-panel min-w-0">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div>
-                  <h3 className="app-section-title text-slate-900">Daily SLA Trend & Revenue</h3>
-                  <p className="text-xs text-slate-500">Daily dispatches and on-time SLA fulfillment rates</p>
-                </div>
-                <span className="text-xs font-medium px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
-                  {analytics.onTimePercent == null ? 'No data' : `${analytics.onTimePercent}% Average`}
-                </span>
-              </div>
-
-              {/* Trend table/bars */}
-              <div className="space-y-2.5 pt-2">
-                {analytics.dailyPerformance.map((day) => {
-                  const onTimePercent = day.totalJobs ? Math.round((day.onTimeJobs / day.totalJobs) * 100) : null;
-                  return (
-                    <div key={day.day} className="flex items-center gap-3 text-xs">
-                      <span className="w-20 font-medium text-slate-700 text-xs">{format(parseDateValue(day.day)!, 'MMM d')}</span>
-                      <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden flex">
-                        <div
-                          className="bg-emerald-500 h-full rounded-l-full"
-                          style={{ width: `${onTimePercent ?? 0}%` }}
-                          title={`On Time: ${day.onTimeJobs}`}
-                        />
-                        {day.lateJobs + day.exceptionJobs > 0 && (
-                          <div
-                            className="bg-rose-400 h-full"
-                            style={{ width: `${onTimePercent == null ? 0 : 100 - onTimePercent}%` }}
-                            title={`Late: ${day.lateJobs}`}
-                          />
-                        )}
-                      </div>
-                      <span className="w-12 text-right font-mono font-medium text-slate-800 text-xs">
-                        {onTimePercent == null ? '—' : `${onTimePercent}%`}
-                      </span>
-                      <span className="w-16 text-right text-slate-500 text-xs font-mono">
-                        ${day.revenue.toLocaleString()}
-                      </span>
-                    </div>
-                  );
-                })}
-                {analytics.dailyPerformance.length === 0 && <p className="text-sm text-slate-500">No daily activity for the selected dates.</p>}
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mt-4 pt-3">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-xs" /> Delivered On-Time (SLA Passed)
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 bg-rose-400 rounded-xs" /> Delay / Variance
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* ACCESSORIAL BREAKDOWN TILES */}
-          <div className="app-panel app-panel-plain">
-            <h3 className="app-section-title text-slate-900 mb-1">Accessorial Surcharges & Extra Services</h3>
-            <p className="text-xs text-slate-500 mb-4">Value-add billing captured during dispatch and offload</p>
-
-            <ListSummary label="Accessorial summary" items={[
-              { label: 'Liftgate services', value: analytics.accessorialCounts.liftgate, icon: Truck, description: 'Recorded charges' },
-              { label: 'Reefer temp controlled', value: analytics.accessorialCounts.reefer, icon: Snowflake, description: 'Recorded charges' },
-              { label: 'Inside / white glove', value: analytics.accessorialCounts.inside, icon: HandHeart, description: 'Recorded charges' },
-              { label: 'Waiting time / demurrage', value: analytics.accessorialCounts.waiting, icon: Timer, description: 'Recorded charges' },
-            ]} />
-          </div>
-
-          {/* SLA DISPATCH AUDIT LOG TABLE */}
-          <div className="app-table-shell bg-white overflow-hidden">
-            <div className="py-4 space-y-4">
-              <div>
-                <h3 className="app-section-title text-slate-900">Dispatch Audit & SLA Variance Log</h3>
-                <p className="text-xs text-slate-500">
-                  Granular timestamp records of scheduled windows vs actual arrivals with proof of delivery
-                </p>
-              </div>
-
-              <div className="app-list-toolbar">
-                <SearchInput
-                  className="app-list-search"
-                  value={auditSearchQuery}
-                  onChange={setAuditSearchQuery}
-                  placeholder="Search audit log..."
-                />
-
-                <Select
-                  aria-label="Filter by SLA outcome"
-                  value={slaFilter}
-                  onValueChange={(v) => setSlaFilter(v as any)}
-                  align="end"
-                  options={[
-                    { value: 'all', label: 'All SLA Outcomes' },
-                    { value: 'on_time', label: 'On Time' },
-                    { value: 'late', label: 'Late (SLA Breached)' },
-                    { value: 'ahead', label: 'Ahead of Schedule' }
-                  ]}
-                />
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table aria-label="Analytics audit log" className="app-table w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-medium text-slate-600">
-                    <th className="py-3 px-4">Timestamp / Job</th>
-                    <th className="py-3 px-4">Shipper</th>
-                    <th className="py-3 px-4">Driver & Vehicle</th>
-                    <th className="py-3 px-4">Scheduled Window</th>
-                    <th className="py-3 px-4">Actual Arrival</th>
-                    <th className="py-3 px-4">SLA Outcome</th>
-                    <th className="py-3 px-4">Accessorials & Billing</th>
-                    <th className="py-3 px-4 text-center">POD Verified</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
-                  {filteredAuditLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span className="font-medium text-slate-900">{log.jobNumber}</span>
-                        <div className="text-xs text-slate-400 font-mono mt-0.5">{log.timestamp}</div>
-                      </td>
-
-                      <td className="py-3 px-4 whitespace-nowrap font-medium text-slate-800">
-                        {log.customerName}
-                      </td>
-
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="text-slate-800 font-medium">{log.driverName}</div>
-                        <div className="text-xs text-slate-400 font-mono">{log.driverCode} • {log.vehicleUnit}</div>
-                      </td>
-
-                      <td className="py-3 px-4 whitespace-nowrap text-slate-600">
-                        {log.scheduledTime}
-                      </td>
-
-                      <td className="py-3 px-4 whitespace-nowrap font-medium text-slate-800">
-                        {log.actualArrival}
-                      </td>
-
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {log.slaStatus === 'on_time' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            On Time ({log.varianceMinutes}m)
-                          </span>
-                        )}
-                        {log.slaStatus === 'late' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
-                            <AlertTriangle className="w-3 h-3 text-rose-600" />
-                            Late (+{log.varianceMinutes}m)
-                          </span>
-                        )}
-                        {log.slaStatus === 'exception' && <span className="text-slate-500">Not measured</span>}
-                        {log.slaStatus === 'ahead' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                            <Clock className="w-3 h-3 text-blue-600" />
-                            Ahead ({Math.abs(log.varianceMinutes)}m early)
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-slate-900">${Number.isFinite(log.totalBilled) ? log.totalBilled.toFixed(2) : '—'}</div>
-                        <div className="text-xs text-slate-500 truncate max-w-xs">
-                          {log.accessorialsCharged.join(', ')}
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        {log.podVerified ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Verified
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-400">Pending</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredAuditLogs.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">No audit records for these filters.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
+          {query.isFetching && <span role="status" className="sr-only">Updating analytics…</span>}
+          <AnalyticsCharts data={data} filter={dateFilter} timeZone={timeZone} />
+        </div>}
     </div>
-  );
+  </div>;
 }

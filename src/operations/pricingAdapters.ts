@@ -29,7 +29,7 @@ export function rateToUi(row: RateCard): UiRateCard {
     pricingMethod: row.data.method, ...(row.data.method === 'IMPORTED' ? { importedPriceMode: 'FINAL_TOTAL' as const } : {}), baseFee: n(row.data.base_fee), includedKm: n(row.data.included_km),
     kmRate: n(row.data.per_km), fixedAmount: n(row.data.fixed_amount), hourlyRate: n(row.data.hourly_rate),
     minimumBillableMinutes: row.data.minimum_minutes, billingIncrementMinutes: row.data.increment_minutes,
-    hourlySettleActual: row.data.settle_actual, minimumOrderSubtotal: row.data.method === 'HOURLY' ? 0 : n(row.data.minimum_subtotal),
+    minimumOrderSubtotal: row.data.method === 'HOURLY' ? 0 : n(row.data.minimum_subtotal),
     dimensionalDivisor: n(row.data.dimensional_divisor), zoneRates,
     applyFuelSurcharge: row.data.apply_fuel, applyServiceMultiplier: row.data.apply_service,
     applyVehicleSurcharge: row.data.apply_vehicle, applyAccessorials: row.data.apply_accessorials,
@@ -49,7 +49,7 @@ export function rateFromUi(card: UiRateCard, zones: PricingContext['pricing']['z
   return {
     name: card.name, method: card.pricingMethod, base_fee: card.baseFee, included_km: card.includedKm, per_km: card.kmRate,
     fixed_amount: card.fixedAmount, hourly_rate: card.hourlyRate, minimum_minutes: card.minimumBillableMinutes,
-    increment_minutes: card.billingIncrementMinutes, settle_actual: card.hourlySettleActual ?? true,
+    increment_minutes: card.billingIncrementMinutes,
     minimum_subtotal: card.pricingMethod === 'HOURLY' ? 0 : card.minimumOrderSubtotal ?? 0, dimensional_divisor: card.dimensionalDivisor ?? 5000,
     zones: activeZones, weight_bands, apply_fuel: card.applyFuelSurcharge, apply_service: card.applyServiceMultiplier,
     apply_vehicle: card.applyVehicleSurcharge, apply_accessorials: card.applyAccessorials,
@@ -62,7 +62,8 @@ export function catalogToService(row: CatalogItem): DeliveryService {
 }
 export function catalogToAccessorial(row: CatalogItem): AccessorialItem {
   return { id: row.id, code: row.code, name: row.data.name, description: row.data.description,
-    calculationType: 'FLAT', rate: n(row.data.amount), unitLabel: 'per order', freeAllowance: null,
+    calculationType: row.code === 'FRAGILE' || row.code === 'DG' ? 'PER_UNIT' : 'FLAT', rate: n(row.data.amount),
+    unitLabel: row.code === 'FRAGILE' || row.code === 'DG' ? 'per package' : 'per order', freeAllowance: null,
     incrementMinutes: null, minimumCharge: null, maximumCharge: null, appliesAt: 'ORDER',
     fuelEligible: row.data.fuel_eligible, taxable: row.data.taxable, autoRule: 'NONE', active: row.active };
 }
@@ -85,7 +86,7 @@ export function apiPricingContext(settings: Settings, catalog: CatalogItem[], ra
     billing: { ...base.billing,
       companyTax: { enabled: data.gst_enabled, ratePercent: n(data.gst_percent), provincialEnabled: data.provincial_enabled, provincialRatePercent: n(data.provincial_percent) },
       general: { ...base.billing.general, timeZone: data.time_zone, distanceUnit: data.distance_unit, weightUnit: data.weight_unit, dimensionUnit: data.dimension_unit },
-      invoicing: { ...base.billing.invoicing, currency: data.currency, taxRegistrationNumber: data.tax_registration_number, quoteValidityDays: data.quote_validity_days },
+      quoteSettings: { ...base.billing.quoteSettings, currency: data.currency, taxRegistrationNumber: data.tax_registration_number, quoteValidityDays: data.quote_validity_days },
       fuelSurcharge: { ...base.billing.fuelSurcharge, enabled: data.fuel_enabled, percent: n(data.fuel_percent) },
       dispatch: { ...base.billing.dispatch, maxActiveOrdersPerDriver: data.maximum_active_orders },
     },
@@ -115,7 +116,7 @@ export function shipperPricingContext(preferences: BookingPreferences, options: 
   const billing = structuredClone(INITIAL_BILLING_CONFIG);
   return {
     billing: { ...billing, general: { ...billing.general, timeZone: preferences.time_zone, distanceUnit: preferences.distance_unit, weightUnit: preferences.weight_unit, dimensionUnit: preferences.dimension_unit },
-      invoicing: { ...billing.invoicing, currency: preferences.currency },
+      quoteSettings: { ...billing.quoteSettings, currency: preferences.currency },
       companyTax: { enabled: preferences.gst_enabled, ratePercent: n(preferences.gst_percent), provincialEnabled: preferences.provincial_enabled, provincialRatePercent: n(preferences.provincial_percent) },
       fuelSurcharge: { ...billing.fuelSurcharge, mode: 'fixed_percent', enabled: preferences.fuel_enabled, percent: n(preferences.fuel_percent) } },
     catalogue: catalogueFromApi(options, preferences.default_service_id),

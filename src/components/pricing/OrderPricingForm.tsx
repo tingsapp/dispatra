@@ -13,6 +13,8 @@ import { listedVehicleTypes, suggestVehicleType } from '../../lib/vehicleTypes';
 import { DateTimePicker } from '../ui/DateTimePicker';
 import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 import { ContactInput } from '../ui/ContactInput';
+import { packageHasCharge, setPackageCharge, syncPackageAccessorials, type PackageChargeCode } from '../../lib/packageAccessorials';
+import { organizationTime } from '../../lib/organizationWorkflows';
 
 /**
  * Order-facts editor for Order creation. It only edits a `PricingOrderInput`; the caller runs
@@ -25,8 +27,6 @@ interface OrderPricingFormProps {
   snapshot: PricingSnapshot;
   /** Show address fields on stops (Order form). */
   showStopAddresses?: boolean;
-  /** Start section numbering here (Order form prefixes its own sections). */
-  startIndex?: number;
   /** Show the order's required vehicle type (set at booking; it decides any vehicle surcharge, never the assigned driver). */
   showVehicleSelection?: boolean;
   /** New orders follow the load: the smallest fitting general vehicle type is suggested until someone picks one. */
@@ -35,6 +35,10 @@ interface OrderPricingFormProps {
   customerMode?: 'shipper' | 'rateCard' | 'self';
   /** Extra fields for the caller's own concerns (e.g. a shipper's driver preference), placed after Service. */
   serviceExtras?: React.ReactNode;
+  /** Dispatcher catalogue creation, omitted for shipper self-service. */
+  onAddAccessorial?: () => void;
+  /** New bookings cannot choose dates or times that have already passed. */
+  futureOnly?: boolean;
 }
 
 const fieldClass = 'app-input';
@@ -69,7 +73,7 @@ function PackageMeasurementInput({ value, units, kind, label, onChange }: {
     onBlur={() => setDraft(null)} />;
 }
 
-export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, startIndex = 1, showVehicleSelection = true, suggestVehicle = false, customerMode = 'shipper', serviceExtras }) => {
+export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, showVehicleSelection = true, suggestVehicle = false, customerMode = 'shipper', serviceExtras, onAddAccessorial, futureOnly = false }) => {
   const { catalogue, pricing, customers, billing } = ctx;
   const units = billing.general;
   const timeZone = billing.general.timeZone ?? 'America/Vancouver';
@@ -93,9 +97,24 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
     const deadlines = stops.filter(s => s.type === 'DROPOFF' && s.windowEnd).map(s => s.windowEnd!).sort();
     patch({ stops, scheduledAt: readyTimes[0] ?? null, scheduledEndAt: deadlines[deadlines.length - 1] ?? null });
   };
-  const updatePackage = (id: string, changes: Partial<PricingPackageInput>) => patch({ packages: value.packages.map((p) => (p.id === id ? { ...p, ...changes } : p)) });
+  const updatePackage = (id: string, changes: Partial<PricingPackageInput>) => {
+    const packages = value.packages.map((p) => (p.id === id ? { ...p, ...changes } : p));
+    patch({ packages, accessorials: syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials) });
+  };
+  const setPackageFlag = (id: string, code: PackageChargeCode, checked: boolean) => {
+    const packages = value.packages.map(pkg => pkg.id === id ? setPackageCharge(pkg, code, checked) : pkg);
+    patch({ packages, accessorials: syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials) });
+  };
   const qtyOf = (id: string) => value.accessorials.find((a) => a.accessorialId === id)?.quantity ?? 0;
-  const setQty = (id: string, quantity: number) => patch({ accessorials: [...value.accessorials.filter((a) => a.accessorialId !== id), ...(quantity > 0 ? [{ accessorialId: id, quantity }] : [])] });
+  const setQty = (id: string, quantity: number) => {
+    const linked = catalogue.accessorials.find(item => item.id === id && item.active && (item.code === 'FRAGILE' || item.code === 'DG'));
+    if (linked) {
+      const packages = value.packages.map(pkg => setPackageCharge(pkg, linked.code as PackageChargeCode, quantity > 0));
+      patch({ packages, accessorials: syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials) });
+      return;
+    }
+    patch({ accessorials: [...value.accessorials.filter((a) => a.accessorialId !== id), ...(quantity > 0 ? [{ accessorialId: id, quantity }] : [])] });
+  };
   const addStop = (type: PricingStopInput['type']) => patch({ stops: [...value.stops, createStop(type, type === 'DROPOFF' && pickups.length === 1 ? { pickupIds: [pickups[0].id] } : {})] });
 
   const suggested = suggestVehicleType(catalogue.vehicles, value.packages);
@@ -110,16 +129,17 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   const capacityWarning = currentVehicle && totalWeight > currentVehicle.payloadCapacityKg
     ? `Cargo (${Math.round(toDisplayWeight(totalWeight, units))} ${units.weightUnit}) exceeds ${currentVehicle.name} payload. Choose a larger vehicle type.` : null;
   const selectedAccessorials = activeAccessorials.filter(a => qtyOf(a.id) > 0);
-
-  let n = startIndex;
-  const num = () => `${n++}.`;
+  React.useEffect(() => {
+    const accessorials = syncPackageAccessorials(value.packages, value.accessorials, catalogue.accessorials);
+    if (JSON.stringify(accessorials) !== JSON.stringify(value.accessorials)) onChange({ ...value, accessorials });
+  }, [value, catalogue.accessorials, onChange]);
 
   return (
     <div className="space-y-5">
       {/* Shipper, service, vehicle */}
       <div className={sectionClass}>
         <div className="flex items-center justify-between mb-3">
-          <h4 className={sectionTitle}><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{num()} {customerMode === 'rateCard' ? 'Rate Card & Service' : customerMode === 'self' ? showVehicleSelection ? 'Service & Vehicle' : 'Service' : showVehicleSelection ? 'Shipper, Service & Vehicle' : 'Shipper & Service'}</span></h4>
+          <h4 className={sectionTitle}><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{customerMode === 'rateCard' ? 'Rate Card & Service' : customerMode === 'self' ? showVehicleSelection ? 'Service & Vehicle' : 'Service' : showVehicleSelection ? 'Shipper, Service & Vehicle' : 'Shipper & Service'}</span></h4>
         </div>
         <div className={`grid grid-cols-1 ${showVehicleSelection && customerMode !== 'self' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
           {customerMode !== 'self' && <div>
@@ -152,7 +172,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
       {/* Stops */}
       <div className={sectionClass}>
         <div className="flex items-center justify-between mb-3">
-          <h4 className={sectionTitle}><MapPin className="w-3.5 h-3.5 text-slate-700" /><span>{num()} Stops</span></h4>
+          <h4 className={sectionTitle}><MapPin className="w-3.5 h-3.5 text-slate-700" /><span>Stops</span></h4>
           <div className="flex gap-1.5">
             <button type="button" onClick={() => addStop('PICKUP')} className={smallBtn}>+ Pickup</button>
             <button type="button" onClick={() => addStop('DROPOFF')} className={smallBtn}>+ Drop-off</button>
@@ -163,9 +183,16 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             const location = resolveStopLocation(stop);
             const unresolved = value.taxCalculation === 'DESTINATION' && !!stop.label?.trim() && (location.conflict || !location.country || (location.country === 'CA' && !location.province));
             const sid = `stop-${stop.id}`;
+            const linkedPickups = stop.type === 'DROPOFF'
+              ? pickups.filter(pickup => (stop.pickupIds ?? (pickups.length === 1 ? [pickups[0].id] : [])).includes(pickup.id))
+              : [];
+            const latestPickup = linkedPickups.flatMap(pickup => {
+              const wall = pickup.windowStart && organizationTime(pickup.windowStart, timeZone);
+              return wall ? [`${wall.day}T${wall.clock}`] : [];
+            }).sort().at(-1);
             return <div key={stop.id} className="rounded-lg border border-slate-200 p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{i + 1} · {stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
                 <button type="button" disabled={value.stops.length <= 2} onClick={() => onChange(removeOrderStop(value, stop.id))} className="ml-auto p-1.5 -mr-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 shrink-0" title="Remove stop" aria-label={`Remove stop ${i + 1}`}><Trash2 className="w-4 h-4" /></button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -190,8 +217,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                 <div className="sm:col-span-2">
                   <span className={labelClass}>{stop.type === 'PICKUP' ? 'Ready at' : 'Deliver by'}</span>
                   {stop.type === 'PICKUP'
-                    ? <DateTimePicker aria-label={`Stop ${i + 1} ready at`} value={stop.windowStart ?? ''} onValueChange={windowStart => updateStop(stop.id, { windowStart: windowStart || undefined })} timeZone={timeZone} />
-                    : <DateTimePicker aria-label={`Stop ${i + 1} deliver by`} value={stop.windowEnd ?? ''} onValueChange={windowEnd => updateStop(stop.id, { windowEnd: windowEnd || undefined })} timeZone={timeZone} />}
+                    ? <DateTimePicker aria-label={`Stop ${i + 1} ready at`} datePlaceholder="Date" futureOnly={futureOnly} value={stop.windowStart ?? ''} onValueChange={windowStart => updateStop(stop.id, { windowStart: windowStart || undefined })} timeZone={timeZone} />
+                    : <DateTimePicker aria-label={`Stop ${i + 1} deliver by`} datePlaceholder="Date" futureOnly={futureOnly} after={futureOnly ? latestPickup : undefined} value={stop.windowEnd ?? ''} onValueChange={windowEnd => updateStop(stop.id, { windowEnd: windowEnd || undefined })} timeZone={timeZone} />}
                 </div>
               </div>
               {stop.type === 'DROPOFF' && pickups.length > 1 && <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600"><span>Picked up at:</span>{pickups.map(pickup => <label key={pickup.id} className="inline-flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={(stop.pickupIds ?? []).includes(pickup.id)} onChange={e => updateStop(stop.id, { pickupIds: e.target.checked ? [...(stop.pickupIds ?? []), pickup.id] : (stop.pickupIds ?? []).filter(p => p !== pickup.id) })} className={checkbox} />Stop {value.stops.indexOf(pickup) + 1}</label>)}</div>}
@@ -208,7 +235,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
       {/* Packages */}
       <div className={sectionClass}>
         <div className="flex items-center justify-between mb-3">
-          <h4 className={sectionTitle}><Package className="w-3.5 h-3.5 text-slate-700" /><span>{num()} Packages</span></h4>
+          <h4 className={sectionTitle}><Package className="w-3.5 h-3.5 text-slate-700" /><span>Packages</span></h4>
           <button type="button" onClick={() => patch({ packages: [...value.packages, { ...newPackage(), pickupStopId: pickups.length === 1 ? pickups[0].id : undefined, deliveryStopId: drops.length === 1 ? drops[0].id : undefined }] })} className={smallBtn}>+ Package</button>
         </div>
         <div className="app-package-table-shell rounded-lg border border-slate-200 p-3">
@@ -231,9 +258,9 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                 <td className="package-dimensions"><div className="flex items-center gap-1">{(['lengthCm', 'widthCm', 'heightCm'] as const).map((k, d) => <React.Fragment key={`${k}-${units.dimensionUnit}`}>{d > 0 && <span className="text-slate-400">×</span>}<PackageMeasurementInput value={p[k]} units={units} kind="dimension" onChange={dimension => updatePackage(p.id, { [k]: dimension })} label={`Package ${index + 1} ${k === 'lengthCm' ? 'length' : k === 'widthCm' ? 'width' : 'height'}`} /></React.Fragment>)}</div></td>
                 {pickups.length > 1 && <td className="package-stop"><Select aria-label={`Package ${index + 1} pickup`} className="package-stop-select" value={p.pickupStopId ?? ''} onValueChange={pickupStopId => updatePackage(p.id, { pickupStopId: pickupStopId || undefined })} options={[{ value: '', label: 'Pickup…' }, ...pickups.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
                 {drops.length > 1 && <td className="package-stop"><Select aria-label={`Package ${index + 1} delivery`} className="package-stop-select" value={p.deliveryStopId ?? ''} onValueChange={deliveryStopId => updatePackage(p.id, { deliveryStopId: deliveryStopId || undefined })} options={[{ value: '', label: 'Delivery…' }, ...drops.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
-                <td className="package-flag text-center"><input type="checkbox" aria-label={`Package ${index + 1} fragile`} checked={!!p.fragile} onChange={(e) => updatePackage(p.id, { fragile: e.target.checked })} className={checkbox} /></td>
-                <td className="package-flag text-center"><input type="checkbox" aria-label={`Package ${index + 1} dangerous goods`} checked={(p.handlingTags ?? []).includes('DANGEROUS_GOODS')} onChange={(e) => updatePackage(p.id, { handlingTags: e.target.checked ? [...(p.handlingTags ?? []), 'DANGEROUS_GOODS'] : (p.handlingTags ?? []).filter(tag => tag !== 'DANGEROUS_GOODS') })} className={checkbox} /></td>
-                <td className="package-remove text-right"><button type="button" disabled={value.packages.length <= 1} onClick={() => patch({ packages: value.packages.filter((x) => x.id !== p.id) })} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30" title="Remove package" aria-label={`Remove package ${index + 1}`}><Trash2 className="w-4 h-4" /></button></td>
+                <td className="package-flag text-center"><input type="checkbox" aria-label={`Package ${index + 1} fragile`} checked={packageHasCharge(p, 'FRAGILE')} onChange={(e) => setPackageFlag(p.id, 'FRAGILE', e.target.checked)} className={checkbox} /></td>
+                <td className="package-flag text-center"><input type="checkbox" aria-label={`Package ${index + 1} dangerous goods`} checked={packageHasCharge(p, 'DG')} onChange={(e) => setPackageFlag(p.id, 'DG', e.target.checked)} className={checkbox} /></td>
+                <td className="package-remove text-right"><button type="button" disabled={value.packages.length <= 1} onClick={() => { const packages = value.packages.filter(x => x.id !== p.id); patch({ packages, accessorials: syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials) }); }} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30" title="Remove package" aria-label={`Remove package ${index + 1}`}><Trash2 className="w-4 h-4" /></button></td>
               </tr>)}
             </tbody>
           </table>
@@ -254,11 +281,11 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
       <details className={`${sectionClass} group/acc`}>
         <summary className="list-none cursor-pointer flex items-center justify-between gap-4 [&::-webkit-details-marker]:hidden rounded-lg">
           <span className="min-w-0">
-            <span className={sectionTitle}><Tag className="w-3.5 h-3.5 text-slate-700" /><span>{num()} Accessorials</span></span>
+            <span className={sectionTitle}><Tag className="w-3.5 h-3.5 text-slate-700" /><span>Accessorials</span></span>
             <span className="block text-xs text-slate-500 mt-1 truncate">{selectedAccessorials.length ? selectedAccessorials.map(a => a.name).join(' · ') : 'No extra charges added.'}</span>
           </span>
           <span className="flex items-center gap-3 shrink-0">
-            {selectedAccessorials.length > 0 && <span className="text-sm text-slate-700 tabular-nums">${selectedAccessorials.reduce((sum, a) => sum + a.rate, 0).toFixed(2)}</span>}
+            {selectedAccessorials.length > 0 && <span className="text-sm text-slate-700 tabular-nums">${snapshot.accessorialsTotal.toFixed(2)}</span>}
             <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open/acc:rotate-180" />
           </span>
         </summary>
@@ -270,12 +297,13 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                 <label key={acc.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none min-w-0">
                   <input type="checkbox" checked={on} onChange={() => setQty(acc.id, on ? 0 : 1)} className={checkbox} />
                   <span className="flex-1 min-w-0 truncate text-sm text-slate-800" title={acc.name}>{acc.name}</span>
-                  <span className="shrink-0 text-sm text-slate-500 tabular-nums">${acc.rate.toFixed(2)}</span>
+                  <span className="shrink-0 text-sm text-slate-500 tabular-nums">${acc.rate.toFixed(2)}{acc.code === 'FRAGILE' || acc.code === 'DG' ? ' / package' : ''}</span>
                 </label>
               );
             })}
           </div>
         )}
+        {onAddAccessorial && <button type="button" onClick={onAddAccessorial} className={`${smallBtn} mt-3`}>+ Add accessorial</button>}
       </details>
     </div>
   );

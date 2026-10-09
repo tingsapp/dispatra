@@ -7,7 +7,7 @@ import { BillingConfig, TaxRate, TaxProfileConfig } from '../types/billing';
 export const BILLING_STORAGE_KEY = 'dispatra_billing_v2';
 const FUEL_DEFAULT_VERSION = 1;
 const UNITS_DEFAULT_VERSION = 1;
-type StoredBillingConfig = Partial<BillingConfig> & { fuelDefaultVersion?: number; unitsDefaultVersion?: number };
+type StoredBillingConfig = Partial<BillingConfig> & { invoicing?: Partial<BillingConfig['quoteSettings']>; fuelDefaultVersion?: number; unitsDefaultVersion?: number };
 
 /**
  * Defaults are set for a Metro Vancouver operator:
@@ -61,14 +61,12 @@ export const INITIAL_BILLING_CONFIG: BillingConfig = {
     defaultIncludedStops: 2,
     defaultExtraStopRate: 0
   },
-  invoicing: {
+  quoteSettings: {
     currency: 'CAD',
     defaultTaxProfileId: 'taxp_bc_standard',
     taxRegistrationNumber: '',
     pricesIncludeTax: false,
-    defaultPaymentTerms: 'NET30',
-    quoteValidityDays: 14,
-    latePaymentFeePercent: 1.5
+    quoteValidityDays: 14
   },
   taxProfiles: INITIAL_TAX_PROFILES,
   serviceCharge: {
@@ -141,7 +139,7 @@ const withDefaults = (stored: StoredBillingConfig | null): BillingConfig => {
     destinationTaxRates: { ...base.destinationTaxRates, ...(stored.destinationTaxRates || {}) },
     company: { ...base.company, ...(stored.company || {}) },
     general,
-    invoicing: { ...base.invoicing, ...(stored.invoicing || {}) },
+    quoteSettings: { ...base.quoteSettings, ...Object.fromEntries(Object.entries(stored.quoteSettings ?? stored.invoicing ?? {}).filter(([key]) => key !== 'latePaymentFeePercent' && key !== 'defaultPaymentTerms')) },
     taxProfiles:
       Array.isArray(stored.taxProfiles) && stored.taxProfiles.length
         ? stored.taxProfiles

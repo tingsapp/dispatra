@@ -240,16 +240,20 @@ export function loadVehicles(): VehicleAsset[] {
 }
 
 export function saveVehicles(vehicles: VehicleAsset[]): void {
-  localStorage.setItem(scopedStorageKey(VEHICLES_STORAGE_KEY), JSON.stringify(vehicles));
+  localStorage.setItem(scopedStorageKey(VEHICLES_STORAGE_KEY), JSON.stringify(vehicles.map(normalizeVehicle)));
 }
 
 export function normalizeVehicle(v: VehicleAsset): VehicleAsset {
   const types: Partial<Record<VehicleAsset['category'], string>> = { '1 Tonne Van': 'veh_1_ton', '2 Tonne Cube': 'veh_2_ton', '3 Tonne Box': 'veh_3_ton', '5 Tonne Freight': 'veh_3_ton', 'Refrigerated Reefer': 'veh_reefer_van', Flatbed: 'veh_flatbed_truck' };
+  const unitNumber = v.unitNumber.trim().toUpperCase();
+  const initial = loadBillingConfig().company.name.normalize('NFKD').toUpperCase().match(/[A-Z]/)?.[0] ?? 'X';
+  const prefix = v.vehicleNumber?.match(/^D[A-Z]V-/)?.[0] ?? `D${initial}V-`;
   return { vehicleTypeId: types[v.category], recordStatus: 'ACTIVE', availability: v.status === 'in_service' ? 'IN_USE' : v.status === 'available' ? 'AVAILABLE' : 'UNAVAILABLE',
-    plateProvince: 'BC', equipment: [...(v.hasLiftgate ? ['Liftgate'] : []), ...(v.hasReefer ? ['Refrigeration'] : [])], serviceAreaIds: [], ...v };
+    plateProvince: 'BC', equipment: [...(v.hasLiftgate ? ['Liftgate'] : []), ...(v.hasReefer ? ['Refrigeration'] : [])], serviceAreaIds: [], ...v,
+    unitNumber, vehicleNumber: unitNumber ? `${prefix}${unitNumber}` : undefined };
 }
 export function syncVehicle(v: VehicleAsset): VehicleAsset {
-  return { ...v, status: v.availability === 'IN_USE' ? 'in_service' : v.availability === 'AVAILABLE' && v.recordStatus !== 'INACTIVE' ? 'available' : 'standby',
+  return { ...normalizeVehicle(v), status: v.availability === 'IN_USE' ? 'in_service' : v.availability === 'AVAILABLE' && v.recordStatus !== 'INACTIVE' ? 'available' : 'standby',
     statusLabel: v.recordStatus === 'INACTIVE' ? 'Inactive' : v.availability === 'IN_USE' ? 'In use' : v.availability === 'AVAILABLE' ? 'Available' : 'Unavailable',
     hasLiftgate: (v.equipment ?? []).some(e => e.toLowerCase() === 'liftgate'), hasReefer: (v.equipment ?? []).some(e => e.toLowerCase() === 'refrigeration'), updatedAt: new Date().toISOString() };
 }
@@ -258,6 +262,7 @@ export function syncVehicle(v: VehicleAsset): VehicleAsset {
 export interface VehicleProfile { type: VehicleType; costPerKm: number | null; }
 
 export function saveVehicleProfile(vehicle: VehicleAsset, profile: VehicleProfile, fleet = loadVehicles()): VehicleAsset[] {
+  vehicle = normalizeVehicle(vehicle);
   const nextFleet = fleet.some(item => item.id === vehicle.id)
     ? fleet.map(item => item.id === vehicle.id ? vehicle : item) : [vehicle, ...fleet];
   const catalogue = loadSimplePricingConfig();

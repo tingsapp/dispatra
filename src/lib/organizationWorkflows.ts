@@ -1,10 +1,9 @@
 import { driverOrderLimit } from './driverStorage';
-import { resolvePaymentTerms } from './paymentTerms';
 import { validateOperationalAssignment } from '../domain/assignment';
 import { loadVehicles } from './vehicleStorage';
 import { orderClosed, orderEditable } from '../domain/validation';
 import { Driver, Job } from '../types';
-import { PricingOrderInput, PricingSnapshot } from '../types/pricing';
+import { PricingOrderInput } from '../types/pricing';
 import { PricingContext } from './pricingEngine';
 
 /** A datetime-local value is an organization wall time; ISO instants are converted. */
@@ -22,14 +21,48 @@ export const organizationTime = (value: string | Date, timeZone: string) => {
 export const validateBooking = (order: PricingOrderInput, ctx: PricingContext, now = new Date()): string[] => {
   const service = ctx.catalogue.services.find(s => s.id === order.serviceId);
   if (!service?.active) return ['Select an active service.'];
-  if (!order.scheduledAt) return [];
   const zone = ctx.billing.general.timeZone ?? 'America/Vancouver';
+  const scheduleErrors = validateBookingSchedule(order, zone, now);
+  if (scheduleErrors.length || !order.scheduledAt) return scheduleErrors;
   const booked = organizationTime(now, zone);
   const requested = organizationTime(order.scheduledAt, zone);
   if (!booked || !requested) return ['Invalid service date or organization timezone.'];
-  if (requested.day < booked.day) return ['The service date is in the past.'];
   if (service.bookingCutoffTime && requested.day === booked.day && booked.clock > service.bookingCutoffTime) return [`${service.name} booking cutoff is ${service.bookingCutoffTime} ${zone}; choose a later service date.`];
   return [];
+};
+
+/** Validate a new booking against the company wall clock, including stop times and delivery order. */
+export const validateBookingSchedule = (order: PricingOrderInput, timeZone: string, now = new Date()): string[] => {
+  const current = organizationTime(now, timeZone);
+  if (!current) return ['Invalid organization timezone.'];
+  const currentWall = `${current.day}T${current.clock}`;
+  const check = (value: string | null | undefined, label: string) => {
+    if (!value) return null;
+    const wall = organizationTime(value, timeZone);
+    if (!wall) return `${label}: enter a valid date and time.`;
+    return `${wall.day}T${wall.clock}` <= currentWall ? `${label} must be in the future.` : null;
+  };
+  const errors = [check(order.scheduledAt, 'Pickup time'),
+    ...order.stops.map((stop, index) => check(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd, `Stop ${index + 1} ${stop.type === 'PICKUP' ? 'pickup' : 'delivery'} time`))].filter((message): message is string => !!message);
+  if (order.scheduledAt && order.scheduledEndAt) {
+    const pickup = organizationTime(order.scheduledAt, timeZone);
+    const delivery = organizationTime(order.scheduledEndAt, timeZone);
+    if (pickup && delivery && `${delivery.day}T${delivery.clock}` <= `${pickup.day}T${pickup.clock}`) errors.push('Delivery time must be after pickup time.');
+  }
+  order.stops.forEach((stop, index) => {
+    if (stop.type !== 'DROPOFF' || !stop.windowEnd) return;
+    const delivery = organizationTime(stop.windowEnd, timeZone);
+    if (!delivery) return;
+    for (const pickupId of stop.pickupIds ?? []) {
+      const pickupStop = order.stops.find(candidate => candidate.id === pickupId && candidate.type === 'PICKUP');
+      const pickup = pickupStop?.windowStart && organizationTime(pickupStop.windowStart, timeZone);
+      if (pickup && `${delivery.day}T${delivery.clock}` <= `${pickup.day}T${pickup.clock}`) {
+        errors.push(`Stop ${index + 1} delivery time must be after its pickup time.`);
+        break;
+      }
+    }
+  });
+  return errors;
 };
 
 /** Shared by direct/manual assignment and the static recommendation action. */
@@ -54,20 +87,4 @@ export const validateAssignment = (job: Pick<Job, 'id' | 'pricing' | 'pricingInp
   const needsLiftgate = job.pricingInput.accessorials.some(a => a.quantity > 0 && ctx.catalogue.accessorials.find(x => x.id === a.accessorialId)?.code === 'LIFTGATE');
   if (needsLiftgate && !vehicle?.hasLiftgate) return ['Choose a vehicle type equipped with a liftgate.'];
   return [];
-};
-
-export interface InvoicePreview {
-  id: string; issuedAt: string; dueAt: string; billingEmail: string; taxRegistrationNumber: string;
-  currency: string; subtotal: number; tax: number; total: number; lines: PricingSnapshot['lines'];
-  status: 'PREVIEW';
-}
-
-/** Local preview only. Real invoice creation/email requires the billing workflow. */
-export const createInvoicePreview = (jobId: string, snapshot: PricingSnapshot, ctx: PricingContext, now = new Date()): InvoicePreview => {
-  if (snapshot.status !== 'PRICED' || snapshot.stage !== 'FINAL') throw new Error('Invoice preview requires finalized pricing.');
-  const frozen = snapshot.context ?? ctx;
-  const customer = frozen.customers.find(c => c.id === (snapshot.orderFacts?.billingCustomerId || snapshot.orderFacts?.customerId));
-  const terms = resolvePaymentTerms(customer?.paymentTerms, frozen.billing.invoicing.defaultPaymentTerms);
-  const days = terms === 'COD' ? 0 : Number(terms.replace('NET', ''));
-  return { id: `preview-${jobId}`, issuedAt: now.toISOString(), dueAt: new Date(now.getTime() + days * 86400000).toISOString(), billingEmail: customer?.email ?? '', taxRegistrationNumber: frozen.billing.invoicing.taxRegistrationNumber, currency: snapshot.currency, subtotal: snapshot.subtotal, tax: snapshot.taxTotal, total: snapshot.total, lines: structuredClone([...snapshot.lines, ...snapshot.taxLines]), status: 'PREVIEW' };
 };

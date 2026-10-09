@@ -3,11 +3,12 @@ import { test } from 'node:test';
 import { applyDistanceRules, roundMoney } from '../src/lib/billingEngine';
 import { INITIAL_BILLING_CONFIG } from '../src/lib/billingStorage';
 import { DEFAULT_SHIPPERS } from '../src/lib/customerStorage';
-import { createDefaultOrderInput, createStop, finalizeOrderPrice, priceOrder } from '../src/lib/orderPricing';
-import { createInvoicePreview, organizationTime, validateAssignment, validateBooking } from '../src/lib/organizationWorkflows';
+import { createDefaultOrderInput, createStop, priceOrder } from '../src/lib/orderPricing';
+import { organizationTime, validateAssignment, validateBooking, validateBookingSchedule } from '../src/lib/organizationWorkflows';
 import { calculatePricing, estimateInternalCost, PricingContext } from '../src/lib/pricingEngine';
 import { createEmptyRateCard } from '../src/lib/pricingStorage';
-import { INITIAL_SERVICES, INITIAL_VEHICLES, normalizeAccessorial } from '../src/lib/simplePricingStorage';
+import { INITIAL_SERVICES, INITIAL_VEHICLES, INITIAL_ACCESSORIALS as CURRENT_ACCESSORIALS, normalizeAccessorial } from '../src/lib/simplePricingStorage';
+import { setPackageCharge, syncPackageAccessorials } from '../src/lib/packageAccessorials';
 import { fromDisplayDimension, fromDisplayDistance, fromDisplayDivisor, fromDisplayWeight, toDisplayDimension, toDisplayDistance, toDisplayDivisor, toDisplayWeight } from '../src/lib/units';
 import type { Driver, Job } from '../src/types';
 import type { Discount, RateCard } from '../src/types/pricing';
@@ -45,7 +46,7 @@ test('display units roundtrip preserves distance, weight, dimensions, divisor an
   assert.equal(priced(s).total, before.total);
 });
 test('inclusive tax is excluded from estimated revenue and multiple taxes share normalized base', () => {
-  const s = setup(); s.billing.invoicing.pricesIncludeTax = true;
+  const s = setup(); s.billing.quoteSettings.pricesIncludeTax = true;
   s.billing.taxProfiles[0].taxes = [{ id: 'a', name: 'A', ratePercent: 5, active: true, appliesTo: ['transport'] }, { id: 'b', name: 'B', ratePercent: 7, active: true, appliesTo: ['transport'] }];
   s.card.fixedAmount = 112;
   const result = priced(s); assert.equal(result.total, 112); assert.equal(result.subtotal, 100); assert.equal(result.cost?.revenueExcludingTax, 100);
@@ -68,12 +69,11 @@ test('multiple automatic waiting rules produce configuration error, not double b
   s.ctx.catalogue.accessorials.push({ ...s.ctx.catalogue.accessorials.find(a => a.code === 'WAIT')!, id: 'wait2' });
   assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION');
 });
-test('hourly waiting is not billed twice and actual settlement requires actual clock', () => {
+test('hourly waiting is included once and pricing uses the booked estimate', () => {
   const s = setup(); s.card.pricingMethod = 'HOURLY'; s.card.minimumBillableMinutes = 0; s.card.hourlyRate = 60;
   s.order.hourlyBillableMinutes = 60; s.order.stops[0].waitMinutes = 30;
   assert.equal(priced(s).accessorialsTotal, 0); assert.equal(priced(s).freight, 60);
-  s.order.stage = 'FINAL'; assert.equal(calculatePricing(s.order, s.ctx).status, 'NEEDS_ATTENTION');
-  s.order.actualHourlyBillableMinutes = 90; assert.equal(priced(s).freight, 90);
+  s.order.stage = 'FINAL'; assert.equal(priced(s).freight, 60); // Historical stage does not activate settlement.
 });
 test('minimum order subtotal applies after discounts and manual adjustments; zero waiver works', () => {
   const s = setup(); s.card.minimumOrderSubtotal = 100; s.card.discount = { type: 'PERCENT', value: 20, scope: 'SUBTOTAL' };
@@ -177,23 +177,9 @@ test('order wrapper and shared pricing engine return identical results', () => {
   const s = setup(); s.ctx.servicePricingMode = 'FIXED'; s.ctx.distanceWeightMode = 'NONE'; const a = calculatePricing(s.order, s.ctx); const b = priceOrder(s.order, s.ctx);
   assert.equal(a.total, b.total); assert.deepEqual(a.lines, b.lines); assert.deepEqual(a.inputs, b.inputs);
 });
-test('quotes preserve terms on finalization; finalized snapshots are immutable to settings changes', () => {
-  const s = setup(); const quote = priced(s); s.card.fixedAmount = 900; s.billing.serviceCharge.enabled = true;
-  const final = finalizeOrderPrice(s.order, 90, s.ctx, quote); assert.equal(final.snapshot.total, quote.total); assert.equal(final.snapshot.stage, 'FINAL');
-  assert.deepEqual(finalizeOrderPrice(final.input, 200, s.ctx, final.snapshot).snapshot, final.snapshot);
-  const job = { pricing: final.snapshot, assignedDriverId: 'A' }; const reassigned = { ...job, assignedDriverId: 'B', operationalKm: 100 }; assert.deepEqual(job.pricing, reassigned.pricing);
-});
-test('hourly settlement uses frozen rate-card version', () => {
-  const s = setup(); s.card.pricingMethod = 'HOURLY'; s.card.hourlyRate = 60; s.card.minimumBillableMinutes = 0; s.order.hourlyBillableMinutes = 60;
-  const quote = priced(s); s.card.hourlyRate = 900;
-  const final = finalizeOrderPrice(s.order, 90, s.ctx, quote); assert.equal(final.snapshot.freight, 90);
-});
-test('an hourly quote frozen with a dollar minimum keeps it at settlement after hourly cards drop Minimum Charge', () => {
-  const s = setup(); s.card.pricingMethod = 'HOURLY'; s.card.hourlyRate = 60; s.card.minimumBillableMinutes = 0; s.card.minimumOrderSubtotal = 500; s.card.applyOrderMinimum = true; s.order.hourlyBillableMinutes = 60;
-  const quote = priced(s); assert.equal(quote.subtotal, 500);
-  s.card.minimumOrderSubtotal = 0;
-  const final = finalizeOrderPrice(s.order, 90, s.ctx, quote); assert.equal(final.snapshot.freight, 90); assert.equal(final.snapshot.subtotal, 500);
-});
+
+
+
 test('every card method obeys its Apply fuel and Apply vehicle surcharge settings, including Distance', () => {
   for (const method of ['BASE_PLUS_DISTANCE', 'FIXED'] as const) {
     const s = setup(); s.card.pricingMethod = method; s.card.fixedAmount = 95;
@@ -234,6 +220,29 @@ test('cutoff uses organization timezone for same-day bookings', () => {
   assert.equal(validateBooking(s.order, s.ctx, new Date('2026-09-12T22:30:00Z')).length, 1);
   s.order.scheduledAt = '2026-09-13T17:00'; assert.deepEqual(validateBooking(s.order, s.ctx, new Date('2026-09-12T22:30:00Z')), []);
 });
+test('new booking schedule rejects elapsed pickup and delivery times in the company timezone', () => {
+  const s = setup();
+  s.order.scheduledAt = '2026-09-14T10:15';
+  s.order.stops[0].windowStart = s.order.scheduledAt;
+  s.order.stops[1].windowEnd = '2026-09-14T10:10';
+  s.order.scheduledEndAt = s.order.stops[1].windowEnd;
+  const errors = validateBookingSchedule(s.order, 'America/Vancouver', new Date('2026-09-14T17:15:30Z')).join(' ');
+  assert.match(errors, /Pickup time must be in the future/);
+  assert.match(errors, /delivery time must be in the future/);
+  assert.match(errors, /Delivery time must be after pickup time/);
+  s.order.stops[0].windowStart = s.order.scheduledAt = '2026-09-14T10:16';
+  s.order.stops[1].windowEnd = s.order.scheduledEndAt = '2026-09-14T11:00';
+  assert.deepEqual(validateBookingSchedule(s.order, 'America/Vancouver', new Date('2026-09-14T17:15:30Z')), []);
+  s.order.stops[0].windowStart = s.order.scheduledAt = '2026-09-16T10:16';
+  s.order.stops[1].windowEnd = s.order.scheduledEndAt = '2026-09-15T11:00';
+  assert.match(validateBookingSchedule(s.order, 'America/Vancouver', new Date('2026-09-14T17:15:30Z')).join(' '), /Delivery time must be after pickup time/);
+  s.order.stops[0].windowStart = s.order.scheduledAt = '2026-09-14T10:16';
+  s.order.stops[1].windowEnd = s.order.scheduledEndAt = '2026-09-14T11:00';
+  const laterPickup = { ...s.order.stops[0], id: 'later-pickup', windowStart: '2026-09-14T12:00' };
+  s.order.stops.splice(1, 0, laterPickup);
+  s.order.stops[2].pickupIds = [s.order.stops[0].id, laterPickup.id];
+  assert.match(validateBookingSchedule(s.order, 'America/Vancouver', new Date('2026-09-14T17:15:30Z')).join(' '), /delivery time must be after its pickup time/);
+});
 test('manual and recommendation assignments enforce maximum and exclusive work', () => {
   const s = setup(); const driver = { id: 'd', status: 'available' } as Driver;
   const job = { id: 'new', status: 'no_driver', pricing: priced(s), pricingInput: s.order } as Job;
@@ -241,12 +250,6 @@ test('manual and recommendation assignments enforce maximum and exclusive work',
   assert.match(validateAssignment(job, driver, [active], s.ctx, s.ctx.asOf)[0], /maximum/);
   s.billing.dispatch.maxActiveOrdersPerDriver = 3; s.ctx.catalogue.services[0].exclusiveVehicle = true;
   assert.match(validateAssignment(job, driver, [active], s.ctx, s.ctx.asOf)[0], /Exclusive/);
-});
-test('invoice preview uses finalized lines, tax registration and payment terms', () => {
-  const s = setup(); s.billing.invoicing.taxRegistrationNumber = 'DEMO'; s.billing.invoicing.defaultPaymentTerms = 'NET15';
-  const quote = priced(s); const final = finalizeOrderPrice(s.order, null, s.ctx, quote);
-  const invoice = createInvoicePreview('id', final.snapshot, s.ctx, new Date('2026-09-12T12:00:00Z'));
-  assert.equal(invoice.dueAt, '2026-09-27T12:00:00.000Z'); assert.equal(invoice.taxRegistrationNumber, 'DEMO'); assert.equal(invoice.total, final.snapshot.total); assert.deepEqual(invoice.lines, [...final.snapshot.lines, ...final.snapshot.taxLines]);
 });
 
 test('revised settings and shared order form render without a browser', async () => {
@@ -270,14 +273,7 @@ test('revised settings and shared order form render without a browser', async ()
   assert.match(contract, /final total, including tax/); assert.match(contract, /No fuel, vehicle, service or minimum charges are added/); assert.doesNotMatch(contract, /Imported amount means/); assert.doesNotMatch(contract, /Apply resolved contract discount/);
 });
 
-test('hourly billable actuals do not become driving actuals in the cost estimate', () => {
-  const s = setup(); s.card.pricingMethod = 'HOURLY'; s.card.minimumBillableMinutes = 0; s.card.hourlyRate = 60;
-  s.order.hourlyBillableMinutes = 60; s.order.estimatedMinutes = 30; s.order.handlingMinutes = 20; s.order.stops[0].waitMinutes = 10;
-  const quote = priced(s); const final = finalizeOrderPrice(s.order, 90, s.ctx, quote);
-  assert.equal(final.input.actualMinutes, null);
-  assert.equal(final.snapshot.cost?.estimatedCost, quote.cost?.estimatedCost);
-  assert.match(final.snapshot.cost?.basis ?? '', /^Estimated/);
-});
+
 
 test('legacy time rates retire on load and stored discounts normalise to None / Percentage / Fixed on freight', async () => {
   const { loadPricingConfig, savePricingConfig, PRICING_STORAGE_KEY, INITIAL_ZONES } = await import('../src/lib/pricingStorage');
@@ -334,7 +330,7 @@ test('saved orders recover only unfinished legacy-time pricing failures and pers
       { ...job, id: 'completed', status: 'completed' as const },
       { ...job, id: 'final-failure', pricing: { ...failed, stage: 'FINAL' as const } },
       { ...job, id: 'other-error', pricing: { ...failed, errors: [{ code: 'MISSING_DISTANCE' as const, message: 'Missing distance' }] } },
-      { ...job, id: 'invoiced', invoicePreview: { id: 'invoice' } as Job['invoicePreview'] }
+      { ...job, id: 'completed', lifecycleStatus: 'COMPLETED' as const }
     ];
     s.card.minuteRate = 0.4; s.card.includedMinutes = 20;
     data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, schemaVersion: 2 }));
@@ -368,16 +364,11 @@ test('contract editor no longer asks users to migrate retired routine time prici
   assert.doesNotMatch(markup, /New quotes are blocked|Convert to hourly|legacy card charges/);
 });
 
-test('serialized hourly quotes settle using frozen terms after reload', () => {
-  const s = setup(); s.card.pricingMethod = 'HOURLY'; s.card.minimumBillableMinutes = 0; s.card.hourlyRate = 60; s.order.hourlyBillableMinutes = 60;
-  const reloadedQuote = JSON.parse(JSON.stringify(priced(s))); s.card.hourlyRate = 900;
-  const result = finalizeOrderPrice(s.order, 90, s.ctx, reloadedQuote);
-  assert.equal(result.snapshot.status, 'PRICED'); assert.equal(result.snapshot.freight, 90);
-});
+
 
 test('tax-inclusive accessorial unit rates retain precision until the charge is calculated', () => {
   for (const calculationType of ['PER_UNIT', 'PER_MINUTE', 'PER_HOUR', 'FLAT'] as const) {
-    const s = setup(); s.card.fixedAmount = 0; s.billing.invoicing.pricesIncludeTax = true;
+    const s = setup(); s.card.fixedAmount = 0; s.billing.quoteSettings.pricesIncludeTax = true;
     const acc = { ...s.ctx.catalogue.accessorials[0], id: 'unit', calculationType, autoRule: 'NONE' as const, appliesAt: 'PER_STOP' as const, rate: 1, freeAllowance: 0, incrementMinutes: 0, minimumCharge: null, maximumCharge: null, taxable: true };
     s.ctx.catalogue.accessorials = [acc]; s.order.accessorials = [{ accessorialId: acc.id, quantity: 100 }];
     const result = priced(s);
@@ -387,7 +378,7 @@ test('tax-inclusive accessorial unit rates retain precision until the charge is 
 });
 
 test('inclusive waiting rates and per-stop caps do not accumulate unit rounding errors', () => {
-  const s = setup(); s.card.fixedAmount = 0; s.billing.invoicing.pricesIncludeTax = true;
+  const s = setup(); s.card.fixedAmount = 0; s.billing.quoteSettings.pricesIncludeTax = true;
   const wait = s.ctx.catalogue.accessorials.find(a => a.code === 'WAIT')!;
   s.ctx.catalogue.accessorials = [wait]; wait.rate = 1; wait.freeAllowance = 0; wait.incrementMinutes = 0;
   s.order.stops[0].waitMinutes = 100;
@@ -398,7 +389,7 @@ test('inclusive waiting rates and per-stop caps do not accumulate unit rounding 
 
 test('unit rates preserve exclusive and non-taxable amounts and contract overrides', () => {
   for (const inclusive of [false, true]) {
-    const s = setup(); s.card.fixedAmount = 0; s.billing.invoicing.pricesIncludeTax = inclusive;
+    const s = setup(); s.card.fixedAmount = 0; s.billing.quoteSettings.pricesIncludeTax = inclusive;
     const acc = { ...s.ctx.catalogue.accessorials[0], id: 'unit', calculationType: 'PER_UNIT' as const, autoRule: 'NONE' as const, rate: 9, freeAllowance: 0, minimumCharge: null, maximumCharge: null, taxable: true };
     s.ctx.catalogue.accessorials = [acc]; s.card.accessorialRateOverrides[acc.id] = 1;
     s.order.accessorials = [{ accessorialId: acc.id, quantity: 100 }];
@@ -507,23 +498,7 @@ test('legacy group cards migrate to explicit order selection without becoming or
     assert.deepEqual(JSON.parse(data.get(PRICING_STORAGE_KEY)!).customerGroups, []);
   } finally { if (original) Object.defineProperty(globalThis, 'localStorage', original); else Reflect.deleteProperty(globalThis, 'localStorage'); }
 });
-test('historical hourly group quotes settle their frozen discounts without reviving group pricing', () => {
-  const s = setup(); const customer = { ...structuredClone(DEFAULT_SHIPPERS[0]), customerGroupId: 'legacy', discount: { type: 'INHERIT' as const, value: 0, scope: 'SUBTOTAL' as const } };
-  s.ctx.customers = [customer]; s.order.customerId = customer.id;
-  const groupDiscount = { type: 'PERCENT' as const, value: 10, scope: 'SUBTOTAL' as const };
-  Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true, discount: groupDiscount }); s.order.hourlyBillableMinutes = 60;
-  const quote = JSON.parse(JSON.stringify(priced(s)));
-  quote.context.pricing.rateCards[0].scope = 'SHIPPER_GROUP';
-  quote.context.pricing.rateCards[0].discount = { type: 'INHERIT', value: 0, scope: 'SUBTOTAL' };
-  quote.context.pricing.customerGroups = [{ id: 'legacy', name: 'Old group', description: '', rateCardId: s.card.id, discount: groupDiscount }];
-  quote.rateCard.scope = 'SHIPPER_GROUP';
-  const unchanged = JSON.stringify(quote);
-  const settled = finalizeOrderPrice(s.order, 120, s.ctx, quote);
-  assert.equal(settled.snapshot.status, 'PRICED'); assert.equal(settled.snapshot.discount, 20); assert.equal(settled.snapshot.subtotal, 180);
-  assert.equal(JSON.stringify(quote), unchanged);
-  s.card.discount.type = 'INHERIT'; s.ctx.pricing.customerGroups = quote.context.pricing.customerGroups;
-  assert.equal(priced(s).discount, 0);
-});
+
 
 test('automatic precision uses cents and hundredths of a kilometre despite legacy rounding settings', () => {
   const s = setup();
@@ -569,22 +544,7 @@ test('shipper discounts apply across rate cards, do not stack and exclude fuel a
   s.order.customerId = null; assert.equal(priced(s).discount, 0);
 });
 
-test('hourly settlement freezes the shipper discount while legacy quotes retain the card discount', () => {
-  const s = setup(); s.ctx.pricing.discountSource = 'SHIPPER';
-  const customer = { ...structuredClone(DEFAULT_SHIPPERS[0]), rateCardId: s.card.id, discount: { type: 'PERCENT', value: 10, scope: 'TRANSPORT_ONLY' } as Discount };
-  s.ctx.customers = [customer]; s.order.customerId = customer.id;
-  Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true, discount: { type: 'PERCENT', value: 50, scope: 'TRANSPORT_ONLY' } });
-  s.order.hourlyBillableMinutes = 60;
-  const quote = priced(s); assert.equal(quote.discount, 10);
-  customer.discount.value = 90;
-  const final = finalizeOrderPrice(s.order, 120, s.ctx, quote).snapshot;
-  assert.equal(final.status, 'PRICED'); assert.equal(final.discount, 20); assert.equal(final.subtotal, 180);
-  delete s.ctx.pricing.discountSource;
-  const historical = priced(s); assert.equal(historical.discount, 50);
-  s.ctx.pricing.discountSource = 'SHIPPER';
-  const legacyFinal = finalizeOrderPrice(s.order, 120, s.ctx, historical).snapshot;
-  assert.equal(legacyFinal.discount, 100);
-});
+
 
 test('card dimensional rules change chargeable weight independently and frozen quotes retain their divisor', () => {
   const s = setup(); Object.assign(s.card, { pricingMethod: 'BASE_PLUS_DISTANCE', baseFee: 0, includedKm: 0, kmRate: 0, includedWeightKg: 0, weightRatePerKg: 1, dimensionalDivisor: 4000, dimensionalPricingEnabled: true });
@@ -594,8 +554,7 @@ test('card dimensional rules change chargeable weight independently and frozen q
   s.order.rateCardOverrideId = other.id; assert.equal(priced(s).inputs.chargeableWeightKg, 20);
   other.dimensionalPricingEnabled = false; assert.equal(priced(s).inputs.chargeableWeightKg, 20);
   s.card.dimensionalDivisor = 2000;
-  const final = finalizeOrderPrice({ ...s.order, rateCardOverrideId: null }, null, s.ctx, quote).snapshot;
-  assert.equal(final.inputs.chargeableWeightKg, 50); assert.equal(final.freight, 50);
+  assert.equal(quote.inputs.chargeableWeightKg, 50); assert.equal(quote.freight, 50);
 });
 
 test('retired fees disappear from current configuration while historical quotes retain their amounts', async () => {
@@ -611,8 +570,7 @@ test('retired fees disappear from current configuration while historical quotes 
     data.set(BILLING_STORAGE_KEY, JSON.stringify(s.billing)); data.set(PRICING_STORAGE_KEY, JSON.stringify({ ...s.ctx.pricing, schemaVersion: 8 }));
     const current = { ...s.ctx, billing: loadBillingConfig(), pricing: loadPricingConfig() };
     const price = calculatePricing(s.order, current); assert.equal(price.status, 'PRICED'); assert.equal(price.companyCharge, 0); assert.equal(price.lines.some(line => line.key === 'stops'), false);
-    const final = finalizeOrderPrice(s.order, null, current, quote).snapshot;
-    assert.equal(final.companyCharge, 8); assert.equal(final.lines.find(line => line.key === 'stops')!.amount, 10);
+    assert.equal(quote.companyCharge, 8); assert.equal(quote.lines.find(line => line.key === 'stops')!.amount, 10);
   } finally { Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: previous }); }
 });
 
@@ -633,6 +591,28 @@ test('current Accessorials charge selected items once, with no automatic trigger
   // Frozen catalogues retain percentage, per-stop and automatic rules.
   assert.equal(legacy.find(a => a.code === 'WEEKEND')!.calculationType, 'PERCENT_OF_FREIGHT');
   assert.equal(legacy.find(a => a.code === 'WAIT')!.autoRule, 'WAITING_RECORDED');
+});
+
+test('Fragile and DG charge for each flagged package quantity', () => {
+  const s = setup();
+  s.ctx.catalogue.accessorials = structuredClone(CURRENT_ACCESSORIALS);
+  s.order.packages = [{ id: 'boxes', quantity: 3, weightKg: 10, lengthCm: 40, widthCm: 30, heightCm: 30,
+    declaredValue: 0, fragile: true, handlingTags: ['DANGEROUS_GOODS'] }];
+  const quote = priced(s);
+  assert.equal(quote.accessorialsTotal, 120);
+  assert.equal(quote.lines.find(line => line.key === 'acc_acc_fragile')?.quantity, 3);
+  assert.equal(quote.lines.find(line => line.key === 'acc_acc_dg')?.amount, 75);
+  s.order.packages[0].handlingTags = [];
+  assert.equal(priced(s).accessorialsTotal, 45);
+});
+
+test('package Accessorial selection counts only flagged rows and clears with the last flag', () => {
+  const first = { id: 'first', quantity: 2, weightKg: 1, lengthCm: 1, widthCm: 1, heightCm: 1, declaredValue: 0, fragile: true };
+  const second = { id: 'second', quantity: 4, weightKg: 1, lengthCm: 1, widthCm: 1, heightCm: 1, declaredValue: 0, fragile: false };
+  const fragile = CURRENT_ACCESSORIALS.find(item => item.code === 'FRAGILE')!;
+  assert.deepEqual(syncPackageAccessorials([first, second], [], CURRENT_ACCESSORIALS), [{ accessorialId: fragile.id, quantity: 2 }]);
+  assert.deepEqual(syncPackageAccessorials([first, setPackageCharge(second, 'FRAGILE', true)], [], CURRENT_ACCESSORIALS), [{ accessorialId: fragile.id, quantity: 6 }]);
+  assert.deepEqual(syncPackageAccessorials([setPackageCharge(first, 'FRAGILE', false), second], [{ accessorialId: fragile.id, quantity: 2 }], CURRENT_ACCESSORIALS), []);
 });
 
 test('zone weight bands select inclusive limits and never use the legacy amount above the maximum', () => {
@@ -691,14 +671,12 @@ test('historical MAX and legacy hourly settlements retain their original dimensi
   delete legacy.context!.dimensionalWeightMode; // Snapshot created before the new rule.
   const original = structuredClone(legacy);
   s.card.dimensionalDivisor = 2000;
-  const final = finalizeOrderPrice(s.order, 120, s.ctx, legacy).snapshot;
-  assert.equal(final.status, 'PRICED');
-  assert.equal(final.inputs.chargeableWeightKg, 20);
-  assert.equal(final.inputs.dimensionalPricingEnabled, false);
+  assert.equal(legacy.status, 'PRICED');
+  assert.equal(legacy.inputs.chargeableWeightKg, 20);
+  assert.equal(legacy.inputs.dimensionalPricingEnabled, false);
   assert.deepEqual(legacy, original);
-  const currentFinal = finalizeOrderPrice(s.order, 120, s.ctx, quote).snapshot;
-  assert.equal(currentFinal.inputs.chargeableWeightKg, 100);
-  assert.equal(currentFinal.inputs.dimensionalPricingEnabled, true);
+  assert.equal(quote.inputs.chargeableWeightKg, 100);
+  assert.equal(quote.inputs.dimensionalPricingEnabled, true);
 });
 
 test('current pricing requires a finite positive divisor even with a legacy disabled flag', () => {
@@ -712,7 +690,7 @@ test('current pricing requires a finite positive divisor even with a legacy disa
 });
 
 
-test('Fixed and Hourly ignore unused divisors and preserve new hourly terms through settlement', () => {
+test('Fixed and Hourly ignore unused divisors', () => {
   for (const method of ['FIXED', 'HOURLY'] as const) {
     const s = setup();
     Object.assign(s.card, { pricingMethod: method, fixedAmount: 100, hourlyRate: 60, minimumBillableMinutes: 0, billingIncrementMinutes: 1 });
@@ -726,11 +704,6 @@ test('Fixed and Hourly ignore unused divisors and preserve new hourly terms thro
       assert.equal(result.inputs.dimensionalPricingEnabled, false);
       assert.equal(result.inputs.chargeableWeightKg, 10);
       assert.equal(result.context!.dimensionalWeightMode, 'METHOD_SPECIFIC');
-      if (method === 'HOURLY') {
-        const final = finalizeOrderPrice(s.order, 120, s.ctx, result).snapshot;
-        assert.equal(final.status, 'PRICED'); assert.equal(final.freight, 120);
-        assert.equal(final.inputs.dimensionalPricingEnabled, false);
-      }
     }
   }
 });
@@ -775,7 +748,6 @@ test('Zone compares actual and dimensional weight per direction and preserves hi
   assert.match(quote.lines.find(l => l.key === `zone_${backPickup.id}_${backDrop.id}`)!.detail!, /100 kg chargeable weight/);
   const historical = calculatePricing(s.order, { ...s.ctx, dimensionalWeightMode: 'MAX' });
   assert.equal(historical.freight, 50);
-  assert.equal(finalizeOrderPrice(s.order, null, s.ctx, historical).snapshot.freight, 50);
   s.card.zoneRates[0].weightBands![1].maxWeightKg = 200;
   assert.equal(priceOrder(s.order, s.ctx).freight, 80); // Inclusive exact dimensional boundary.
   s.order.packages[0].heightCm = 100.001;
@@ -872,23 +844,7 @@ test('fixed service charge retains fuel, transport discount, tax and minimum tre
   assert.equal(priced(s).subtotal, 150); assert.equal(priced(s).minimumAdjustment, 23);
 });
 
-test('hourly settlement preserves fixed charges and historical multipliers from frozen quotes', () => {
-  const s = setup(); Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true, applyServiceMultiplier: true });
-  s.order.hourlyBillableMinutes = 60;
-  s.ctx.catalogue.services[0].defaultMultiplier = 1.5; s.ctx.catalogue.services[0].additionalCharge = 20;
-  const legacy = priced(s);
-  delete legacy.context!.servicePricingMode;
-  delete legacy.context!.catalogue.services[0].additionalCharge;
-  legacy.engineVersion = 'client-static-v8-method-dimensional-weight';
-  const frozenLegacy = JSON.stringify(legacy);
-  const current = priceOrder(s.order, s.ctx); // Explicit repricing selects fixed charges even with a legacy context.
-  assert.equal(current.serviceFreight, 120);
-  const frozenCurrent = JSON.stringify(current);
-  s.ctx.catalogue.services[0].additionalCharge = 999; s.ctx.catalogue.services[0].defaultMultiplier = 8;
-  assert.equal(finalizeOrderPrice(s.order, 120, s.ctx, current).snapshot.serviceFreight, 220);
-  assert.equal(finalizeOrderPrice(s.order, 120, s.ctx, legacy).snapshot.serviceFreight, 300);
-  assert.equal(JSON.stringify(legacy), frozenLegacy); assert.equal(JSON.stringify(current), frozenCurrent);
-});
+
 
 test('imported final totals bypass the new service charge while imported freight adds it once', () => {
   const s = setup(); s.ctx.servicePricingMode = 'FIXED'; s.order.importedPrice = 100;
@@ -924,7 +880,6 @@ test('old Distance quotes retain weight amounts while explicit repricing uses di
   const historical = priced(s); assert.equal(historical.freight, 130);
   delete historical.context!.distanceWeightMode; // An existing snapshot written before this revision.
   const before = structuredClone(historical);
-  assert.equal(finalizeOrderPrice(s.order, null, s.ctx, historical).snapshot.freight, 130);
   assert.equal(priceOrder(s.order, s.ctx).freight, 30);
   assert.deepEqual(historical, before);
 });

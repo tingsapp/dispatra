@@ -75,7 +75,7 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
       <TextField label="Unit number" value={draft.unitNumber} required onChange={unitNumber => patch({ unitNumber })} placeholder="e.g. V12" />
       <Choice label="Vehicle type" required value={draft.vehicleTypeId ?? ''} options={[{ value: '', label: 'Choose a vehicle type' }, ...[...listedVehicleTypes(types), ...types.filter(type => type.id === draft.vehicleTypeId && !listedVehicleTypes(types).includes(type))].map(type => ({ value: type.id, label: type.name }))]} onChange={chooseType} hint="Fills capacity and box size from the type. Edits affect this vehicle only." />
       <TextField label="Make and model" value={draft.makeModel} onChange={makeModel => patch({ makeModel })} placeholder="e.g. Ford Transit 350" />
-      <NumberField label="Year" step="1" value={draft.year} onChange={year => patch({ year: year ?? 0 })} />
+      <NumberField label="Year" step="1" value={draft.year || undefined} onChange={year => patch({ year: year ?? 0 })} />
       <TextField label="Licence plate" value={draft.plateNumber} required onChange={plateNumber => patch({ plateNumber })} placeholder="e.g. CVK 421" />
       <TextField label="Plate province" value={draft.plateProvince} onChange={plateProvince => patch({ plateProvince })} />
     </FormSection>

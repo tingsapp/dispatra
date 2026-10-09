@@ -18,7 +18,7 @@ function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
     case 'driver': case 'duty': return [ops('drivers'), ops('monitor'), ops('driver-activity')];
     case 'vehicle': return [ops('vehicles'), ops('drivers'), ops('monitor')];
     case 'shipper': return [ops('shippers'), ['customers', slug]];
-    case 'invoice': case 'email': return [ops('invoices'), ops('orders'), ops('analytics')];
+    case 'email': return [ops('quotes')];
     case 'quote': return [ops('quotes')];
     case 'intake': return [ops('email-intakes'), ops('orders')];
     case 'mailbox': return [ops('mailbox')];
@@ -36,7 +36,6 @@ function shipperKeys(slug: string, change: SyncChange): QueryKey[] {
   const order = change.order_id ? [['tracking', slug, change.order_id], ['tracking-path', slug, change.order_id], ['delivery-proof', slug, change.order_id]] : [];
   switch (change.entity) {
     case 'order': case 'stop': case 'evidence': case 'issue': return [['shipper-orders', slug], ...order];
-    case 'invoice': return [['shipper-invoices', slug], ['shipper-orders', slug]];
     case 'shipper': return [['shipper-profile', slug], ['booking-preferences', slug]];
     case 'notification': return [notificationsKey(slug)];
     default: return [];

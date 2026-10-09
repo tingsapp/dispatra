@@ -72,7 +72,7 @@ export function RateCardEditor({ draft, isNew, config, catalogue, billing, patch
     <ContractRulesEditor card={draft} patch={patchDraft} />
     {draft.pricingMethod === 'ZONE' && <>
       <RateCardZones zones={config.zones} {...zoneActions} />
-      <ZoneMatrixEditor units={billing.general} currency={billing.invoicing.currency} rates={draft.zoneRates ?? []}
+      <ZoneMatrixEditor units={billing.general} currency={billing.quoteSettings.currency} rates={draft.zoneRates ?? []}
         zones={config.zones} onChange={zoneRates => patchDraft({ zoneRates })} />
     </>}
 

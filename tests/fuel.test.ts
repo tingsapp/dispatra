@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 import React from 'react';
 import { normalizeFuelSurcharge, resolveFuelPercent } from '../src/lib/billingEngine';
 import { BILLING_STORAGE_KEY, INITIAL_BILLING_CONFIG, loadBillingConfig, saveBillingConfig } from '../src/lib/billingStorage';
-import { createDefaultOrderInput, finalizeOrderPrice, priceOrder } from '../src/lib/orderPricing';
+import { createDefaultOrderInput, priceOrder } from '../src/lib/orderPricing';
 import { calculatePricing, PricingContext } from '../src/lib/pricingEngine';
 import { createEmptyRateCard } from '../src/lib/pricingStorage';
 import { loadSimplePricingConfig } from '../src/lib/simplePricingStorage';
@@ -102,8 +102,8 @@ test('percentage fuel is charged once on each of the four methods and zero disab
   }
 });
 
-test('frozen indexed quotes retain their fuel rules at hourly settlement; new quotes freeze a percentage', () => {
-  const s = setup(); Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1, hourlySettleActual: true });
+test('frozen indexed quotes retain their fuel rules; new quotes freeze a percentage', () => {
+  const s = setup(); Object.assign(s.card, { pricingMethod: 'HOURLY', hourlyRate: 100, minimumBillableMinutes: 0, billingIncrementMinutes: 1 });
   s.order.hourlyBillableMinutes = 60;
   Object.assign(s.billing.fuelSurcharge, { mode: 'index_pegged', currentFuelPrice: 1.8, baselineFuelPrice: 1.5, percentPerCentAboveBaseline: 0.5 });
   const legacy = calculatePricing(s.order, s.ctx); const frozen = JSON.stringify(legacy);
@@ -113,8 +113,7 @@ test('frozen indexed quotes retain their fuel rules at hourly settlement; new qu
   assert.equal(current.inputs.fuelPercent, 15);
   Object.assign(s.billing.fuelSurcharge, { mode: 'fixed_percent', percent: 99, currentFuelPrice: 9 });
   for (const quote of [legacy, current]) {
-    const final = finalizeOrderPrice(s.order, 120, s.ctx, quote).snapshot;
-    assert.equal(final.inputs.fuelPercent, 15); assert.equal(final.fuelSurcharge, 30);
+    assert.equal(quote.inputs.fuelPercent, 15); assert.equal(quote.fuelSurcharge, 15);
   }
   assert.equal(JSON.stringify(legacy), frozen);
 });

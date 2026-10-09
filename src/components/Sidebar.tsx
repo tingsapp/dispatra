@@ -2,6 +2,7 @@ import {
   BarChart2,
   Building2,
   ClipboardList,
+  Plug,
   Truck,
   Users
 } from 'lucide-react';
@@ -122,6 +123,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Bottom Dispatcher Profile & Anchored Account Popover */}
         <div className="p-2">
+          <button type="button" aria-label="Integrations" title={collapsed ? 'Integrations' : undefined}
+            aria-current={activeTab === 'integrations' ? 'page' : undefined} className="app-nav-item mb-1"
+            onClick={() => { setShowAccountPopover(false); setActiveTab('integrations'); }}>
+            <Plug className="w-4.5 h-4.5 shrink-0 text-slate-700" strokeWidth={1.75} />
+            <span className={collapsed ? 'sr-only' : undefined}>Integrations</span>
+          </button>
           <AccountMenu open={showAccountPopover} onOpenChange={setShowAccountPopover}
             modal={mobile}
             collapsed={collapsed}

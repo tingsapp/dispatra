@@ -11,7 +11,7 @@ export function normalizeOrderInput(input: PricingOrderInput): PricingOrderInput
   return { ...input, stops: input.stops.map(s => ({ ...s, ...(s.type === 'DROPOFF' && s.pickupIds == null && pickups.length === 1 ? { pickupIds: [pickups[0].id] } : {}) })),
     packages: input.packages.map(p => ({ ...p, ...(pickups.length === 1 && drops.length === 1 ? { pickupStopId: p.pickupStopId ?? pickups[0].id, deliveryStopId: p.deliveryStopId ?? drops[0].id } : {}) })) };
 }
-export const snapshotCustomer = (c?: Customer): Order['customerSnapshot'] => c ? { id: c.id, name: c.name, phone: c.phone, email: c.email, billingEmail: c.email, legalName: c.legalName, address: c.address, paymentTerms: c.paymentTerms } : undefined;
+export const snapshotCustomer = (c?: Customer): Order['customerSnapshot'] => c ? { id: c.id, name: c.name, phone: c.phone, email: c.email, billingEmail: c.email, legalName: c.legalName, address: c.address } : undefined;
 export function applyCustomerDefaults(input: PricingOrderInput, c?: Customer, previous?: Customer): PricingOrderInput {
   if (!c) return { ...input, customerId: null };
   const warehouse = c.address.trim();

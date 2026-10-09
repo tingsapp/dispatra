@@ -16,7 +16,7 @@ export function RegionalSettings({ editor }: { editor: Pick<BillingEditor, 'conf
           aria-label="Currency"
           disabled
           className="w-full"
-          value={config.invoicing.currency}
+          value={config.quoteSettings.currency}
           onValueChange={() => { }}
           options={[
             { value: 'CAD', label: 'CAD — Canadian Dollar' },

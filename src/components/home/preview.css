@@ -1,0 +1,12 @@
+@keyframes previewEventEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.preview-event-enter {
+  animation: previewEventEnter 420ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-event-enter { animation: none; }
+}

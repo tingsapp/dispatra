@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "node --import tsx tests/companyPreparation.test.ts && node --import tsx tests/addressAutocomplete.test.ts && node --import tsx tests/fuel.test.ts && node --import tsx tests/pricing.test.ts && node --import tsx tests/companyTax.test.ts && node --import tsx tests/datePickers.test.ts && node --import tsx tests/entities.test.ts && node --import tsx tests/entityForms.test.ts && node --import tsx tests/orderVehicle.test.ts && node --import tsx tests/unitDefaults.test.ts && node --import tsx tests/quotation.test.ts && node --import tsx tests/login.test.ts && node --import tsx tests/settings.test.ts && node --import tsx tests/destinationTax.test.ts && node --import tsx tests/appearance.test.ts && node --import tsx tests/listPages.test.ts && node --import tsx tests/navigation.test.ts && node --import tsx tests/shipperOrders.test.ts && node --import tsx tests/platformAdmin.test.ts && node --import tsx tests/phone.test.ts && node --import tsx tests/driverPortal.test.ts && node --import tsx tests/notifications.test.ts && node --import tsx tests/settingsMailbox.test.ts && node --import tsx tests/dispatchRecommendation.test.ts && node --import tsx tests/emailOrders.test.ts",
+    "test": "node --import tsx tests/companyPreparation.test.ts && node --import tsx tests/addressAutocomplete.test.ts && node --import tsx tests/fuel.test.ts && node --import tsx tests/pricing.test.ts && node --import tsx tests/companyTax.test.ts && node --import tsx tests/datePickers.test.ts && node --import tsx tests/entities.test.ts && node --import tsx tests/entityForms.test.ts && node --import tsx tests/orderVehicle.test.ts && node --import tsx tests/unitDefaults.test.ts && node --import tsx tests/quotation.test.ts && node --import tsx tests/login.test.ts && node --import tsx tests/publicHome.test.ts && node --import tsx tests/settings.test.ts && node --import tsx tests/destinationTax.test.ts && node --import tsx tests/appearance.test.ts && node --import tsx tests/analytics.test.ts && node --import tsx tests/listPages.test.ts && node --import tsx tests/navigation.test.ts && node --import tsx tests/shipperOrders.test.ts && node --import tsx tests/platformAdmin.test.ts && node --import tsx tests/phone.test.ts && node --import tsx tests/driverPortal.test.ts && node --import tsx tests/notifications.test.ts && node --import tsx tests/settingsMailbox.test.ts && node --import tsx tests/dispatchRecommendation.test.ts && node --import tsx tests/emailOrders.test.ts && node --import tsx tests/integrations.test.ts",
     "test:admin": "node tests/platformAdmin.e2e.mjs",
     "generate:api": "openapi-typescript ../api/openapi.json -o src/portal/schema.d.ts",
     "test:company-profile": "node tests/companyProfile.e2e.mjs",
@@ -38,6 +38,8 @@
     "react": "^19.0.1",
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.0.1",
+    "react-is": "^19.2.8",
+    "recharts": "^3.10.1",
     "tailwind-merge": "^3.7.0",
     "vite": "^6.2.3"
   },
