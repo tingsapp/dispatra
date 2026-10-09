@@ -7,12 +7,14 @@ import { useSidebarDrawer } from '../components/layout/useSidebarDrawer';
 const initials = (name: string) => name.trim().split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('') || '?';
 
 /** Presentational workspace shell. Authentication and customer data remain in PortalApp. */
-export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, headerActions, reading = false, footer, children }: {
+export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, headerActions, reading = false, map = false, footer, children }: {
   /** Sidebar controls under the Logout card (or the account card), such as the driver's duty switch. */
   footer?: (collapsed: boolean) => ReactNode;
   description?: string; reading?: boolean; actions?: ReactNode; onNavigate?: (href: string) => void;
   /** Persistent workspace controls aligned with the page's content width and gutters. */
   headerActions?: ReactNode;
+  /** Edge-to-edge map canvas with workspace controls floating above it. */
+  map?: boolean;
   /** Dispatcher-style account card with a Profile / Logout menu instead of the plain sign-out control. */
   account?: { name: string; role: string; profileCurrent: boolean };
   navigation?: { label: string; href: string; icon: LucideIcon; current: boolean }[];
@@ -63,13 +65,16 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
         <button type="button" className="app-nav-item disabled:opacity-50" aria-label="Sign out" title={collapsed ? 'Sign out' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Sign out</span></button>
       </div>}
     </aside>
-    <div className={headerActions ? `flex h-dvh min-w-0 flex-1 flex-col ${settings || reading ? 'app-page-reading' : ''}` : 'contents'}>
-      {headerActions && <header aria-label="Workspace header" className="app-workspace-header h-16 shrink-0 bg-app-canvas">
+    <div className={headerActions || map ? `relative flex h-dvh min-w-0 flex-1 flex-col ${settings || reading ? 'app-page-reading' : ''}` : 'contents'}>
+      {headerActions && <header aria-label="Workspace header" className={map ? 'absolute inset-x-0 top-0 z-30 h-16 pointer-events-none' : 'app-workspace-header h-16 shrink-0 bg-app-canvas'}>
         <div className="page-content flex h-full items-center justify-between">
-          <div>{menuButton}</div>
-          <div className="flex items-center gap-2">{headerActions}</div>
+          <div className="pointer-events-auto">{menuButton}</div>
+          <div className="flex items-center gap-2 pointer-events-auto">{headerActions}</div>
         </div>
       </header>}
+    {map ? <main className="relative min-h-0 flex-1 overflow-hidden" aria-label={primary}>
+      <h1 className="sr-only">{primary}</h1>{children}
+    </main> : <>
     <div className={`app-page min-w-0 flex-1 flex flex-col ${settings || reading ? 'app-page-reading' : ''} ${headerActions ? 'app-page-with-header min-h-0' : 'min-h-dvh'}`}>
       <PageHeading className="app-page-header page-content">
         <div className="flex min-w-0 items-center gap-3">
@@ -80,6 +85,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
       </PageHeading>
       <main className="page-content space-y-6 py-6">{children}</main>
     </div>
+    </>}
     </div>
   </div>;
 }

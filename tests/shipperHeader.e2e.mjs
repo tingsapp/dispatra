@@ -6,11 +6,18 @@ const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const errors = [];
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await context.addInitScript(() => {
+    window.__shipperDeviceRequests = 0;
+    Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition: success => {
+      window.__shipperDeviceRequests++;
+      success({ coords: { latitude: 43.65, longitude: -79.38 } });
+    } } });
+  });
   let unread = 1;
   const notification = { id: 'n1', version: 1, created_at: new Date().toISOString(), kind: 'order.assigned', severity: 'INFO',
     title: 'Order assigned', body: 'Your delivery has a driver.', order_id: 'order-1', route_id: null, read_at: null };
   const profile = { id: 'shipper-1', version: 1, number: 'DDS-1042', name: 'Example Shipper', company_name: 'Example Shipper', kind: 'BUSINESS',
-    email: 'shipper@example.com', phone: '6045550100', status: 'ACTIVE', warehouse: { text: '100 Main St, Vancouver, BC V6A 2S5', city: 'Vancouver', province: 'BC', country: 'CA', postal_code: 'V6A 2S5' },
+    email: 'shipper@example.com', phone: '6045550100', status: 'ACTIVE', warehouse: { text: '100 Main St, Vancouver, BC V6A 2S5', city: 'Vancouver', province: 'BC', country: 'CA', postal_code: 'V6A 2S5', latitude: 49.28, longitude: -123.1 },
     discount: { kind: 'NONE', value: '0' }, instructions: '', rate_card_id: null };
   let orders = [], failOrders = false, failTracking = false;
   const trackingReads = [];
@@ -30,7 +37,11 @@ try {
       stops_before_next: 0, eta: stage === 'OUT_FOR_DELIVERY' ? row.scheduled_at : null, delay_minutes: 0, late: false, live: false,
       location: null, location_stale: false, events: [{ kind: 'BOOKED', label: 'Order booked', at: row.created_at }], open_issue: false, updated_at: row.created_at };
   };
-  await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+  const liveMap = process.env.TRACKING_LIVE_MAP === '1';
+  await context.route('**/*', route => {
+    const url = new URL(route.request().url());
+    return url.origin === origin || liveMap && /(^|\.)(googleapis\.com|gstatic\.com|google\.com)$/.test(url.hostname) ? route.continue() : route.abort();
+  });
   await context.route('**/api/v1/**', route => {
     const path = new URL(route.request().url()).pathname;
     let json;
@@ -52,6 +63,7 @@ try {
       if (!row) return route.fulfill({ status: 404, json: { error: { message: 'Order unavailable.' } } });
       json = tracking(row);
     }
+    else if (path.endsWith('/road-path')) json = { points: [[49.28, -123.1], [49.285, -123.1], [49.285, -123.09], [49.29, -123.09], [49.29, -123.1]] };
     else if (['/booking-options', '/booking-drivers'].some(suffix => path.endsWith(suffix))) json = [];
     else return route.fulfill({ status: 404, json: { error: { message: 'Outside this local layout check.' } } });
     return route.fulfill({ json });
@@ -64,13 +76,24 @@ try {
     const bounds = await bell.boundingBox();
     assert.equal(bounds.y, 14);
     assert.equal(await bell.evaluate(button => getComputedStyle(button).backgroundColor), 'rgb(240, 240, 240)');
-    const contentRight = await page.locator('main.page-content').evaluate(main => {
+    const isMap = await page.locator('[aria-label="Shipment map"][data-map-provider="google"]').count();
+    const contentRight = isMap ? await page.getByRole('main', { name: 'Tracking', exact: true }).evaluate(main => {
+      const bounds = main.getBoundingClientRect();
+      return bounds.right - (innerWidth < 768 ? 16 : 24);
+    }) : await page.locator('main.page-content').evaluate(main => {
       const bounds = main.getBoundingClientRect();
       return bounds.right - parseFloat(getComputedStyle(main).paddingRight);
     });
     assert.ok(Math.abs(bounds.x + bounds.width - contentRight) < 1, 'Header bell aligns with the content right edge');
     assert.equal(await header.getByRole('button', { name: 'New order', exact: true }).count(), 0);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    if (isMap) {
+      const canvas = await page.getByRole('main', { name: 'Tracking', exact: true }).boundingBox();
+      assert.equal(canvas.y, 0); assert.equal(canvas.height, page.viewportSize().height);
+      assert.equal(canvas.x + canvas.width, page.viewportSize().width);
+      const map = await page.locator('[data-map-provider="google"]').boundingBox();
+      assert.deepEqual(map, canvas, 'Map fills the workspace canvas');
+    }
   };
   await page.goto(origin + '/demo/shipper');
   await page.getByRole('heading', { name: 'Orders', exact: true }).waitFor();
@@ -139,7 +162,18 @@ try {
   assert.equal(await page.getByRole('dialog').count(), 0);
   assert.equal(await nav.getByRole('link', { name: 'Tracking', exact: true }).getAttribute('aria-current'), 'page');
   await checkHeader();
-  await page.getByRole('img', { name: 'Map of the pickup, delivery and driver position' }).waitFor();
+  await page.getByRole('region', { name: 'Stops and timeline', exact: true }).waitFor();
+  if (liveMap) {
+    await page.getByRole('img', { name: 'Your warehouse', exact: true }).waitFor({ timeout: 60000 });
+    await page.getByRole('img', { name: /^Pickup:/ }).waitFor();
+    await page.getByRole('img', { name: /^Drop-off:/ }).waitFor();
+    await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+    await page.getByRole('button', { name: 'Zoom out', exact: true }).click();
+    await page.getByRole('button', { name: 'Fit order on map', exact: true }).click();
+    await page.getByRole('button', { name: 'Focus warehouse or fallback location', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.__shipperDeviceRequests), 0, 'Warehouse coordinates avoid device location requests');
+    await page.waitForFunction(() => [...document.querySelectorAll('.gm-style img')].some(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth >= 200), null, { timeout: 60000 });
+  }
   await page.screenshot({ path: '/tmp/dispatra-shipper-tracking-desktop.png', fullPage: true });
   const selectOrder = async number => {
     await page.getByRole('combobox', { name: 'Order to track' }).click();
@@ -175,6 +209,14 @@ try {
     await page.goto(origin + '/demo/shipper/tracking?order=1');
     await page.getByText('Out for delivery – your stop is next', { exact: true }).waitFor();
     await checkHeader();
+    if (liveMap) {
+      await page.getByRole('img', { name: 'Your warehouse', exact: true }).waitFor({ timeout: 60000 });
+      await page.waitForFunction(() => [...document.querySelectorAll('.gm-style img')].some(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth >= 200), null, { timeout: 60000 });
+      const details = page.getByRole('region', { name: 'Stops and timeline', exact: true });
+      await details.evaluate(card => { card.scrollTop = card.scrollHeight; });
+      await details.getByText('Order booked', { exact: true }).waitFor();
+      await details.evaluate(card => { card.scrollTop = 0; });
+    }
     if (width === 390) await page.screenshot({ path: '/tmp/dispatra-shipper-tracking-mobile.png', fullPage: true });
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
     await nav.getByRole('link', { name: 'Orders', exact: true }).click();

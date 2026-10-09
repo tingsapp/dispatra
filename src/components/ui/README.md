@@ -40,7 +40,7 @@ Page headings and content share the scrolling `.app-page` canvas and its respons
 
 `PortalShell.headerActions` holds persistent workspace controls above the scrolling page canvas, aligned with its content width and responsive gutters. The header reserves the same scrollbar space as the canvas so wide and reading columns align. The Shipper notification bell belongs there; `actions` remains for page commands such as New order. Mobile menu access moves to that shared header when it is present.
 
-`NotificationBell.surface` adds the neutral `app-icon-button-surface` background for the Shipper header. Shipper Tracking uses the shared order selector and `OrderTracking` on its own reading-width page; order details provide a real Track link. Keep links in the dialog's keyboard focus sequence.
+`NotificationBell.surface` adds the neutral `app-icon-button-surface` background for the Shipper header. Shipper Tracking uses `PortalShell.map` for a full workspace canvas with floating header controls, the shared order selector and reusable `TrackingSummary` / `TrackingDetails` in white overlay cards; order details provide a real Track link. Keep links in the dialog's keyboard focus sequence.
 
 `PageHeader` contains the title, description and optional page actions. Do not add a Back to Monitor button; use the shared Dispatra brand navigation. Headers without actions do not reserve an action container.
 
@@ -60,3 +60,5 @@ Use `app-input` for native inputs/textareas, `app-label` for standalone field la
 Use `app-section-title` for section headings, `app-panel` for borderless white content cards and `app-panel-plain` for sections directly on the canvas. Selected card rows use `app-choice-row` with `aria-pressed`; disclosures use `app-disclosure` with its trigger/content classes. Zone tables retain their compact layout and 70px numeric minimum, using the same typography, field corners and panel padding.
 
 Dialog scrims and surfaces use `app-dialog-backdrop` and `app-dialog-surface`. Side drawers add `app-drawer` for corners on the exposed side. Their widths, scrolling and focus behavior remain in the existing components. Ordinary menus use the shared portalled `DropdownMenu`, including driver assignment; rich popovers retain `FloatingPanel`. Do not replace a menu with an absolutely positioned list inside a scrolling table.
+
+`ShipperTrackingMap` uses the Monitor Google Maps stack and shared `StopMarkerCircle`. Its camera resolves the saved warehouse before a one-time device fallback. Keep map/cards on one `useOrderTracking` query, and draw only authorized tracking data and road geometry. Desktop cards sit at the left; mobile cards scroll internally to leave the map accessible.

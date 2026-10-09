@@ -50,7 +50,7 @@ export function GoogleOverlayMarker({ position, label, children, onSelect, id, t
 
   useEffect(() => { overlay.current?.draw(); }, [position.lat, position.lng]);
 
-  return createPortal(<div id={id} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
+  return createPortal(<div id={id} role={onSelect ? 'button' : 'img'} tabIndex={onSelect ? 0 : undefined}
     aria-label={label} title={title} className={`cursor-pointer select-none ${className}`}
     onClick={event => { event.stopPropagation(); onSelect?.(); }}
     onKeyDown={event => {

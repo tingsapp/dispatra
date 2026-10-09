@@ -32,12 +32,12 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false}
     headerActions={<NotificationBell slug={slug} surface onOpen={() => go(base)} />}
     actions={page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}
-    reading={page.path !== 'orders'}
+    reading={page.path === 'profile'} map={page.path === 'tracking'}
     account={{ name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}
     description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'tracking' ? 'Follow your order from pickup to delivery.' : 'Create and track your deliveries.'}
     navigation={shipperPages.filter(item => item.path !== 'profile').map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path }))}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
-    <Notice error={logoutError} />
+    {page.path !== 'tracking' && <Notice error={logoutError} />}
     {page.path === 'profile' && <>
       <div className="flex items-center gap-2" aria-label="Profile sections">
         <button type="button" className="app-tab inline-flex items-center gap-2" aria-pressed={profileSection === 'details'} onClick={() => setProfileSection('details')}><UserRound size={14} />Details</button>
@@ -47,6 +47,6 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
       {profileSection === 'security' && <PasswordPage plain />}
     </>}
     {page.path === 'orders' && <ShipperOrders slug={slug} open={newOrderOpen} onClose={() => setNewOrderOpen(false)} onNavigate={go} />}
-    {page.path === 'tracking' && <ShipperTracking slug={slug} orderId={url.searchParams.get('order')} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}
+    {page.path === 'tracking' && <ShipperTracking slug={slug} orderId={url.searchParams.get('order')} logoutError={logoutError} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}
   </PortalShell>;
 }
