@@ -4,7 +4,7 @@ import { formatWhen } from './OrderDossierSections';
 export type Tracking = components['schemas']['TrackingView'];
 export const STEPS = ['Booked', 'Driver assigned', 'Picked up', 'On the way', 'Delivered'];
 export const STEP_INDEX: Record<Tracking['stage'], number> = { BOOKED: 0, ASSIGNED: 1, TO_PICKUP: 1, IN_TRANSIT: 3, OUT_FOR_DELIVERY: 3, DELIVERED: 4, CANCELLED: -1 };
-export const time = (iso: string | null | undefined, timeZone: string) => iso ? new Date(iso).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone }) : '';
+export { clockTime as time } from '../../lib/dateTimeFormat';
 export const ago = (iso: string, now: number) => { const minutes = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60_000)); return minutes < 1 ? 'just now' : `${minutes} min ago`; };
 
 /** A live ETA exists only once the driver has started the route; before that the plan is shown instead. */

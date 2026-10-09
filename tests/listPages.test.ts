@@ -41,6 +41,7 @@ for (const scenario of scenarios) test(`${scenario.name} summary stays accurate 
   const user = userEvent.setup({ document });
   const total = scenario.total();
   render(scenario.view());
+  if (scenario.name === 'Orders') assert.ok(screen.getByRole('columnheader', { name: 'Pickup → Delivery' }));
   const summary = screen.getByLabelText(`${scenario.name} summary`);
   assert.equal(summary.tagName, 'DL');
   assert.equal(within(summary).getByText('Total').closest('dt')!.nextElementSibling!.textContent, total.toLocaleString());

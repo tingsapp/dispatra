@@ -1,3 +1,4 @@
+import { dateTime } from '../../lib/dateTimeFormat';
 import { ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -29,7 +30,7 @@ export const EMAIL_ERRORS: Record<string, string> = {
 /** Emails the agent understood as order requests but could not book yet; anything else never becomes a draft. */
 export const EMAIL_DRAFT_STATUSES: EmailIntakeStatus[] = ['NEEDS_REVIEW', 'UNKNOWN_SENDER'];
 const OPEN: EmailIntakeStatus[] = ['NEEDS_REVIEW', 'UNKNOWN_SENDER', 'FAILED', 'NOT_AN_ORDER'];
-export const emailTime = (value?: string | null) => value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+export const emailTime = (value?: string | null) => dateTime(value) || '—';
 const message = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
 const when = emailTime, STATUS = EMAIL_STATUS, ERRORS = EMAIL_ERRORS;
 

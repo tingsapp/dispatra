@@ -1,3 +1,4 @@
+import { clockText } from '../lib/dateTimeFormat';
 import { DriverAvatar } from '../components/DriverAvatar';
 import { ListSummary } from '../components/layout/ListSummary';
 import { DriverAssignmentMenu } from '../components/entities/DriverAssignmentMenu';
@@ -75,9 +76,9 @@ interface JobsPageProps {
 }
 
 /** Next order number: one past the highest existing #number. */
-/** API instants in the company time zone; offset-less wall times as written; anything else (prototype time-only text) as typed. */
+/** API instants in the company time zone; offset-less wall times as written; legacy prototype clock text in 24-hour form. */
 const scheduleText = (value: string | undefined, timeZone: string) => {
-  if (!value || Number.isNaN(new Date(value).getTime())) return value ?? '';
+  if (!value || Number.isNaN(new Date(value).getTime())) return clockText(value ?? '');
   const wall = /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.exec(value.slice(0, 16));
   return /[zZ]$|[+-]\d\d:\d\d$/.test(value) || !wall ? formatWhen(value, timeZone) : formatWhen(`${wall[0]}Z`, 'UTC');
 };
@@ -110,7 +111,7 @@ export function JobsPage({
   // Create Job Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddAccessorial, setShowAddAccessorial] = useState(false);
-  const [newScheduledTime, setNewScheduledTime] = useState('01:00 PM – 03:00 PM');
+  const [newScheduledTime, setNewScheduledTime] = useState('13:00 – 15:00');
   const [newDriverId, setNewDriverId] = useState<string>('unassigned');
   const [newInstructions, setNewInstructions] = useState('');
   const [orderFields, setOrderFields] = useState<Partial<Job>>({});
@@ -472,7 +473,7 @@ export function JobsPage({
                 <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-medium text-slate-600">
                   <th className="py-3 px-4">Order / Status</th>
                   <th className="py-3 px-4">Shipper</th>
-                  <th className="py-3 px-4">Route Leg (Pickup → Delivery)</th>
+                  <th className="py-3 px-4">Pickup → Delivery</th>
                   <th className="py-3 px-4">Scheduled Window</th>
                   <th className="py-3 px-4">Assigned Driver</th>
                   <th className="py-3 px-4">Service & Price</th>

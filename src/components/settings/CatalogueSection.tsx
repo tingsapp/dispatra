@@ -1,3 +1,4 @@
+import { clockText } from '../../lib/dateTimeFormat';
 import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { confirmDialog } from '../ui/ConfirmDialog';
 import { useEffect, useState } from 'react';
@@ -100,7 +101,7 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       <th className="px-4 py-3 font-medium">Action</th>
     </tr></thead><tbody>{items.map(item => <tr key={item.id} className="border-t border-slate-100">
       <td className="px-4 py-3 font-medium text-slate-900">{item.name}{item.id === defaultId && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">Default</span>}</td>
-      {section === 'services' ? <><td className="px-4 py-3 text-slate-600">{(item as DeliveryService).estimatedTime || 'Not specified'}</td><td className="px-4 py-3 text-slate-500">{(item as DeliveryService).bookingCutoffTime ? `Book by ${(item as DeliveryService).bookingCutoffTime}` : 'No cutoff'} · {(item as DeliveryService).exclusiveVehicle ? 'Exclusive vehicle' : 'Shared vehicle'}</td></> : <>
+      {section === 'services' ? <><td className="px-4 py-3 text-slate-600">{clockText((item as DeliveryService).estimatedTime || 'Not specified')}</td><td className="px-4 py-3 text-slate-500">{(item as DeliveryService).bookingCutoffTime ? `Book by ${(item as DeliveryService).bookingCutoffTime}` : 'No cutoff'} · {(item as DeliveryService).exclusiveVehicle ? 'Exclusive vehicle' : 'Shared vehicle'}</td></> : <>
         <td className="px-4 py-3 text-slate-600">${(item as AccessorialItem).rate.toFixed(2)} <span className="text-slate-400">{item.code === 'FRAGILE' || item.code === 'DG' ? 'per package' : 'per order'}</span></td>
         <td className="px-4 py-3 text-slate-500">{item.code === 'FRAGILE' || item.code === 'DG' ? 'Package checkbox' : 'Selected on order'}</td>
       </>}

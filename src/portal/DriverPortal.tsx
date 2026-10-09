@@ -192,7 +192,7 @@ function DriverOrders({ slug, online, onStartRoute, onFinishRoute }: { slug: str
           {rows.length > 0 && <button type="button" onClick={() => { setSearch(''); setLifecycle('all'); setDateFilter({ kind: 'all' }); }} className="mt-4 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Clear all filters</button>}
         </div> : <div className="overflow-x-auto"><table aria-label="Orders" className="app-table w-full text-left border-collapse">
           <thead><tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-medium text-slate-600">
-            <th className="py-3 px-4">Order / Status</th><th className="py-3 px-4">Route Leg (Pickup → Delivery)</th><th className="py-3 px-4">Scheduled Window</th><th className="py-3 px-4">Service & Items</th><th className="py-3 px-4 text-right">Actions</th>
+            <th className="py-3 px-4">Order / Status</th><th className="py-3 px-4">Pickup → Delivery</th><th className="py-3 px-4">Scheduled Window</th><th className="py-3 px-4">Service & Items</th><th className="py-3 px-4 text-right">Actions</th>
           </tr></thead>
           <tbody className="divide-y divide-slate-100 text-xs text-slate-800">{filtered.map(order => {
             const pickups = order.stops.filter(stop => stop.kind === 'PICKUP');

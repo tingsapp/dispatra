@@ -4,6 +4,8 @@ Updated: 2026-10-09. [Specification](spec.md) defines intended behavior.
 
 ## Implemented
 
+- 2026-10-09: Dispatcher, Shipper and Driver order-table address headers now read Pickup → Delivery. Shared date/time display uses 24-hour HH:mm with h23 (midnight 00:00), including order lists/dossiers, tracking, driver activity, email intake, quotes and admin timestamps. Existing company/device time zones and ISO booking instants are preserved; time pickers were already 24-hour. Legacy prototype clock text and service promises display in 24-hour form without rewriting saved records, and built-in fixtures/defaults now use it. Three formatter regressions cover midnight/noon, time zones/DST, empty values and legacy clock text; all eight focused web test files, TypeScript and production build passed. No API contract changes or production deployment.
+
 - 2026-10-09: Driver order-detail phone links now inherit the surrounding contact text color while retaining tap-to-call. Renamed the route completion button to Complete job and updated the manual workflow selector. Completion eligibility and API commands are unchanged. Six driver portal tests, lint and production build passed. No API changes or production deployment.
 
 - 2026-10-09: The company login workspace label now renders the company slug in the shared black text color while the `dispatra.com/` prefix remains muted. All company role sign-ins share this label; tenant routing and credentials are unchanged. Updated existing text assertions for the split markup. Four company-login tests, lint and production build passed. No API changes or production deployment.

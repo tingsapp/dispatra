@@ -12,7 +12,7 @@ export interface DeliveryService {
   additionalCharge?: number | null;
   /** Retained only for historical quotes; never used by new pricing. */
   defaultMultiplier: number;
-  /** Shipper-facing promise, e.g. "Same-Day (by 5 PM)". */
+  /** Shipper-facing promise, e.g. "Same-Day (by 17:00)". */
   estimatedTime?: string;
   /** Latest booking time for same-day fulfilment, "HH:MM" 24h. */
   bookingCutoffTime?: string;

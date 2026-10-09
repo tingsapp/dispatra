@@ -1,3 +1,4 @@
+import { dateTime } from './lib/dateTimeFormat';
 import { LocateFixed,PanelLeft,Sparkles } from 'lucide-react';
 import { AnimatePresence,motion } from 'motion/react';
 import { lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState } from 'react';
@@ -87,7 +88,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
       statusLabel: onRoute ? 'On route' : vehicleUnavailable ? 'Vehicle unavailable' : driver.statusLabel,
       currentJob: orderQuery.data?.find(order => order.route_id === current?.id)?.number,
       nextStop: current?.stops.find(stop => stop.status !== 'COMPLETED')?.stop.address.text ?? 'Not set', routeId: current?.id,
-      lastUpdate: row.last_seen_at ? new Date(row.last_seen_at).toLocaleString() : 'Not set' };
+      lastUpdate: row.last_seen_at ? dateTime(row.last_seen_at) : 'Not set' };
   }) : localDrivers;
   useEffect(() => { if (!slug) try { saveDrivers(localDrivers); } catch { showToast('Driver changes could not be saved in this browser.'); } }, [localDrivers, slug]);
   // Every order carries a PricingSnapshot from the shared engine, including the static mocks.

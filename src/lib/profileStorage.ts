@@ -29,7 +29,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   autoCenterOnSelect: true,
   timeFormat: '24h',
   twoFactorEnabled: true,
-  lastLogin: 'Today at 07:15 AM (Pacific Time)'
+  lastLogin: 'Today at 07:15 (Pacific Time)'
 };
 
 export const PROFILE_STORAGE_KEY = 'dispatra_user_profile_v1';

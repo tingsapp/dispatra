@@ -1,7 +1,7 @@
+import { dateTime } from '../../lib/dateTimeFormat';
 import { ApiError } from '../api';
 
-const DATE = new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium', timeStyle: 'short' });
-export const formatWhen = (value?: string | null, empty = 'Never') => value ? DATE.format(new Date(value)) : empty;
+export const formatWhen = (value?: string | null, empty = 'Never') => dateTime(value) || empty;
 
 const AUDIT_LABELS: Record<string, string> = {
   'organization.created': 'Company created',

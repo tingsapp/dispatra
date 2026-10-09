@@ -59,6 +59,7 @@ test('driver orders list opens an order with its stops; starting the route needs
   const user = userEvent.setup({ document }); online = false;
   mount();
   const row = (await screen.findByText('DCO-1001')).closest('tr')!;
+  assert.ok(screen.getByRole('columnheader', { name: 'Pickup → Delivery' }));
   assert.ok(within(row).getByText('Assigned')); assert.ok(within(row).getByText('2 pieces'));
   await user.click(row);
   assert.ok(await screen.findByText(/200 King St/, { selector: 'p' }));

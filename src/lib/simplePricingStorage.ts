@@ -14,10 +14,10 @@ export const INITIAL_SERVICES: DeliveryService[] = [
     id: 'srv_same_day',
     code: 'SAME_DAY',
     name: 'Same-Day Standard',
-    description: 'Standard scheduled delivery completed by 5:00 PM across metro area.',
+    description: 'Standard scheduled delivery completed by 17:00 across metro area.',
     defaultMultiplier: 1.0,
     additionalCharge: 0,
-    estimatedTime: 'Same-Day (by 5 PM)',
+    estimatedTime: 'Same-Day (by 17:00)',
     bookingCutoffTime: '14:00',
     exclusiveVehicle: false,
     active: true

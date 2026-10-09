@@ -1,3 +1,4 @@
+import { dateTime } from './dateTimeFormat';
 // Shipper-facing quotation built from a priced estimate. Reads only the
 // PricingSnapshot and its inputs so the quote shows exactly the engine's numbers.
 // The PDF is generated locally; emailing is a mailto: hand-off with the PDF saved for attaching.
@@ -75,7 +76,7 @@ const customerFacing = (detail: string, input: PricingOrderInput): string =>
 
 const money = (n: number, currency: string) => `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)} ${currency}`;
 const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
-const when = (iso: string | null) => iso ? new Date(iso).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : 'To be confirmed';
+const when = (iso: string | null) => dateTime(iso) || 'To be confirmed';
 
 export const quotationSubject = (q: Quotation): string => `Quotation ${q.quoteNumber} from ${q.company.name}`.trim();
 

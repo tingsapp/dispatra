@@ -6,10 +6,11 @@ import type { PricingContext } from '../../lib/pricingEngine';
 import type { Job } from '../../types';
 import type { PricingStopInput } from '../../types/pricing';
 import { orderOrigin } from '../../domain/orderOrigin';
+import { dateTime as formatWhen } from '../../lib/dateTimeFormat';
 
 const priorityLabel = (p: Job['priority'] | undefined) => ({ NORMAL: 'Normal', HIGH: 'High', URGENT: 'Urgent' } as Record<string, string>)[p ?? 'NORMAL'] ?? 'Normal';
 const trimUnit = (s: string) => s.replace(/\s\S+$/, '');
-export const formatWhen = (iso: string | undefined | null, timeZone: string) => iso ? new Date(iso).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short', timeZone }) : '';
+export { formatWhen };
 const dossierStops = (job: Job): PricingStopInput[] => job.pricingInput?.stops ?? [
   { id: 'pu', type: 'PICKUP', label: job.pickupAddress, zoneId: null, residential: false, waitMinutes: 0 },
   { id: 'do', type: 'DROPOFF', label: job.dropoffAddress, zoneId: null, residential: false, waitMinutes: 0 }
