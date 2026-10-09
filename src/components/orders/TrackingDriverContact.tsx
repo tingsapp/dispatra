@@ -17,10 +17,10 @@ export function TrackingDriverContact({ driver }: { driver: NonNullable<Tracking
       {phone ? <a href={`tel:${phone}`} aria-label={`Call ${name}`} className="text-xs text-app-text">{formatPhone(phone)}</a>
         : <p className="text-xs text-app-muted">Phone unavailable</p>}
       <div className="mt-2">
-        {phone ? <Button asChild variant="outline" size="sm"><a href={`sms:${phone}`} aria-label={`Message ${name}`} title="Open SMS app">
-          <MessageSquare aria-hidden="true" />Message
-        </a></Button> : <Button variant="outline" size="sm" disabled aria-label={`Message ${name}: phone unavailable`}>
-          <MessageSquare aria-hidden="true" />Message
+        {phone ? <Button asChild variant="outline" size="icon"><a href={`sms:${phone}`} aria-label={`Message ${name}`} title={`Message ${name}`}>
+          <MessageSquare aria-hidden="true" />
+        </a></Button> : <Button variant="outline" size="icon" disabled aria-label={`Message ${name}: phone unavailable`} title="Phone unavailable">
+          <MessageSquare aria-hidden="true" />
         </Button>}
       </div>
     </div>
