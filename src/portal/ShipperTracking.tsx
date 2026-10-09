@@ -34,9 +34,9 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
         : tracking.isPending ? <p role="status" className="text-sm text-app-muted">Loading tracking…</p>
         : tracking.error ? <><Notice error={tracking.error} /><Button variant="outline" onClick={() => void tracking.refetch()}>Retry tracking</Button></>
         : tracking.data && <>
-          <TrackingSummary tracking={tracking.data} timeZone={timeZone} title={selected.number} showDriverContact />
+          <TrackingSummary tracking={tracking.data} timeZone={timeZone} title={selected.number} showDriver={false} />
           <section className="mt-5" aria-label="Stops and timeline">
-            <TrackingDetails tracking={tracking.data} timeZone={timeZone} now={now} showLocationStatus={false} />
+            <TrackingDetails tracking={tracking.data} timeZone={timeZone} now={now} showLocationStatus={false} showDriverContact />
           </section>
         </>}
       </>}

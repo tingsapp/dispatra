@@ -187,6 +187,12 @@ try {
   await driverContact.getByRole('img', { name: "Dana Driver's avatar" }).waitFor();
   assert.equal(await driverContact.getByRole('link', { name: 'Call Dana Driver' }).getAttribute('href'), 'tel:+16045550102');
   assert.equal(await driverContact.getByRole('link', { name: 'Message Dana Driver' }).getAttribute('href'), 'sms:+16045550102');
+  const contactBounds = await driverContact.boundingBox();
+  const stopsBounds = await page.getByText('Stops', { exact: true }).boundingBox();
+  const timelineBounds = await page.getByText('Timeline', { exact: true }).boundingBox();
+  assert.ok(stopsBounds.y >= contactBounds.y + contactBounds.height, 'Driver contact sits above Stops in the first column');
+  assert.equal(stopsBounds.x, contactBounds.x);
+  assert.ok(timelineBounds.x > contactBounds.x && Math.abs(timelineBounds.y - contactBounds.y) < 2, 'Timeline starts at the top of the second column');
   assert.equal(await page.getByRole('dialog').count(), 0);
   assert.equal(await nav.getByRole('link', { name: 'Tracking', exact: true }).getAttribute('aria-current'), 'page');
   await checkHeader();

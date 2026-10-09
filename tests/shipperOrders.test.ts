@@ -14,16 +14,16 @@ const { OrderPricingForm } = await import('../src/components/pricing/OrderPricin
 const { shipperPricingContext, catalogueFromApi } = await import('../src/operations/pricingAdapters');
 const { inputToShipperBooking, orderToInput, orderToUi } = await import('../src/operations/orderAdapters');
 const { ShipperOrderDialog } = await import('../src/portal/ShipperOrderDialog');
-const { TrackingSummary } = await import('../src/components/orders/TrackingSections');
+const { TrackingDetails } = await import('../src/components/orders/TrackingSections');
 const { companyRateRows, travelRows } = await import('../src/lib/companyTax');
 const { priceToUi } = await import('../src/operations/orderAdapters');
 const { createDefaultOrderInput, createBookingInput, priceOrder } = await import('../src/lib/orderPricing');
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 test('shipper tracking exposes only its provided driver contact with usable call and SMS links', async () => {
-  const tracking = { stage: 'ASSIGNED', stops: [], eta: null, open_issue: false,
+  const tracking = { stage: 'ASSIGNED', stops: [], events: [], eta: null, open_issue: false,
     driver: { name: 'Dana Driver', first_name: 'Dana', avatar_url: 'https://example.com/dana.png', phone: '+16045550102', vehicle_type: 'Cargo van' } } as Tracking;
-  render(React.createElement(TrackingSummary, { tracking, timeZone: 'UTC', title: 'DDO-1041', showDriverContact: true }));
+  render(React.createElement(TrackingDetails, { tracking, timeZone: 'UTC', now: Date.now(), showLocationStatus: false, showDriverContact: true }));
   assert.ok(screen.getByText('Dana Driver')); assert.ok(screen.getByText('Cargo van'));
   assert.equal(screen.getByRole('img', { name: "Dana Driver's avatar" }).getAttribute('src'), 'https://example.com/dana.png');
   assert.equal(screen.getByRole('link', { name: 'Call Dana Driver' }).getAttribute('href'), 'tel:+16045550102');
@@ -35,14 +35,14 @@ test('shipper tracking exposes only its provided driver contact with usable call
 });
 
 test('shipper tracking handles an absent photo, phone or assigned driver', () => {
-  const tracking = { stage: 'DELIVERED', stops: [], eta: null, open_issue: false,
+  const tracking = { stage: 'DELIVERED', stops: [], events: [], eta: null, open_issue: false,
     driver: { name: '', first_name: 'Dana', avatar_url: '', phone: '', vehicle_type: null } } as Tracking;
-  const view = render(React.createElement(TrackingSummary, { tracking, timeZone: 'UTC', title: 'DDO-1041', showDriverContact: true }));
+  const view = render(React.createElement(TrackingDetails, { tracking, timeZone: 'UTC', now: Date.now(), showLocationStatus: false, showDriverContact: true }));
   assert.equal(screen.getByRole('img', { name: "Dana's avatar" }).textContent, 'D');
   assert.ok(screen.getByText('Phone unavailable'));
   assert.equal((screen.getByRole('button', { name: 'Message Dana: phone unavailable' }) as HTMLButtonElement).disabled, true);
   assert.equal(screen.queryByRole('link'), null);
-  view.rerender(React.createElement(TrackingSummary, { tracking: { ...tracking, stage: 'BOOKED', driver: null } as never, timeZone: 'UTC', title: 'DDO-1042', showDriverContact: true }));
+  view.rerender(React.createElement(TrackingDetails, { tracking: { ...tracking, stage: 'BOOKED', driver: null } as never, timeZone: 'UTC', now: Date.now(), showLocationStatus: false, showDriverContact: true }));
   assert.equal(screen.queryByRole('region', { name: 'Assigned driver' }), null);
   assert.equal(screen.queryByRole('img'), null);
 });
