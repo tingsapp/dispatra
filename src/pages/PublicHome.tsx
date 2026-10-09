@@ -1,6 +1,6 @@
 import { useRef, useState, type MouseEvent } from 'react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { ArrowDown, ArrowRight, Mail, Route, ScanLine } from 'lucide-react';
+import { ArrowRight, Mail, Route, ScanLine } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { MonitorPreview } from '../components/home/MonitorPreview';
 import { HeroWorkspaceEntry } from '../components/home/HeroWorkspaceEntry';
@@ -34,8 +34,6 @@ function HomeContent({ initialRole }: { initialRole?: WorkspaceRole }) {
           <h1 id="home-title" className="mt-6 max-w-xl text-[42px] font-medium leading-[1.08] tracking-[-0.045em] sm:text-[54px] lg:text-[58px]">From order to delivery.<br /><span className="text-app-muted">One clear workflow.</span></h1>
           <p className="mt-6 max-w-md text-base leading-7 text-app-muted">Read orders from email, assign the right driver, and follow every delivery through completion. Your whole team, in one connected workspace.</p>
           <HeroWorkspaceEntry initialRole={initialRole} inputRef={workspaceInput} />
-          <a href="#how-it-works" className="mt-5 inline-flex items-center gap-2 text-sm text-app-muted hover:text-app-text">See how it works<ArrowDown className="size-3.5" aria-hidden="true" /></a>
-          <p className="mt-7 text-xs text-app-muted">Email intake<span className="mx-2 text-slate-300">/</span>Smart dispatch<span className="mx-2 text-slate-300">/</span>Delivery proof</p>
         </div>
         <MonitorPreview />
       </PublicHero>

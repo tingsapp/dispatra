@@ -17,7 +17,7 @@ export function HeroWorkspaceEntry({ initialRole, inputRef }: { initialRole?: Wo
     window.location.assign(destination);
   };
   return <form id="workspace" onSubmit={continueToLogin} className="mt-8 max-w-md scroll-mt-8" noValidate>
-    <div className="flex flex-col gap-3 sm:flex-row">
+    <div className="flex flex-col gap-3">
       <WorkspaceInput ref={inputRef} hideLabel value={workspace} required aria-invalid={!!error}
         aria-describedby={error ? 'workspace-error workspace-help' : 'workspace-help'}
         onChange={event => { setWorkspace(event.target.value); setError(''); }} />
