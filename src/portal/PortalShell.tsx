@@ -20,7 +20,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
   map?: boolean;
   /** Dispatcher-style account card with a Profile / Logout menu instead of the plain sign-out control. */
   account?: { name: string; role: string; profileCurrent: boolean };
-  navigation?: { label: string; href: string; icon: LucideIcon; current: boolean; badge?: number }[];
+  navigation?: { label: string; href: string; icon: LucideIcon; current: boolean; badge?: number; badgeLabel?: string }[];
   company: string; login: string; primary: string; icon: LucideIcon; settings: boolean;
   onHome: () => void; onSettings: () => void; onLogout: () => void; loggingOut: boolean; children: ReactNode;
 }) {
@@ -43,7 +43,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
       <SidebarHeader collapsed={collapsed} mobile={mobile} label={`Dispatra — ${primary}`} current={!settings} onHome={() => navigate(onHome)} onToggle={() => setOpen(value => !value)} />
       <p className={collapsed ? 'sr-only' : 'truncate px-5 pb-4 text-xs text-app-muted'} title={company}>{company}</p>
       <nav aria-label="Portal navigation" className="space-y-0.5 px-2">
-        {navigation ? navigation.map(({ label, href, icon: NavIcon, current, badge = 0 }) => <a key={href} href={href} onClick={event => { if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(() => onNavigate(href)); }} className="app-nav-item relative" aria-label={badge ? `${label}, ${badge} unread` : label} title={collapsed ? label : undefined} aria-current={current ? 'page' : undefined}><NavIcon size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>{label}</span><NavBadge count={badge} collapsed={collapsed} /></a>) : <>
+        {navigation ? navigation.map(({ label, href, icon: NavIcon, current, badge = 0, badgeLabel = 'unread' }) => <a key={href} href={href} onClick={event => { if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(() => onNavigate(href)); }} className="app-nav-item relative" aria-label={badge ? `${label}, ${badge} ${badgeLabel}` : label} title={collapsed ? label : undefined} aria-current={current ? 'page' : undefined}><NavIcon size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>{label}</span><NavBadge count={badge} collapsed={collapsed} /></a>) : <>
         <button type="button" className="app-nav-item" aria-label={primary} title={collapsed ? primary : undefined} aria-current={!settings ? 'page' : undefined} onClick={() => navigate(onHome)}><Icon size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>{primary}</span></button>
         <button type="button" className="app-nav-item" aria-label="Account settings" title={collapsed ? 'Account settings' : undefined} aria-current={settings ? 'page' : undefined} onClick={() => navigate(onSettings)}><Settings size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Account settings</span></button>
         </>}

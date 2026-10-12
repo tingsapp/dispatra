@@ -10,6 +10,10 @@ export type OrganizationInput = components['schemas']['OrganizationCreate'];
 export type LoginInput = components['schemas']['Login'];
 export type CompanySummary = components['schemas']['CompanySummary'];
 export type PlatformNotification = components['schemas']['PlatformNotificationView'];
+export type AgentMonitor = components['schemas']['AgentMonitorView'];
+export type AgentStatus = components['schemas']['AgentStatus'];
+export type AgentName = components['schemas']['AgentLogView']['agent'];
+export type TechnicalIssue = components['schemas']['TechnicalIssueView'];
 export type CompanyDetail = components['schemas']['CompanyDetail'];
 export type DispatcherAccount = components['schemas']['DispatcherView'];
 export type DispatcherCredential = components['schemas']['DispatcherCredentialView'];
@@ -56,6 +60,16 @@ export const api = {
   platformNotifications: async () => unwrap(await client.GET('/api/v1/platform/notifications', { params: { query: { limit: 50 } } })),
   readPlatformNotification: async (row: PlatformNotification, key: string) => unwrap(await client.POST('/api/v1/platform/notifications/{identity}/read', { body: { version: row.version }, params: { path: { identity: row.id }, header: { 'Idempotency-Key': key } } })),
   readAllPlatformNotifications: async (key: string) => unwrap(await client.POST('/api/v1/platform/notifications/read-all', { params: { header: { 'Idempotency-Key': key } } })),
+  agentMonitor: async () => unwrap(await client.GET('/api/v1/platform/agents/monitor')),
+  agentLogs: async (agent?: AgentName, level?: 'INFO' | 'WARNING' | 'ERROR', before?: string, limit = 25) => unwrap(await client.GET('/api/v1/platform/agents/logs', { params: { query: { agent, level, before, limit } } })),
+  technicalReports: async (status: 'OPEN' | 'ALL', before?: string, limit = 12, agent?: AgentName) => unwrap(await client.GET('/api/v1/platform/agents/issues', { params: { query: { status, before, limit, agent } } })),
+  runTechnicalCheck: async (key: string) => unwrap(await client.POST('/api/v1/platform/agents/technical/check', { params: { header: { 'Idempotency-Key': key } } })),
+  decideTechnicalReport: async (row: TechnicalIssue, approve: boolean, key: string) => {
+    const params = { path: { identity: row.id }, header: { 'Idempotency-Key': key } };
+    return unwrap(await (approve ? client.POST('/api/v1/platform/agents/issues/{identity}/approve', { body: { version: row.version }, params })
+      : client.POST('/api/v1/platform/agents/issues/{identity}/reject', { body: { version: row.version }, params })));
+  },
+  reportRuntime: async (kind: 'RUNTIME_ERROR' | 'UNHANDLED_REJECTION') => unwrap(await client.POST('/api/v1/diagnostics/runtime', { body: { source: 'WEB', kind } })),
   customers: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/customers', { params: { path: { slug }, query: { limit: 50, after } } })),
   createCustomer: async (slug: string, body: CustomerInput, key: string) => unwrap(await client.POST('/api/v1/companies/{slug}/customers', { body, params: { path: { slug }, header: { 'Idempotency-Key': key } } })),
   profile: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/profile', { params: { path: { slug } } })),

@@ -1,5 +1,5 @@
 /** Platform administration URLs. `/platform` remains a compatibility entry for the Companies list. */
-export type AdminRoute = { page: 'companies' } | { page: 'company'; id: string } | { page: 'profile' };
+export type AdminRoute = { page: 'companies' } | { page: 'company'; id: string } | { page: 'profile' } | { page: 'monitor' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isAdminPath(path: string) {
@@ -14,7 +14,8 @@ export function adminRoute(path: string): AdminRoute | null {
   if (!section || section === 'login' || (section === 'companies' && !id)) return { page: 'companies' };
   if (section === 'companies' && id && UUID.test(id)) return { page: 'company', id: id.toLowerCase() };
   if (section === 'profile' && !id) return { page: 'profile' };
+  if (section === 'monitor' && !id) return { page: 'monitor' };
   return null;
 }
 
-export const adminHref = (route: AdminRoute) => route.page === 'company' ? `/admin/companies/${route.id}` : route.page === 'profile' ? '/admin/profile' : '/admin/companies';
+export const adminHref = (route: AdminRoute) => route.page === 'company' ? `/admin/companies/${route.id}` : route.page === 'profile' ? '/admin/profile' : route.page === 'monitor' ? '/admin/monitor' : '/admin/companies';

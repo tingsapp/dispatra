@@ -26,6 +26,7 @@ let calls: string[] = [];
 beforeEach(() => {
   calls = [];
   Object.assign(api, {
+    agentMonitor: async () => ({ observed_at: new Date().toISOString(), agents: [], running: 0, awaiting_approval: 0, needs_attention: 0, automatic_fixes_24h: 0, errors_24h: 0, issues: [] }),
     platformNotifications: async () => ({ items: [], unread: 0 }), organizations: async () => [company()], company: async () => company(), companyAudit: async () => [], dispatchers: async () => [person()],
   });
 });
@@ -366,7 +367,7 @@ test('Suspend/Activate is inside Overview only, updates the title badge and conf
 test('admin bell shows an inbox, marks all read and follows company notifications', async () => {
   const user = userEvent.setup({ document });
   const note = (id: string) => ({ id, version: 1, created_at: new Date().toISOString(), kind: 'settings.updated', severity: 'INFO' as const,
-    title: 'Company settings updated', body: 'The dispatcher updated company settings.', read_at: null as string | null, organization_id: ACME, company_name: 'Acme Dispatch' });
+    title: 'Company settings updated', body: 'The dispatcher updated company settings.', read_at: null as string | null, organization_id: ACME, company_name: 'Acme Dispatch', target: 'company' as const });
   let rows = [note('note-1'), note('note-2')];
   const calls: string[] = [];
   api.platformNotifications = async () => ({ items: rows, unread: rows.filter(row => !row.read_at).length });

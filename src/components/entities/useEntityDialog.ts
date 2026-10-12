@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
 /** Accessibility for the existing page drawers; nested calendar popovers keep their own focus scope. */
-export function useEntityDialog(open: boolean, onClose: () => void) {
+export function useEntityDialog(open: boolean, onClose: () => void, label?: string) {
   const close = useRef(onClose); close.current = onClose;
+  const currentPanel = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!open) return;
     // Dialogs can stack (a catalogue modal over a list dialog): bind to the newest one and only react while it is topmost.
     const panels = document.querySelectorAll<HTMLElement>('[data-entity-dialog]');
     const panel = panels[panels.length - 1];
     if (!panel) return;
-    const topmost = () => { const all = document.querySelectorAll('[data-entity-dialog]'); return all[all.length - 1] === panel; };
+    currentPanel.current = panel;
+    const topmost = () => { const all = document.querySelectorAll('[data-entity-dialog]'); return all[all.length - 1] === panel && !document.querySelector('[data-confirm-dialog]'); };
     const previous = document.activeElement as HTMLElement | null;
     panel.setAttribute('role','dialog'); panel.setAttribute('aria-modal','true');
     panel.setAttribute('aria-label',panel.querySelector('h3')?.textContent ?? 'Edit record');
@@ -24,6 +26,7 @@ export function useEntityDialog(open: boolean, onClose: () => void) {
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
     };
     document.addEventListener('keydown',keydown);
-    return () => { document.removeEventListener('keydown',keydown); previous?.focus(); };
+    return () => { currentPanel.current = null; document.removeEventListener('keydown',keydown); previous?.focus(); };
   },[open]);
+  useEffect(() => { if (open && label) currentPanel.current?.setAttribute('aria-label', label); }, [open, label]);
 }

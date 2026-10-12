@@ -4,3 +4,5 @@ export const companiesKey = (filter?: CompanyFilter) => filter ? ['platform', 'c
 export const companyKey = (id: string) => ['platform', 'company', id] as const;
 export const auditKey = (id: string) => ['platform', 'audit', id] as const;
 export const dispatchersKey = (id: string) => ['platform', 'dispatchers', id] as const;
+export const agentKeys = ['platform', 'agents'] as const;
+export const agentMonitorKey = (accountId: string) => [...agentKeys, 'monitor', accountId] as const;
