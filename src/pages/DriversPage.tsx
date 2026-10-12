@@ -1,5 +1,6 @@
 import { DriverAvatar } from '../components/DriverAvatar';
 import { ListSummary } from '../components/layout/ListSummary';
+import { DirectoryPasswordForm } from '../components/entities/DirectoryPasswordForm';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
 import {
@@ -330,9 +331,10 @@ export function DriversPage({
           <DialogBody>
             <Tabs label="Driver details tabs" items={[
               { id: 'details', label: 'Details', content: <><section aria-label="Driver profile">
-                <DriverEditor driver={activeDriverDrawer} drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onAddressBlockedChange={setDriverAddressBlocked} onCancel={() => setActiveDriverDrawer(null)} onSave={saveDriver} />
+                <DriverEditor driver={drivers.find(row => row.id === activeDriverDrawer.id) ?? activeDriverDrawer} drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onAddressBlockedChange={setDriverAddressBlocked} onCancel={() => setActiveDriverDrawer(null)} onSave={saveDriver} />
               </section>
-              <DriverActivity driver={activeDriverDrawer} jobs={jobs} /></> },
+              <DriverActivity driver={drivers.find(row => row.id === activeDriverDrawer.id) ?? activeDriverDrawer} jobs={jobs} />
+              {slug && <DirectoryPasswordForm key={activeDriverDrawer.id} slug={slug} kind="driver" record={driverQuery.data?.find(row => row.id === activeDriverDrawer.id)} />}</> },
               { id: 'orders', label: 'Orders', content: <DriverOrders driver={activeDriverDrawer} jobs={jobs} /> },
             ]} />
           </DialogBody>

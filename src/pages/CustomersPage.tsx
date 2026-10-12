@@ -31,6 +31,7 @@ import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
 import { ContactInput } from '../components/ui/ContactInput';
 import { formatPhone } from '../lib/phone';
+import { DirectoryPasswordForm } from '../components/entities/DirectoryPasswordForm';
 
 interface CustomersPageProps {
   jobs?: Job[];
@@ -467,6 +468,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </section>
             )}
 
+            {slug && <DirectoryPasswordForm key={selectedCustomerForView.id} slug={slug} kind="shipper" record={shipperQuery.data?.find(row => row.id === selectedCustomerForView.id)} />}
             <ListSummary label="Shipper order summary" items={[
               { label: 'Total volume', value: `${jobs.filter(j => j.customerId === selectedCustomerForView.id).length} orders`, icon: Package },
               { label: 'Active on road', value: `${activeOrderCount(selectedCustomerForView.id)} orders`, icon: Truck },
