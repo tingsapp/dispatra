@@ -8,10 +8,12 @@ import { NavBadge } from '../components/layout/NavBadge';
 const initials = (name: string) => name.trim().split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('') || '?';
 
 /** Presentational workspace shell. Authentication and customer data remain in PortalApp. */
-export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, headerActions, reading = false, map = false, footer, children }: {
+export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, titleBadge, headerActions, reading = false, map = false, footer, children }: {
   /** Sidebar controls under the Logout card (or the account card), such as the driver's duty switch. */
   footer?: (collapsed: boolean) => ReactNode;
   description?: string; reading?: boolean; actions?: ReactNode; onNavigate?: (href: string) => void;
+  /** Status beside the page title, outside the heading’s accessible name. */
+  titleBadge?: ReactNode;
   /** Persistent workspace controls aligned with the page's content width and gutters. */
   headerActions?: ReactNode;
   /** Edge-to-edge map canvas with workspace controls floating above it. */
@@ -80,7 +82,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
       <PageHeading className="app-page-header page-content">
         <div className="flex min-w-0 items-center gap-3">
           {!headerActions && menuButton}
-          <div className="min-w-0"><h1 className="app-page-title">{settings ? 'Account settings' : primary}</h1><p className="mt-2 truncate text-base text-app-muted">{description ?? company}</p></div>
+          <div className="min-w-0"><div className="flex min-w-0 flex-wrap items-center gap-3"><h1 className="app-page-title min-w-0 break-words">{settings ? 'Account settings' : primary}</h1>{titleBadge}</div><p className="mt-2 truncate text-base text-app-muted">{description ?? company}</p></div>
         </div>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </PageHeading>

@@ -408,6 +408,7 @@ svg.lucide { stroke-width: 1.75; }
 textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-input.app-search-input { border-radius: var(--app-radius-action); background: var(--color-slate-50); padding-inline: 2.5rem; }
 .app-input.app-search-input:focus { background: var(--color-app-surface); }
+.app-input.app-password-input { padding-inline-end: 2.75rem; }
 .app-button.app-field-trigger { min-height: var(--app-control-height); border-radius: var(--app-radius-control); font-weight: 400; }
 .app-choice-row { border: 0; border-radius: var(--app-radius-card); background: transparent; transition: background-color 140ms var(--app-ease); }
 .app-choice-row:hover { background: var(--color-app-hover); }

@@ -1,11 +1,12 @@
 import { dateTime } from '../../lib/dateTimeFormat';
 import { ShieldAlert, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../ui/button';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../ui/Dialog';
 import { Select } from '../ui/Select';
 import { Switch } from '../ui/Switch';
+import { PasswordInput } from '../ui/PasswordInput';
 import { allOperations, operations, type EmailIntakeStatus, type Mailbox } from '../../operations/api';
 
 /** An Order agent draft handed to the order form; saving it links the new Order to the email. */
@@ -146,6 +147,7 @@ const providerOf = (host: string): Provider => (Object.keys(PROVIDERS) as (keyof
 const outgoingHost = (host: string) => host.trim().toLowerCase().startsWith('imap.') ? `smtp.${host.trim().slice(5)}` : host.trim();
 
 function MailboxForm({ slug, mailbox, onSaved }: { slug: string; mailbox: Mailbox | null; onSaved: () => void }) {
+  const passwordId = useId();
   const [form, setForm] = useState({ host: mailbox?.host ?? 'imap.gmail.com', port: String(mailbox?.port ?? 993), username: mailbox?.username ?? '', password: '',
     folder: mailbox?.folder ?? 'INBOX', enabled: mailbox?.enabled ?? true, smtp_host: mailbox?.smtp_host ?? 'smtp.gmail.com', smtp_port: String(mailbox?.smtp_port ?? 465) });
   const [provider, setProvider] = useState<Provider>(() => providerOf(mailbox?.host ?? 'imap.gmail.com'));
@@ -191,9 +193,9 @@ function MailboxForm({ slug, mailbox, onSaved }: { slug: string; mailbox: Mailbo
         <label className="block"><span className="app-label">SMTP port</span><input className="app-input w-full" required inputMode="numeric" value={form.smtp_port} onChange={set('smtp_port')} /></label>
       </div>}
       <label className="block"><span className="app-label">Email address / username</span><input className="app-input w-full" required autoComplete="off" value={form.username} onChange={set('username')} /></label>
-      <label className="block"><span className="app-label">App password</span>
-        <input className="app-input w-full" type="password" autoComplete="new-password" required={!mailbox} placeholder={mailbox ? 'Saved — leave blank to keep it' : ''} value={form.password} onChange={set('password')} />
-        <span className="mt-1 block text-xs text-slate-500">{provider === 'other' ? 'Use an app password if your provider offers one.' : PROVIDERS[provider].help}</span></label>
+      <div><label htmlFor={passwordId} className="app-label">App password</label>
+        <PasswordInput id={passwordId} label="App password" className="app-input w-full" autoComplete="new-password" required={!mailbox} placeholder={mailbox ? 'Saved — leave blank to keep it' : ''} value={form.password} onChange={set('password')} />
+        <span className="mt-1 block text-xs text-slate-500">{provider === 'other' ? 'Use an app password if your provider offers one.' : PROVIDERS[provider].help}</span></div>
       <label className="flex items-center gap-2 text-sm text-slate-700"><Switch checked={form.enabled} onCheckedChange={enabled => setForm(f => ({ ...f, enabled }))} /> Read new emails automatically</label>
     </fieldset>
     {result && <p role={result.ok ? 'status' : 'alert'} className={`text-sm ${result.ok ? 'text-emerald-700' : 'text-rose-700'}`}>{result.text}</p>}

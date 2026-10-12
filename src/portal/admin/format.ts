@@ -13,6 +13,7 @@ const AUDIT_LABELS: Record<string, string> = {
   'dispatcher.activated': 'Dispatcher account activated',
   'dispatcher.deactivated': 'Dispatcher account deactivated',
   'dispatcher.password_reset': 'Dispatcher password reset',
+  'dispatcher.password_changed': 'Dispatcher password changed',
   'dispatcher.sessions_revoked': 'Dispatcher sessions signed out',
 };
 export const auditLabel = (action: string) => AUDIT_LABELS[action] ?? action;

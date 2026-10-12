@@ -10,6 +10,8 @@ import { CompaniesPage } from './CompaniesPage';
 import { CompanyDetailPage } from './CompanyDetailPage';
 import { OwnerProfilePage } from './OwnerProfilePage';
 import { companyKey } from './queryKeys';
+import { AdminNotificationBell } from './AdminNotificationBell';
+import { StatusBadge } from './QueryState';
 
 /** Platform owner workspace. Every page is also enforced by ADMIN checks in the API. */
 export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { account: Account; onLogout: () => void; loggingOut: boolean; logoutError: unknown }) {
@@ -24,15 +26,18 @@ export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { ac
   // Shares the detail page's cache entry so the header shows the company name.
   const company = useQuery({ queryKey: companyKey(companyId), queryFn: () => api.company(companyId), enabled: Boolean(companyId) }).data;
   const title = !route ? 'Page not found' : route.page === 'profile' ? 'Profile' : route.page === 'company' ? company?.name ?? 'Company' : 'Companies';
-  const description = !route ? 'This administration page does not exist.' : route.page === 'profile' ? 'Your owner account and password.' : route.page === 'company' ? 'Company identity, access and dispatcher accounts.' : 'Dispatch companies on this Dispatra installation.';
+  const description = !route ? 'This administration page does not exist.' : route.page === 'profile' ? 'Your owner account and password.' : route.page === 'company' ? 'Company details and dispatcher account.' : 'Dispatch companies on this Dispatra installation.';
   useEffect(() => { document.title = `${title} · Dispatra administration`; }, [title]);
   return <PortalShell company="Platform administration" login={account.login_id} primary={title} icon={Building2} settings={false} description={description}
+    titleBadge={route?.page === 'company' && company ? <StatusBadge active={company.active} inactiveLabel="Suspended" /> : undefined}
     account={{ name: account.display_name || account.login_id, role: 'Platform owner', profileCurrent: route?.page === 'profile' }}
     navigation={[{ label: 'Companies', href: '/admin/companies', icon: Building2, current: route?.page === 'companies' || route?.page === 'company' }]}
     onNavigate={href => go(adminRoute(href) ?? { page: 'companies' })} onHome={() => go({ page: 'companies' })} onSettings={() => go({ page: 'profile' })}
     onLogout={onLogout} loggingOut={loggingOut}
+    headerActions={<AdminNotificationBell accountId={account.id} onOpenCompany={id => go({ page: 'company', id })} />}
     actions={route?.page === 'companies' ? <Button onClick={() => setCreating(true)}><Plus size={16} />Add company</Button>
       : route?.page === 'company' ? <Button variant="outline" onClick={() => go({ page: 'companies' })}>All companies</Button> : undefined}>
+
     <ConfirmDialogHost />
     <Notice error={logoutError} />
     {!route && <div className="py-10 text-center"><Button variant="outline" onClick={() => go({ page: 'companies' })}>Go to companies</Button></div>}

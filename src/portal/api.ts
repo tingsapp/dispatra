@@ -9,6 +9,7 @@ export type CustomerInput = components['schemas']['CustomerCreate'];
 export type OrganizationInput = components['schemas']['OrganizationCreate'];
 export type LoginInput = components['schemas']['Login'];
 export type CompanySummary = components['schemas']['CompanySummary'];
+export type PlatformNotification = components['schemas']['PlatformNotificationView'];
 export type CompanyDetail = components['schemas']['CompanyDetail'];
 export type DispatcherAccount = components['schemas']['DispatcherView'];
 export type DispatcherCredential = components['schemas']['DispatcherCredentialView'];
@@ -39,6 +40,7 @@ export const api = {
   createOrganization: async (body: OrganizationInput, key: string) => unwrap(await client.POST('/api/v1/platform/organizations', { body, params: { header: { 'Idempotency-Key': key } } })),
   company: async (id: string) => unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}', { params: { path: { organization_id: id } } })),
   updateCompany: async (id: string, body: components['schemas']['CompanyUpdate'], key: string) => unwrap(await client.PATCH('/api/v1/platform/organizations/{organization_id}', { body, params: { path: { organization_id: id }, header: { 'Idempotency-Key': key } } })),
+  updateCompanyOverview: async (id: string, body: components['schemas']['CompanyOverviewUpdate'], key: string) => unwrap(await client.PATCH('/api/v1/platform/organizations/{organization_id}/overview', { body, params: { path: { organization_id: id }, header: { 'Idempotency-Key': key } } })),
   setCompanyActive: async (id: string, active: boolean, version: number, key: string) => unwrap(await (active ? client.POST('/api/v1/platform/organizations/{organization_id}/activate', { body: { version }, params: { path: { organization_id: id }, header: { 'Idempotency-Key': key } } }) : client.POST('/api/v1/platform/organizations/{organization_id}/suspend', { body: { version }, params: { path: { organization_id: id }, header: { 'Idempotency-Key': key } } }))),
   companyAudit: async (id: string) => unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}/audit', { params: { path: { organization_id: id }, query: { limit: 50 } } })),
   dispatchers: async (id: string) => unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}/dispatchers', { params: { path: { organization_id: id } } })),
@@ -51,6 +53,9 @@ export const api = {
     return unwrap(await (action === 'activate' ? client.POST('/api/v1/platform/organizations/{organization_id}/dispatchers/{user_id}/activate', { body, params }) : client.POST('/api/v1/platform/organizations/{organization_id}/dispatchers/{user_id}/deactivate', { body, params })));
   },
   revokeDispatcherSessions: async (id: string, userId: string, key: string) => unwrap(await client.POST('/api/v1/platform/organizations/{organization_id}/dispatchers/{user_id}/revoke-sessions', { params: { path: { organization_id: id, user_id: userId }, header: { 'Idempotency-Key': key } } })),
+  platformNotifications: async () => unwrap(await client.GET('/api/v1/platform/notifications', { params: { query: { limit: 50 } } })),
+  readPlatformNotification: async (row: PlatformNotification, key: string) => unwrap(await client.POST('/api/v1/platform/notifications/{identity}/read', { body: { version: row.version }, params: { path: { identity: row.id }, header: { 'Idempotency-Key': key } } })),
+  readAllPlatformNotifications: async (key: string) => unwrap(await client.POST('/api/v1/platform/notifications/read-all', { params: { header: { 'Idempotency-Key': key } } })),
   customers: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/customers', { params: { path: { slug }, query: { limit: 50, after } } })),
   createCustomer: async (slug: string, body: CustomerInput, key: string) => unwrap(await client.POST('/api/v1/companies/{slug}/customers', { body, params: { path: { slug }, header: { 'Idempotency-Key': key } } })),
   profile: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/profile', { params: { path: { slug } } })),

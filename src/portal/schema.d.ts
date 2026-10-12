@@ -1291,6 +1291,26 @@ export interface paths {
         patch: operations["update_company_api_v1_platform_organizations__organization_id__patch"];
         trace?: never;
     };
+    "/api/v1/platform/organizations/{organization_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Company Overview
+         * @description Save company identity, dispatcher details and workspace access atomically. Both record versions are checked.
+         */
+        patch: operations["update_company_overview_api_v1_platform_organizations__organization_id__overview_patch"];
+        trace?: never;
+    };
     "/api/v1/platform/organizations/{organization_id}/suspend": {
         parameters: {
             query?: never;
@@ -1352,7 +1372,10 @@ export interface paths {
         /** List Dispatchers */
         get: operations["list_dispatchers_api_v1_platform_organizations__organization_id__dispatchers_get"];
         put?: never;
-        /** Create Dispatcher */
+        /**
+         * Create Dispatcher
+         * @description Create the first dispatcher only when the company has no dispatcher accounts. Additional accounts return 409.
+         */
         post: operations["create_dispatcher_api_v1_platform_organizations__organization_id__dispatchers_post"];
         delete?: never;
         options?: never;
@@ -1439,6 +1462,57 @@ export interface paths {
         put?: never;
         /** Revoke Dispatcher Sessions */
         post: operations["revoke_dispatcher_sessions_api_v1_platform_organizations__organization_id__dispatchers__user_id__revoke_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Notifications */
+        get: operations["list_notifications_api_v1_platform_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/notifications/{identity}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read Notification */
+        post: operations["read_notification_api_v1_platform_notifications__identity__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read All Notifications */
+        post: operations["read_all_notifications_api_v1_platform_notifications_read_all_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2757,6 +2831,8 @@ export interface components {
             slug: string;
             /** Name */
             name: string;
+            /** Logo Url */
+            logo_url: string;
             /** Active */
             active: boolean;
             /** Version */
@@ -2775,12 +2851,45 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Phone */
+            phone: string;
+            /** Address */
+            address: string;
+            /** Settings Version */
+            settings_version: number | null;
             /** Shipper Account Count */
             shipper_account_count: number;
             /** Driver Account Count */
             driver_account_count: number;
             /** Active Session Count */
             active_session_count: number;
+            /** Shipper Count */
+            shipper_count: number;
+            /** Driver Count */
+            driver_count: number;
+            /** Order Count */
+            order_count: number;
+        };
+        /** CompanyOverviewUpdate */
+        CompanyOverviewUpdate: {
+            /** Version */
+            version: number;
+            /** Name */
+            name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Settings Version */
+            settings_version?: number | null;
+            /** Active */
+            active: boolean;
+            dispatcher?: components["schemas"]["OverviewDispatcherUpdate"] | null;
+        };
+        /** CompanyOverviewView */
+        CompanyOverviewView: {
+            company: components["schemas"]["CompanyDetail"];
+            dispatcher: components["schemas"]["DispatcherView"] | null;
         };
         /** CompanySummary */
         CompanySummary: {
@@ -2793,6 +2902,8 @@ export interface components {
             slug: string;
             /** Name */
             name: string;
+            /** Logo Url */
+            logo_url: string;
             /** Active */
             active: boolean;
             /** Version */
@@ -2813,6 +2924,12 @@ export interface components {
             version: number;
             /** Name */
             name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Settings Version */
+            settings_version?: number | null;
         };
         /** CustomerAccessView */
         CustomerAccessView: {
@@ -4228,6 +4345,16 @@ export interface components {
             slug: string;
             /** Name */
             name: string;
+            /**
+             * Phone
+             * @default
+             */
+            phone: string;
+            /**
+             * Address
+             * @default
+             */
+            address: string;
             /** Admin Login */
             admin_login: string;
             /**
@@ -4252,6 +4379,25 @@ export interface components {
             /** Active */
             active: boolean;
         };
+        /** OverviewDispatcherUpdate */
+        OverviewDispatcherUpdate: {
+            /** Version */
+            version: number;
+            /** Login Id */
+            login_id: string;
+            /**
+             * Display Name
+             * @default
+             */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** New Password */
+            new_password?: string | null;
+        };
         /** PasswordChange */
         PasswordChange: {
             /** Current Password */
@@ -4263,6 +4409,48 @@ export interface components {
         PasswordReset: {
             /** Password */
             password: string;
+        };
+        /** PlatformInbox */
+        PlatformInbox: {
+            /** Items */
+            items: components["schemas"]["PlatformNotificationView"][];
+            /** Unread */
+            unread: number;
+        };
+        /** PlatformNotificationView */
+        PlatformNotificationView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "INFO" | "WARNING" | "CRITICAL";
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Read At */
+            read_at: string | null;
+            /**
+             * Organization Id
+             * Format: uuid
+             */
+            organization_id: string;
+            /** Company Name */
+            company_name: string;
         };
         /** PriceView */
         PriceView: {
@@ -14989,6 +15177,106 @@ export interface operations {
             };
         };
     };
+    update_company_overview_api_v1_platform_organizations__organization_id__overview_patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                organization_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompanyOverviewUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyOverviewView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     suspend_company_api_v1_platform_organizations__organization_id__suspend_post: {
         parameters: {
             query?: never;
@@ -15441,14 +15729,12 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Conflict */
+            /** @description Company already has a dispatcher account or the login ID is unavailable. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
+                content?: never;
             };
             /** @description Unprocessable Entity */
             422: {
@@ -15904,6 +16190,295 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionRevocation"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_notifications_api_v1_platform_notifications_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformInbox"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    read_notification_api_v1_platform_notifications__identity__read_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformNotificationView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    read_all_notifications_api_v1_platform_notifications_read_all_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadAllView"];
                 };
             };
             /** @description Bad Request */

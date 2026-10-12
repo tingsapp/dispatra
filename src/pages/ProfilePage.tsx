@@ -1,3 +1,4 @@
+import { PasswordInput } from '../components/ui/PasswordInput';
 import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
 import { CompanyProfilePage } from '../portal/CompanyProfilePage';
 import { Button } from '../components/ui/button';
@@ -260,13 +261,15 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
                   <label htmlFor="profile-current-password" className="app-label">
                     Current Password
                   </label>
-                  <input
+                  <PasswordInput
+                    label="Current password"
+                    containerClassName="max-w-md"
                     id="profile-current-password"
                     type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="app-input w-full max-w-md"
+                    className="app-input w-full"
                   />
                 </div>
 
@@ -275,7 +278,8 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
                     <label htmlFor="profile-new-password" className="app-label">
                       New Password
                     </label>
-                    <input
+                    <PasswordInput
+                      label="New password"
                       id="profile-new-password"
                       type="password"
                       value={newPassword}
@@ -289,7 +293,8 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
                     <label htmlFor="profile-confirm-password" className="app-label">
                       Confirm New Password
                     </label>
-                    <input
+                    <PasswordInput
+                      label="Confirm new password"
                       id="profile-confirm-password"
                       type="password"
                       value={confirmPassword}
