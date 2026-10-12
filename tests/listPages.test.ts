@@ -19,7 +19,7 @@ const { INITIAL_DRIVERS, INITIAL_JOBS } = await import('../src/data/mockData');
 const { loadVehicles } = await import('../src/lib/vehicleStorage');
 const { VehicleTable } = await import('../src/components/entities/VehicleTable');
 const { formatDateValue } = await import('../src/lib/dateValues');
-const { loadCustomers } = await import('../src/lib/customerStorage');
+const { loadCustomers, saveCustomers } = await import('../src/lib/customerStorage');
 const noop = () => {};
 afterEach(() => { cleanup(); localStorage.clear(); });
 test('vehicle list first column displays public ID with only year underneath', () => {
@@ -149,4 +149,72 @@ test('drivers without photos show a first-letter avatar in the list and details'
   assert.equal(screen.getByRole('img', { name: withPhoto.name }).tagName, 'IMG');
   await user.click(screen.getByRole('button', { name: `Details for ${withoutPhoto.name}` }));
   assert.equal(screen.getAllByRole('img', { name: withoutPhoto.name }).filter(node => node.textContent?.trim() === 'A').length, 2);
+});
+
+test('shipper details retains contact links, linked orders, notes and navigation actions', async () => {
+  const user = userEvent.setup({ document });
+  const shipper = loadCustomers()[0];
+  const jobs = [
+    { ...INITIAL_JOBS[0], id: 'shipper-active', customerId: shipper.id, jobNumber: '#SHIP-1', status: 'on_time' as const, statusLabel: 'In progress' },
+    { ...INITIAL_JOBS[0], id: 'shipper-completed', customerId: shipper.id, jobNumber: '#SHIP-2', status: 'completed' as const, statusLabel: 'Completed' },
+    { ...INITIAL_JOBS[0], id: 'other-shipper', customerId: 'another-shipper', jobNumber: '#OTHER' },
+  ];
+  const selected: string[] = [];
+  let mapOpened = 0;
+  render(React.createElement(CustomersPage, { jobs, onSelectJob: number => selected.push(number), onBackToMonitor: () => { mapOpened += 1; } }));
+  await user.click(screen.getByText(shipper.name));
+  const dialog = screen.getByRole('dialog', { name: shipper.name });
+  assert.equal(within(dialog).getByRole('link', { name: shipper.email }).getAttribute('href'), `mailto:${shipper.email}`);
+  assert.ok(dialog.querySelector(`a[href="tel:${shipper.phone}"]`));
+  assert.ok(within(dialog).getByText(shipper.address));
+  assert.ok(within(dialog).getByText(shipper.notes!));
+  const summary = within(dialog).getByLabelText('Shipper order summary');
+  assert.deepEqual(Array.from(summary.querySelectorAll('dd')).map(value => value.textContent), ['2 orders', '1 orders']);
+  const history = within(dialog).getByRole('region', { name: 'Order history' });
+  assert.equal(within(history).getAllByRole('button').length, 2);
+  assert.equal(within(history).queryByText(/#OTHER/), null);
+  await user.click(within(history).getByRole('button', { name: '#SHIP-1 · In progress' }));
+  assert.deepEqual(selected, ['#SHIP-1']);
+  await user.click(within(dialog).getByRole('button', { name: 'View on Map' }));
+  assert.equal(mapOpened, 1);
+  await user.click(within(dialog).getByRole('button', { name: 'Edit Account' }));
+  assert.ok(screen.getByRole('heading', { name: 'Edit Shipper' }));
+  assert.equal((screen.getByLabelText('Shipper name') as HTMLInputElement).value, shipper.name);
+});
+
+test('shipper details keeps on-hold status explicit, handles empty history and closes with Escape', async () => {
+  const user = userEvent.setup({ document });
+  const shipper = { ...loadCustomers()[0], status: 'On Hold' as const, notes: '', rateCardId: null };
+  saveCustomers([shipper]);
+  render(React.createElement(CustomersPage, { jobs: [], onBackToMonitor: noop }));
+  await user.click(screen.getByText(shipper.name));
+  const dialog = screen.getByRole('dialog', { name: shipper.name });
+  assert.ok(within(dialog).getByText('On Hold'));
+  assert.ok(within(dialog).getByText('No linked orders yet.'));
+  assert.ok(within(dialog).getByText(/^Default \(/));
+  assert.equal(within(dialog).queryByRole('region', { name: 'Dispatch & receiving notes' }), null);
+  await user.keyboard('{Escape}');
+  assert.equal(screen.queryByRole('dialog'), null);
+});
+
+test('shipper list supports keyboard details, status filtering and named edit actions', async () => {
+  const user = userEvent.setup({ document });
+  const [active, held] = loadCustomers();
+  saveCustomers([{ ...active, status: 'Active' }, { ...held, status: 'On Hold' }]);
+  render(React.createElement(CustomersPage, { jobs: [], onBackToMonitor: noop }));
+  const name = screen.getByRole('button', { name: active.name });
+  name.focus();
+  await user.keyboard('{Enter}');
+  assert.ok(screen.getByRole('dialog', { name: active.name }));
+  await user.keyboard('{Escape}');
+  assert.equal(document.activeElement, name);
+  await user.click(screen.getByRole('combobox', { name: 'Filter by status' }));
+  await user.click(screen.getByRole('option', { name: 'On hold' }));
+  const table = screen.getByRole('table', { name: 'Shippers' });
+  assert.equal(table.querySelectorAll('tbody tr').length, 1);
+  assert.equal(within(table).queryByRole('button', { name: active.name }), null);
+  assert.ok(within(table).getByRole('button', { name: `Delete ${held.name}` }));
+  await user.click(within(table).getByRole('button', { name: `Edit ${held.name}` }));
+  assert.ok(screen.getByRole('dialog', { name: 'Edit Shipper' }));
+  assert.equal((screen.getByLabelText('Shipper name') as HTMLInputElement).value, held.name);
 });

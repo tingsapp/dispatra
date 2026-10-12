@@ -4,8 +4,8 @@ import { Button } from '../ui/button';
 import { formatPhone } from '../../lib/phone';
 import type { Tracking } from './trackingPresentation';
 
-/** Contact details come only from the selected order's authorized tracking view. */
-export function TrackingDriverContact({ driver }: { driver: NonNullable<Tracking['driver']> }) {
+/** Contact details come only from the selected order's authorized tracking view; Message opens the order's in-app chat with the driver. */
+export function TrackingDriverContact({ driver, onMessage }: { driver: NonNullable<Tracking['driver']>; onMessage?: () => void }) {
   const name = driver.name || driver.first_name;
   const phone = driver.phone?.trim();
   return <section aria-label="Assigned driver" className="flex items-center gap-3">
@@ -16,9 +16,7 @@ export function TrackingDriverContact({ driver }: { driver: NonNullable<Tracking
       {phone ? <a href={`tel:${phone}`} aria-label={`Call ${name}`} className="mt-0.5 block truncate text-[11px] text-app-muted">{formatPhone(phone)}</a>
         : <p className="mt-0.5 text-[11px] text-app-muted">Phone unavailable</p>}
     </div>
-    {phone ? <Button asChild variant="outline" size="icon-sm"><a href={`sms:${phone}`} aria-label={`Message ${name}`} title={`Message ${name}`}>
-      <MessageSquare aria-hidden="true" />
-    </a></Button> : <Button variant="outline" size="icon-sm" disabled aria-label={`Message ${name}: phone unavailable`} title="Phone unavailable">
+    {onMessage && <Button type="button" variant="outline" size="icon-sm" onClick={onMessage} aria-label={`Message ${name}`} title={`Message ${name}`}>
       <MessageSquare aria-hidden="true" />
     </Button>}
   </section>;

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Bell, CheckCircle2, Clock } from 'lucide-react';
 import { FloatingPanel } from '../components/ui/FloatingPanel';
 import { operations, type AppNotification } from '../operations/api';
-import { notificationsKey, syncKey } from './sync';
+import { notificationsKey, syncKey, type SyncSummary } from './sync';
 
 const SEVERITY = {
   CRITICAL: { icon: AlertTriangle, tone: 'bg-rose-100 text-rose-600', label: 'Critical' },
@@ -22,7 +22,7 @@ export function notificationAge(iso: string, now = Date.now()) {
 
 /** Unread count from the workspace sync loop (`useSync`). */
 export function useUnreadNotifications(slug: string) {
-  const summary = useQuery<{ unread: number }>({ queryKey: syncKey(slug), queryFn: () => Promise.resolve({ unread: 0 }), enabled: false, staleTime: Infinity, gcTime: Infinity });
+  const summary = useQuery<SyncSummary>({ queryKey: syncKey(slug), queryFn: () => Promise.resolve({ unread: 0, unread_messages: 0 }), enabled: false, staleTime: Infinity, gcTime: Infinity });
   return summary.data?.unread ?? 0;
 }
 
@@ -32,7 +32,7 @@ export function NotificationPanel({ slug, onOpen }: { slug: string; onOpen?: (ro
   const unread = useUnreadNotifications(slug);
   const list = useQuery({ queryKey: notificationsKey(slug), queryFn: () => operations.notifications(slug) });
   const settle = (count: number) => {
-    cache.setQueryData<{ unread: number }>(syncKey(slug), current => ({ unread: Math.max(0, (current?.unread ?? 0) - count) }));
+    cache.setQueryData<SyncSummary>(syncKey(slug), current => ({ unread: Math.max(0, (current?.unread ?? 0) - count), unread_messages: current?.unread_messages ?? 0 }));
     return cache.invalidateQueries({ queryKey: notificationsKey(slug) });
   };
   const read = useMutation({ mutationFn: (row: AppNotification) => operations.readNotification(slug, row), onSuccess: () => settle(1) });

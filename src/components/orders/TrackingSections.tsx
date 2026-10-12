@@ -25,7 +25,7 @@ export function TrackingSummary({ tracking: t, timeZone, title, showDriver = tru
   </div>;
 }
 
-export function TrackingDetails({ tracking: t, timeZone, now, showLocationStatus = true, showDriverContact = false }: { tracking: Tracking; timeZone: string; now: number; showLocationStatus?: boolean; showDriverContact?: boolean }) {
+export function TrackingDetails({ tracking: t, timeZone, now, showLocationStatus = true, showDriverContact = false, onMessageDriver }: { tracking: Tracking; timeZone: string; now: number; showLocationStatus?: boolean; showDriverContact?: boolean; onMessageDriver?: () => void }) {
   const active = !['BOOKED', 'DELIVERED', 'CANCELLED'].includes(t.stage);
   return <div className="space-y-4">
     {showLocationStatus && active && <p className="text-xs text-slate-500">
@@ -33,7 +33,7 @@ export function TrackingDetails({ tracking: t, timeZone, now, showLocationStatus
       {' '}Tracking refreshes every 30 seconds.</p>}
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="min-w-0 space-y-4">
-      {showDriverContact && t.driver && <TrackingDriverContact driver={t.driver} />}
+      {showDriverContact && t.driver && <TrackingDriverContact driver={t.driver} onMessage={onMessageDriver} />}
       <div><p className="app-label">Stops</p><ul className="mt-1 space-y-2">{t.stops.map((stop, index) => <li key={stop.id} className="flex gap-2">
         <span className={`mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-full text-[10px] font-semibold text-white ${stop.completed_at ? 'bg-emerald-500' : stop.kind === 'PICKUP' ? 'bg-slate-700' : 'bg-blue-600'}`}>{stop.completed_at ? <Check className="h-3 w-3" /> : stop.kind === 'PICKUP' ? 'P' : 'D'}</span>
         <div className="min-w-0"><p className="truncate text-slate-800">{index + 1}. {stop.address.text}</p>

@@ -21,6 +21,7 @@ import { useEntityDialog } from '../components/entities/useEntityDialog';
 import type { Job } from '../types';
 import type { PricingOrderInput } from '../types/pricing';
 import { ShipperOrderDialog } from './ShipperOrderDialog';
+import { OrderChatSection } from '../components/chat/OrderChat';
 import { Notice } from './ui';
 
 type Shipper = Awaited<ReturnType<typeof operations.ownShipper>>;
@@ -155,6 +156,7 @@ export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: strin
           <p>Status: <span className="font-medium">{lifecycleLabel(detail)}</span>{detail.lifecycleStatus === 'NEW' && <span className="text-slate-500"> · awaiting dispatch</span>}</p>
         </section>} />
         {proofAvailable(detail.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={detail.id} timeZone={timeZone} />}
+        <OrderChatSection slug={slug} orderId={detail.id} />
       </DialogBody>
       <DialogFooter note={shipperEditable(detail) ? undefined : 'Orders can be edited until they are assigned to a driver.'}>
         <Button variant="outline" asChild><a href={`/${slug}/shipper/tracking?order=${encodeURIComponent(detail.id)}`} onClick={event => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleCheck, ChevronRight, ClipboardList, Clock, Package, Phone, Shield, Truck, UserRound } from 'lucide-react';
+import { CircleCheck, ChevronRight, ClipboardList, Clock, MessageSquare, Package, Phone, Shield, Truck, UserRound } from 'lucide-react';
 import { operations, allOperations } from '../operations/api';
 import { ORDER_LIFECYCLES, ORDER_LIFECYCLE_LABELS, type OrderLifecycle } from '../domain/operations';
 import { ListSummary } from '../components/layout/ListSummary';
@@ -12,6 +12,9 @@ import { Select } from '../components/ui/Select';
 import { Switch } from '../components/ui/Switch';
 import { Dialog, DialogBody, DialogHeader } from '../components/ui/Dialog';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
+import { OrderChatSection } from '../components/chat/OrderChat';
+import { MessagesInbox } from '../components/chat/MessagesInbox';
+import { useUnreadMessages } from '../chat/api';
 import { PortalShell } from './PortalShell';
 import { NotificationBell } from './Notifications';
 import { useSync } from './sync';
@@ -38,6 +41,7 @@ const contentBase64 = (file: File) => new Promise<string>((resolve, reject) => {
 export const driverPages = [
   { path: 'profile', label: 'Profile', icon: UserRound },
   { path: 'orders', label: 'Orders', icon: ClipboardList },
+  { path: 'messages', label: 'Messages', icon: MessageSquare },
 ];
 
 /** Driver workspace: Profile and Orders, with the On duty/Off duty switch in the sidebar. */
@@ -51,6 +55,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
   const base = `/${slug}/driver`;
   const suffix = pathname.replace(/\/+$/, '').split('/')[3];
   const page = driverPages.find(item => item.path === suffix) ?? driverPages[1];
+  const unreadMessages = useUnreadMessages(slug);
   useSync(slug, 'DRIVER');
   const profile = useQuery({ queryKey: ['driver-profile', slug], queryFn: () => operations.driverProfile(slug) });
   const online = !!profile.data?.duty;
@@ -102,8 +107,8 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
   }, [slug, profile.data?.duty?.id, trackingDutyId]);
   useEffect(() => () => { trackingIntent.current++; tracking.current = null; }, [slug]);
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false} reading={page.path === 'profile'}
-    description={page.path === 'profile' ? 'Your details and account security.' : online ? 'Your assigned orders. Open an order to work its stops.' : 'Your assigned orders. Go On Duty to receive and start a route.'}
-    navigation={driverPages.map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path }))}
+    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'messages' ? 'Chats with dispatch and shippers about your assigned orders.' : online ? 'Your assigned orders. Open an order to work its stops.' : 'Your assigned orders. Go On Duty to receive and start a route.'}
+    navigation={driverPages.map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path, badge: item.path === 'messages' ? unreadMessages : 0 }))}
     footer={collapsed => <div className={`mt-1 flex items-center py-3 ${collapsed ? 'justify-center' : 'justify-between px-3'}`} title={collapsed ? (online ? 'On duty' : 'Off duty') : undefined}>
       <span className={collapsed ? 'sr-only' : `text-sm font-normal ${online ? 'text-app-text' : 'text-slate-700'}`}>{duty.isPending ? (duty.variables ? 'Going on duty…' : 'Going off duty…') : online ? 'On duty' : 'Off duty'}</span>
       <Switch checked={online} aria-label="Duty status" disabled={!profile.data || duty.isPending} onCheckedChange={next => duty.mutate(next)} />
@@ -111,7 +116,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     headerActions={<NotificationBell slug={slug} surface onOpen={() => go(base)} />}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     <Notice error={logoutError || dutyError} />
-    {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : <DriverOrders slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
+    {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? <MessagesInbox slug={slug} /> : <DriverOrders slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
   </PortalShell>;
 }
 
@@ -268,6 +273,7 @@ function DriverOrderDialog({ slug, order, orders, route, online, onStartRoute, o
         </>}
         {route?.status === 'IN_PROGRESS' && route.stops.every(visit => visit.status === 'COMPLETED') && <Button type="button" disabled={busy} onClick={() => call(() => onFinishRoute(route))}>Complete job</Button>}
       </section>
+      <OrderChatSection slug={slug} orderId={order.id} />
     </DialogBody>
   </Dialog>;
 }

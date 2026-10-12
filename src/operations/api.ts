@@ -24,6 +24,12 @@ export type EmailIntake = components['schemas']['IntakeView'];
 export type EmailIntakeDetail = components['schemas']['IntakeDetail'];
 export type EmailIntakeStatus = EmailIntake['status'];
 export type DispatchDecision = components['schemas']['DecisionView'];
+export type TmsView = components['schemas']['TmsView'];
+export type TmsInput = components['schemas']['TmsInput'];
+export type FleetSyncResult = components['schemas']['FleetSyncResult'];
+export type TmsInboxItem = components['schemas']['InboxView'];
+export type ApiWebhookView = components['schemas']['ApiWebhookView'];
+export type ApiWebhookInput = components['schemas']['ApiWebhookInput'];
 
 const key = () => crypto.randomUUID();
 const company = (slug: string) => ({ slug });
@@ -93,6 +99,17 @@ export const operations = {
   orders: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders', { params: { path: company(slug), query: { limit: 200, after } } })),
   quotes: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/quotes', { params: { path: company(slug), query: { limit: 200, after } } })),
   driverActivity: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/drivers/{identity}/activity', { params: { path: entity(slug, identity) } })),
+  tms: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/integrations/tms', { params: { path: company(slug) } })),
+  saveTms: async (slug: string, data: TmsInput) => unwrap(await client.PUT('/api/v1/companies/{slug}/integrations/tms', { body: data, params: { path: company(slug), header: mutation() } })),
+  testTms: async (slug: string) => unwrap(await client.POST('/api/v1/companies/{slug}/integrations/tms/test', { params: { path: company(slug) } })),
+  syncTms: async (slug: string) => unwrap(await client.POST('/api/v1/companies/{slug}/integrations/tms/sync', { params: { path: company(slug) } })),
+  tmsInbox: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/integrations/tms/inbox', { params: { path: company(slug), query: { status: 'open' } } })),
+  retryTmsOrder: async (slug: string, id: string) => unwrap(await client.POST('/api/v1/companies/{slug}/integrations/tms/inbox/{identity}/retry', { params: { path: entity(slug, id), header: mutation() } })),
+  apiKey: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/integrations/api-key', { params: { path: company(slug) } })),
+  createApiKey: async (slug: string) => unwrap(await client.POST('/api/v1/companies/{slug}/integrations/api-key', { params: { path: company(slug), header: mutation() } })),
+  apiWebhook: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/integrations/webhooks', { params: { path: company(slug) } })),
+  saveApiWebhook: async (slug: string, data: ApiWebhookInput) => unwrap(await client.PUT('/api/v1/companies/{slug}/integrations/webhooks', { body: data, params: { path: company(slug), header: mutation() } })),
+  dismissTmsOrder: async (slug: string, id: string) => unwrap(await client.POST('/api/v1/companies/{slug}/integrations/tms/inbox/{identity}/dismiss', { params: { path: entity(slug, id), header: mutation() } })),
   mailbox: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/email-intake/mailbox', { params: { path: company(slug) } })),
   saveMailbox: async (slug: string, data: MailboxInput) => unwrap(await client.PUT('/api/v1/companies/{slug}/email-intake/mailbox', { body: data, params: { path: company(slug), header: mutation() } })),
   testMailbox: async (slug: string, data: Pick<MailboxInput, 'host' | 'port' | 'username' | 'password' | 'folder' | 'smtp_host' | 'smtp_port'>) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/mailbox/test', { body: data, params: { path: company(slug) } })),

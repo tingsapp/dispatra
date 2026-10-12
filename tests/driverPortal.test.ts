@@ -9,6 +9,7 @@ const { render, screen, cleanup, waitFor, within, fireEvent } = await import('@t
 const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { operations } = await import('../src/operations/api');
+const { chat } = await import('../src/chat/api');
 const { DriverPortal } = await import('../src/portal/DriverPortal');
 const { ProofOfDelivery } = await import('../src/components/orders/ProofOfDelivery');
 afterEach(() => { cleanup(); history.replaceState(null, '', '/acme/driver/orders'); });
@@ -29,6 +30,8 @@ const calls: string[] = [];
 let online = false;
 const stub = (name: string, value: unknown) => Object.assign(operations, { [name]: async (...args: unknown[]) => { calls.push(name); return typeof value === 'function' ? (value as (...a: unknown[]) => unknown)(...args) : value; } });
 stub('driverProfile', () => profile(online));
+// Order details include the order chat; an empty channel list keeps these tests about stop execution.
+Object.assign(chat, { channels: async () => [], inbox: async () => [] });
 stub('driverOrders', [order]);
 stub('sync', { cursor: '1-0', changes: [], unread: 0, reset: false, next_poll_ms: 60_000 });
 stub('driverRoutes', [route]);
@@ -38,11 +41,11 @@ stub('updateDriverProfile', (_slug: unknown, version: unknown, phone: unknown) =
 const mount = () => render(React.createElement(QueryClientProvider, { client: client() },
   React.createElement(DriverPortal, { slug: 'acme', company: 'Acme Logistics', login: 'dana@example.com', onLogout: () => calls.push('logout'), loggingOut: false, logoutError: null })));
 
-test('driver sidebar lists Profile then Orders and ends with a Logout card above the duty switch', async () => {
+test('driver sidebar lists Profile, Orders and Messages and ends with a Logout card above the duty switch', async () => {
   const user = userEvent.setup({ document }); online = true; calls.length = 0;
   mount();
   const nav = screen.getByRole('navigation', { name: 'Portal navigation' });
-  assert.deepEqual(within(nav).getAllByRole('link').map(link => link.getAttribute('aria-label')), ['Profile', 'Orders']);
+  assert.deepEqual(within(nav).getAllByRole('link').map(link => link.getAttribute('aria-label')), ['Profile', 'Orders', 'Messages']);
   assert.equal(screen.queryByText('My routes'), null);
   assert.equal(screen.queryByRole('button', { name: /Driver account/ }), null);
   const toggle = await screen.findByRole('switch', { name: 'Duty status' });

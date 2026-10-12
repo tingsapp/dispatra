@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { operations } from '../operations/api';
-import { ClipboardList, UserRound, Shield, Plus, MapPin } from 'lucide-react';
+import { ClipboardList, UserRound, Shield, Plus, MapPin, MessageSquare } from 'lucide-react';
 import { PortalShell } from './PortalShell';
 import { CustomerProfile } from './ProfilePage';
 import { PasswordPage } from './PasswordPage';
@@ -11,10 +11,13 @@ import { ShipperTracking } from './ShipperTracking';
 import { Button, Notice } from './ui';
 import { NotificationBell } from './Notifications';
 import { useSync } from './sync';
+import { useUnreadMessages } from '../chat/api';
+import { MessagesInbox } from '../components/chat/MessagesInbox';
 
 export const shipperPages = [
   { path: 'orders', label: 'Orders', icon: ClipboardList },
   { path: 'tracking', label: 'Tracking', icon: MapPin },
+  { path: 'messages', label: 'Messages', icon: MessageSquare },
   { path: 'profile', label: 'Profile', icon: UserRound },
 ];
 export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logoutError }: {
@@ -30,13 +33,14 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   const base = `/${slug}/shipper`;
   const suffix = url.pathname.replace(/\/+$/, '').split('/')[3];
   const page = shipperPages.find(item => item.path === suffix) ?? shipperPages[0];
+  const unreadMessages = useUnreadMessages(slug);
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false}
     headerActions={<><ShipperOrderSearch slug={slug} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} /><NotificationBell slug={slug} surface={page.path === 'tracking' ? 'white' : true} onOpen={() => go(base)} /></>}
     actions={page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}
     reading={page.path === 'profile'} map={page.path === 'tracking'}
     account={{ name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}
-    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'tracking' ? 'Follow your order from pickup to delivery.' : 'Create and track your deliveries.'}
-    navigation={shipperPages.filter(item => item.path !== 'profile').map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path }))}
+    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'messages' ? 'Chats with dispatch and your drivers about your orders.' : page.path === 'tracking' ? 'Follow your order from pickup to delivery.' : 'Create and track your deliveries.'}
+    navigation={shipperPages.filter(item => item.path !== 'profile').map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path, badge: item.path === 'messages' ? unreadMessages : 0 }))}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     {page.path !== 'tracking' && <Notice error={logoutError} />}
     {page.path === 'profile' && <>
@@ -48,6 +52,7 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
       {profileSection === 'security' && <PasswordPage plain />}
     </>}
     {page.path === 'orders' && <ShipperOrders slug={slug} open={newOrderOpen} onClose={() => setNewOrderOpen(false)} onNavigate={go} />}
+    {page.path === 'messages' && <MessagesInbox slug={slug} />}
     {page.path === 'tracking' && <ShipperTracking slug={slug} orderId={url.searchParams.get('order')} logoutError={logoutError} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}
   </PortalShell>;
 }

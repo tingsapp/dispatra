@@ -7,6 +7,7 @@ import { orderEditable } from '../../domain/validation';
 import { orderCompletable } from './useOrderDetails';
 import { ProofOfDelivery, proofAvailable } from './ProofOfDelivery';
 import { companySlugForCurrentPath } from '../../lib/pageRoutes';
+import { OrderChatSection } from '../chat/OrderChat';
 import type { PricingContext } from '../../lib/pricingEngine';
 import type { Driver, Job } from '../../types';
 
@@ -42,6 +43,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
         </dl>
       </section>} />
       {slug && proofAvailable(job.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={job.id} timeZone={ctx.billing.general.timeZone} />}
+      {slug && <OrderChatSection slug={slug} orderId={job.id} />}
     </DialogBody>
     <DialogFooter>
       {editable && <Button variant="outline" onClick={() => onEdit!(job)}>Edit order</Button>}

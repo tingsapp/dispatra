@@ -2,7 +2,7 @@ import { ListSummary } from '../components/layout/ListSummary';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
 import { DiscountEditor } from '../components/pricing/RateCardFields';
-import { FormSection } from '../components/entities/Fields';
+import { FormSection, ReadFields } from '../components/entities/Fields';
 import {
 Truck,
 Package,
@@ -10,8 +10,6 @@ CirclePause,
 Building2,
 Edit2,
 ExternalLink,
-MapPin,
-Phone,
 Plus,
 Trash2
 } from 'lucide-react';
@@ -252,7 +250,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <Button
             type="button"
             onClick={handleOpenAddModal}
-            className="app-action app-primary flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Shipper</span>
@@ -285,30 +282,30 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               onValueChange={(v) => setStatusFilter(v as any)}
               align="end"
               options={[
-                { value: 'ALL', label: 'All Statuses' },
+                { value: 'ALL', label: 'All statuses' },
                 { value: 'Active', label: 'Active' },
-                { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }
+                { value: 'On Hold', label: 'On hold' }, { value: 'Inactive', label: 'Inactive' }
               ]}
             />
           </div>
         </div>
 
         {/* SHIPPERS TABLE */}
-        <div className="app-table-shell bg-white overflow-hidden">
+        <div className="app-table-shell overflow-hidden">
           <div className="overflow-x-auto">
-            <table aria-label="Shippers" className="app-table w-full text-left border-collapse">
+            <table aria-label="Shippers" className="app-table w-full text-left">
               <thead>
-                <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-medium text-slate-600">
-                  <th className="py-3 px-4">Shipper</th>
-                  <th className="py-3 px-4">Contact</th>
-                  <th className="py-3 px-4">Address</th>
-                  <th className="py-3 px-4">Rate Card</th>
-                  <th className="py-3 px-4 text-center">Active Orders</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                <tr>
+                  <th scope="col">Shipper</th>
+                  <th scope="col">Contact</th>
+                  <th scope="col">Address</th>
+                  <th scope="col">Rate card</th>
+                  <th scope="col" className="text-center">Active orders</th>
+                  <th scope="col" className="text-center">Status</th>
+                  <th scope="col" className="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
+              <tbody>
                 {filteredCustomers.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400">
@@ -321,20 +318,20 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   filteredCustomers.map((customer) => (
                     <tr
                       key={customer.id}
-                      className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                      className="cursor-pointer"
                       onClick={() => setSelectedCustomerForView(customer)}
                     >
                       {/* Customer Name & Code */}
-                      <td className="py-3.5 px-4">
+                      <td>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200/70 text-blue-700 font-medium text-xs flex items-center justify-center shrink-0">
+                          <div aria-hidden="true" className="w-9 h-9 rounded-full bg-slate-100 text-slate-700 font-medium text-xs flex items-center justify-center shrink-0">
                             {customer.name.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
+                            <button type="button" className="text-left font-medium text-slate-900 hover:underline" onClick={event => { event.stopPropagation(); setSelectedCustomerForView(customer); }}>
                               {customer.name}
-                            </div>
-                            <div className="text-xs text-slate-400">
+                            </button>
+                            <div className="text-xs text-slate-500">
                               {customer.customerType === 'INDIVIDUAL' ? 'Individual' : customer.legalName && customer.legalName !== customer.name ? customer.legalName : 'Business'}
                             </div>
                           </div>
@@ -342,52 +339,37 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       </td>
 
                       {/* Contact */}
-                      <td className="py-3.5 px-4">
+                      <td>
                         {customer.contactName && customer.contactName !== customer.name && <div className="font-medium text-slate-900">{customer.contactName}</div>}
-                        <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                          <span className="flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-slate-400" />
-                            {formatPhone(customer.phone)}
-                          </span>
-                        </div>
+                        <div className="text-xs text-slate-500 whitespace-nowrap mt-0.5">{formatPhone(customer.phone)}</div>
                       </td>
 
                       {/* Address */}
-                      <td className="py-3.5 px-4">
-                        <div className="text-slate-800 flex items-start gap-1.5 max-w-xs truncate">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                          <span className="truncate">{customer.address}</span>
-                        </div>
+                      <td>
+                        <span className="block max-w-xs truncate" title={customer.address}>{customer.address}</span>
                       </td>
 
                       {/* Rate card */}
-                      <td className="py-3.5 px-4">
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                          {cardName(customer.rateCardId) ?? `${defaultCardName} (Default)`}
-                        </span>
+                      <td>
+                        {cardName(customer.rateCardId) ?? `${defaultCardName} (Default)`}
                       </td>
 
                       {/* Active Orders */}
-                      <td className="py-3.5 px-4 text-center">
-                        {activeOrderCount(customer.id) > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-                            {activeOrderCount(customer.id)} active
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-xs">—</span>
-                        )}
+                      <td className="text-center tabular-nums">
+                        {activeOrderCount(customer.id) > 0 ? activeOrderCount(customer.id) : <span className="text-slate-400">—</span>}
                       </td>
 
                       {/* Status */}
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="text-center">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                             customer.status === 'Preferred'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : customer.status === 'Active'
                               ? 'bg-blue-50 text-blue-700 border-blue-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                              : customer.status === 'On Hold'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
                           }`}
                         >
                           {customer.status}
@@ -395,21 +377,23 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(customer)}
-                            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
+                            className="app-icon-button"
                             title="Edit shipper account"
+                            aria-label={`Edit ${customer.name}`}
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteCustomer(customer.id, customer.name)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                            className="app-icon-button"
                             title="Delete shipper account"
+                            aria-label={`Delete ${customer.name}`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -428,116 +412,65 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       {selectedCustomerForView && (
         <Dialog size="md" onClose={() => setSelectedCustomerForView(null)}>
           <DialogHeader onClose={() => setSelectedCustomerForView(null)}
-            leading={<div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/70 text-blue-700 font-medium text-sm flex items-center justify-center shrink-0">{selectedCustomerForView.name.substring(0, 2).toUpperCase()}</div>}
+            leading={<div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 font-medium text-sm flex items-center justify-center shrink-0">{selectedCustomerForView.name.substring(0, 2).toUpperCase()}</div>}
             title={selectedCustomerForView.name} description={<span className="font-mono">{selectedCustomerForView.code}</span>} />
-          <DialogBody className="space-y-6">
-              {/* Status & Tier Badges */}
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                    selectedCustomerForView.status === 'Preferred'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : selectedCustomerForView.status === 'Active'
-                      ? 'bg-blue-50 text-blue-700 border-blue-200'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'
-                  }`}
-                >
-                  {selectedCustomerForView.status}
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                  {selectedCustomerForView.customerType === 'INDIVIDUAL' ? 'Individual' : 'Business'}
-                </span>
+          <DialogBody className="app-sections">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                selectedCustomerForView.status === 'Preferred'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : selectedCustomerForView.status === 'Active'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : selectedCustomerForView.status === 'On Hold'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-slate-100 text-slate-700 border-slate-200'
+              }`}>
+                {selectedCustomerForView.status}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                {selectedCustomerForView.customerType === 'INDIVIDUAL' ? 'Individual' : 'Business'}
+              </span>
+            </div>
+
+            <section className="space-y-3" aria-label="Order history">
+              <h4 className="app-section-title">Order history</h4>
+              {jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-sm text-slate-500">No linked orders yet.</p>}
+              <div className="flex flex-col items-start gap-2">
+                {jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => (
+                  <Button key={j.id} type="button" variant="link" className="h-auto justify-start whitespace-normal p-0 text-left" onClick={() => onSelectJob?.(j.jobNumber)}>
+                    {j.jobNumber} · {j.statusLabel}
+                  </Button>
+                ))}
               </div>
+            </section>
 
-              <div className="rounded-xl border border-slate-200 p-5 text-xs space-y-2"><h4 className="app-section-title">Order history</h4>{jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-slate-500">No linked orders yet.</p>}{jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => <button key={j.id} className="block text-slate-700 text-left" onClick={() => onSelectJob?.(j.jobNumber)}>{j.jobNumber} · {j.statusLabel}</button>)}</div>
-              {/* Contact Information */}
-              <div className="space-y-3 rounded-xl border border-slate-200 p-5">
-                <h4 className="app-section-title text-slate-900">
-                  Contact Information
-                </h4>
-                <div className="space-y-2 text-xs">
-                  {selectedCustomerForView.customerType !== 'INDIVIDUAL' && selectedCustomerForView.legalName && <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Company name:</span>
-                    <span className="font-medium text-slate-900">{selectedCustomerForView.legalName}</span>
-                  </div>}
-                  {selectedCustomerForView.contactName && selectedCustomerForView.contactName !== selectedCustomerForView.name && <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Primary Contact:</span>
-                    <span className="font-medium text-slate-900">{selectedCustomerForView.contactName}</span>
-                  </div>}
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Phone:</span>
-                    <a
-                      href={`tel:${selectedCustomerForView.phone}`}
-                      className="text-blue-600 hover:underline font-medium"
-                    >
-                      {formatPhone(selectedCustomerForView.phone)}
-                    </a>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Email:</span>
-                    <a
-                      href={`mailto:${selectedCustomerForView.email}`}
-                      className="text-blue-600 hover:underline font-medium"
-                    >
-                      {selectedCustomerForView.email}
-                    </a>
-                  </div>
-                  <div className="pt-2">
-                    <div className="text-slate-400 mb-1">Primary Facility Address:</div>
-                    <div className="font-medium text-slate-800">
-                      {selectedCustomerForView.address}
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <section className="space-y-3" aria-label="Contact information">
+              <h4 className="app-section-title">Contact information</h4>
+              <ReadFields values={{
+                ...(selectedCustomerForView.customerType !== 'INDIVIDUAL' && selectedCustomerForView.legalName ? { 'Company name': selectedCustomerForView.legalName } : {}),
+                ...(selectedCustomerForView.contactName && selectedCustomerForView.contactName !== selectedCustomerForView.name ? { 'Primary contact': selectedCustomerForView.contactName } : {}),
+                Phone: <a href={`tel:${selectedCustomerForView.phone}`} className="hover:underline">{formatPhone(selectedCustomerForView.phone)}</a>,
+                Email: <a href={`mailto:${selectedCustomerForView.email}`} className="hover:underline">{selectedCustomerForView.email}</a>,
+                'Primary facility address': selectedCustomerForView.address,
+              }} />
+            </section>
 
-              {/* Pricing relationship */}
-              <div className="space-y-3 rounded-xl border border-slate-200 p-5">
-                <h4 className="app-section-title text-slate-900">
-                  Pricing Relationship
-                </h4>
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Rate Card:</span>
-                    <span className="font-medium text-slate-900">
-                      {cardName(selectedCustomerForView.rateCardId) ?? `Default (${defaultCardName})`}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <section className="space-y-3" aria-label="Pricing relationship">
+              <h4 className="app-section-title">Pricing relationship</h4>
+              <ReadFields values={{ 'Rate card': cardName(selectedCustomerForView.rateCardId) ?? `Default (${defaultCardName})` }} />
+            </section>
 
-              {/* Operational Dispatch Notes */}
-              {selectedCustomerForView.notes && (
-                <div className="space-y-1.5">
-                  <h4 className="app-section-title text-slate-900">
-                    Dispatch & Receiving Notes
-                  </h4>
-                  <div className="p-3 bg-amber-50/70 border border-amber-200/70 rounded-lg text-xs text-amber-900">
-                    {selectedCustomerForView.notes}
-                  </div>
-                </div>
-              )}
+            {selectedCustomerForView.notes && (
+              <section className="space-y-3" aria-label="Dispatch & receiving notes">
+                <h4 className="app-section-title">Dispatch & receiving notes</h4>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{selectedCustomerForView.notes}</p>
+              </section>
+            )}
 
-              {/* History stats */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="rounded-lg bg-slate-50 p-4 text-center">
-                  <div className="text-xs font-medium text-slate-400">
-                    Total Volume
-                  </div>
-                  <div className="text-lg font-medium text-slate-900 mt-0.5">
-                    {jobs.filter(j => j.customerId === selectedCustomerForView.id).length} orders
-                  </div>
-                </div>
-                <div className="rounded-lg bg-slate-50 p-4 text-center">
-                  <div className="text-xs font-medium text-slate-400">
-                    Active On Road
-                  </div>
-                  <div className="text-lg font-medium text-blue-600 mt-0.5">
-                    {jobs.filter(j => j.customerId === selectedCustomerForView.id && j.status !== 'completed').length} orders
-                  </div>
-                </div>
-              </div>
-
+            <ListSummary label="Shipper order summary" items={[
+              { label: 'Total volume', value: `${jobs.filter(j => j.customerId === selectedCustomerForView.id).length} orders`, icon: Package },
+              { label: 'Active on road', value: `${activeOrderCount(selectedCustomerForView.id)} orders`, icon: Truck },
+            ]} />
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { handleOpenEditModal(selectedCustomerForView); setSelectedCustomerForView(null); }}><Edit2 /> Edit Account</Button>

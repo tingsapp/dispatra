@@ -1,13 +1,16 @@
 import { useEffect } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { operations, type SyncChange } from '../operations/api';
-import { ApiError } from './api';
+import { streamSync } from './streamSync';
 import { companySettingsKey } from './WorkspaceAccount';
 
 export type SyncRole = 'DISPATCHER' | 'SHIPPER' | 'DRIVER';
 export const notificationsKey = (slug: string) => ['notifications', slug] as const;
-/** Latest `/sync` summary ({ unread }) shared with every bell in the workspace. */
+/** Latest `/sync` summary shared with every bell and chat badge in the workspace. */
 export const syncKey = (slug: string) => ['sync', slug] as const;
+export type SyncSummary = { unread: number; unread_messages: number };
+/** Order chat queries (inbox, per-order channels, threads) share this prefix. */
+const chatKey = (slug: string) => ['chat', slug];
 
 function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
   const ops = (...rest: string[]) => ['operations', slug, ...rest];
@@ -28,6 +31,7 @@ function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
     case 'catalog': return [ops('catalog')];
     case 'settings': case 'organization': return [companySettingsKey(slug), ops('settings'), ops('catalog'), ops('rates')];
     case 'notification': return [notificationsKey(slug)];
+    case 'message': return [chatKey(slug)];
     default: return [ops()];
   }
 }
@@ -38,6 +42,7 @@ function shipperKeys(slug: string, change: SyncChange): QueryKey[] {
     case 'order': case 'stop': case 'evidence': case 'issue': return [['shipper-orders', slug], ...order];
     case 'shipper': return [['shipper-profile', slug], ['booking-preferences', slug]];
     case 'notification': return [notificationsKey(slug)];
+    case 'message': return [chatKey(slug)];
     default: return [];
   }
 }
@@ -47,6 +52,7 @@ function driverKeys(slug: string, change: SyncChange): QueryKey[] {
     case 'order': case 'route': case 'stop': case 'evidence': case 'issue': return [['driver-orders', slug], ['driver-routes', slug], ['driver-evidence', slug]];
     case 'driver': case 'duty': case 'vehicle': return [['driver-profile', slug]];
     case 'notification': return [notificationsKey(slug)];
+    case 'message': return [chatKey(slug)];
     default: return [];
   }
 }
@@ -63,9 +69,8 @@ export function syncInvalidations(role: SyncRole, slug: string, changes: SyncCha
 export const retryDelay = (failures: number) => Math.min(60_000, 5_000 * 2 ** Math.min(Math.max(failures - 1, 0), 4));
 
 /**
- * One feed loop per signed-in workspace. The server chooses the poll delay; visibility and
- * network recovery sync immediately. Changes only invalidate queries, so data still comes
- * from the normal authorized reads.
+ * One recoverable WebSocket feed per signed-in workspace, with HTTP polling fallback.
+ * Events invalidate queries; operational data always comes from authorized reads.
  */
 export function useSync(slug: string | null | undefined, role: SyncRole) {
   const cache = useQueryClient();
@@ -73,29 +78,18 @@ export function useSync(slug: string | null | undefined, role: SyncRole) {
     if (!slug) return;
     // The summary must outlive bells that mount and unmount (the portal cache uses gcTime 0).
     cache.setQueryDefaults(syncKey(slug), { gcTime: Infinity, staleTime: Infinity });
-    let cursor: string | undefined, timer: number | undefined, failures = 0, running = false, stopped = false;
-    const schedule = (delay: number) => { window.clearTimeout(timer); if (!stopped) timer = window.setTimeout(tick, delay); };
-    async function tick() {
-      if (running || stopped) return;
-      running = true;
-      try {
-        const view = await operations.sync(slug!, cursor);
-        if (stopped) return;
-        failures = 0;
+    const feed = streamSync(slug, {
+      read: cursor => operations.sync(slug, cursor),
+      apply: async view => {
         if (view.reset) await cache.invalidateQueries();
-        else await Promise.all(syncInvalidations(role, slug!, view.changes).map(queryKey => cache.invalidateQueries({ queryKey })));
-        cursor = view.cursor;
-        cache.setQueryData(syncKey(slug!), { unread: view.unread });
-        schedule(view.next_poll_ms);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) { stopped = true; void cache.invalidateQueries({ queryKey: ['account'] }); return; }
-        schedule(retryDelay(++failures));
-      } finally { running = false; }
-    }
-    const now = () => { if (document.visibilityState === 'visible') schedule(0); };
+        else await Promise.all(syncInvalidations(role, slug, view.changes).map(queryKey => cache.invalidateQueries({ queryKey })));
+        cache.setQueryData<SyncSummary>(syncKey(slug), { unread: view.unread, unread_messages: view.unread_messages });
+      },
+      expired: () => { void cache.invalidateQueries({ queryKey: ['account'] }); },
+    });
+    const now = () => { if (document.visibilityState === 'visible') feed.recover(); };
     document.addEventListener('visibilitychange', now);
     window.addEventListener('online', now);
-    void tick();
-    return () => { stopped = true; window.clearTimeout(timer); document.removeEventListener('visibilitychange', now); window.removeEventListener('online', now); };
+    return () => { feed.stop(); document.removeEventListener('visibilitychange', now); window.removeEventListener('online', now); };
   }, [slug, role, cache]);
 }

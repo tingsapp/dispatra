@@ -17,7 +17,7 @@ const change = (entity: string, type: string, order_id: string | null = null) =>
 const keys = (role: 'DISPATCHER' | 'SHIPPER' | 'DRIVER', changes: ReturnType<typeof change>[]) => syncInvalidations(role, 'acme', changes).map(key => JSON.stringify(key));
 
 test('changes invalidate only the reads each role uses, once per key', () => {
-  const assigned = [change('order', 'order.assigned', 'o1'), change('order', 'order.revised', 'o1'), change('notification', 'notification.created')];
+  const assigned = [change('order', 'order.assigned', 'o1'), change('order', 'order.updated', 'o1'), change('notification', 'notification.created')];
   assert.deepEqual(keys('DISPATCHER', assigned), ['["operations","acme","orders"]', '["operations","acme","routes"]', '["operations","acme","monitor"]',
     '["operations","acme","analytics"]', '["tracking","acme","o1"]', '["delivery-proof","acme","o1"]', '["notifications","acme"]']);
   assert.deepEqual(keys('SHIPPER', assigned), ['["shipper-orders","acme"]', '["tracking","acme","o1"]', '["tracking-path","acme","o1"]', '["delivery-proof","acme","o1"]', '["notifications","acme"]']);
@@ -26,6 +26,8 @@ test('changes invalidate only the reads each role uses, once per key', () => {
   assert.deepEqual(keys('DISPATCHER', [change('dispatch', 'dispatch.no_candidate', 'o1')]), ['["operations","acme","monitor"]']);
   assert.deepEqual(keys('DISPATCHER', [change('settings', 'settings.updated')]), ['["company-settings","acme"]', '["operations","acme","settings"]', '["operations","acme","catalog"]', '["operations","acme","rates"]']);
   assert.deepEqual(keys('DISPATCHER', [change('future', 'future.thing')]), ['["operations","acme"]']);
+  // Order chat messages refresh only chat reads, for every role.
+  for (const role of ['DISPATCHER', 'SHIPPER', 'DRIVER'] as const) assert.deepEqual(keys(role, [change('message', 'message.created', 'o1')]), ['["chat","acme"]']);
   assert.deepEqual([1, 2, 3, 4, 5, 9].map(retryDelay), [5_000, 10_000, 20_000, 40_000, 60_000, 60_000]);
   const now = Date.parse('2026-10-05T12:00:00Z');
   assert.deepEqual(['2026-10-05T11:59:40Z', '2026-10-05T11:55:00Z', '2026-10-05T09:00:00Z'].map(at => notificationAge(at, now)), ['Just now', '5m ago', '3h ago']);
@@ -61,8 +63,8 @@ test('panel lists notifications, reads one on open and disables Mark all read on
 
 test('sync loop starts at the server cursor, invalidates changed reads and stores unread', async () => {
   const cursors: (string | undefined)[] = [];
-  const views = [{ cursor: '10-0', changes: [], unread: 0, reset: false, next_poll_ms: 1 },
-    { cursor: '11-4', changes: [change('order', 'order.created', 'o1')], unread: 2, reset: false, next_poll_ms: 60_000 }];
+  const views = [{ cursor: '10-0', changes: [], unread: 0, unread_messages: 0, reset: false, next_poll_ms: 1 },
+    { cursor: '11-4', changes: [change('order', 'order.created', 'o1')], unread: 2, unread_messages: 3, reset: false, next_poll_ms: 60_000 }];
   Object.assign(operations, { sync: async (_slug: string, cursor?: string) => { cursors.push(cursor); return views[Math.min(cursors.length - 1, 1)]; } });
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   let fetched = 0;
@@ -70,7 +72,7 @@ test('sync loop starts at the server cursor, invalidates changed reads and store
   function Probe() { useSync('acme', 'DISPATCHER'); return null; }
   const view = render(React.createElement(QueryClientProvider, { client: cache }, React.createElement(Probe)));
   await waitFor(() => assert.deepEqual(cursors, [undefined, '10-0']));
-  await waitFor(() => assert.deepEqual(cache.getQueryData(syncKey('acme')), { unread: 2 }));
+  await waitFor(() => assert.deepEqual(cache.getQueryData(syncKey('acme')), { unread: 2, unread_messages: 3 }));
   assert.equal(cache.getQueryState(['operations', 'acme', 'orders'])?.isInvalidated, true);
   view.unmount();
 });

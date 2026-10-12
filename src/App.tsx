@@ -41,7 +41,6 @@ import { ProfilePage } from './pages/ProfilePage';
 import { RateCardsPage } from './pages/RateCardsPage';
 import { VehiclesPage } from './pages/VehiclesPage';
 import { IntegrationsPage } from './pages/IntegrationsPage';
-import { createIntegrationsPreview } from './integrations/preview';
 import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from './types';
 
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ default: module.ReportsPage })));
@@ -53,7 +52,6 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = usePageNavigation();
-  const [integrationsPreview, setIntegrationsPreview] = useState(createIntegrationsPreview);
   useSync(slug, 'DISPATCHER');
   // Record changes arrive through /sync; only driver locations and time-based attention still need a Monitor refresh.
   const liveRefresh = activeTab === 'monitor' ? 30_000 : false;
@@ -547,7 +545,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
             onNotification={showToast}
           />
         ) : activeTab === 'integrations' ? (
-          <IntegrationsPage preview={integrationsPreview} onChange={setIntegrationsPreview} />
+          <IntegrationsPage rates={rateQuery.data ?? []} />
         ) : activeTab === 'profile' ? (
           <ProfilePage
             onNotification={showToast}

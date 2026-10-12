@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin } from 'lucide-react';
 import { allOperations, operations } from '../operations/api';
 import { useOrderTracking } from '../components/orders/OrderTracking';
 import { TrackingSummary, TrackingDetails } from '../components/orders/TrackingSections';
 import { ShipperTrackingMap } from '../components/orders/ShipperTrackingMap';
+import { ChatDialog } from '../components/chat/OrderChat';
 import { Button, Notice } from './ui';
 
 /** The same authorized Shipper orders feed powers selection and order details. */
@@ -17,6 +19,7 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
   const timeZone = preferences.data?.time_zone ?? 'America/Vancouver';
   const error = orders.error || preferences.error;
   const pending = orders.isPending || preferences.isPending;
+  const [chatOrder, setChatOrder] = useState<{ id: string; number: string } | null>(null);
   return <>
     <ShipperTrackingMap slug={slug} tracking={tracking.error ? undefined : tracking.data} orders={rows} selectedOrderId={selected?.id} onSelect={onSelect} warehouse={profile.data?.warehouse} timeZone={timeZone} locationReady={!profile.isPending} viewReady={!pending && (!selected || !tracking.isPending)} />
     <div className="shipper-tracking-overlays" role="region" aria-label="Tracking">
@@ -36,12 +39,14 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
         : tracking.data && <>
           <TrackingSummary tracking={tracking.data} timeZone={timeZone} title={selected.number} showDriver={false} />
           <section className="mt-5" aria-label="Stops and timeline">
-            <TrackingDetails tracking={tracking.data} timeZone={timeZone} now={now} showLocationStatus={false} showDriverContact />
+            <TrackingDetails tracking={tracking.data} timeZone={timeZone} now={now} showLocationStatus={false} showDriverContact
+              onMessageDriver={() => setChatOrder({ id: selected.id, number: selected.number })} />
           </section>
         </>}
       </>}
       </div>
       </section>
     </div>
+    {chatOrder && <ChatDialog slug={slug} orderId={chatOrder.id} orderNumber={chatOrder.number} initialKind="DRIVER_SHIPPER" onClose={() => setChatOrder(null)} />}
   </>;
 }
