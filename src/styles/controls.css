@@ -144,8 +144,32 @@ svg.lucide { stroke-width: 1.75; }
 .app-floating-panel {
   max-width: min(calc(100vw - 24px), var(--radix-popover-content-available-width));
   max-height: min(38rem, var(--radix-popover-content-available-height));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.app-floating-panel-scroll {
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
+}
+.app-floating-panel-scroll, .app-map-menu .overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  scrollbar-color: #c9c9c9 transparent;
+}
+.app-map-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 .app-floating-panel[data-panel-size="menu"] { width: var(--app-menu-width); }
 .app-floating-panel[data-panel-size="compact"] { width: var(--app-menu-compact-width); }
@@ -434,6 +458,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem 1rem; flex-shrink: 0; }
 .app-dialog-header h3 { font-size: 1.125rem; line-height: 1.5rem; font-weight: 500; }
 .app-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 1.5rem 1.5rem; }
+.app-monitor-dialog :where(.app-dialog-body, .overflow-y-auto) { scrollbar-width: thin; scrollbar-gutter: stable; scrollbar-color: #c9c9c9 transparent; }
 .app-dialog-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem; padding: 1rem 1.5rem; flex-shrink: 0; background: var(--color-app-surface); }
 .app-dialog-close { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; margin: -.375rem -.5rem -.375rem 0; border-radius: .5rem; color: var(--color-slate-400); transition: background-color 120ms var(--app-ease), color 120ms var(--app-ease); }
 .app-dialog-close:hover { color: var(--color-slate-700); background: var(--color-app-hover); }

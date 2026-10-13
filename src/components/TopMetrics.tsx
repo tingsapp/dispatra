@@ -11,8 +11,10 @@ import {
   X
 } from 'lucide-react';
 import { Driver, Job, NeedsAttentionItem } from '../types';
+import { OrderMapCheckbox, type OrderMapVisibilityProps } from './monitor/OrderMapCheckbox';
+import { MonitorBadge } from './monitor/MonitorBadge';
 
-interface TopMetricsProps {
+interface TopMetricsProps extends OrderMapVisibilityProps {
   /** Shift right to make room for the floating menu button when the sidebar is hidden. */
   offsetForMenu?: boolean;
   drivers: Driver[];
@@ -39,6 +41,8 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
   offsetForMenu = false,
   drivers,
   jobs,
+  hiddenOrderIds,
+  onOrderVisibilityChange,
   activeJobsCount,
   availableDriversCount,
   needsAttentionCount,
@@ -131,12 +135,10 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                   <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
                     <Truck className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
-                  <h3 className="font-semibold text-slate-900 text-sm">
+                  <h3 className="font-medium text-slate-900 text-sm">
                     Active Orders
                   </h3>
-                  <span className="text-xs bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded-full">
-                    {jobs.length}
-                  </span>
+                  <MonitorBadge>{jobs.length}</MonitorBadge>
                 </div>
                 <button
                   onClick={() => setShowActiveJobsMenu(false)}
@@ -151,7 +153,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
               <SearchInput value={jobSearchQuery} onChange={setJobSearchQuery} placeholder="Search orders, shippers or addresses..." className="mt-3" />
 
               {/* Tabs */}
-              <div className="flex items-center gap-1.5 mt-2.5 pb-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pb-2.5 text-xs">
                 <button
                   onClick={() => setJobFilterTab('all')}
                   aria-pressed={jobFilterTab === 'all'}
@@ -195,58 +197,48 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                   </div>
                 ) : (
                   filteredJobs.map((job) => (
-                    <div
-                      key={job.id}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.currentTarget.click(); } }}
-                      onClick={() => {
-                        onSelectJob(job.jobNumber);
-                        setShowActiveJobsMenu(false);
-                        onActionNotification(`Selected ${job.jobNumber} - ${job.customerName}`);
-                      }}
-                      className="py-2.5 px-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors group"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 text-xs">
-                            {job.jobNumber}
-                          </span>
-                          <span className="text-slate-400">•</span>
-                          <span className="text-xs font-semibold text-slate-700 truncate max-w-32.5">
-                            {job.customerName}
-                          </span>
+                    <div key={job.id} className="flex items-start rounded-xl hover:bg-slate-50">
+                      <OrderMapCheckbox job={job} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={onOrderVisibilityChange} />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectJob(job.jobNumber);
+                          setShowActiveJobsMenu(false);
+                          onActionNotification(`Selected ${job.jobNumber} - ${job.customerName}`);
+                        }}
+                        className="min-w-0 flex-1 text-left py-2.5 px-2 rounded-xl cursor-pointer transition-colors group"
+                      >
+                        <div className="flex min-w-0 items-center justify-between gap-2 mb-1">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="shrink-0 font-medium text-slate-900 text-xs">
+                              {job.jobNumber}
+                            </span>
+                            <span className="shrink-0 text-slate-400">•</span>
+                            <span className="min-w-0 text-xs text-slate-500 truncate max-w-32.5">
+                              {job.customerName}
+                            </span>
+                          </div>
+                          <MonitorBadge tone={job.status === 'at_risk' ? 'danger' : job.status === 'late_start' ? 'warning' : job.status === 'no_driver' ? 'neutral' : 'success'}>
+                            {job.statusLabel}
+                          </MonitorBadge>
                         </div>
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            job.status === 'at_risk'
-                              ? 'bg-rose-50 text-rose-600 border border-rose-200/60'
-                              : job.status === 'late_start'
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                              : job.status === 'no_driver'
-                              ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                          }`}
-                        >
-                          {job.statusLabel}
-                        </span>
-                      </div>
 
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <div className="truncate pr-2">
-                          <span className="font-medium text-slate-600">To:</span> {job.dropoffAddress}
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <div className="truncate pr-2">
+                            <span className="font-medium text-slate-600">To:</span> {job.dropoffAddress}
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all shrink-0" />
                         </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all shrink-0" />
-                      </div>
+                      </button>
                     </div>
                   ))
                 )}
               </div>
 
               {/* Footer */}
-              <div className="mt-3 pt-2.5 flex items-center justify-between text-xs">
+              <div className="mt-3 pt-2.5 flex items-center justify-between gap-3 text-xs">
                 <span className="text-slate-500 text-xs">
-                  Click any job to focus on map
+                  Check orders to show on map
                 </span>
                 <button
                   onClick={() => {
@@ -257,7 +249,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                       onActionNotification('Opened full Orders Management table');
                     }
                   }}
-                  className="font-medium text-slate-700 hover:text-slate-950"
+                  className="shrink-0 whitespace-nowrap font-medium text-slate-700 hover:text-slate-950"
                 >
                   View full list &rarr;
                 </button>
@@ -276,12 +268,10 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                   <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
                     <UserCheck className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
-                  <h3 className="font-semibold text-slate-900 text-sm">
+                  <h3 className="font-medium text-slate-900 text-sm">
                     Available Drivers
                   </h3>
-                  <span className="text-xs bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded-full">
-                    {availableDriversCount}
-                  </span>
+                  <MonitorBadge>{availableDriversCount}</MonitorBadge>
                 </div>
                 <button
                   onClick={() => setShowAvailableDriversMenu(false)}
@@ -296,7 +286,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
               <SearchInput value={driverSearchQuery} onChange={setDriverSearchQuery} placeholder="Search driver name, ID, vehicle..." className="mt-3" />
 
               {/* Tabs */}
-              <div className="flex items-center gap-1.5 mt-2.5 pb-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pb-2.5 text-xs">
                 <button
                   onClick={() => setDriverFilterTab('all')}
                   aria-pressed={driverFilterTab === 'all'}
@@ -339,59 +329,30 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                         setShowAvailableDriversMenu(false);
                         onActionNotification(`Selected driver ${driver.name} (${driver.driverNumber ?? driver.id})`);
                       }}
-                      className="py-2.5 px-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors group flex items-center justify-between"
+                      className="py-2.5 px-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors group flex items-center gap-2.5"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100" />
-                          <span
-                            className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white ${
-                              driver.status === 'available'
-                                ? 'bg-emerald-500'
-                                : 'bg-blue-500'
-                            }`}
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 text-xs">
-                              {driver.name}
-                            </span>
-                            <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
-                              {driver.driverNumber ?? driver.id}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                            <span>{driver.vehicle}</span>
-                            {driver.distance && (
-                              <>
-                                <span>•</span>
-                                <span className="text-slate-600 font-medium">{driver.distance}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                      <div className="relative shrink-0">
+                        <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="size-8 rounded-full object-cover" />
+                        <span className={`absolute bottom-0 right-0 size-2 rounded-full ring-2 ring-white ${driver.status === 'available' ? 'bg-emerald-500' : driver.status === 'on_route' ? 'bg-blue-500' : 'bg-slate-400'}`} />
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            driver.status === 'available'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-blue-50 text-blue-700 border border-blue-200'
-                          }`}
-                        >
-                          {driver.statusLabel}
-                        </span>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                          <span className="min-w-0 max-w-full truncate font-medium text-slate-900 text-xs" title={driver.name}>{driver.name}</span>
+                          <MonitorBadge tone={driver.status === 'available' ? 'success' : driver.status === 'on_route' ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
+                        </div>
+                        <p className="mt-1 truncate text-xs text-slate-500" title={`${driver.driverNumber ?? driver.id} · ${driver.vehicle}`}>
+                          {driver.driverNumber ?? driver.id} · {driver.vehicle}
+                        </p>
+                        {driver.distance && driver.distance !== '—' && <p className="mt-0.5 text-xs text-slate-400">{driver.distance}</p>}
                       </div>
+                      <ChevronRight className="size-3.5 shrink-0 text-slate-400 group-hover:text-slate-700" />
                     </div>
                   ))
                 )}
               </div>
 
               {/* Footer */}
-              <div className="mt-3 pt-2.5 flex items-center justify-between text-xs">
+              <div className="mt-3 pt-2.5 flex items-center justify-between gap-3 text-xs">
                 <span className="text-slate-500 text-xs">
                   Click driver to center on map
                 </span>
@@ -404,9 +365,9 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                       onActionNotification('Opened Driver Roster & Schedules');
                     }
                   }}
-                  className="font-medium text-slate-700 hover:text-slate-950"
+                  className="shrink-0 whitespace-nowrap font-medium text-slate-700 hover:text-slate-950"
                 >
-                  Roster & Details &rarr;
+                  View more &rarr;
                 </button>
               </div>
       </FloatingPanel>
@@ -420,9 +381,8 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                   <div className="w-5 h-5 flex items-center justify-center text-slate-600">
                     <AlertTriangle className="w-3.5 h-3.5 stroke-[2.5]" />
                   </div>
-                  <span className="font-semibold text-slate-900 text-sm">
-                    Needs Attention ({needsAttentionItems.length})
-                  </span>
+                  <span className="font-medium text-slate-900 text-sm">Needs Attention</span>
+                  <MonitorBadge>{needsAttentionItems.length}</MonitorBadge>
                 </div>
                 <button
                   onClick={() => setShowNeedsAttentionPopover(false)}
@@ -450,9 +410,9 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                   >
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900 text-sm whitespace-nowrap">{item.jobNumber}</span>
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${item.badgeColor === 'red' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{item.statusLabel}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-slate-900 text-xs whitespace-nowrap">{item.jobNumber}</span>
+                          <MonitorBadge tone={item.badgeColor === 'red' ? 'danger' : 'warning'}>{item.statusLabel}</MonitorBadge>
                         </div>
                         <p className="text-xs text-slate-700">{item.subtitle}</p>
                         {item.pickupAddress && <p className="text-xs text-slate-500 truncate">Pickup · {item.pickupAddress.split(',')[0]}</p>}
@@ -474,7 +434,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                       onActionNotification('Opened full Exceptions & Alerts center');
                     }
                   }}
-                  className="font-medium text-slate-700 hover:text-slate-950"
+                  className="shrink-0 whitespace-nowrap font-medium text-slate-700 hover:text-slate-950"
                 >
                   View all alerts &rarr;
                 </button>

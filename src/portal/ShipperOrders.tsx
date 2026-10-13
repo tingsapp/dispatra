@@ -164,7 +164,6 @@ export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: strin
           event.preventDefault(); setDetailId(null); onNavigate(event.currentTarget.getAttribute('href')!);
         }}><MapPin size={16} />Track</a></Button>
         {shipperEditable(detail) && <Button variant="outline" onClick={() => startEdit(detail)}>Edit order</Button>}
-        <Button onClick={() => setDetailId(null)}>Close</Button>
       </DialogFooter>
     </Dialog>}
 

@@ -6,6 +6,7 @@ import type { AgentName, AgentStatus } from '../api';
 import { notificationAge } from '../Notifications';
 import { AgentLogs } from './AgentLogs';
 import { TechnicalReports } from './TechnicalReports';
+import { OperationalReports } from './OperationalReports';
 import { AGENTS, agentLabel } from './agentPresentation';
 
 export type MonitorFocus = AgentName | 'ALL';
@@ -19,7 +20,7 @@ export function AgentDetailsDialog({ focus, agents, accountId, onClose }: { focu
   return <Dialog size="md" onClose={onClose}>
     <DialogHeader title={title} description={item ? `${item.issue_count} open issue${item.issue_count === 1 ? '' : 's'}` : undefined} onClose={onClose} closeLabel="Close agent details" />
     <DialogBody className="space-y-5">
-      <TechnicalReports accountId={accountId} active agent={agent} />
+      {agent === 'OPERATIONAL' ? <OperationalReports accountId={accountId} /> : <TechnicalReports accountId={accountId} active agent={agent} />}
       <section className="border-t border-app-border pt-2">
         <h4><button type="button" aria-expanded={activity} aria-controls={activityId} onClick={() => setActivity(value => !value)} className="flex w-full items-center justify-between gap-3 rounded py-3 text-left text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
           Activity <ChevronDown size={16} aria-hidden="true" className={`text-app-muted transition-transform ${activity ? 'rotate-180' : ''}`} />

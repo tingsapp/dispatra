@@ -10,7 +10,7 @@ export const WorkspaceInput = forwardRef<HTMLInputElement, WorkspaceInputProps>(
   const generatedId = useId();
   const inputId = id ?? generatedId;
   return <div className="min-w-0 flex-1">
-    <label htmlFor={inputId} className={hideLabel ? 'sr-only' : 'app-label'}>Company workspace</label>
+    <label htmlFor={inputId} className={hideLabel ? 'sr-only' : 'app-label'}>Workspace</label>
     <PrefixedInput ref={ref} id={inputId} prefix="dispatra.com/" autoCapitalize="none" autoComplete="organization" spellCheck={false} maxLength={63}
       placeholder="company-name" {...props} />
   </div>;

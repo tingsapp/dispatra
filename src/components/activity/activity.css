@@ -1,0 +1,57 @@
+.company-activity-dot { background: #dc2626; }
+.company-activity-trigger.app-metric { background: #fef2f2; }
+.company-activity-trigger.app-metric:hover,
+.company-activity-trigger.app-metric[aria-expanded="true"] { background: #fee2e2; }
+.company-activity-trigger.app-metric:focus-visible { background: #fee2e2; outline: 2px solid #dc2626; outline-offset: 2px; }
+.company-activity-waves { overflow: hidden; border-radius: inherit; }
+.company-activity-pulse {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 32px;
+  height: 32px;
+  transform: translate3d(-50%, -50%, 0) scale(.1875);
+  transform-origin: center;
+  border: 1.5px solid #dc2626;
+  border-radius: 50%;
+  animation: companyActivityPulse 3s linear infinite;
+  will-change: transform, opacity;
+}
+.company-activity-pulse:nth-child(2) { animation-delay: -1s; }
+.company-activity-pulse:nth-child(3) { animation-delay: -2s; }
+.company-activity-pulse-paused .company-activity-pulse { animation-play-state: paused; }
+@keyframes companyActivityPulse {
+  0% { transform: translate3d(-50%, -50%, 0) scale(.1875); opacity: .95; }
+  75% { opacity: .4; }
+  100% { transform: translate3d(-50%, -50%, 0) scale(1); opacity: 0; }
+}
+.company-activity-row { transition: transform 700ms cubic-bezier(.22, 1, .36, 1), background-color 700ms ease; }
+.company-activity-icon { transition: background-color 700ms ease, color 700ms ease; }
+.company-activity-panel[data-panel-size="rich"] {
+  width: min(24rem, calc(100vw - 48px));
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 88px);
+  background: rgb(39 48 43 / 45%);
+  -webkit-backdrop-filter: blur(6px) saturate(115%);
+  backdrop-filter: blur(6px) saturate(115%);
+  color: #f8faf9;
+  border-color: rgb(255 255 255 / 20%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 8px 28px rgb(16 24 20 / 16%);
+}
+.company-activity-panel .text-app-muted { color: rgb(255 255 255 / 80%); }
+.company-activity-panel .text-rose-700 { color: #fecdd3; }
+.company-activity-panel .company-activity-row { background: transparent; }
+.company-activity-panel .company-activity-row:last-child { background: rgb(255 255 255 / 8%); }
+.company-activity-panel .company-activity-icon { background: rgb(255 255 255 / 10%); color: #f8faf9; }
+.company-activity-panel .company-activity-icon.bg-blue-600 { background: rgb(96 165 250 / 24%); color: #bfdbfe; }
+.company-activity-panel .company-activity-icon.bg-emerald-600 { background: rgb(52 211 153 / 24%); color: #a7f3d0; }
+.company-activity-panel .company-activity-icon.bg-amber-50 { background: rgb(251 191 36 / 16%); color: #fde68a; }
+.company-activity-panel button[aria-label]:hover { background: rgb(255 255 255 / 12%); color: white; }
+.company-activity-panel button:focus-visible { outline-color: #bfdbfe; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .company-activity-panel[data-panel-size="rich"] { background: rgb(39 48 43 / 94%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .company-activity-pulse { animation: none; opacity: 0; }
+  .company-activity-row, .company-activity-icon { transition: none; }
+}

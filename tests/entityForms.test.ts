@@ -253,6 +253,7 @@ test('order details identify email, shipper, dispatcher and external TMS origins
     const input={...createDefaultOrderInput(ctx),source,externalReference:source==='IMPORT'?'TMS-482':null};
     render(React.createElement(OrderDetailsDialog,{job:{...INITIAL_JOBS[0],creationSource:source,externalReference:input.externalReference ?? undefined,pricingInput:input},ctx,drivers:[],onClose:()=>{},onReassign:()=>{}}));
     assert.equal(screen.getByText('Order source').nextElementSibling?.textContent,label);
+    assert.equal(screen.queryByText('Priority'),null);
     if (source==='IMPORT') assert.equal(screen.getByText('TMS reference number').nextElementSibling?.textContent,'TMS-482');
     else assert.equal(screen.queryByText('TMS reference number'),null);
     cleanup();
@@ -272,6 +273,7 @@ test('order origins use saved creation data and never infer TMS from prices or P
   const job={...INITIAL_JOBS[0],creationSource:'IMPORT',externalReference:'  TMS-482  ',pricingInput:input};
   render(React.createElement(OrderDetails,{order:job}));
   assert.ok(screen.getByText('External TMS'));
+  assert.equal(screen.queryByText('Priority'),null);
   assert.ok(screen.getByText('TMS-482'));
   assert.deepEqual(orderOrigin({...job,pricingInput:undefined}),{label:'External TMS',tmsReference:'TMS-482'});
   assert.deepEqual(orderOrigin({...job,externalReference:' '}),{label:'External TMS',tmsReference:'Not provided'});

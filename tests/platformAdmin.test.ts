@@ -12,7 +12,7 @@ const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query
 const { api, ApiError } = await import('../src/portal/api');
 const { AdminPortal } = await import('../src/portal/admin/AdminPortal');
 const { adminRoute, isAdminPath } = await import('../src/portal/admin/adminRoutes');
-const { parsePortal, default: PortalApp } = await import('../src/portal/PortalApp');
+const { parsePortal, loginDestination, default: PortalApp } = await import('../src/portal/PortalApp');
 
 const ACME = '11111111-1111-4111-8111-111111111111';
 const owner = { id: '99999999-9999-4999-8999-999999999999', login_id: 'owner', display_name: '', role: 'ADMIN', organization: null } as never;
@@ -20,12 +20,14 @@ const company = (overrides = {}) => ({ id: ACME, slug: 'acme', name: 'Acme Dispa
   dispatcher_count: 1, active_dispatcher_count: 1, shipper_account_count: 2, driver_account_count: 3, active_session_count: 1, shipper_count: 5, driver_count: 7, order_count: 12, ...overrides });
 const person = (overrides = {}) => ({ id: '22222222-2222-4222-8222-222222222222', login_id: 'dispatcher', display_name: 'First Desk', active: true, version: 1,
   created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z', last_login_at: null, active_session_count: 0, ...overrides });
+const plan = (overrides = {}) => ({ id: '8eb730cb-226b-4ec1-a3fc-132279938d62', name: 'Monthly subscription' as const, interval: 'MONTHLY' as const, trial_days: 30, monthly_price: null, currency: 'CAD', version: 1, updated_at: '2026-09-01T10:00:00Z', ...overrides });
 const original = { ...api };
 let cache: InstanceType<typeof QueryClient>;
 let calls: string[] = [];
 beforeEach(() => {
   calls = [];
   Object.assign(api, {
+    monthlyPlan: async () => plan(),
     agentMonitor: async () => ({ observed_at: new Date().toISOString(), agents: [], running: 0, awaiting_approval: 0, needs_attention: 0, automatic_fixes_24h: 0, errors_24h: 0, issues: [] }),
     platformNotifications: async () => ({ items: [], unread: 0 }), organizations: async () => [company()], company: async () => company(), companyAudit: async () => [], dispatchers: async () => [person()],
   });
@@ -44,11 +46,108 @@ test('admin URLs parse to owner pages and stay out of company slugs', () => {
   assert.deepEqual(adminRoute('/admin/companies/'), { page: 'companies' });
   assert.deepEqual(adminRoute(`/admin/companies/${ACME}`), { page: 'company', id: ACME });
   assert.deepEqual(adminRoute('/admin/profile'), { page: 'profile' });
+  assert.deepEqual(adminRoute('/admin/billing'), { page: 'billing' });
+  assert.equal(adminRoute('/admin/billing/extra'), null);
   assert.equal(adminRoute('/admin/companies/not-an-id'), null);
   assert.equal(adminRoute('/admin/companies/x/y'), null);
   assert.equal(isAdminPath('/administrator'), false);
   assert.equal(parsePortal(`/admin/companies/${ACME}`)?.portal, 'platform');
   assert.equal(parsePortal('/acme/')?.portal, 'dispatch');
+});
+
+test('owner login destinations canonicalize aliases and preserve valid admin deep links', () => {
+  for (const path of ['/admin', '/admin/login', '/admin/login/', '/platform', '/platform/login', '/login', '/admin/unknown']) {
+    assert.equal(loginDestination(owner, path), '/admin/companies');
+  }
+  for (const path of ['/admin/billing', '/admin/profile', '/admin/monitor', `/admin/companies/${ACME}`]) {
+    assert.equal(loginDestination(owner, path), path);
+  }
+  assert.equal(loginDestination(owner, '/platform/billing'), '/admin/billing');
+  const dispatcher = { role: 'DISPATCHER', organization: { slug: 'acme' } } as never;
+  assert.equal(loginDestination(dispatcher, '/admin/login'), '/acme/');
+});
+
+test('successful owner login immediately opens the admin panel without reloading the login page', async () => {
+  const user = userEvent.setup({ document });
+  let reads = 0;
+  api.me = async () => { reads++; throw new ApiError(401, 'Please sign in.'); };
+  api.login = async () => owner;
+  history.replaceState(null, '', '/admin/login');
+  render(React.createElement(PortalApp));
+  await screen.findByRole('heading', { name: 'Platform administration' });
+  await user.type(screen.getByLabelText('Login ID'), 'owner');
+  await user.type(screen.getByLabelText('Password'), 'Example-Password-99');
+  await user.click(screen.getByRole('button', { name: 'Sign in' }));
+  await screen.findByRole('heading', { level: 1, name: 'Companies' });
+  assert.equal(location.pathname, '/admin/companies');
+  assert.equal(reads, 1, 'the successful account response replaces the unauthenticated read');
+  assert.equal(screen.queryByRole('heading', { name: 'Platform administration' }), null);
+  assert.equal((await screen.findByRole('cell', { name: 'Acme Dispatch' })).textContent, 'Acme Dispatch');
+});
+
+test('billing navigation shows one monthly plan, 30-day free trial and actual access states', async () => {
+  const user = userEvent.setup({ document });
+  api.organizations = async () => [company({ trial_ends_at: '2099-01-01T00:00:00Z' }),
+    company({ id: '33333333-3333-4333-8333-333333333333', name: 'Expired Company', active: false, trial_ends_at: '2020-01-01T00:00:00Z' })];
+  mount();
+  await user.click(screen.getByRole('link', { name: 'Subscription & Billing' }));
+  assert.equal(location.pathname, '/admin/billing');
+  await screen.findByLabelText('Monthly price');
+  assert.equal((screen.getByLabelText('Monthly price') as HTMLInputElement).value, '');
+  assert.ok(screen.getByRole('heading', { name: 'One month free trial' }));
+  assert.ok(screen.getByText(/Access is suspended when the trial ends/));
+  const table = await screen.findByRole('table', { name: 'Company trials and access' });
+  assert.ok(within(table).getByText('Free trial'));
+  assert.ok(within(table).getByText('Trial ended'));
+  assert.ok(within(table).getByText('Suspended'));
+  await user.click(within(table).getByRole('link', { name: 'Manage Expired Company' }));
+  assert.equal(location.pathname, '/admin/companies/33333333-3333-4333-8333-333333333333');
+});
+
+test('billing plan saves exact decimal strings and currency through typed transport', async () => {
+  const user = userEvent.setup({ document });
+  let saved: unknown;
+  api.updateMonthlyPlan = async (body, key) => { saved = body; assert.ok(key); return plan({ monthly_price: body.monthly_price, currency: body.currency, version: 2 }) as never; };
+  mount('/admin/billing');
+  await screen.findByLabelText('Monthly price');
+  await user.type(screen.getByLabelText('Monthly price'), '49.95');
+  await user.clear(screen.getByLabelText('Currency'));
+  await user.type(screen.getByLabelText('Currency'), 'usd');
+  await user.click(screen.getByRole('button', { name: 'Save plan' }));
+  await screen.findByText('Subscription plan saved.');
+  assert.deepEqual(saved, { version: 1, monthly_price: '49.95', currency: 'USD' });
+  assert.equal((screen.getByRole('button', { name: 'Save plan' }) as HTMLButtonElement).disabled, true);
+});
+
+test('billing conflict preserves draft until explicit reload and uncertain retries reuse key', async () => {
+  const user = userEvent.setup({ document });
+  const keys: string[] = [];
+  api.updateMonthlyPlan = async (_body, key) => { keys.push(key); throw new ApiError(503, 'Connection interrupted.'); };
+  mount('/admin/billing');
+  await screen.findByLabelText('Monthly price');
+  await user.type(screen.getByLabelText('Monthly price'), '39.99');
+  await user.click(screen.getByRole('button', { name: 'Save plan' }));
+  await screen.findByText('Connection interrupted.');
+  await user.click(screen.getByRole('button', { name: 'Save plan' }));
+  await waitFor(() => assert.equal(keys.length, 2));
+  assert.equal(keys[0], keys[1]);
+  api.updateMonthlyPlan = async () => { throw new ApiError(409, 'Subscription plan changed. Reload before saving.'); };
+  await user.click(screen.getByRole('button', { name: 'Save plan' }));
+  await screen.findByRole('button', { name: 'Reload latest' });
+  api.monthlyPlan = async () => plan({ monthly_price: '80.00', version: 2 }) as never;
+  await cache.invalidateQueries({ queryKey: ['platform', 'billing', 'plan'] });
+  assert.equal((screen.getByLabelText('Monthly price') as HTMLInputElement).value, '39.99');
+  await user.click(screen.getByRole('button', { name: 'Reload latest' }));
+  await waitFor(() => assert.equal((screen.getByLabelText('Monthly price') as HTMLInputElement).value, '80.00'));
+});
+
+test('billing read failure and empty company list have recovery states', async () => {
+  api.monthlyPlan = async () => { throw new ApiError(503, 'Plan unavailable.'); };
+  api.organizations = async () => [];
+  mount('/admin/billing');
+  await screen.findByText('Plan unavailable.');
+  assert.ok(screen.getByRole('button', { name: 'Try again' }));
+  await screen.findByText('No companies yet. New trial signups will appear here.');
 });
 
 test('companies list canonicalizes the URL, opens a company and supports Back', async () => {
@@ -216,9 +315,9 @@ test('Add company includes optional company phone and address in creation', asyn
   const form = within(screen.getByRole('form', { name: 'Add company' }));
   await user.type(form.getByLabelText('Company name'), 'New company');
   await user.type(form.getByLabelText('Company identifier'), 'new-company');
-  await user.type(form.getByLabelText('Company phone'), '6045550188');
-  await user.type(form.getByLabelText('Company address'), '789 New Street');
-  await user.type(form.getByLabelText('Administrator login ID'), 'first@example.com');
+  await user.type(form.getByLabelText('Phone number'), '6045550188');
+  await user.type(form.getByLabelText('Address'), '789 New Street');
+  await user.type(form.getByLabelText('Email'), 'first@example.com');
   await user.click(form.getByRole('button', { name: 'Create company' }));
   await screen.findByLabelText('Login details');
   assert.equal(submitted?.phone, '(604) 555-0188');
@@ -241,7 +340,7 @@ test('a first dispatcher password is shown once and never persisted or used as a
   await user.click(within(dialog).getByRole('button', { name: 'Create dispatcher' }));
   const details = await screen.findByLabelText('Login details') as HTMLTextAreaElement;
   assert.deepEqual(body, { login_id: 'second', display_name: 'Second Desk' });
-  assert.match(details.value, new RegExp(`/acme/[\\s\\S]*second[\\s\\S]*${secret}`));
+  assert.match(details.value, new RegExp(`/login[\\s\\S]*second[\\s\\S]*${secret}`));
   const stored = JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }) + JSON.stringify(cache.getQueryCache().getAll().map(q => q.queryKey)) + location.href;
   assert.ok(!stored.includes(secret));
   await user.click(screen.getByRole('tab', { name: 'History' }));

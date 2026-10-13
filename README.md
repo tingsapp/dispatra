@@ -1,6 +1,6 @@
 # Dispatra web client
 
-The public website is `/`, with Dispatcher, Shipper and Driver workspace entry. `/dispatch`, `/shipper` and `/driver` preselect the corresponding role; enter a workspace name or link to reach its sign-in page. The dispatcher workspace, including Monitor, Orders and Pricing settings, is available at `/{company}/` after API login. Company workspaces use the FastAPI/PostgreSQL API for operational records. `/prototype` provides a separate local demonstration.
+The public website is `/`, with a prefixed workspace identifier and Start trial leading to `/signup?company={slug}` for a 30-day trial. Existing users sign in at `/login`. Choose Dispatcher, Shipper or Driver, then enter email and password; the API finds the company. `/dispatch`, `/shipper` and `/driver` preselect the corresponding role. Email and nonblank phone are unique within each role across companies, and can be shared across different roles. The dispatcher workspace, including Monitor, Orders and Pricing settings, is available at `/{company}/` after API login. Company workspaces use the FastAPI/PostgreSQL API for operational records. `/prototype` provides a separate local demonstration with its own `/prototype/login`.
 
 ```sh
 npm ci
@@ -34,3 +34,7 @@ E2E_ORIGIN=http://127.0.0.1:3001 E2E_DISPOSABLE=true node tests/manualWorkflow.e
 ```
 
 This creates test orders through both booking forms, assigns through the dispatcher UI, executes signature delivery through the driver UI, checks Completed status, unchanged pricing and Shipper delivery proof, and observes Monitor updates. Places and GPS use deterministic fixtures; the API and PostgreSQL are real. It does not submit email or verify a recipient inbox.
+
+Shared login browser acceptance: run `npm run test:login` against a disposable API database, with `E2E_ORIGIN`, `E2E_OWNER_LOGIN` and `E2E_OWNER_PASSWORD` set. It creates test accounts, checks all three roles sharing contacts, validates duplicate/tenant rejection, and signs each role out.
+
+Trial signup browser acceptance: run `E2E_DISPOSABLE=true npm run test:signup` with `E2E_ORIGIN` pointing to a local disposable API. Set `E2E_VERIFICATION_CODE_URL` to a local test-mail capture endpoint that accepts an `email` query and returns the verification code. It checks homepage navigation, prefilled identifiers, password confirmation, account creation and email verification before workspace access, 30-day dates, login/logout, credential privacy and 390px/320px layouts.

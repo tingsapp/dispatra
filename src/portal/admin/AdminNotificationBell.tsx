@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type PlatformNotification } from '../api';
 import { NotificationDropdown, NotificationInbox } from '../Notifications';
 
-export function AdminNotificationBell({ accountId, onOpenCompany, onOpenMonitor }: { accountId: string; onOpenCompany: (id: string) => void; onOpenMonitor: () => void }) {
+export function AdminNotificationBell({ accountId, onOpenCompany, onOpenMonitor, onOpenOperational }: { accountId: string; onOpenCompany: (id: string) => void; onOpenMonitor: () => void; onOpenOperational?: () => void }) {
   const cache = useQueryClient();
   const key = ['platform', 'notifications', accountId];
   const { data, isPending, error } = useQuery({ queryKey: key, queryFn: api.platformNotifications, refetchInterval: 15_000 });
@@ -16,7 +16,7 @@ export function AdminNotificationBell({ accountId, onOpenCompany, onOpenMonitor 
       unread={data?.unread ?? 0} loading={isPending} loadError={error} readError={readError}
       readingAll={readingAll} onMarkAllRead={() => readAll.mutate()} onOpen={row => {
         if (!row.read_at) read.mutate(row);
-        close(); if (row.target === 'monitor') onOpenMonitor(); else onOpenCompany(row.organization_id);
+        close(); if (row.target === 'operational') (onOpenOperational ?? onOpenMonitor)(); else if (row.target === 'monitor') onOpenMonitor(); else onOpenCompany(row.organization_id);
       }} />
   }</NotificationDropdown>;
 }

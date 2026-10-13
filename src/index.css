@@ -2,6 +2,7 @@
 @import "./styles/theme.css";
 @import "./styles/controls.css";
 @import "./components/home/preview.css";
+@import "./components/activity/activity.css";
 
 /* Use the hand cursor consistently for enabled interactive controls. */
 @layer base {

@@ -9,6 +9,8 @@ import { loadVehicles } from '../lib/vehicleStorage';
 import { formatPhone } from '../lib/phone';
 import { NotificationPanel, useUnreadNotifications } from '../portal/Notifications';
 import { lifecycleLabel } from '../domain/validation';
+import { MonitorActivity } from './activity/MonitorActivity';
+import { MonitorBadge } from './monitor/MonitorBadge';
 import {
   Search,
   Bell,
@@ -21,6 +23,7 @@ import {
 import { Driver, Job } from '../types';
 
 interface MonitorActionsProps {
+  active?: boolean;
   showSearchPopover?: boolean;
   setShowSearchPopover?: React.Dispatch<React.SetStateAction<boolean>>;
   showNotificationPopover?: boolean;
@@ -48,6 +51,7 @@ interface DispatchAlert {
 }
 
 export const MonitorActions: React.FC<MonitorActionsProps> = ({
+  active = true,
   showSearchPopover: externalShowSearch,
   setShowSearchPopover: externalSetShowSearch,
   showNotificationPopover: externalShowNotification,
@@ -62,6 +66,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   // Local states if not passed
   const [internalSearchOpen, setInternalSearchOpen] = useState(false);
   const [internalNotificationOpen, setInternalNotificationOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   const isSearchOpen = externalShowSearch !== undefined ? externalShowSearch : internalSearchOpen;
   const setIsSearchOpen = externalSetShowSearch || setInternalSearchOpen;
@@ -144,6 +149,10 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
 
   return (
     <div className="absolute top-5 right-6 z-30 pointer-events-auto flex items-center gap-2.5 select-none">
+      {slug && <MonitorActivity key={slug} slug={slug} open={activityOpen} active={active} onOpenChange={next => {
+        setActivityOpen(next);
+        if (next) { setIsSearchOpen(false); setIsNotificationOpen(false); }
+      }} />}
       {/* 1. SEARCH ICON BUTTON */}
       <FloatingPanel open={isSearchOpen} onOpenChange={changeSearch} label="Search"
         align="end" size="rich" className="app-map-menu p-3" autoFocusSelector="input" trigger={
@@ -178,11 +187,11 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
                 : <div className="space-y-3 py-1">
                   {filteredJobs.length > 0 && <SearchGroup title="Orders" count={filteredJobs.length}>{filteredJobs.map(job => <button type="button" key={job.id} onClick={() => pick(() => onSelectJob?.(job.jobNumber))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
                     <span className="min-w-0"><span className="font-medium text-slate-900">{job.jobNumber}</span> <span className="text-slate-600">· {job.customerName}</span><span className="block text-slate-500 truncate">{street(job.pickupAddress)} → {street(job.dropoffAddress)}</span></span>
-                    <span className="text-slate-500 shrink-0">{lifecycleLabel(job)}</span>
+                    <MonitorBadge>{lifecycleLabel(job)}</MonitorBadge>
                   </button>)}</SearchGroup>}
                   {filteredDrivers.length > 0 && <SearchGroup title="Drivers" count={filteredDrivers.length}>{filteredDrivers.map(driver => <button type="button" key={driver.id} onClick={() => pick(() => onSelectDriver?.(driver.id))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
                     <span className="flex items-center gap-2 min-w-0"><DriverAvatar name={driver.name} avatar={driver.avatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" /><span className="min-w-0"><span className="font-medium text-slate-800">{driver.name}</span> <span className="text-slate-400">{driver.driverNumber ?? driver.id}</span>{driver.phone && <span className="block text-slate-500">{formatPhone(driver.phone)}</span>}</span></span>
-                    <span className={`shrink-0 font-medium ${driver.status === 'available' ? 'text-emerald-600' : 'text-slate-500'}`}>{driver.statusLabel}</span>
+                    <MonitorBadge tone={driver.status === 'available' ? 'success' : driver.status === 'on_route' ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
                   </button>)}</SearchGroup>}
                   {filteredVehicles.length > 0 && <SearchGroup title="Vehicles" count={filteredVehicles.length}>{filteredVehicles.map(vehicle => { const driver = drivers.find(row => row.currentVehicleId === vehicle.id); return <button type="button" key={vehicle.id} onClick={() => pick(() => driver ? onSelectDriver?.(driver.id) : onActionNotification(`${vehicle.number} is not attached to a driver.`))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
                     <span className="min-w-0"><span className="font-medium text-slate-900">{vehicle.number}</span> <span className="text-slate-600">· {vehicle.plate}</span>{vehicle.detail && <span className="block text-slate-500 truncate">{vehicle.detail}</span>}</span>
@@ -225,9 +234,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
                     Dispatch Notifications
                   </span>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-medium text-xs">
-                      {unreadCount}
-                    </span>
+                    <MonitorBadge tone="danger">{unreadCount}</MonitorBadge>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">

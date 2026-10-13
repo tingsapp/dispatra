@@ -10,6 +10,8 @@ const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { operations } = await import('../src/operations/api');
 const { chat } = await import('../src/chat/api');
+const { api } = await import('../src/portal/api');
+api.driverOperationalQuestions = async () => [];
 const { DriverPortal } = await import('../src/portal/DriverPortal');
 const { ProofOfDelivery } = await import('../src/components/orders/ProofOfDelivery');
 afterEach(() => { cleanup(); history.replaceState(null, '', '/acme/driver/orders'); });

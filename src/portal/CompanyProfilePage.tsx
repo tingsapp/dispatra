@@ -27,6 +27,7 @@ function CompanyEditor() {
             <Field label="Role" readOnly value="Dispatcher" />
           </div>
           <p className="mt-2 text-xs text-slate-500">Email and role belong to your sign-in account.</p>
+          {account.organization?.trial_ends_at && !account.organization.trial_activated_at && <p className="mt-3 text-sm text-app-muted">Your 30-day trial ends {new Date(account.organization.trial_ends_at).toLocaleDateString()}. Contact Dispatra to activate your company.</p>}
         </div>
       </CompanyIdentity>
     </fieldset>

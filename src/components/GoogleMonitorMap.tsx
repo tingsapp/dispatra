@@ -9,6 +9,7 @@ import type { Driver, Job, MapLayerConfig } from '../types';
 import { GoogleOverlayMarker } from './monitor/GoogleOverlayMarker';
 import { GoogleOrderMarkers } from './monitor/GoogleOrderMarkers';
 import { MONITOR_CAMERA } from './monitor/mapScene';
+import { isActiveMonitorOrder } from './monitor/orderVisibility';
 export { VANCOUVER_CENTER_LNG_LAT } from './monitor/mapScene';
 
 interface MarkerScreenPositions {
@@ -26,7 +27,7 @@ export interface MapController {
   project: (coords: [number, number]) => { x: number; y: number };
   /** Fit the view to [lng, lat] points (e.g. one order's stops); a single point is centred at street zoom. */
   fitPoints: (points: [number, number][]) => void;
-  /** Fit the view to every open order's stops and every located driver. */
+  /** Fit the view to visible open orders' stops and every located driver. */
   fitAll: () => void;
 }
 
@@ -105,7 +106,7 @@ function fitPoints(map: google.maps.Map, points: [number, number][]) {
   google.maps.event.addListenerOnce(map, 'idle', () => { if ((map.getZoom() ?? 0) > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM); });
 }
 
-function MonitorMapContent(props: GoogleMonitorMapProps) {
+export function MonitorMapContent(props: GoogleMonitorMapProps) {
   const map = useMap();
   const projection = useRef<google.maps.MapCanvasProjection | null>(null);
   const frame = useRef<number | null>(null);
@@ -128,10 +129,10 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
       frame.current = null;
       if (!projection.current) return;
       const current = propsRef.current;
-      const jobs = current.demo === false ? current.jobs ?? [] : current.jobs?.length ? current.jobs : INITIAL_JOBS;
+      const jobs = current.jobs ?? (current.demo === false ? [] : INITIAL_JOBS);
       const drivers = current.demo === false ? current.drivers ?? [] : current.drivers?.length ? current.drivers : INITIAL_DRIVERS;
       const d14 = current.demo === false ? null : project([movingDriverRef.current.lng, movingDriverRef.current.lat]);
-      const job461 = jobs.find(job => job.jobNumber === '#461') ?? (current.demo === false ? undefined : INITIAL_JOBS[0]);
+      const job461 = jobs.find(job => job.jobNumber === '#461');
       const selectedDriver = drivers.find(driver => driver.id === current.selectedDriverId);
       const selectedJob = jobs.find(job => job.jobNumber === current.selectedJobId);
       const positions: MarkerScreenPositions = {
@@ -224,8 +225,8 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
       .map(stop => ({ id: stop.id, type: stop.type, label: stop.label ?? '', lat: stop.latitude!, lng: stop.longitude! }));
     return stops;
   };
-  const visibleJobs = (props.demo === false ? props.jobs ?? [] : props.jobs?.length ? props.jobs : INITIAL_JOBS).filter(job => {
-    if (job.status === 'completed' || !Number.isFinite(job.lat) || !Number.isFinite(job.lng)) return false;
+  const visibleJobs = (props.jobs ?? (props.demo === false ? [] : INITIAL_JOBS)).filter(job => {
+    if (!isActiveMonitorOrder(job) || !Number.isFinite(job.lat) || !Number.isFinite(job.lng)) return false;
     if (props.demo !== false && INITIAL_JOBS.some(seed => seed.id === job.id)) return true;
     const drops = job.pricingInput?.stops.filter(stop => stop.type === 'DROPOFF') ?? [];
     const destination = drops[drops.length - 1];
@@ -257,12 +258,13 @@ function MonitorMapContent(props: GoogleMonitorMapProps) {
 
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />
-    {props.demo !== false && <><Polyline path={BLUE_PATH} strokeColor="#1d4ed8" strokeOpacity={0.8} strokeWeight={7} clickable={false} />
-    <Polyline path={BLUE_PATH} strokeColor="#60a5fa" strokeWeight={4} clickable={false} />
-    <Polyline path={GREEN_PATH} strokeColor="#047857" strokeOpacity={0.7} strokeWeight={5} clickable={false} />
-    <Polyline path={GREEN_PATH} strokeColor="#34d399" strokeWeight={3} clickable={false} />
-    <Polyline path={ORANGE_PATH} strokeColor="#c2410c" strokeOpacity={0.7} strokeWeight={5} clickable={false} />
-    <Polyline path={ORANGE_PATH} strokeColor="#fb923c" strokeWeight={3} clickable={false} />
+    {props.demo !== false && <>
+    {visibleJobs.some(({ job }) => job.assignedDriverId === 'D14') && <><Polyline path={BLUE_PATH} strokeColor="#1d4ed8" strokeOpacity={0.8} strokeWeight={7} clickable={false} />
+    <Polyline path={BLUE_PATH} strokeColor="#60a5fa" strokeWeight={4} clickable={false} /></>}
+    {visibleJobs.some(({ job }) => job.assignedDriverId === 'D28') && <><Polyline path={GREEN_PATH} strokeColor="#047857" strokeOpacity={0.7} strokeWeight={5} clickable={false} />
+    <Polyline path={GREEN_PATH} strokeColor="#34d399" strokeWeight={3} clickable={false} /></>}
+    {visibleJobs.some(({ job }) => job.routeId === 'orange-route') && <><Polyline path={ORANGE_PATH} strokeColor="#c2410c" strokeOpacity={0.7} strokeWeight={5} clickable={false} />
+    <Polyline path={ORANGE_PATH} strokeColor="#fb923c" strokeWeight={3} clickable={false} /></>}
 
     <GoogleOverlayMarker position={{ lat: 49.196, lng: -123.184 }} label="Vancouver Airport cargo">
       <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full shadow-md border border-blue-200 text-blue-700 font-semibold text-xs whitespace-nowrap">

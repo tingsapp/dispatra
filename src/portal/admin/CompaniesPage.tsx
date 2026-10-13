@@ -28,7 +28,7 @@ export function CompaniesPage({ creating, onCreatingChange, onOpen }: { creating
   return <div className="space-y-6">
     {credentials && <CredentialCard value={credentials} onDismiss={() => setCredentials(undefined)} />}
     {creating && <CreateCompanyDialog onClose={() => onCreatingChange(false)} onCreated={(org, submitted) => {
-      setCredentials({ url: `${location.origin}/${org.slug}/`, login: submitted.admin_login, password: submitted.password });
+      setCredentials({ url: `${location.origin}/login`, login: submitted.admin_login, password: submitted.password });
       onCreatingChange(false); cache.invalidateQueries({ queryKey: companiesKey() });
     }} />}
     {!filtered && query.data && <ListSummary label="Companies summary" items={[

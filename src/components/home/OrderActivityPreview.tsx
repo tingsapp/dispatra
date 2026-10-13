@@ -11,7 +11,7 @@ const events = [
   { title: 'Order completed', actor: 'Driver', time: '09:43', status: 'Completed', icon: Check },
 ] as const;
 
-export function OrderActivityPreview() {
+export function OrderActivityPreview({ onCompletedChange }: { onCompletedChange?: (completed: boolean) => void } = {}) {
   const [stage, setStage] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
@@ -35,6 +35,7 @@ export function OrderActivityPreview() {
 
   const currentStage = reducedMotion ? events.length - 1 : stage;
   const current = events[currentStage % events.length];
+  useEffect(() => { onCompletedChange?.(current.status === 'Completed'); }, [current.status, onCompletedChange]);
   return <>
     <div className="absolute left-3 top-3 rounded-xl border border-app-border bg-white px-3 py-2.5 shadow-md">
       <div className="flex items-center gap-5 text-[11px] font-medium"><span>Order 1042</span><span className={`flex items-center gap-1.5 ${current.status === 'Completed' ? 'text-emerald-700' : 'text-blue-600'}`}>{current.status === 'Completed' ? <Check className="size-3" aria-hidden="true" /> : <span className="size-1 rounded-full bg-blue-500" />}{current.status}</span></div>
@@ -67,9 +68,9 @@ function ActivityRow({ sequence, currentSequence, reducedMotion }: { sequence: n
   const event = events[sequence % events.length];
   const Icon = event.icon;
   const latest = age === 0;
-  return <li aria-hidden={age > 2} className={`preview-event-row absolute inset-x-0 top-0 flex h-12 items-center gap-2.5 rounded-lg px-2 py-1.5 ${latest ? 'bg-blue-50/80' : ''}`}
+  return <li aria-hidden={age > 2} className={`preview-event-row absolute inset-x-0 top-0 flex h-12 items-center gap-2.5 rounded-lg px-2 py-1.5 ${latest ? event.status === 'Completed' ? 'bg-emerald-50/80' : 'bg-blue-50/80' : ''}`}
     style={{ transform: `translateY(${(2 - age + (arrived || reducedMotion ? 0 : 1)) * 48}px)` }}>
-    <span className={`preview-event-icon flex size-6 shrink-0 items-center justify-center rounded-lg ${latest ? 'bg-blue-600 text-white' : 'bg-slate-100 text-app-muted'}`}><Icon className="size-3" aria-hidden="true" /></span>
+    <span className={`preview-event-icon flex size-6 shrink-0 items-center justify-center rounded-lg ${event.status === 'Completed' ? 'bg-emerald-600 text-white' : latest ? 'bg-blue-600 text-white' : 'bg-slate-100 text-app-muted'}`}><Icon className="size-3" aria-hidden="true" /></span>
     <div className="min-w-0 flex-1"><p className="text-[10px] font-medium leading-4">{event.title}</p><p className="text-[9px] leading-4 text-app-muted">{event.actor}</p></div><span className="self-start pt-0.5 text-[9px] tabular-nums text-app-muted">{event.time}</span>
   </li>;
 }

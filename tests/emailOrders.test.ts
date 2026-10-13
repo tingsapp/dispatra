@@ -35,7 +35,7 @@ test('a completed draft keeps the stop and item identities the agent created', (
 
 test('Order agent changes refresh the email queue and orders', () => {
   const keys = syncInvalidations('DISPATCHER', 'acme', [{ entity: 'intake' } as never, { entity: 'mailbox' } as never]).map(key => JSON.stringify(key));
-  assert.deepEqual(keys, [JSON.stringify(['operations', 'acme', 'email-intakes']), JSON.stringify(['operations', 'acme', 'orders']), JSON.stringify(['operations', 'acme', 'mailbox'])]);
+  assert.deepEqual(keys, [JSON.stringify(['operations', 'acme', 'email-intakes']), JSON.stringify(['operations', 'acme', 'orders']), JSON.stringify(['operations', 'acme', 'mailbox']), JSON.stringify(['operations', 'acme', 'activity', 'latest'])]);
   assert.deepEqual(syncInvalidations('SHIPPER', 'acme', [{ entity: 'intake' } as never]), []);
 });
 

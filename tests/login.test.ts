@@ -40,12 +40,12 @@ test('dispatch URLs show the login page until a session exists, then the workspa
   const { default: Root } = await import('../src/Root');
   const user = userEvent.setup({ document });
   const view = render(React.createElement(Root));
-  assert.ok(screen.getByRole('heading', { name: 'Sign in' })); assert.equal(location.pathname, '/login');
+  assert.ok(screen.getByRole('heading', { name: 'Sign in' })); assert.equal(location.pathname, '/prototype/login');
   await user.type(screen.getByLabelText('Email'), DISPATCHER_CREDENTIALS.email); await user.type(screen.getByLabelText('Password'), DISPATCHER_CREDENTIALS.password);
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
   assert.equal(screen.queryByRole('heading', { name: 'Sign in' }), null); assert.equal(location.pathname, '/prototype'); assert.ok(loadSession());
   view.unmount(); cleanup();
-  history.replaceState(null, '', '/login');
+  history.replaceState(null, '', '/prototype/login');
   render(React.createElement(Root));
   assert.equal(screen.queryByRole('heading', { name: 'Sign in' }), null, 'a signed-in dispatcher skips the login page'); assert.equal(location.pathname, '/prototype');
 });

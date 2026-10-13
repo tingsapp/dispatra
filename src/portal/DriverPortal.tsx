@@ -16,6 +16,7 @@ import { OrderChatSection } from '../components/chat/OrderChat';
 import { MessagesInbox } from '../components/chat/MessagesInbox';
 import { useUnreadMessages } from '../chat/api';
 import { PortalShell } from './PortalShell';
+import { DriverQuestions } from './DriverQuestions';
 import { NotificationBell } from './Notifications';
 import { useSync } from './sync';
 import { PasswordPage } from './PasswordPage';
@@ -116,6 +117,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     headerActions={<NotificationBell slug={slug} surface onOpen={() => go(base)} />}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     <Notice error={logoutError || dutyError} />
+    {page.path === 'orders' && profile.data && <DriverQuestions slug={slug} driverId={profile.data.id} />}
     {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? <MessagesInbox slug={slug} /> : <DriverOrders slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
   </PortalShell>;
 }

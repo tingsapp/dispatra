@@ -623,13 +623,13 @@ export function JobsPage({
                         <div className="inline-flex items-center gap-1">
                           {slug && trackable(job.lifecycleStatus) && <button type="button" onClick={() => setTrackingJob(job)} title="Track order" aria-label={`Track ${job.jobNumber}`}
                             className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"><Navigation className="w-4 h-4" /></button>}
-                          <button
+                          {orderLifecycle(job) !== 'COMPLETED' && <button
                             onClick={() => onSelectJob(job.jobNumber)}
                             title="Locate on Monitor"
                             className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
                           >
                             <MapPin className="w-4 h-4" />
-                          </button>
+                          </button>}
                           <button
                             onClick={() => setActiveJobDossier(job)}
                             className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"

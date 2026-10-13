@@ -17,8 +17,8 @@ export function Dialog({ onClose, size = 'md', children, className, entity = tru
   </div>;
 }
 
-export function DialogHeader({ title, description, onClose, leading, children, closeLabel = 'Close dialog' }: {
-  title: React.ReactNode; description?: React.ReactNode; onClose: () => void; leading?: React.ReactNode; children?: React.ReactNode; closeLabel?: string;
+export function DialogHeader({ title, description, onClose, leading, children, closeLabel = 'Close dialog', closeDisabled = false }: {
+  title: React.ReactNode; description?: React.ReactNode; onClose: () => void; leading?: React.ReactNode; children?: React.ReactNode; closeLabel?: string; closeDisabled?: boolean;
 }) {
   return <div className="app-dialog-header">
     <div className="flex min-w-0 items-center gap-3">
@@ -28,7 +28,7 @@ export function DialogHeader({ title, description, onClose, leading, children, c
         {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
       </div>
     </div>
-    <div className="flex shrink-0 items-center gap-2">{children}<button type="button" onClick={onClose} aria-label={closeLabel} className="app-dialog-close"><X className="w-5 h-5" /></button></div>
+    <div className="flex shrink-0 items-center gap-2">{children}<button type="button" onClick={onClose} disabled={closeDisabled} aria-label={closeLabel} className="app-dialog-close"><X className="w-5 h-5" /></button></div>
   </div>;
 }
 

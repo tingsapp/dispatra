@@ -19,11 +19,12 @@ const keys = (role: 'DISPATCHER' | 'SHIPPER' | 'DRIVER', changes: ReturnType<typ
 test('changes invalidate only the reads each role uses, once per key', () => {
   const assigned = [change('order', 'order.assigned', 'o1'), change('order', 'order.updated', 'o1'), change('notification', 'notification.created')];
   assert.deepEqual(keys('DISPATCHER', assigned), ['["operations","acme","orders"]', '["operations","acme","routes"]', '["operations","acme","monitor"]',
-    '["operations","acme","analytics"]', '["tracking","acme","o1"]', '["delivery-proof","acme","o1"]', '["notifications","acme"]']);
+    '["operations","acme","analytics"]', '["tracking","acme","o1"]', '["delivery-proof","acme","o1"]', '["notifications","acme"]', '["operations","acme","activity","latest"]']);
   assert.deepEqual(keys('SHIPPER', assigned), ['["shipper-orders","acme"]', '["tracking","acme","o1"]', '["tracking-path","acme","o1"]', '["delivery-proof","acme","o1"]', '["notifications","acme"]']);
   assert.deepEqual(keys('DRIVER', [change('duty', 'duty.ended_by_dispatcher')]), ['["driver-profile","acme"]']);
   assert.deepEqual(keys('SHIPPER', [change('vehicle', 'vehicle.updated')]), []);
-  assert.deepEqual(keys('DISPATCHER', [change('dispatch', 'dispatch.no_candidate', 'o1')]), ['["operations","acme","monitor"]']);
+  assert.deepEqual(keys('DISPATCHER', [change('dispatch', 'dispatch.no_candidate', 'o1')]), ['["operations","acme","monitor"]', '["operations","acme","activity","latest"]']);
+  assert.deepEqual(keys('DISPATCHER', [change('watch', 'watch.driver_replied', 'o1')]), ['["operations","acme","monitor"]', '["operations","acme","activity","latest"]']);
   assert.deepEqual(keys('DISPATCHER', [change('settings', 'settings.updated')]), ['["company-settings","acme"]', '["operations","acme","settings"]', '["operations","acme","catalog"]', '["operations","acme","rates"]']);
   assert.deepEqual(keys('DISPATCHER', [change('future', 'future.thing')]), ['["operations","acme"]']);
   // Order chat messages refresh only chat reads, for every role.

@@ -22,6 +22,27 @@ const { formatDateValue } = await import('../src/lib/dateValues');
 const { loadCustomers, saveCustomers } = await import('../src/lib/customerStorage');
 const noop = () => {};
 afterEach(() => { cleanup(); localStorage.clear(); });
+test('order details dismiss through the header X without redundant Close or completed-order location controls', async () => {
+  const user = userEvent.setup({ document });
+  const done = { ...INITIAL_JOBS[0], id: 'completed-order', jobNumber: '#9901', priority: 'URGENT' as const, status: 'completed' as const, lifecycleStatus: 'COMPLETED' as const };
+  const open = { ...INITIAL_JOBS[1], id: 'open-order', jobNumber: '#9902', status: 'no_driver' as const, lifecycleStatus: 'NEW' as const, assignedDriverId: undefined };
+  render(React.createElement(JobsPage, { jobs: [done, open], drivers: INITIAL_DRIVERS, onSelectJob: noop, onUpdateJob: noop, onCreateJob: noop, onNotification: noop }));
+  const table = screen.getByRole('table', { name: 'Orders' });
+  const rows = table.querySelectorAll('tbody tr');
+  const completed = Array.from(rows).find(row => row.textContent?.includes('#9901'))!;
+  const pending = Array.from(rows).find(row => row.textContent?.includes('#9902'))!;
+  assert.equal(within(completed as HTMLElement).queryByTitle('Locate on Monitor'), null);
+  assert.ok(within(pending as HTMLElement).getByTitle('Locate on Monitor'));
+  await user.click(within(completed as HTMLElement).getByTitle('View Full Dossier'));
+  const dialog = within(document.querySelector('[data-entity-dialog]') as HTMLElement);
+  assert.equal(dialog.queryByText('Priority'), null);
+  assert.equal(dialog.queryByRole('button', { name: 'Locate on Monitor' }), null);
+  assert.equal(dialog.queryByRole('button', { name: /^Close$/ }), null);
+  await user.click(dialog.getByRole('button', { name: 'Close dialog' }));
+  await user.click(within(pending as HTMLElement).getByTitle('View Full Dossier'));
+  assert.ok(within(document.querySelector('[data-entity-dialog]') as HTMLElement).getByRole('button', { name: 'Locate on Monitor' }));
+  assert.equal(within(document.querySelector('[data-entity-dialog]') as HTMLElement).queryByRole('button', { name: /^Close$/ }), null);
+});
 test('vehicle list first column displays public ID with only year underneath', () => {
   const vehicle = { ...loadVehicles()[0], vehicleNumber: 'DDV-V12', year: 2022, makeModel: 'Ford Transit' };
   render(React.createElement(VehicleTable, { vehicles: [vehicle, { ...vehicle, id: 'unknown-year', vehicleNumber: 'DDV-V14', year: 0 }], drivers: [], vehicleTypes: [], onDetails: noop }));

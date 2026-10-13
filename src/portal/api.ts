@@ -7,8 +7,12 @@ export type Organization = components['schemas']['OrganizationView'];
 export type ProfileInput = components['schemas']['ProfileUpdate'];
 export type CustomerInput = components['schemas']['CustomerCreate'];
 export type OrganizationInput = components['schemas']['OrganizationCreate'];
+export type TrialSignupInput = components['schemas']['TrialSignup'];
 export type LoginInput = components['schemas']['Login'];
 export type CompanySummary = components['schemas']['CompanySummary'];
+export type MonthlyPlan = components['schemas']['MonthlyPlanView'];
+export type MonthlyPlanInput = components['schemas']['MonthlyPlanUpdate'];
+export type SubscriptionPlan = components['schemas']['SubscriptionPlanView'];
 export type PlatformNotification = components['schemas']['PlatformNotificationView'];
 export type AgentMonitor = components['schemas']['AgentMonitorView'];
 export type AgentStatus = components['schemas']['AgentStatus'];
@@ -33,14 +37,29 @@ export function unwrap<T>(result: { data?: T; error?: unknown; response: Respons
   }
   return result.data as T;
 }
+export type OperationalIncident = components['schemas']['IncidentView'];
+export type OperationalQuestion = components['schemas']['QuestionView'];
+export type OperationalReply = components['schemas']['Reply'];
 export const api = {
+  operationalIssues: async (status: 'OPEN' | 'ALL' = 'OPEN', before?: string) => unwrap(await client.GET('/api/v1/platform/agents/operational/issues', { params: { query: { status, before, limit: 12 } } })),
+  runOperationalCheck: async (key: string) => unwrap(await client.POST('/api/v1/platform/agents/operational/check', { params: { header: { 'Idempotency-Key': key } } })),
+  acknowledgeOperationalIssue: async (row: OperationalIncident) => unwrap(await client.POST('/api/v1/platform/agents/operational/issues/{identity}/acknowledge', { body: { version: row.version }, params: { path: { identity: row.id }, header: { 'Idempotency-Key': crypto.randomUUID() } } })),
+  driverOperationalQuestions: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/driver/operational/questions', { params: { path: { slug } } })),
+  replyToOperationalQuestion: async (slug: string, identity: string, body: OperationalReply, key: string) => unwrap(await client.POST('/api/v1/companies/{slug}/driver/operational/questions/{identity}/reply', { body, params: { path: { slug, identity }, header: { 'Idempotency-Key': key } } })),
   companySettings: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/settings', { params: { path: { slug } } })),
   saveCompanySettings: async (slug: string, body: components['schemas']['SettingsUpdate'], key: string) => unwrap(await client.PUT('/api/v1/companies/{slug}/settings', { body, params: { path: { slug }, header: { 'Idempotency-Key': key } } })),
   me: async () => unwrap(await client.GET('/api/v1/auth/me')),
+  signup: async (body: TrialSignupInput, key: string) => unwrap(await client.POST('/api/v1/auth/signup', { body, params: { header: { 'Idempotency-Key': key } } })),
+  verification: async () => unwrap(await client.GET('/api/v1/auth/verification')),
+  verifyEmail: async (code: string, key: string) => unwrap(await client.POST('/api/v1/auth/verification/confirm', {body:{code},params:{header:{'Idempotency-Key':key}}})),
+  resendVerification: async (key: string) => unwrap(await client.POST('/api/v1/auth/verification/resend', {params:{header:{'Idempotency-Key':key}}})),
   login: async (body: LoginInput) => unwrap(await client.POST('/api/v1/auth/login', { body })),
   logout: async () => unwrap(await client.POST('/api/v1/auth/logout')),
   password: async (body: PasswordInput) => unwrap(await client.POST('/api/v1/auth/password', { body })),
   organizations: async (filter: CompanyFilter = {}, after?: string) => unwrap(await client.GET('/api/v1/platform/organizations', { params: { query: { limit: 50, after, search: filter.search || undefined, status: filter.status } } })),
+  monthlyPlan: async () => unwrap(await client.GET('/api/v1/platform/billing/plan')),
+  subscriptionPlan: async () => unwrap(await client.GET('/api/v1/subscription/plan')),
+  updateMonthlyPlan: async (body: MonthlyPlanInput, key: string) => unwrap(await client.PATCH('/api/v1/platform/billing/plan', { body, params: { header: { 'Idempotency-Key': key } } })),
   createOrganization: async (body: OrganizationInput, key: string) => unwrap(await client.POST('/api/v1/platform/organizations', { body, params: { header: { 'Idempotency-Key': key } } })),
   company: async (id: string) => unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}', { params: { path: { organization_id: id } } })),
   updateCompany: async (id: string, body: components['schemas']['CompanyUpdate'], key: string) => unwrap(await client.PATCH('/api/v1/platform/organizations/{organization_id}', { body, params: { path: { organization_id: id }, header: { 'Idempotency-Key': key } } })),

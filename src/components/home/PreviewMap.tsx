@@ -7,7 +7,7 @@ const streets = [65, 145, 225, 305, 385, 465, 545, 625];
 const avenues = [65, 135, 205, 265, 325, 385];
 
 /** Code-native sample map, independent of real locations or routing providers. */
-export function PreviewMap() {
+export function PreviewMap({ completed = false }: { completed?: boolean }) {
   return <svg viewBox="0 0 700 500" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 size-full" aria-hidden="true">
     <rect width="700" height="500" fill="#f0f2ef" />
     <path d="M-20 431C95 397 177 446 262 431S414 419 500 442 635 424 720 445V520H-20Z" fill="#d8e7ef" />
@@ -38,7 +38,7 @@ export function PreviewMap() {
     <StopMarkerCircle kind="PICKUP" cx={225} cy={385} />
     <StopMarkerCircle kind="DROPOFF" cx={465} cy={93} />
     <g data-preview-driver="true" transform="translate(465 150)">
-      <rect x="-18" y="-18" width="36" height="36" rx="10" fill="#2563eb" stroke="white" strokeWidth="2" />
+      <rect x="-18" y="-18" width="36" height="36" rx="10" fill={completed ? '#16a34a' : '#2563eb'} stroke="white" strokeWidth="2" />
       <Truck x="-8" y="-8" width="16" height="16" color="white" />
     </g>
   </svg>;

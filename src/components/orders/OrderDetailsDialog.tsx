@@ -3,7 +3,7 @@ import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../ui/Dialog';
 import { Button } from '../ui/button';
 import { Select } from '../ui/Select';
 import { Detail, OrderDossierSections } from './OrderDossierSections';
-import { orderEditable } from '../../domain/validation';
+import { orderEditable, orderLifecycle } from '../../domain/validation';
 import { orderCompletable } from './useOrderDetails';
 import { ProofOfDelivery, proofAvailable } from './ProofOfDelivery';
 import { companySlugForCurrentPath } from '../../lib/pageRoutes';
@@ -19,6 +19,8 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
 }) {
   const requested = job.pricingInput?.preferredDriverId;
   const editable = !!onEdit && orderEditable(job);
+  const completable = !!onComplete && orderCompletable(job);
+  const locatable = !!onLocate && orderLifecycle(job) !== 'COMPLETED';
   const slug = companySlugForCurrentPath();
   return <Dialog size="md" onClose={onClose}>
     <DialogHeader onClose={onClose} title={<>
@@ -45,10 +47,10 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
       {slug && proofAvailable(job.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={job.id} timeZone={ctx.billing.general.timeZone} />}
       {slug && <OrderChatSection slug={slug} orderId={job.id} />}
     </DialogBody>
-    <DialogFooter>
+    {(editable || completable || locatable) && <DialogFooter>
       {editable && <Button variant="outline" onClick={() => onEdit!(job)}>Edit order</Button>}
-      {onComplete && orderCompletable(job) && <Button variant="outline" onClick={() => onComplete(job)}><CheckCircle2 /> Complete order</Button>}
-      {onLocate ? <Button onClick={() => onLocate(job)}><MapPin /> Locate on Monitor</Button> : <Button onClick={onClose}>Close</Button>}
-    </DialogFooter>
+      {completable && <Button variant="outline" onClick={() => onComplete!(job)}><CheckCircle2 /> Complete order</Button>}
+      {locatable && <Button onClick={() => onLocate!(job)}><MapPin /> Locate on Monitor</Button>}
+    </DialogFooter>}
   </Dialog>;
 }

@@ -6,7 +6,7 @@ import { ShipperPortal } from './ShipperPortal';
 import { DriverPortal } from './DriverPortal';
 import { LoginPage } from './LoginPage';
 import { AdminPortal } from './admin/AdminPortal';
-import { isAdminPath } from './admin/adminRoutes';
+import { adminHref, adminRoute, isAdminPath } from './admin/adminRoutes';
 import { Button, Notice } from './ui';
 import { companySlugForPath, pageForPath, roleHome } from '../lib/pageRoutes';
 import { accountWorkspace } from '../lib/workspaceEntry';
@@ -26,6 +26,7 @@ export function canonicalPortalPath(path: string): string | undefined {
   return next === undefined ? undefined : `/${slug}${next}`;
 }
 export function parsePortal(path: string): PortalRoute | null {
+  if (/^\/(login|dispatch|shipper|driver)\/?$/.test(path)) return { portal: path.startsWith('/shipper') ? 'customer' : path.startsWith('/driver') ? 'driver' : 'dispatch' };
   if (isAdminPath(path)) return { portal:'platform' };
   const slug = companySlugForPath(path);
   if (!slug) return null;
@@ -35,8 +36,11 @@ export function parsePortal(path: string): PortalRoute | null {
   return null;
 }
 const ROLE = { platform:'ADMIN', dispatch:'DISPATCHER', customer:'SHIPPER', driver:'DRIVER' } as const;
+/** Owner login aliases open Companies; valid owner deep links keep their destination. */
+export function loginDestination(account: Account, path: string): string {
+  return account.role === 'ADMIN' ? adminHref(adminRoute(path) ?? { page: 'companies' }) : accountWorkspace(account) ?? '/';
+}
 export { roleHome } from '../lib/pageRoutes';
-const portalHome = (route: PortalRoute) => route.portal === 'platform' ? '/admin' : roleHome(route.slug!, ROLE[route.portal]);
 export default function PortalApp() { return <QueryClientProvider client={cache}><Portal /></QueryClientProvider>; }
 function Portal() {
   const legacy = canonicalPortalPath(location.pathname);
@@ -44,13 +48,22 @@ function Portal() {
   let route = parsePortal(location.pathname);
   const client = useQueryClient();
   const me = useQuery({ queryKey:['account'], queryFn:api.me, retry:false });
-  const logout = useMutation({ mutationFn:api.logout, onSuccess: () => { client.clear(); location.assign(route ? portalHome(route) : '/'); } });
-  if (!route) return <main className="mx-auto max-w-lg px-6 py-24"><h1 className="text-3xl font-medium">Dispatra</h1><p className="mt-4 text-slate-600">Open the company portal link provided with your login details.</p><a className="mt-6 inline-block text-slate-700 underline underline-offset-4" href="/admin">Platform administration →</a></main>;
+  const logout = useMutation({ mutationFn:api.logout, onSuccess: () => { client.clear(); location.assign(route?.portal === 'platform' ? '/admin' : '/login'); } });
+  if (!route) return <main className="mx-auto max-w-lg px-6 py-24"><h1 className="text-3xl font-medium">Dispatra</h1><p className="mt-4 text-slate-600">Sign in to open your workspace.</p><a className="mt-6 inline-block text-slate-700 underline underline-offset-4" href="/login">Sign in →</a></main>;
   if (me.isPending) return <PageLoading>Loading your workspace…</PageLoading>;
   if (me.error && !(me.error instanceof ApiError && me.error.status === 401)) return <main className="mx-auto max-w-lg space-y-4 p-10"><Notice error={me.error} /><Button onClick={() => me.refetch()}>Try again</Button></main>;
-  // Owner deep links (/admin/companies/{id}) survive sign-in; other portals open their home page.
-  if (!me.data) return <LoginPage slug={route.slug} portal={route.portal as LoginInput['portal']} onLogin={account => { client.clear(); location.replace(account.role === 'ADMIN' ? location.pathname : accountWorkspace(account) ?? '/'); }} />;
+  // Use the authenticated response immediately instead of reloading the owner's login URL.
+  if (!me.data) return <LoginPage portal={route.portal as LoginInput['portal']} onLogin={account => {
+    const destination = loginDestination(account, location.pathname);
+    if (account.role === 'ADMIN') {
+      void client.cancelQueries({ queryKey: ['account'], exact: true });
+      client.removeQueries({ predicate: query => query.queryKey[0] !== 'account' });
+      client.setQueryData(['account'], account);
+      history.replaceState(null, '', destination);
+    } else { client.clear(); location.replace(destination); }
+  }} />;
   const account: Account = me.data;
+  if (!route.slug && route.portal !== 'platform') { location.replace(accountWorkspace(account) ?? '/'); return <PageLoading>Opening your workspace…</PageLoading>; }
   // A signed-in account that opens another role's area of its own company goes to its own home.
   if (route.slug && account.organization?.slug === route.slug && account.role !== ROLE[route.portal]) {
     history.replaceState(null, '', roleHome(route.slug, account.role));

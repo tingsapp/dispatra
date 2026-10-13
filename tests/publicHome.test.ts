@@ -6,8 +6,8 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http:
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'CustomEvent', 'localStorage']) {
   Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: dom.window[name as keyof Window] });
 }
-const { render, screen, cleanup, fireEvent, waitFor } = await import('@testing-library/react');
-const { workspaceDestination, readWorkspaceEntry, rememberWorkspaceEntry, WORKSPACE_ENTRY_KEY, accountWorkspace } = await import('../src/lib/workspaceEntry');
+const { render, screen, cleanup, fireEvent, waitFor, within } = await import('@testing-library/react');
+const { accountWorkspace, signupDestination } = await import('../src/lib/workspaceEntry');
 const { PublicHome } = await import('../src/pages/PublicHome');
 const { api, ApiError } = await import('../src/portal/api');
 import type { Account } from '../src/portal/api';
@@ -17,59 +17,47 @@ const account = (role: Account['role']): Account => ({ id: 'user-1', login_id: '
   organization: role === 'ADMIN' ? null : { id: 'company-1', name: 'Acme', slug: 'acme', active: true } });
 afterEach(() => { cleanup(); localStorage.clear(); api.me = originalMe; });
 
-test('company names produce canonical login destinations without accepting URLs', () => {
-  assert.deepEqual((['dispatcher', 'shipper', 'driver'] as const).map(role => workspaceDestination(' Demo ', role)), ['/demo/', '/demo/shipper', '/demo/driver']);
-  for (const invalid of ['', 'admin', 'driver', 'prototype', 'a', 'x'.repeat(64), 'Acme Delivery', 'javascript:alert(1)', '//other.example/acme', 'https://dispatra.com/acme/', '/acme/driver', 'acme/../admin', 'acme?redirect=other']) {
-    assert.equal(workspaceDestination(invalid, 'dispatcher'), undefined, invalid);
-  }
-});
-test('remembered entry contains only validated workspace and role preferences', () => {
-  rememberWorkspaceEntry('acme', 'shipper');
-  assert.deepEqual(readWorkspaceEntry(), { slug: 'acme', role: 'shipper' });
-  assert.deepEqual(Object.keys(JSON.parse(localStorage.getItem(WORKSPACE_ENTRY_KEY)!)), ['slug', 'role']);
-  for (const data of ['broken JSON', '{"slug":"admin","role":"driver"}', '{"slug":"acme","role":"ADMIN"}']) {
-    localStorage.setItem(WORKSPACE_ENTRY_KEY, data);
-    assert.deepEqual(readWorkspaceEntry(), { slug: '', role: 'dispatcher' });
-  }
-});
 test('resume destinations use the authenticated role and company rather than remembered entry', () => {
   assert.deepEqual((['DISPATCHER', 'SHIPPER', 'DRIVER', 'ADMIN'] as const).map(role => accountWorkspace(account(role))), ['/acme/', '/acme/shipper', '/acme/driver', '/admin']);
   assert.equal(accountWorkspace(), undefined);
   assert.equal(accountWorkspace({ ...account('DRIVER'), role: 'UNKNOWN' } as unknown as Account), undefined);
   assert.equal(accountWorkspace({ ...account('DRIVER'), organization: null }), undefined);
 });
-test('homepage entry is inside the hero with a fixed prefix and no role selection or popup', () => {
+test('homepage restores the prefixed company input and Start trial, keeping shared login separate', () => {
   api.me = anonymous;
   render(React.createElement(PublicHome));
-  const input = screen.getByLabelText('Company workspace');
+  const input = screen.getByLabelText('Workspace');
   const hero = screen.getByRole('heading', { level: 1, name: /From order to delivery/ }).closest('section');
   assert.ok(hero?.contains(input));
   assert.ok(screen.getByText('dispatra.com/'));
-  assert.ok(screen.getByRole('button', { name: 'Continue' }));
+  assert.ok(screen.getByRole('button', { name: 'Start trial' }));
+  assert.equal(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href'), '/login');
   assert.equal(screen.queryByRole('radio'), null);
-  assert.equal(screen.queryByRole('dialog'), null);
-  assert.equal(screen.getByRole('banner').querySelectorAll('a').length, 1);
-  assert.equal(screen.queryByRole('link', { name: 'Log in' }), null);
-  assert.equal(screen.queryByRole('link', { name: 'How it works' }), null);
-  fireEvent.click(screen.getByRole('link', { name: 'Sign in to your workspace' }));
-  assert.equal(document.activeElement, input);
-  assert.equal(document.querySelector('a[href="/admin"]'), null);
+  assert.equal(screen.getByRole('link', { name: 'Sign in to your workspace' }).getAttribute('href'), '/login');
+  assert.equal(within(screen.getByRole('banner')).getByRole('link', { name: 'Login' }).getAttribute('href'), '/login');
+  const footer = within(screen.getByRole('contentinfo'));
+  assert.equal(footer.getByRole('link', { name: 'Start free trial' }).getAttribute('href'), '/signup');
+  assert.equal(footer.getByRole('link', { name: 'How it works' }).getAttribute('href'), '/#how-it-works');
+  assert.deepEqual(['Dispatchers', 'Shippers', 'Drivers'].map(name => footer.getByRole('link', { name }).getAttribute('href')), ['/dispatch', '/shipper', '/driver']);
 });
-test('hero input rejects invalid workspace names and never saves them', () => {
-  api.me = anonymous;
-  render(React.createElement(PublicHome, { initialRole: 'driver' }));
-  for (const value of ['', 'admin', 'https://dispatra.com/demo/']) {
-    fireEvent.change(screen.getByLabelText('Company workspace'), { target: { value } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    assert.equal(screen.getByLabelText('Company workspace').getAttribute('aria-invalid'), 'true');
-    assert.ok(screen.getByRole('alert'));
+test('company identifiers produce signup destinations and reject URLs or reserved names', () => {
+  assert.equal(signupDestination(' My-Company '), '/signup?company=my-company');
+  for (const invalid of ['', 'admin', 'signup', 'driver', 'a', 'x'.repeat(64), 'https://dispatra.com/acme/', '/acme', 'my company', 'acme?redirect=evil']) {
+    assert.equal(signupDestination(invalid), undefined, invalid);
   }
+});
+test('invalid homepage identifiers show an error without saving preferences', () => {
+  api.me = anonymous;
+  render(React.createElement(PublicHome));
+  fireEvent.change(screen.getByLabelText('Workspace'), { target: { value: 'admin' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Start trial' }));
+  assert.ok(screen.getByRole('alert'));
   assert.equal(localStorage.length, 0);
 });
-test('homepage starts with an empty workspace even for returning visitors and preserves authenticated resume', async () => {
-  rememberWorkspaceEntry('last-company', 'shipper');
+test('authenticated resume uses the session company even with a remembered company', async () => {
+  localStorage.setItem('dispatra_public_workspace_v1', JSON.stringify({ slug: 'last-company', role: 'shipper' }));
   api.me = async () => account('DRIVER');
   render(React.createElement(PublicHome));
-  assert.equal((screen.getByLabelText('Company workspace') as HTMLInputElement).value, '');
+  assert.equal((screen.getByLabelText('Workspace') as HTMLInputElement).value, '');
   await waitFor(() => assert.equal(screen.getByRole('link', { name: 'Open my workspace' }).getAttribute('href'), '/acme/driver'));
 });

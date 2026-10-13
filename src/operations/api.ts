@@ -18,6 +18,7 @@ export type Booking = components['schemas']['Booking-Input'];
 export type SyncView = components['schemas']['SyncView'];
 export type SyncChange = components['schemas']['SyncChange'];
 export type AppNotification = components['schemas']['NotificationView'];
+export type CompanyActivityEntry = components['schemas']['CompanyActivityEntry'];
 export type Mailbox = components['schemas']['MailboxView'];
 export type MailboxInput = components['schemas']['MailboxInput'];
 export type EmailIntake = components['schemas']['IntakeView'];
@@ -122,6 +123,7 @@ export const operations = {
   linkEmailIntakeShipper: async (slug: string, row: EmailIntake, shipperId: string) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/shipper', { body: { version: row.version, shipper_id: shipperId }, params: { path: entity(slug, row.id), header: mutation() } })),
   createOrderFromEmail: async (slug: string, row: { id: string; version: number }, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/order', { body: { version: row.version, booking }, params: { path: entity(slug, row.id), header: mutation() } })),
   monitor: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/monitor', { params: { path: company(slug) } })),
+  activity: async (slug: string, before?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/activity', { params: { path: company(slug), query: { before, limit: 30 } } })),
   analytics: async (slug: string, start?: string, end?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/analytics', { params: { path: company(slug), query: { date_from: start, date_to: end } } })),
 };
 

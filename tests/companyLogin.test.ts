@@ -15,21 +15,19 @@ const originalLogin = api.login;
 afterEach(() => { cleanup(); localStorage.clear(); api.login = originalLogin; window.history.replaceState(null, '', '/acme/'); });
 const view = (portal: LoginInput['portal'], onLogin: (account: Account) => void = () => {}) => render(React.createElement(QueryClientProvider,
   { client: new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { gcTime: 0 } } }) },
-  React.createElement(LoginPage, { slug: portal === 'platform' ? undefined : 'acme', portal, onLogin })));
+  React.createElement(LoginPage, { portal, onLogin })));
 
-test('company login labels the workspace above role selection without a company field', () => {
+test('shared login shows role selection and credentials without company selection', () => {
   for (const [portal, role] of [['dispatch', 'Dispatcher'], ['customer', 'Shipper'], ['driver', 'Driver']] as const) {
     view(portal);
-    const company = screen.getByText('acme').parentElement!;
-    assert.equal(company.textContent, 'dispatra.com/acme');
-    assert.equal(screen.queryByLabelText('Company workspace'), null);
-    assert.ok(company.compareDocumentPosition(screen.getByText('Sign in as')) & Node.DOCUMENT_POSITION_FOLLOWING);
+    assert.equal(screen.queryByLabelText('Workspace'), null);
+    assert.equal(screen.queryByRole('link', { name: 'Change workspace' }), null);
+    assert.ok(screen.getByLabelText('Email'));
     assert.equal((screen.getByRole('radio', { name: role }) as HTMLInputElement).checked, true);
-    assert.equal(screen.getByRole('link', { name: 'Change workspace' }).getAttribute('href'), '/#workspace');
     cleanup();
   }
 });
-test('changing roles submits the matching API portal and retains the company and entered login', async () => {
+test('changing roles submits the matching API portal and retains the entered email without a company hint', async () => {
   const requests: LoginInput[] = [];
   const signedIn: Account[] = [];
   api.login = async body => {
@@ -38,16 +36,15 @@ test('changing roles submits the matching API portal and retains the company and
       organization: { id: 'company-1', name: 'Acme', slug: 'acme', active: true } };
   };
   view('dispatch', account => signedIn.push(account));
-  fireEvent.change(screen.getByLabelText('Login ID'), { target: { value: 'User@Example.com' } });
-  for (const [index, [role, portal, path]] of ([['Dispatcher', 'dispatch', '/acme/'], ['Shipper', 'customer', '/acme/shipper'], ['Driver', 'driver', '/acme/driver']] as const).entries()) {
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'User@Example.com' } });
+  for (const [index, [role, portal]] of ([['Dispatcher', 'dispatch'], ['Shipper', 'customer'], ['Driver', 'driver']] as const).entries()) {
     fireEvent.click(screen.getByRole('radio', { name: role }));
-    assert.equal(window.location.pathname, path);
+    assert.equal(window.location.pathname, '/acme/');
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Example-Password-99' } });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => assert.equal(signedIn.length, index + 1));
-    assert.deepEqual(requests[index], { organization: 'acme', portal, login_id: 'user@example.com', password: 'Example-Password-99' });
+    assert.deepEqual(requests[index], { portal, login_id: 'user@example.com', password: 'Example-Password-99' });
     assert.equal((screen.getByLabelText('Password') as HTMLInputElement).value, '');
-    assert.equal(screen.getByText('acme').parentElement?.textContent, 'dispatra.com/acme');
     assert.equal(JSON.stringify(Object.values(localStorage)).includes('Example-Password-99'), false);
     assert.equal(JSON.stringify(Object.values(localStorage)).includes('user@example.com'), false);
   }
@@ -57,7 +54,7 @@ test('pending sign-in locks role and credential inputs and prevents duplicate re
   let reject: (error: Error) => void = () => {};
   api.login = () => { calls++; return new Promise((_resolve, rejectPromise) => { reject = rejectPromise; }); };
   view('dispatch');
-  fireEvent.change(screen.getByLabelText('Login ID'), { target: { value: 'user' } });
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Example-Password-99' } });
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
   await waitFor(() => assert.equal((screen.getByRole('button', { name: 'Signing in…' }) as HTMLButtonElement).disabled, true));
@@ -76,10 +73,10 @@ test('administration retains its separate owner login without company role choic
   view('platform');
   assert.ok(screen.getByRole('heading', { name: 'Platform administration' }));
   assert.equal(screen.queryByRole('radio'), null);
-  assert.equal(screen.queryByLabelText('Company workspace'), null);
+  assert.equal(screen.queryByLabelText('Workspace'), null);
   fireEvent.change(screen.getByLabelText('Login ID'), { target: { value: 'owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Example-Password-99' } });
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
   await waitFor(() => assert.equal(request?.portal, 'platform'));
-  assert.equal(request?.organization, null);
+  assert.equal(request?.organization, undefined);
 });

@@ -83,6 +83,22 @@ test('manual address entry works when Places is unavailable', async () => {
   assert.equal(chosen, null);
 });
 
+test('Escape dismisses address suggestions before bubbling to the surrounding dialog', async () => {
+  let dismissals = 0;
+  const prediction = {placeId:'escape-address',text:{toString:()=> '1420 Derwent Way, Delta, BC'}};
+  (globalThis as Record<string, unknown>).google = {maps:{importLibrary:async()=>({AutocompleteSessionToken:class {},
+    AutocompleteSuggestion:{fetchAutocompleteSuggestions:async()=>({suggestions:[{placePrediction:prediction}]})}})}};
+  render(React.createElement('div',{onKeyDown:(event:React.KeyboardEvent)=>{if(event.key==='Escape') dismissals++;}},React.createElement(Field)));
+  const input = screen.getByLabelText('Stop address');
+  fireEvent.change(input,{target:{value:'1420 Derwent'}});
+  await screen.findByRole('listbox');
+  fireEvent.keyDown(input,{key:'Escape'});
+  assert.equal(screen.queryByRole('listbox'),null);
+  assert.equal(dismissals,0);
+  fireEvent.keyDown(input,{key:'Escape'});
+  assert.equal(dismissals,1);
+});
+
 
 test('selecting a delivery address keeps coordinates in order stop data', async () => {
   const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');

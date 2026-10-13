@@ -22,6 +22,7 @@ import { Sidebar } from './components/Sidebar';
 import { TopMetrics } from './components/TopMetrics';
 import { GoogleMonitorMap, type MapController, VANCOUVER_CENTER_LNG_LAT } from './components/GoogleMonitorMap';
 import { companyMapCenter } from './components/monitor/mapScene';
+import { isActiveMonitorOrder } from './components/monitor/orderVisibility';
 import {
 INITIAL_DRIVERS,
 INITIAL_JOBS,
@@ -46,7 +47,7 @@ import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from '.
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ default: module.ReportsPage })));
 
 /** API attention kinds as dispatcher-facing labels. */
-const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', NO_DRIVER: 'No driver' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
+const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', OPERATIONAL: 'Operational risk', NO_DRIVER: 'No driver' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
 
 export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const slug = companySlugForCurrentPath();
@@ -92,6 +93,10 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   // Every order carries a PricingSnapshot from the shared engine, including the static mocks.
   const [localJobs, setJobs] = useState<Job[]>(() => slug ? [] : loadSavedOrders(INITIAL_JOBS));
   const jobs = slug ? (orderQuery.data ?? []).map(row => orderToUi(row, shipperQuery.data ?? [], catalogQuery.data ?? [], rateQuery.data ?? [], routeQuery.data?.find(route => route.id === row.route_id))) : localJobs;
+  const [hiddenOrderIds, setHiddenOrderIds] = useState<ReadonlySet<string>>(() => new Set());
+  const activeOrders = jobs.filter(isActiveMonitorOrder);
+  const mapOrders = activeOrders.filter(job => !hiddenOrderIds.has(job.id));
+  const [dossierJob, setDossierJob] = useState<Job | null>(null);
   useEffect(() => { if (!slug) try { saveOrders(localJobs); } catch { showToast('Order changes could not be saved in this browser. Keep this session open and free storage before reloading.'); } }, [localJobs, slug]);
   const [operationalAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
   // Orders that could not be priced (no card, conflict, zone no-match, missing distance) join the list.
@@ -212,13 +217,20 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
 
   // Selecting job: Opens primary popover, ensures child and grandchild are CLOSED on-demand
   const handleSelectJob = useCallback((jobNumber: string, markerPosition?: [number, number]) => {
+    const found = jobs.find((j) => j.jobNumber === jobNumber);
+    if (found && (hiddenOrderIds.has(found.id) || !isActiveMonitorOrder(found))) {
+      setShowJobDetail(false);
+      setShowAssignDriver(false);
+      setShowAiRecommendation(false);
+      setDossierJob(found);
+      return;
+    }
     setSelectedJobId(jobNumber);
     setShowJobDetail(true);
     setShowAssignDriver(false); // Child only displayed on-demand
     setShowAiRecommendation(false); // Grandchild only displayed on-demand
     setShowDriverPopover(false);
 
-    const found = jobs.find((j) => j.jobNumber === jobNumber);
     if (found && mapRef.current && Number.isFinite(found.lng) && Number.isFinite(found.lat)) {
       const [lng, lat] = markerPosition ?? [found.lng, found.lat];
       // From a list or search, show the whole trip: every located pickup and drop-off.
@@ -230,7 +242,21 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
       if (pt && (pt.x !== 0 || pt.y !== 0)) setMarkerPositions((curr) => ({ ...curr, job: pt, job461: jobNumber === '#461' ? pt : curr.job461 }));
     }
     showToast(`Selected Job ${jobNumber}`);
-  }, [jobs]);
+  }, [jobs, hiddenOrderIds]);
+
+  const handleOrderVisibilityChange = (id: string, visible: boolean) => {
+    setHiddenOrderIds(current => {
+      const next = new Set(current);
+      if (visible) next.delete(id); else next.add(id);
+      return next;
+    });
+    if (!visible && jobs.find(job => job.id === id)?.jobNumber === selectedJobId) {
+      setShowJobDetail(false);
+      setShowAssignDriver(false);
+      setShowAiRecommendation(false);
+      setMarkerPositions(current => ({ ...current, job: null, job461: selectedJobId === '#461' ? null : current.job461 }));
+    }
+  };
 
   useEffect(() => {
     if (activeTab !== 'monitor' || (!showDriverPopover && !showJobDetail)) return;
@@ -282,7 +308,6 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
 
   // Modal dialog triggers
   // Monitor opens the same order details dialog as the Orders list; Edit continues on the Orders page.
-  const [dossierJob, setDossierJob] = useState<Job | null>(null);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [openDriverId, setOpenDriverId] = useState<string | null>(null);
   const handleOpenJobDossier = (job?: Job) => {
@@ -601,7 +626,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
               mapRef={mapRef}
               mapInstanceRef={mapRef}
               drivers={drivers}
-              jobs={jobs}
+              jobs={mapOrders}
               selectedDriverId={selectedDriverId}
               selectedJobId={selectedJobId}
               layerConfig={layerConfig}
@@ -620,7 +645,9 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
             <TopMetrics
               offsetForMenu={!sidebarOpen}
               drivers={drivers}
-              jobs={jobs}
+              jobs={activeOrders}
+              hiddenOrderIds={hiddenOrderIds}
+              onOrderVisibilityChange={handleOrderVisibilityChange}
               activeJobsCount={activeJobsCount}
               availableDriversCount={availableDriversCount}
               needsAttentionCount={needsAttentionItems.length}
@@ -648,6 +675,7 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
 
             {/* MONITOR SEARCH AND NOTIFICATIONS */}
             <MonitorActions
+              active={activeTab === 'monitor'}
               showSearchPopover={showSearchPopover}
               setShowSearchPopover={setShowSearchPopover}
               showNotificationPopover={showNotificationPopover}
@@ -757,6 +785,8 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
         onClose={handleCloseModal}
         drivers={drivers}
         jobs={jobs}
+        hiddenOrderIds={hiddenOrderIds}
+        onOrderVisibilityChange={handleOrderVisibilityChange}
         needsAttentionItems={needsAttentionItems}
         timeZone={slug ? settingsQuery.data?.data.time_zone : undefined}
         onEditDriver={driver => { handleCloseModal(); setOpenDriverId(driver.id); setActiveTab('drivers'); }}

@@ -27,6 +27,7 @@ function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
     case 'mailbox': return [ops('mailbox')];
     // Dispatch agent decisions change Needs Attention; the assignment itself arrives as order/route changes.
     case 'dispatch': return [ops('monitor')];
+    case 'watch': return [ops('monitor')];
     case 'rate': return [ops('rates')];
     case 'catalog': return [ops('catalog')];
     case 'settings': case 'organization': return [companySettingsKey(slug), ops('settings'), ops('catalog'), ops('rates')];
@@ -62,6 +63,11 @@ export function syncInvalidations(role: SyncRole, slug: string, changes: SyncCha
   const keys = role === 'DISPATCHER' ? dispatcherKeys : role === 'SHIPPER' ? shipperKeys : driverKeys;
   const unique = new Map<string, QueryKey>();
   for (const change of changes) for (const key of keys(slug, change)) unique.set(JSON.stringify(key), key);
+  if (role === 'DISPATCHER' && changes.some(change => ['order', 'route', 'stop', 'evidence', 'issue', 'intake', 'mailbox', 'dispatch', 'watch'].includes(change.entity)
+      && !['order.tracking_updated', 'driver.location_updated', 'route.progress'].includes(change.type))) {
+    const activity = ['operations', slug, 'activity', 'latest'];
+    unique.set(JSON.stringify(activity), activity);
+  }
   return [...unique.values()];
 }
 

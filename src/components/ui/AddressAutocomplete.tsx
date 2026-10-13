@@ -165,7 +165,10 @@ export function AddressAutocomplete({ value, onChange, onSelectionStateChange, i
       aria-activedescendant={activeIndex >= 0 && open ? `${listId}-${activeIndex}` : undefined}
       onChange={event => { const next = event.target.value; selectionRef.current++; onSelectionStateChange?.('idle'); onChange(next); setSuggestions([]); setActiveIndex(-1); setQuery(next); setOpen(true); }}
       onKeyDown={event => {
-        if (event.key === 'Escape') { setOpen(false); setQuery(''); tokenRef.current = null; return; }
+        if (event.key === 'Escape') {
+          if (open) { event.preventDefault(); event.stopPropagation(); }
+          setOpen(false); setQuery(''); tokenRef.current = null; return;
+        }
         if (!open || !suggestions.length) return;
         if (event.key === 'ArrowDown') { event.preventDefault(); setActiveIndex(index => Math.min(index + 1, suggestions.length - 1)); }
         if (event.key === 'ArrowUp') { event.preventDefault(); setActiveIndex(index => Math.max(index - 1, 0)); }

@@ -15,7 +15,7 @@ const shot = async (page, name) => { if (shots) await page.screenshot({ path: `$
 const open = async () => { const context = await browser.newContext({ viewport: { width: 1365, height: 900 } }); const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message)); return page; };
 const signIn = async (page, path, id, password) => {
   await page.goto(origin + path);
-  await page.getByLabel('Login ID', { exact: true }).fill(id);
+  await page.getByLabel(path.startsWith('/admin') ? 'Login ID' : 'Email', { exact: true }).fill(id);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 };
@@ -51,11 +51,11 @@ try {
   await owner.getByRole('button', { name: 'Add company' }).first().click();
   const form = owner.getByRole('form', { name: 'Add company' });
   await form.getByLabel('Company name', { exact: true }).fill(name);
-  await form.getByLabel('Company phone', { exact: true }).fill('6045550100');
-  await form.getByLabel('Company address', { exact: true }).fill('123 Main Street, Vancouver, BC');
+  await form.getByLabel('Phone number', { exact: true }).fill('6045550100');
+  await form.getByLabel('Address', { exact: true }).fill('123 Main Street, Vancouver, BC');
   await form.getByLabel('Company identifier', { exact: true }).fill(slug);
-  await form.getByLabel('Administrator login ID', { exact: true }).fill('first-desk');
-  await form.getByLabel('Administrator name', { exact: true }).fill('First Desk');
+  await form.getByLabel('Email', { exact: true }).fill('first-desk@example.com');
+  await form.getByLabel('Full name', { exact: true }).fill('First Desk');
   await form.getByRole('button', { name: 'Create company', exact: true }).click();
   const first = await credentials(owner);
   assert.ok(first.text.includes(`/${slug}/`) && first.password.length >= 12);

@@ -8,7 +8,6 @@ import type { PricingStopInput } from '../../types/pricing';
 import { orderOrigin } from '../../domain/orderOrigin';
 import { dateTime as formatWhen } from '../../lib/dateTimeFormat';
 
-const priorityLabel = (p: Job['priority'] | undefined) => ({ NORMAL: 'Normal', HIGH: 'High', URGENT: 'Urgent' } as Record<string, string>)[p ?? 'NORMAL'] ?? 'Normal';
 const trimUnit = (s: string) => s.replace(/\s\S+$/, '');
 export { formatWhen };
 const dossierStops = (job: Job): PricingStopInput[] => job.pricingInput?.stops ?? [
@@ -32,7 +31,6 @@ export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, s
       <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
         {showShipper && <Detail label="Shipper" value={job.customerName} hint={job.customerPhone} />}
         <Detail label="Service" value={job.serviceLevel || job.jobType} />
-        <Detail label="Priority" value={priorityLabel(job.priority)} />
         <Detail label="Order source" value={origin.label} />
         {origin.tmsReference !== null && <Detail label="TMS reference number" value={origin.tmsReference} />}
       </dl>

@@ -79,7 +79,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
       <h1 className="sr-only">{primary}</h1>{children}
     </main> : <>
     <div className={`app-page min-w-0 flex-1 flex flex-col ${settings || reading ? 'app-page-reading' : ''} ${headerActions ? 'app-page-with-header min-h-0' : 'min-h-dvh'}`}>
-      <PageHeading className="app-page-header page-content">
+      <PageHeading className="app-page-header page-content shrink-0">
         <div className="flex min-w-0 items-center gap-3">
           {!headerActions && menuButton}
           <div className="min-w-0"><div className="flex min-w-0 flex-wrap items-center gap-3"><h1 className="app-page-title min-w-0 break-words">{settings ? 'Account settings' : primary}</h1>{titleBadge}</div><p className="mt-2 truncate text-base text-app-muted">{description ?? company}</p></div>

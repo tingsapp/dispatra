@@ -26,7 +26,7 @@ export function CompanyOverviewForm({ company }: { company: CompanyDetail }) {
     {!account && company.dispatcher_count === 0 && <Button onClick={() => setCreating(true)}>Add dispatcher</Button>}
     {creating && <DispatcherDialog companyId={company.id} onClose={() => setCreating(false)} onSaved={result => {
       setCreating(false);
-      if (result.initial_password) setCredentials({ url: `${location.origin}/${company.slug}/`, login: result.login_id, password: result.initial_password });
+      if (result.initial_password) setCredentials({ url: `${location.origin}/login`, login: result.login_id, password: result.initial_password });
       [companyKey(company.id), dispatchersKey(company.id), companiesKey(), auditKey(company.id)].forEach(queryKey => cache.invalidateQueries({ queryKey }));
     }} />}
   </div>;
@@ -78,6 +78,9 @@ function OverviewEditor({ company, account, onReload }: {
     <fieldset disabled={busy} className="space-y-5">
       <section className="space-y-5" aria-label="Company details">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="app-section-title">Company details</h2><CompanyAccessButton company={company} disabled={dirty || save.isPending || reload.isPending} onBusyChange={setAccessBusy} /></div>
+        {company.trial_ends_at && !company.trial_activated_at && <p className="text-sm text-app-muted">{new Date(company.trial_ends_at).getTime() <= Date.now()
+          ? 'The 30-day trial has ended. Activate this company to restore access.'
+          : `30-day trial ends ${formatWhen(company.trial_ends_at)}.`}</p>}
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Full name" maxLength={160} disabled={!account} value={draft.displayName} onChange={event => change({ displayName: event.target.value })} />
           <Field label="Company name" required maxLength={160} value={draft.name} onChange={event => change({ name: event.target.value })} />
