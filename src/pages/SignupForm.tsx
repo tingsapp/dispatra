@@ -5,13 +5,13 @@ import { DialogBody, DialogFooter } from '../components/ui/Dialog';
 import { AddressAutocomplete } from '../components/ui/AddressAutocomplete';
 import { api, type TrialSignupInput } from '../portal/api';
 import { Field, Button, Notice, useOperationKey } from '../portal/ui';
-import { accountWorkspace, signupDestination } from '../lib/workspaceEntry';
+import { accountWorkspace, signupDestination, TMS_INTEGRATION_LABEL } from '../lib/workspaceEntry';
 
 export function SignupForm({ onPendingChange }: { onPendingChange?: (pending: boolean) => void }) {
   const [form, setForm] = useState<TrialSignupInput>(() => {
     const candidate = new URLSearchParams(location.search).get('company') ?? '';
     const slug = signupDestination(candidate) ? candidate.trim().toLowerCase() : '';
-    return { slug, name: slug.replace(/-/g, ' '), full_name: '', email: '', phone: '', address: '', password: '' };
+    return { slug, name: slug.replace(/-/g, ' '), full_name: '', email: '', phone: '', address: '', password: '', tms_workspace: false };
   });
   const [confirmation, setConfirmation] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -59,6 +59,11 @@ export function SignupForm({ onPendingChange }: { onPendingChange?: (pending: bo
           <p className="mt-2 text-xs text-app-muted">Use at least 12 characters.</p>
         </fieldset>
       </div>
+      <label className="flex items-start gap-3 text-sm leading-5">
+        <input type="checkbox" className="app-checkbox mt-0.5" checked={!(form.tms_workspace ?? false)} disabled={signup.isPending}
+          onChange={event => { setForm(current => ({ ...current, tms_workspace: !event.target.checked })); setError(''); signup.reset(); }} />
+        <span>{TMS_INTEGRATION_LABEL}<span className="mt-1 block text-xs text-app-muted">Uncheck to connect an External TMS.</span></span>
+      </label>
       <div className="flex items-start gap-3 text-sm leading-5">
         <input id="trial-terms" type="checkbox" className="app-checkbox mt-0.5" required checked={acceptedTerms} disabled={signup.isPending}
           onChange={event => { setAcceptedTerms(event.target.checked); setError(''); }} />

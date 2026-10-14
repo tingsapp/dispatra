@@ -7,13 +7,13 @@ for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInput
   Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: dom.window[name as keyof Window] });
 }
 const { render, screen, cleanup, fireEvent, waitFor, within } = await import('@testing-library/react');
-const { accountWorkspace, signupDestination } = await import('../src/lib/workspaceEntry');
+const { accountWorkspace, signupDestination, dispatcherPageAvailable } = await import('../src/lib/workspaceEntry');
 const { PublicHome } = await import('../src/pages/PublicHome');
 const { api, ApiError } = await import('../src/portal/api');
 import type { Account } from '../src/portal/api';
 const originalMe = api.me;
 const anonymous = async () => { throw new ApiError(401, 'Sign in'); };
-const account = (role: Account['role']): Account => ({ id: 'user-1', login_id: 'user@example.com', display_name: 'User', role,
+const account = (role: Account['role']): Account => ({ id: 'user-1', login_id: 'user@example.com', display_name: 'User', role, tms_workspace: false,
   organization: role === 'ADMIN' ? null : { id: 'company-1', name: 'Acme', slug: 'acme', active: true } });
 afterEach(() => { cleanup(); localStorage.clear(); api.me = originalMe; });
 
@@ -22,6 +22,9 @@ test('resume destinations use the authenticated role and company rather than rem
   assert.equal(accountWorkspace(), undefined);
   assert.equal(accountWorkspace({ ...account('DRIVER'), role: 'UNKNOWN' } as unknown as Account), undefined);
   assert.equal(accountWorkspace({ ...account('DRIVER'), organization: null }), undefined);
+  assert.equal(accountWorkspace({ ...account('DISPATCHER'), tms_workspace: true }), '/acme/integrations');
+  assert.equal(accountWorkspace({ ...account('SHIPPER'), tms_workspace: true }), '/acme/shipper');
+  assert.equal(accountWorkspace({ ...account('DRIVER'), tms_workspace: true }), '/acme/driver');
 });
 test('homepage restores the prefixed company input and Start trial, keeping shared login separate', () => {
   api.me = anonymous;
@@ -60,4 +63,11 @@ test('authenticated resume uses the session company even with a remembered compa
   render(React.createElement(PublicHome));
   assert.equal((screen.getByLabelText('Workspace') as HTMLInputElement).value, '');
   await waitFor(() => assert.equal(screen.getByRole('link', { name: 'Open my workspace' }).getAttribute('href'), '/acme/driver'));
+});
+
+test('Monitor is available in both TMS modes while External TMS keeps its other page restrictions',()=>{
+ for(const external of [false,true])assert.equal(dispatcherPageAvailable('monitor',external),true);
+ for(const page of ['profile','help','integrations'])assert.equal(dispatcherPageAvailable(page,true),true);
+ for(const page of ['jobs','drivers','vehicles','customers','reports','rate-cards',undefined])assert.equal(dispatcherPageAvailable(page,true),false);
+ assert.equal(dispatcherPageAvailable('jobs',false),true);
 });

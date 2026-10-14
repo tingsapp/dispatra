@@ -2,8 +2,11 @@ import {
   BarChart2,
   Building2,
   ClipboardList,
+  HelpCircle,
+  LogOut,
   Plug,
   Truck,
+  User,
   Users
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -13,8 +16,13 @@ import { SidebarHeader } from './layout/SidebarHeader';
 import { useSidebarDrawer } from './layout/useSidebarDrawer';
 import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
 import { loadUserProfile } from '../lib/profileStorage';
+import { SETTINGS_NAVIGATION_EVENT } from './settings/useSettingsGuard';
+import { Notice } from '../portal/ui';
 
 interface SidebarProps {
+  tmsWorkspace?: boolean;
+  loggingOut?: boolean;
+  logoutError?: unknown;
   activeTab: string;
   isOpen: boolean;
   onToggle: () => void;
@@ -32,6 +40,9 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
+  tmsWorkspace = false,
+  loggingOut = false,
+  logoutError,
   activeTab,
   isOpen,
   onToggle,
@@ -64,7 +75,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const name = workspace?.settings.data.contact_name || workspace?.account.login_id || '';
   const profile = workspace ? { name, role: 'Dispatcher', avatarInitials: name.slice(0, 1).toUpperCase(), avatarUrl: '' } : localProfile;
 
-  const navItems = [
+  const logout = () => {
+    if (loggingOut) return;
+    const proceed = () => { if (onLogout) onLogout(); else onActionNotification('Logged out dispatcher session'); };
+    if (window.dispatchEvent(new CustomEvent(SETTINGS_NAVIGATION_EVENT, { cancelable: true, detail: { proceed } }))) proceed();
+  };
+
+  const navItems = tmsWorkspace ? [
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'integrations', label: 'Integration', icon: Plug },
+    { id: 'help', label: 'Help', icon: HelpCircle },
+  ] : [
     { id: 'jobs', label: 'Orders', icon: ClipboardList },
     { id: 'drivers', label: 'Drivers', icon: Users },
     { id: 'vehicles', label: 'Vehicles', icon: Truck },
@@ -105,7 +126,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => {
-                    setActiveTab(item.id);
+                    setShowAccountPopover(false);
+                    if (item.id === 'profile' && onOpenProfile) onOpenProfile();
+                    else if (item.id === 'help' && onOpenHelp) onOpenHelp();
+                    else setActiveTab(item.id);
                     onActionNotification(`Navigated to ${item.label}`);
                   }}
                   aria-current={isActive ? 'page' : undefined}
@@ -123,6 +147,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Bottom Dispatcher Profile & Anchored Account Popover */}
         <div className="p-2">
+          {tmsWorkspace ? <>
+            <button type="button" aria-label="Log out" title={collapsed ? 'Log out' : undefined} disabled={loggingOut}
+              className="app-nav-item disabled:opacity-50" onClick={logout}>
+              <LogOut className="w-4.5 h-4.5 shrink-0 text-slate-700" strokeWidth={1.75} />
+              <span className={collapsed ? 'sr-only' : undefined}>{loggingOut ? 'Logging out…' : 'Log out'}</span>
+            </button>
+            <Notice error={logoutError} />
+          </> : <>
           <button type="button" aria-label="Integrations" title={collapsed ? 'Integrations' : undefined}
             aria-current={activeTab === 'integrations' ? 'page' : undefined} className="app-nav-item mb-1"
             onClick={() => { setShowAccountPopover(false); setActiveTab('integrations'); }}>
@@ -136,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onProfile={() => { setActiveTab('profile'); onOpenProfile?.(); }}
             onPricing={() => { onOpenPricing?.(); }}
             onHelp={() => { setActiveTab('help'); onOpenHelp?.(); }}
-            onLogout={() => { if (onLogout) onLogout(); else onActionNotification('Logged out dispatcher session'); }}
+            onLogout={logout}
             trigger={
           <button
             type="button"
@@ -167,6 +199,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }
           />
 
+          </>}
           <div className={`mt-1 flex items-center py-3 ${collapsed ? 'justify-center' : 'justify-between px-3'}`} title={collapsed ? `Auto dispatch: ${dispatchMode === 'AUTO' ? 'on' : 'off'}` : undefined}>
             <span className={collapsed ? 'sr-only' : 'text-sm font-normal text-slate-700'}>Auto dispatch</span>
             <Switch

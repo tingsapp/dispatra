@@ -45,7 +45,7 @@ export function TrialPlansPage() {
             <div className="mt-5">
               {plan.data.monthly_price === null
                 ? <p className="text-2xl font-medium">Contact us for pricing</p>
-                : <p><span className="text-4xl font-semibold tracking-tight">{new Intl.NumberFormat('en-CA', { style: 'currency', currency: plan.data.currency }).format(Number(plan.data.monthly_price))}</span><span className="ml-2 text-sm text-app-muted">{plan.data.currency} / month</span></p>}
+                : <p><span className="text-4xl font-semibold tracking-tight">{new Intl.NumberFormat('en-CA', { style: 'currency', currency: plan.data.currency }).format(Number(plan.data.monthly_price))}</span><span className="ml-2 text-sm text-app-muted">{plan.data.currency} / vehicle / month</span></p>}
               <p className="mt-2 text-sm text-app-muted">A monthly plan for your company.</p>
             </div>
             <ul className="mt-7 space-y-4 text-sm">{FEATURES.map(feature => <li key={feature} className="flex items-start gap-3"><Check className="mt-0.5 size-4 shrink-0 text-blue-700" aria-hidden="true" /><span>{feature}</span></li>)}</ul>

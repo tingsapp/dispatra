@@ -9,7 +9,7 @@ Wrench,
 Plus,
 Truck
 } from 'lucide-react';
-import { useMemo,useState } from 'react';
+import { useEffect,useMemo,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { allOperations, operations } from '../operations/api';
@@ -28,13 +28,16 @@ import { Driver } from '../types';
 interface VehiclesPageProps {
   drivers: Driver[];
   onNotification: (message: string) => void;
+  openVehicleId?: string;
+  onOpenHandled?: () => void;
   onSelectDriver?: (driverId: string) => void;
 }
 
 export function VehiclesPage({
   drivers,
   onNotification,
-  onSelectDriver
+  onSelectDriver,
+  openVehicleId, onOpenHandled
 }: VehiclesPageProps) {
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
@@ -50,6 +53,11 @@ export function VehiclesPage({
 
   // Slide-over drawer
   const [activeVehicleDrawer, setActiveVehicleDrawer] = useState<VehicleAsset | null>(null);
+  useEffect(() => {
+    if (!openVehicleId) return;
+    const record = vehicles.find(row => row.id === openVehicleId);
+    if (record) { setActiveVehicleDrawer(record); onOpenHandled?.(); }
+  }, [openVehicleId, vehicles, onOpenHandled]);
 
   // Register Vehicle Modal
   const [showRegisterModal, setShowRegisterModal] = useState(false);

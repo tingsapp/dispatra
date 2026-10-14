@@ -5,7 +5,7 @@ import { Button, Field, Notice, useOperationKey } from '../ui';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../../components/ui/Dialog';
 import { AddressAutocomplete } from '../../components/ui/AddressAutocomplete';
 
-const empty = (): OrganizationInput => ({ name: '', phone: '', address: '', slug: '', admin_login: '', admin_display_name: '', password: generatePassword() });
+const empty = (): OrganizationInput => ({ name: '', phone: '', address: '', slug: '', admin_login: '', admin_display_name: '', password: generatePassword(), tms_workspace: false });
 
 /** Creates the company and its first dispatcher in one API transaction. The password lives only in this form state. */
 export function CreateCompanyDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (org: Organization, submitted: OrganizationInput) => void }) {
@@ -35,6 +35,11 @@ export function CreateCompanyDialog({ onClose, onCreated }: { onClose: () => voi
           </div>
           <div><Field label="Password" required minLength={12} maxLength={128} type="password" autoComplete="new-password" spellCheck={false} value={form.password} onChange={set('password')} />
             <p className="mt-1.5 text-xs text-app-muted">Generated for you. It is shown once after creation and never stored in the browser.</p></div>
+          <label className="flex items-start gap-3 text-sm leading-5">
+            <input type="checkbox" className="app-checkbox mt-0.5" checked={!(form.tms_workspace ?? false)}
+              onChange={event => setForm(current => ({ ...current, tms_workspace: !event.target.checked }))} />
+            <span>Use Dispatra TMS<span className="mt-1 block text-xs text-app-muted">Uncheck to connect an External TMS.</span></span>
+          </label>
           <Notice error={mutation.error} />
         </fieldset>
       </DialogBody>

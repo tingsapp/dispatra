@@ -11,7 +11,8 @@ try {
     ['/admin', '/admin/companies', 'Companies'],
     ['/admin/login', '/admin/companies', 'Companies'],
     ['/platform/login', '/admin/companies', 'Companies'],
-    ['/admin/billing', '/admin/billing', 'Subscription & Billing'],
+    ['/admin/billing', '/admin/billing', 'Subscription'],
+    ['/admin/revenue', '/admin/revenue', 'Revenue'],
     ['/admin/profile', '/admin/profile', 'Profile'],
   ]) {
     const context = await browser.newContext();
@@ -38,5 +39,5 @@ try {
     assert.deepEqual(errors, []);
     await context.close();
   }
-  console.log('PASS: real owner login opens Companies from /admin, /admin/login and /platform/login; billing/profile deep links survive; no login-page reload and authenticated refresh works.');
+  console.log('PASS: real owner login opens Companies from /admin, /admin/login and /platform/login; billing/revenue/profile deep links survive; no login-page reload and authenticated refresh works.');
 } finally { await browser.close(); }

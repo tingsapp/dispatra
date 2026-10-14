@@ -1,0 +1,31 @@
+.agent-report-viewport {
+  max-height: min(360px, 45dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  outline-offset: 3px;
+}
+.agent-report-entry { min-width: 0; }
+.agent-report-line {
+  display: grid;
+  grid-template-columns: 46px 66px minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 6px;
+  width: 100%;
+  padding: 14px 6px;
+  text-align: left;
+  border-radius: 4px;
+  align-items: start;
+}
+.agent-report-line:hover, .agent-report-line[aria-expanded="true"] { background: #f8fafc; }
+.agent-report-line:focus-visible { outline: 2px solid #3b82f6; outline-offset: -2px; }
+.agent-report-time { color: #94a3b8; font-size: 11px; font-variant-numeric: tabular-nums; line-height: 20px; }
+.agent-report-level { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; line-height: 20px; }
+.agent-report-message { min-width: 0; grid-column: 1 / -1; grid-row: 2; }
+.agent-report-status { min-width: 0; grid-column: 3; grid-row: 1; color: #64748b; font-size: 10px; line-height: 20px; text-align: right; overflow-wrap: anywhere; font-weight: 400; }
+@media (min-width: 640px) {
+  .agent-report-line { grid-template-columns: 48px 72px minmax(0, 1fr) 100px; }
+  .agent-report-message { grid-column: 3; grid-row: 1; }
+  .agent-report-status { grid-column: 4; }
+}

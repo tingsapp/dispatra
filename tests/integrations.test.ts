@@ -14,6 +14,8 @@ const { Sidebar } = await import('../src/components/Sidebar');
 const { ConfirmDialogHost } = await import('../src/components/ui/ConfirmDialog');
 const { SETTINGS_NAVIGATION_EVENT } = await import('../src/components/settings/useSettingsGuard');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+const { connectors } = await import('../src/integrations/connectors');
+connectors.list = async () => [];
 const { operations } = await import('../src/operations/api');
 /** In-memory stand-in for the TMS connection endpoints: secrets arrive in requests but never appear in views. */
 const server = { apiKey: null as null | { prefix: string; created_at: string }, created: [] as string[], view: null as TmsView | null, inputs: [] as TmsInput[], tests: 0, inbox: [] as TmsInboxItem[], retried: [] as string[],
@@ -63,6 +65,7 @@ function Preview({ withRates = true }: { withRates?: boolean }) {
 const mount = async (withRates = true) => {
   render(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } }) }, React.createElement(Preview, { withRates })));
   await screen.findByLabelText('Base API URL');
+  await userEvent.setup({ document }).click(screen.getByRole('tab', { name: 'TMS API' }));
   return userEvent.setup({ document });
 };
 const button = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement;
@@ -74,12 +77,12 @@ afterEach(() => { cleanup(); localStorage.clear(); globalThis.fetch = originalFe
 
 test('defaults to webhooks in three expandable cards with real integration wording', async () => {
   await mount();
-  assert.equal(screen.getByRole('tab', { name: 'Connected TMS' }).getAttribute('aria-selected'), 'true');
+  assert.equal(screen.getByRole('tab', { name: 'TMS API' }).getAttribute('aria-selected'), 'true');
   assert.equal(screen.queryByText('Interface preview.'), null);
-  const tms = within(screen.getByRole('tabpanel', { name: 'Connected TMS' }));
+  const tms = within(screen.getByRole('tabpanel', { name: 'TMS API' }));
   assert.equal(tms.queryByText(/test value|example|preview|mock/i), null);
   assert.equal(screen.queryByLabelText('Integration name'), null);
-  const cards = [...screen.getByRole('tabpanel', { name: 'Connected TMS' }).querySelectorAll<HTMLDetailsElement>('details.app-disclosure')].map(card => [card.querySelector('summary .app-section-title')!.textContent, card.open]);
+  const cards = [...screen.getByRole('tabpanel', { name: 'TMS API' }).querySelectorAll<HTMLDetailsElement>('details.app-disclosure')].map(card => [card.querySelector('summary .app-section-title')!.textContent, card.open]);
   assert.deepEqual(cards, [['Connection', false], ['Driver & Vehicle APIs', false], ['Order webhook/polling', false]]);
   assert.equal((screen.getByRole('radio', { name: /^Webhoook/ }) as HTMLInputElement).checked, true);
   assert.equal((screen.getByLabelText('Webhook URL') as HTMLInputElement).value, 'http://localhost/api/v1/companies/acme/integrations/tms/events');
@@ -276,7 +279,7 @@ test('saving webhooks clears the secret and tab changes preserve unsaved drafts'
   assert.deepEqual(server.webhookInputs[0], { url: 'https://customer.example.com/hooks', secret: 'outbound-secret', enabled: true, version: null });
   assert.equal(JSON.stringify(server.webhook).includes('outbound-secret'), false); assert.equal(localStorage.length, 0);
   assert.ok(screen.getByText(/signed with HMAC-SHA256 of the body in the X-Signature header/));
-  await user.click(screen.getByRole('tab', { name: 'Connected TMS' })); assert.equal(screen.getByRole('switch', { name: 'Enable TMS integration' }).getAttribute('aria-checked'), 'false');
+  await user.click(screen.getByRole('tab', { name: 'TMS API' })); assert.equal(screen.getByRole('switch', { name: 'Enable TMS integration' }).getAttribute('aria-checked'), 'false');
   const event = new CustomEvent(SETTINGS_NAVIGATION_EVENT, { cancelable: true, detail: { proceed: () => {} } });
   fireEvent(window, event); assert.equal(event.defaultPrevented, true); assert.ok(screen.getByRole('alertdialog'));
 });
@@ -292,4 +295,33 @@ test('sidebar places Integrations immediately before the account card and suppor
   await user.click(integration); assert.equal(destination, 'integrations');
   view.rerender(React.createElement(Sidebar, { ...props, isOpen: false }));
   assert.equal(screen.getByRole('button', { name: 'Integrations' }).getAttribute('title'), 'Integrations');
+});
+test('TMS workspace shows only Profile, Integration, Help, Auto dispatch and guarded direct Log out', async () => {
+  const user = userEvent.setup({ document });
+  const visited: string[] = [];
+  let logouts = 0; const modes: string[] = [];
+  const props = { tmsWorkspace: true, activeTab: 'integrations', isOpen: true, onToggle: () => {},
+    setActiveTab: (page: string) => visited.push(page), showAccountPopover: false, setShowAccountPopover: () => {},
+    onActionNotification: () => {}, onLogout: () => { logouts++; }, dispatchMode: 'MANUAL' as const, onDispatchModeChange: (mode: string) => modes.push(mode) };
+  const view = render(React.createElement(Sidebar, props));
+  assert.deepEqual(within(screen.getByRole('navigation')).getAllByRole('button').map(button => button.textContent), ['Profile', 'Integration', 'Help']);
+  assert.equal(screen.queryByRole('button', { name: 'Dispatcher Account' }), null);
+  assert.ok(screen.getByRole('switch', { name: 'Auto dispatch' }));
+  await user.click(screen.getByRole('switch', { name: 'Auto dispatch' })); assert.deepEqual(modes, ['AUTO']);
+  assert.equal(screen.getByRole('button', { name: 'Integration' }).getAttribute('aria-current'), 'page');
+  for (const label of ['Profile', 'Integration', 'Help']) await user.click(screen.getByRole('button', { name: label }));
+  await user.click(screen.getByRole('button',{name:'Dispatra — Monitor'}));
+  assert.deepEqual(visited, ['profile', 'integrations', 'help', 'monitor']);
+  let proceed = () => {};
+  const guard = (event: Event) => { event.preventDefault(); proceed = (event as CustomEvent).detail.proceed; };
+  window.addEventListener(SETTINGS_NAVIGATION_EVENT, guard);
+  try {
+    await user.click(screen.getByRole('button', { name: 'Log out' }));
+    assert.equal(logouts, 0);
+    proceed(); assert.equal(logouts, 1);
+  } finally { window.removeEventListener(SETTINGS_NAVIGATION_EVENT, guard); }
+  view.rerender(React.createElement(Sidebar, { ...props, isOpen: false, loggingOut: true }));
+  assert.equal(screen.getByRole('button', { name: 'Integration' }).getAttribute('title'), 'Integration');
+  assert.equal((screen.getByRole('button', { name: 'Log out' }) as HTMLButtonElement).disabled, true);
+  assert.equal(screen.queryByRole('button', { name: 'Dispatcher Account' }), null);
 });

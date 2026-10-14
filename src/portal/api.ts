@@ -13,9 +13,15 @@ export type CompanySummary = components['schemas']['CompanySummary'];
 export type MonthlyPlan = components['schemas']['MonthlyPlanView'];
 export type MonthlyPlanInput = components['schemas']['MonthlyPlanUpdate'];
 export type SubscriptionPlan = components['schemas']['SubscriptionPlanView'];
+export type CompanySubscription = components['schemas']['CompanySubscriptionView'];
+export type CompanySubscriptionInput = components['schemas']['CompanySubscriptionUpdate'];
+export type CompanySubscriptionSummary = components['schemas']['CompanySubscriptionSummary'];
+export type PlatformRevenue = components['schemas']['PlatformRevenueView'];
+export type SubscriptionFilter = { search?: string; status?: CompanySubscription['status'] };
 export type PlatformNotification = components['schemas']['PlatformNotificationView'];
 export type AgentMonitor = components['schemas']['AgentMonitorView'];
 export type AgentStatus = components['schemas']['AgentStatus'];
+export type AgentActivity = components['schemas']['AgentLogView'];
 export type AgentName = components['schemas']['AgentLogView']['agent'];
 export type TechnicalIssue = components['schemas']['TechnicalIssueView'];
 export type CompanyDetail = components['schemas']['CompanyDetail'];
@@ -58,6 +64,10 @@ export const api = {
   password: async (body: PasswordInput) => unwrap(await client.POST('/api/v1/auth/password', { body })),
   organizations: async (filter: CompanyFilter = {}, after?: string) => unwrap(await client.GET('/api/v1/platform/organizations', { params: { query: { limit: 50, after, search: filter.search || undefined, status: filter.status } } })),
   monthlyPlan: async () => unwrap(await client.GET('/api/v1/platform/billing/plan')),
+  companySubscription: async (id: string) => unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}/subscription', { params: { path: { organization_id: id } } })),
+  updateCompanySubscription: async (id: string, body: CompanySubscriptionInput, key: string) => unwrap(await client.PATCH('/api/v1/platform/organizations/{organization_id}/subscription', { body, params: { path: { organization_id: id }, header: { 'Idempotency-Key': key } } })),
+  companySubscriptions: async (filter: SubscriptionFilter = {}, after?: string) => unwrap(await client.GET('/api/v1/platform/billing/subscriptions', { params: { query: { ...filter, search: filter.search || undefined, after, limit: 50 } } })),
+  platformRevenue: async () => unwrap(await client.GET('/api/v1/platform/billing/revenue')),
   subscriptionPlan: async () => unwrap(await client.GET('/api/v1/subscription/plan')),
   updateMonthlyPlan: async (body: MonthlyPlanInput, key: string) => unwrap(await client.PATCH('/api/v1/platform/billing/plan', { body, params: { header: { 'Idempotency-Key': key } } })),
   createOrganization: async (body: OrganizationInput, key: string) => unwrap(await client.POST('/api/v1/platform/organizations', { body, params: { header: { 'Idempotency-Key': key } } })),

@@ -4,11 +4,11 @@ import { AnimatePresence,motion } from 'motion/react';
 import { lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from './lib/pageRoutes';
-import { allOperations, operations } from './operations/api';
+import { allOperations, operations, type AssistantReference } from './operations/api';
 import { changeAssignment } from './operations/assignment';
 import { driverToUi } from './operations/adapters';
 import { api } from './portal/api';
-import { companySettingsKey } from './portal/WorkspaceAccount';
+import { companySettingsKey, useWorkspaceAccount } from './portal/WorkspaceAccount';
 import { orderToUi } from './operations/orderAdapters';
 import { MonitorActions } from './components/MonitorActions';
 import { DetailModalDialog } from './components/DetailModalDialog';
@@ -49,7 +49,8 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ d
 /** API attention kinds as dispatcher-facing labels. */
 const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', OPERATIONAL: 'Operational risk', NO_DRIVER: 'No driver' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
 
-export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
+export default function App({ onSignOut, loggingOut = false, logoutError }: { onSignOut?: () => void; loggingOut?: boolean; logoutError?: unknown } = {}) {
+  const tmsWorkspace = useWorkspaceAccount()?.settings.data.tms_workspace === true;
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = usePageNavigation();
@@ -121,8 +122,17 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
   const [showActiveJobsMenu, setShowActiveJobsMenu] = useState<boolean>(false);
   const [showAvailableDriversMenu, setShowAvailableDriversMenu] = useState<boolean>(false);
   const [showNeedsAttentionPopover, setShowNeedsAttentionPopover] = useState<boolean>(false);
-  const [showSearchPopover, setShowSearchPopover] = useState<boolean>(false);
   const [showNotificationPopover, setShowNotificationPopover] = useState<boolean>(false);
+  const [assistantEntity, setAssistantEntity] = useState<AssistantReference | null>(null);
+  const [showActivityPopover, setShowActivityPopover] = useState(() => activeTab === 'monitor');
+  const activityAutoOpened = useRef(activeTab === 'monitor');
+  useEffect(() => {
+    if (activeTab !== 'monitor') { setShowActivityPopover(false); return; }
+    if (!activityAutoOpened.current) {
+      activityAutoOpened.current = true;
+      setShowActivityPopover(true);
+    }
+  }, [activeTab]);
   const [showAccountPopover, setShowAccountPopover] = useState<boolean>(false);
   const [showDriverPopover, setShowDriverPopover] = useState<boolean>(false);
   const [showDriverActions, setShowDriverActions] = useState<boolean>(false);
@@ -530,6 +540,9 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
       {slug && (orderQuery.error || driverQuery.error || monitorQuery.error) && <div role="alert" className="absolute top-3 left-1/2 z-50 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-rose-700">Could not load workspace data. <button type="button" className="underline" onClick={() => queryClient.invalidateQueries({ queryKey: ['operations', slug] })}>Retry</button></div>}
       {/* LEFT NAVIGATION SIDEBAR */}
       <Sidebar
+        tmsWorkspace={tmsWorkspace}
+        loggingOut={loggingOut}
+        logoutError={logoutError}
         activeTab={activeTab}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((prev) => !prev)}
@@ -581,6 +594,8 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
           />
         ) : activeTab === 'customers' ? (
           <CustomersPage
+            openCustomerId={assistantEntity?.kind === 'SHIPPER' ? assistantEntity.id : undefined}
+            onOpenHandled={() => setAssistantEntity(null)}
             jobs={jobs}
             onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
@@ -611,6 +626,8 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
           />
         ) : activeTab === 'vehicles' ? (
           <VehiclesPage
+            openVehicleId={assistantEntity?.kind === 'VEHICLE' ? assistantEntity.id : undefined}
+            onOpenHandled={() => setAssistantEntity(null)}
             drivers={drivers}
             onSelectDriver={handleLocateDriverOnMap}
             onNotification={showToast}
@@ -671,27 +688,6 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
               onOpenAllJobs={handleOpenAllJobs}
               onOpenAllDrivers={handleOpenAllDrivers}
               onOpenAllExceptions={handleOpenAllExceptions}
-            />
-
-            {/* MONITOR SEARCH AND NOTIFICATIONS */}
-            <MonitorActions
-              active={activeTab === 'monitor'}
-              showSearchPopover={showSearchPopover}
-              setShowSearchPopover={setShowSearchPopover}
-              showNotificationPopover={showNotificationPopover}
-              setShowNotificationPopover={setShowNotificationPopover}
-              onSelectJob={(jobNum) => {
-                handleSelectJob(jobNum);
-                setShowSearchPopover(false);
-              }}
-              onSelectDriver={(driverId) => {
-                handleSelectDriver(driverId);
-                setShowSearchPopover(false);
-              }}
-              onOpenEmailDrafts={() => setActiveTab('jobs')}
-              onActionNotification={showToast}
-              drivers={drivers}
-              jobs={jobs}
             />
 
             {/* DRIVER MARKER FLOW (D14 + Driver Actions Child) */}
@@ -757,6 +753,32 @@ export default function App({ onSignOut }: { onSignOut?: () => void } = {}) {
               <LocateFixed className="w-5 h-5" strokeWidth={1.75} />
             </button>
             </>}
+            {/* MONITOR ACTIVITY AND NOTIFICATIONS */}
+            <MonitorActions
+              active={activeTab === 'monitor'}
+              onSelectReference={reference => {
+                if (reference.kind === 'ORDER' && reference.order_number) {
+                  if (jobs.some(job => job.id === reference.id)) handleSelectJob(reference.order_number);
+                  else if (slug) void operations.getOrder(slug, reference.id).then(row => setDossierJob(orderToUi(row, shipperQuery.data ?? [], catalogQuery.data ?? [], rateQuery.data ?? []))).catch(error => showToast(error instanceof Error ? error.message : 'Order details are unavailable.'));
+                } else if (reference.kind === 'DRIVER') {
+                  if (drivers.some(driver => driver.id === reference.id)) handleSelectDriver(reference.id);
+                  else { setOpenDriverId(reference.id); setActiveTab('drivers'); }
+                }
+                else if (reference.kind === 'VEHICLE') { setAssistantEntity(reference); setActiveTab('vehicles'); }
+                else { setAssistantEntity(reference); setActiveTab('customers'); }
+              }}
+              showActivityPopover={showActivityPopover}
+              setShowActivityPopover={setShowActivityPopover}
+              showNotificationPopover={showNotificationPopover}
+              setShowNotificationPopover={setShowNotificationPopover}
+              onSelectJob={(jobNum) => {
+                handleSelectJob(jobNum);
+              }}
+              onOpenEmailDrafts={() => setActiveTab('jobs')}
+              onActionNotification={showToast}
+              jobs={jobs}
+            />
+
           </div>}
 
         {/* NOTIFICATION TOAST */}

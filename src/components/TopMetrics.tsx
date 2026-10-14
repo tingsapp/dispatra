@@ -374,11 +374,11 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
 
       <FloatingPanel open={showNeedsAttentionPopover} onOpenChange={changeNeedsAttention}
         label="Needs Attention menu" role="region" size="rich" className="app-map-menu p-3"
-        trigger={<MetricTrigger icon={AlertTriangle} count={needsAttentionCount} label="Needs Attention" title="Click to view Needs Attention items" />}>
+        trigger={<MetricTrigger data-tone="warning" icon={AlertTriangle} count={needsAttentionCount} label="Needs Attention" title="Click to view Needs Attention items" />}>
               {/* Header with Close Icon */}
               <div className="flex items-center justify-between pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 flex items-center justify-center text-slate-600">
+                  <div className="w-5 h-5 flex items-center justify-center text-orange-700">
                     <AlertTriangle className="w-3.5 h-3.5 stroke-[2.5]" />
                   </div>
                   <span className="font-medium text-slate-900 text-sm">Needs Attention</span>

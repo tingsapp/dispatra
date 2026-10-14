@@ -60,7 +60,7 @@ test('public plans render the exact configured monthly price and offer read reco
   assert.equal(screen.queryByRole('button', {name:'Start free trial'}), null);
   unavailable = false; fireEvent.click(screen.getByRole('button', {name:'Try again'}));
   await screen.findByText('US$49.95');
-  assert.ok(screen.getByText('USD / month'));
+  assert.ok(screen.getByText('USD / vehicle / month'));
 });
 
 test('pending popup signup blocks dismissal and keeps retry inputs after failure', async () => {
@@ -94,7 +94,7 @@ test('password confirmation blocks requests and signup retries preserve their ke
     await screen.findByText('Try again.');
   }
   assert.equal(calls[0].key,calls[1].key);
-  assert.deepEqual(calls[0].body, {slug:'my-company',name:'My Company',full_name:'Jane Dispatcher',email:'jane@example.com',phone:'',address:'',password:'Exact-password-123! '});
+  assert.deepEqual(calls[0].body, {slug:'my-company',name:'My Company',full_name:'Jane Dispatcher',email:'jane@example.com',phone:'',address:'',password:'Exact-password-123! ',tms_workspace:false});
   assert.equal(localStorage.length,0); assert.equal(sessionStorage.length,0);
 });
 test('pending signup disables inputs and duplicate submission', async () => {
@@ -106,12 +106,33 @@ test('pending signup disables inputs and duplicate submission', async () => {
   await waitFor(() => assert.equal(screen.getByLabelText('Email').closest('fieldset')?.disabled,true));
   assert.equal(screen.getByLabelText('Password', {exact:true}).closest('fieldset')?.disabled,true);
   assert.equal(screen.getByLabelText('Address').closest('fieldset')?.disabled,true);
-  assert.equal((screen.getByRole('checkbox') as HTMLInputElement).disabled,true);
+  for (const checkbox of screen.getAllByRole('checkbox')) assert.equal((checkbox as HTMLInputElement).disabled,true);
   fireEvent.submit(screen.getByLabelText('Email').closest('form')!);
   assert.equal(calls,1);
   reject(new ApiError(409,'That company is unavailable.'));
   await screen.findByText('That company is unavailable.');
   assert.equal((screen.getByLabelText('Workspace') as HTMLInputElement).value,'my-company');
+});
+test('TMS signup choice survives failed retries and changes the operation key when toggled', async () => {
+  const calls: { body: TrialSignupInput; key: string }[] = [];
+  api.signup = async (body, key) => { calls.push({ body, key }); throw new ApiError(503, 'Try again.'); };
+  view(); fill();
+  const tms = screen.getByRole('checkbox', { name: /Use Dispatra TMS/ }) as HTMLInputElement;
+  assert.equal(tms.checked, true);
+  fireEvent.click(tms);
+  for (let index = 0; index < 2; index++) {
+    fireEvent.click(screen.getByRole('button', { name: 'Start trial' }));
+    await waitFor(() => assert.equal(calls.length, index + 1));
+    await screen.findByText('Try again.');
+  }
+  assert.equal(tms.checked, false);
+  assert.equal(calls[0].body.tms_workspace, true);
+  assert.equal(calls[0].key, calls[1].key);
+  fireEvent.click(tms);
+  fireEvent.click(screen.getByRole('button', { name: 'Start trial' }));
+  await waitFor(() => assert.equal(calls.length, 3));
+  assert.equal(calls[2].body.tms_workspace, false);
+  assert.notEqual(calls[2].key, calls[0].key);
 });
 test('signup waits for address selection and submits the formatted company address', async () => {
   const calls: TrialSignupInput[] = [];
@@ -158,7 +179,8 @@ test('trial requires explicit terms acceptance, links terms only and clears acce
   assert.equal(calls, 1);
   fireEvent.click(screen.getByRole('button', {name:'Close dialog'}));
   fireEvent.click(screen.getByRole('button', {name:'Start free trial'}));
-  assert.equal((screen.getByRole('checkbox') as HTMLInputElement).checked,false);
+  assert.equal((screen.getByRole('checkbox',{name:/I agree to the Terms and Conditions/}) as HTMLInputElement).checked,false);
+  assert.equal((screen.getByRole('checkbox',{name:/Use Dispatra TMS/}) as HTMLInputElement).checked,true);
 });
 test('untrusted query strings cannot prefill invalid or reserved identifiers', () => {
   history.replaceState(null,'','/signup?company=admin'); view();

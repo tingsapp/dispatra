@@ -9,7 +9,7 @@ import { AdminPortal } from './admin/AdminPortal';
 import { adminHref, adminRoute, isAdminPath } from './admin/adminRoutes';
 import { Button, Notice } from './ui';
 import { companySlugForPath, pageForPath, roleHome } from '../lib/pageRoutes';
-import { accountWorkspace } from '../lib/workspaceEntry';
+import { accountWorkspace, dispatcherPageAvailable } from '../lib/workspaceEntry';
 import { PageLoading } from '../components/ui/PageLoading';
 const Workspace = lazy(() => import('../App'));
 const cache = new QueryClient({ defaultOptions: { queries: { retry:false, gcTime:0, refetchOnWindowFocus:true }, mutations:{ retry:false, gcTime:0 } } });
@@ -66,11 +66,16 @@ function Portal() {
   if (!route.slug && route.portal !== 'platform') { location.replace(accountWorkspace(account) ?? '/'); return <PageLoading>Opening your workspace…</PageLoading>; }
   // A signed-in account that opens another role's area of its own company goes to its own home.
   if (route.slug && account.organization?.slug === route.slug && account.role !== ROLE[route.portal]) {
-    history.replaceState(null, '', roleHome(route.slug, account.role));
+    history.replaceState(null, '', accountWorkspace(account) ?? roleHome(route.slug, account.role));
+    route = parsePortal(location.pathname)!;
+  }
+  if (route.workspace && account.role === 'DISPATCHER' && account.organization?.slug === route.slug && account.tms_workspace
+    && !dispatcherPageAvailable(pageForPath(location.pathname), account.tms_workspace)) {
+    history.replaceState(null, '', accountWorkspace(account)!);
     route = parsePortal(location.pathname)!;
   }
   if (route.workspace) return account.role === 'DISPATCHER' && account.organization?.slug === route.slug
-    ? <Suspense fallback={<PageLoading>Loading Monitor…</PageLoading>}><WorkspaceAccount key={account.id} account={account}><Workspace onSignOut={() => logout.mutate()} /></WorkspaceAccount></Suspense>
+    ? <Suspense fallback={<PageLoading>Loading workspace…</PageLoading>}><WorkspaceAccount key={account.id} account={account}><Workspace onSignOut={() => logout.mutate()} loggingOut={logout.isPending} logoutError={logout.error} /></WorkspaceAccount></Suspense>
     : <main className="mx-auto max-w-lg space-y-5 px-6 py-24"><h1 className="text-2xl font-medium">Sign in to this workspace</h1><p className="text-slate-600">This account does not have dispatcher access to {route.slug}.</p><Button onClick={() => logout.mutate()}>Sign out</Button></main>;
   if (account.role !== ROLE[route.portal] || (route.slug && account.organization?.slug !== route.slug)) return <main className="mx-auto max-w-lg space-y-5 px-6 py-24"><h1 className="text-2xl font-medium">Sign in to this workspace</h1><p className="text-slate-600">You are currently signed in as {account.login_id}. Sign out to use a different company or account.</p><Notice error={logout.error} /><Button disabled={logout.isPending} onClick={() => logout.mutate()}>Sign out</Button></main>;
   if (route.portal === 'platform') return <AdminPortal account={account} onLogout={() => logout.mutate()} loggingOut={logout.isPending} logoutError={logout.error} />;

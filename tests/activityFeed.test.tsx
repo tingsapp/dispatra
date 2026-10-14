@@ -25,59 +25,62 @@ const page = (items: CompanyActivityEntry[], next_before: string | null = null) 
 beforeEach(() => { reduced = false; Object.defineProperty(document, 'hidden', { configurable: true, value: false }); operations.activity = async () => page([entry('AGENT:1', 'Reading the order queue.')]); operations.vehicles = async () => []; operations.notifications = async () => []; });
 afterEach(() => { cleanup(); cache?.clear(); Object.assign(operations, original); });
 after(() => dom.window.close());
+function Actions({ active }: { active: boolean }) {
+  return <MonitorActions active={active} onActionNotification={() => {}} />;
+}
 function mount(active = true) {
   cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } } });
   cache.setQueryData(syncKey('acme'), { unread: 0 });
-  return render(<QueryClientProvider client={cache}><MonitorActions active={active} onActionNotification={() => {}} /></QueryClientProvider>);
+  return render(<QueryClientProvider client={cache}><Actions active={active} /></QueryClientProvider>);
 }
 
-test('only activity stays open outside, on Escape, repeat trigger clicks and other map actions until its close button', async () => {
+test('activity opens without focusing close, ignores outside/Escape, and toggles from its trigger', async () => {
   let reads = 0;
   operations.activity = async slug => { assert.equal(slug, 'acme'); reads++; return page([entry('AGENT:1', 'Reading the order queue.')]); };
-  mount(); const user = userEvent.setup({ document });
-  const trigger = screen.getByRole('button', { name: 'Order and agent activity' });
-  assert.equal(reads, 0);
-  await user.click(trigger);
-  const panel = await screen.findByRole('dialog', { name: 'Order and agent activity' });
+  const view = mount(); const user = userEvent.setup({ document });
+  const trigger = screen.getByRole('button', { name: 'Dispatra AI' });
+  const panel = await screen.findByRole('dialog', { name: 'Dispatra AI' });
   await within(panel).findByText('Reading the order queue.');
   assert.equal(reads, 1);
+  assert.notEqual(document.activeElement, within(panel).getByRole('button', { name: 'Close Dispatra AI' }));
   assert.equal(within(panel).queryByRole('button', { name: 'View history' }), null);
   assert.equal(panel.querySelector('[class*="border-t"]'), null);
   await user.click(document.body);
-  assert.ok(screen.getByRole('dialog', { name: 'Order and agent activity' }));
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
   await user.keyboard('{Escape}');
-  assert.ok(screen.getByRole('dialog', { name: 'Order and agent activity' }));
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
   await user.click(trigger);
-  assert.ok(screen.getByRole('dialog', { name: 'Order and agent activity' }));
-  await user.click(screen.getByTitle('Search orders, drivers, vehicles or addresses'));
-  await screen.findByRole('dialog', { name: 'Search' });
-  assert.ok(screen.getByRole('dialog', { name: 'Order and agent activity' }));
-  await user.keyboard('{Escape}');
-  await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Search' }), null));
-  assert.ok(screen.getByRole('dialog', { name: 'Order and agent activity' }));
+  await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Dispatra AI' }), null));
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+  await user.click(trigger);
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
+  assert.equal(document.activeElement, trigger);
   await user.click(screen.getByRole('button', { name: /^Notifications/ }));
   await screen.findByRole('dialog', { name: 'Notifications' });
   await user.click(document.body);
   await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Notifications' }), null));
-  assert.ok(screen.getByRole('dialog', { name: 'Order and agent activity' }));
-  await user.click(screen.getByRole('button', { name: 'Close activity' }));
-  await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Order and agent activity' }), null));
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
+  await user.click(screen.getByRole('button', { name: 'Close Dispatra AI' }));
+  await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Dispatra AI' }), null));
   assert.equal(document.activeElement, trigger);
+  view.rerender(<QueryClientProvider client={cache}><Actions active /></QueryClientProvider>);
+  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra AI' }), null, 'refreshing the page data must not reopen dismissed Activity');
+  await user.click(trigger);
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
 });
 
 test('activity streams without pause, play or history controls', async () => {
   let reads = 0;
   operations.activity = async () => { reads++; return page([entry('AGENT:1', 'Reading the order queue.')]); };
   mount(); const user = userEvent.setup({ document });
-  await user.click(screen.getByRole('button', { name: 'Order and agent activity' }));
-  const panel = await screen.findByRole('dialog', { name: 'Order and agent activity' });
+  const panel = await screen.findByRole('dialog', { name: 'Dispatra AI' });
   await within(panel).findByText('Reading the order queue.');
   assert.equal(within(panel).queryByRole('button', { name: /Pause|Resume|View history/ }), null);
-  assert.deepEqual(within(panel).getAllByRole('button').map(button => button.getAttribute('aria-label')), ['Close activity']);
+  assert.deepEqual(within(panel).getAllByRole('button').map(button => button.getAttribute('aria-label')), ['Close Dispatra AI', 'Send message']);
   const count = reads;
   await act(async () => { await cache.invalidateQueries({ queryKey: [...activityKey('acme'), 'latest'] }); });
   assert.ok(reads > count);
-  assert.ok(screen.getByText('Live updates'));
+  assert.ok(screen.getByText('Live activity'));
 });
 
 test('opening rows and new records slide upward once in chronological order; reduced motion respects visibility', async () => {
@@ -110,7 +113,6 @@ test('hidden or inactive maps do not refresh and failed refresh keeps saved rows
   let fail = false, reads = 0;
   operations.activity = async () => { reads++; if (fail) throw new Error('Activity refresh unavailable.'); return page([entry('AGENT:1', 'Reading the order queue.')]); };
   mount(); const user = userEvent.setup({ document });
-  await user.click(screen.getByRole('button', { name: 'Order and agent activity' }));
   await screen.findByText('Reading the order queue.');
   Object.defineProperty(document, 'hidden', { configurable: true, value: true });
   await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
@@ -125,6 +127,48 @@ test('hidden or inactive maps do not refresh and failed refresh keeps saved rows
   assert.ok(screen.getByText('Reading the order queue.'));
   cleanup(); cache.clear();
   mount(false);
-  await user.click(screen.getByRole('button', { name: 'Order and agent activity' }));
-  assert.equal(screen.queryByRole('dialog', { name: 'Order and agent activity' }), null);
+  await user.click(screen.getByRole('button', { name: 'Dispatra AI' }));
+  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra AI' }), null);
+});
+
+
+test('a question replaces activity with messages, stops feed refresh and keeps conversation through close/reopen', async () => {
+  let activityReads = 0;
+  operations.activity = async () => { activityReads++; return page([entry('AGENT:1', 'Reading the order queue.')]); };
+  let payload: unknown;
+  operations.assistant = async (_slug, body) => { payload = body; return { message: 'Found the requested order.', references: [{ key: 'ORDER:1', kind: 'ORDER', id: '1', label: '#100', detail: 'NEW', order_number: '#100', driver_id: null }], mode: 'AI', observed_at: new Date().toISOString(), limited: false }; };
+  mount(); const user = userEvent.setup({ document });
+  await screen.findByText('Reading the order queue.');
+  const input = screen.getByRole('textbox', { name: 'Message Dispatra AI' });
+  await user.type(input, 'Find order 100');
+  assert.ok(screen.getByRole('list', { name: 'Recent order and agent activity' }), 'typing a draft retains the initial activity feed');
+  assert.equal(screen.queryByRole('log', { name: 'Dispatra AI conversation' }), null);
+  await user.keyboard('{Enter}');
+  await screen.findByText('Found the requested order.');
+  assert.deepEqual(payload, { message: 'Find order 100', history: [] });
+  assert.equal(screen.queryByRole('list', { name: 'Recent order and agent activity' }), null);
+  assert.ok(screen.getByRole('log', { name: 'Dispatra AI conversation' }));
+  const count = activityReads;
+  await act(async () => { await cache.invalidateQueries({ queryKey: [...activityKey('acme'), 'latest'] }); });
+  assert.equal(activityReads, count);
+  await user.click(screen.getByRole('button', { name: 'Close Dispatra AI' }));
+  await waitFor(() => assert.equal(screen.queryByText('Found the requested order.'), null));
+  await user.click(screen.getByRole('button', { name: 'Dispatra AI' }));
+  await screen.findByText('Found the requested order.');
+  assert.equal(screen.getAllByText('Find order 100').length, 1);
+});
+
+test('failed questions retain the draft, retry the same payload without duplicate user messages and prevent double send', async () => {
+  const payloads: unknown[] = []; let fail = true;
+  operations.assistant = async (_slug, body) => { payloads.push(body); if (fail) throw new Error('Temporarily unavailable'); return { message: 'Recovered answer.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false }; };
+  mount(); const user = userEvent.setup({ document });
+  const input = screen.getByRole('textbox', { name: 'Message Dispatra AI' });
+  await user.type(input, 'Where is my order?{Enter}');
+  await screen.findByText('Temporarily unavailable');
+  assert.equal((input as HTMLTextAreaElement).value, 'Where is my order?');
+  fail = false;
+  await user.click(screen.getByRole('button', { name: 'Try again' }));
+  await screen.findByText('Recovered answer.');
+  assert.deepEqual(payloads[0], payloads[1]);
+  assert.equal(screen.getAllByText('Where is my order?').length, 1);
 });

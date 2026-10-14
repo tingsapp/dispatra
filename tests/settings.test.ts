@@ -650,7 +650,7 @@ test('sidebar brand replaces Monitor navigation and supports logo, wordmark and 
   const brand = screen.getByRole('button', { name: 'Dispatra — Monitor' });
   assert.equal(brand.getAttribute('aria-current'), null);
   await user.click(brand.querySelector('img')!);
-  await user.click(within(brand).getByText('Dispatra'));
+  await user.click(within(brand).getByRole('img', { name: 'Dispatra' }));
   brand.focus(); await user.keyboard('{Enter}'); await user.keyboard(' ');
   assert.deepEqual(visited, ['monitor', 'monitor', 'monitor', 'monitor']);
   assert.equal(hidden, 0);

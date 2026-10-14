@@ -272,15 +272,19 @@ svg.lucide { stroke-width: 1.75; }
 }
 .app-metric:hover, .app-metric:focus-visible { background: var(--color-app-hover); }
 .app-metric[aria-expanded="true"] { background: var(--color-app-selected); }
+.app-metric[data-tone="warning"] .app-metric-icon { color: var(--color-orange-700); }
 .app-metric:focus-visible { outline: none; box-shadow: 0 2px 8px #0000000a; }
 .app-metric:focus-visible .app-metric-label { text-decoration: underline; text-underline-offset: 4px; }
 .app-metric-icon { display: flex; align-items: center; color: #525252; }
 .app-metric-icon svg { width: 1.125rem; height: 1.125rem; }
 .app-map-icon { justify-content: center; width: 2.75rem; padding: 0; }
 .app-map-icon:focus-visible svg { color: #0d0d0d; stroke-width: 2.25; }
+.app-map-metrics { flex-wrap: wrap; max-width: calc(100% - 10rem); }
 .app-map-menu { max-width: calc(100vw - 2rem); }
 @media (max-width: 1100px) {
-  .app-map-metrics { top: 5rem; left: 1rem; right: 1rem; }
+  .app-map-metrics { top: 5rem; left: 1rem; right: 1rem; max-width: none; }
+}
+@media (max-width: 640px) {
 }
 @media (max-width: 950px) {
   .app-map-metrics > div { position: static; }

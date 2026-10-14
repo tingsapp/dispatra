@@ -28,8 +28,8 @@ function SlidingRow({ entry, age, animateIn, reducedMotion, timeZone }: { entry:
     return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
   }, [arrived, reducedMotion]);
   return <li aria-hidden={age > 3} data-activity-entry={entry.id}
-    className={`company-activity-row absolute inset-x-0 top-0 flex h-16 items-center gap-2.5 rounded-lg px-2 py-2 ${age === 0 ? 'bg-blue-50/80' : ''}`}
-    style={{ transform: `translateY(${(3 - age + (arrived || reducedMotion ? 0 : 1)) * 64}px)` }}>
+    className={`company-activity-row absolute inset-x-0 bottom-0 flex h-16 items-center gap-2.5 rounded-lg px-2 py-2 ${age === 0 ? 'bg-blue-50/80' : ''}`}
+    style={{ transform: `translateY(${(-age + (arrived || reducedMotion ? 0 : 1)) * 64}px)` }}>
     <EntryContent entry={entry} latest={age === 0} timeZone={timeZone} />
   </li>;
 }
@@ -62,7 +62,7 @@ export function ActivityLog({ entries, active, reducedMotion, timeZone }: { entr
     const timer = window.setTimeout(() => { setShown(rows => [...rows.slice(-4), pending[0]]); setPending(rows => rows.slice(1)); }, 1200);
     return () => window.clearTimeout(timer);
   }, [active, reducedMotion, pending, entries]);
-  return <ol aria-label="Recent order and agent activity" aria-live="off" className="relative h-64 overflow-hidden">
+  return <ol aria-label="Recent order and agent activity" aria-live="off" className="relative min-h-0 flex-1 overflow-hidden">
     {shown.map((entry, index) => <SlidingRow key={entry.id} entry={entry} age={shown.length - 1 - index} animateIn reducedMotion={reducedMotion} timeZone={timeZone} />)}
   </ol>;
 }

@@ -8,6 +8,7 @@ const AUDIT_LABELS: Record<string, string> = {
   'organization.updated': 'Company details edited',
   'organization.suspended': 'Company suspended',
   'organization.activated': 'Company activated',
+  'subscription.company_updated': 'Company subscription updated',
   'dispatcher.created': 'Dispatcher account created',
   'dispatcher.updated': 'Dispatcher account edited',
   'dispatcher.activated': 'Dispatcher account activated',

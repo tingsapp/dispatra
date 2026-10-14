@@ -194,10 +194,10 @@ test('Orders date menu supports shortcuts and a selected inclusive range', async
   assert.deepEqual(changes.at(-1), { kind: 'all' });
 });
 
-test('Monitor keeps search and notifications without a date menu', async () => {
+test('Monitor corner keeps notifications without search or a date menu', async () => {
   const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
   render(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { gcTime: 0 } } }) }, React.createElement(MonitorActions, { onActionNotification: () => {} })));
   assert.equal(screen.queryByRole('button', { name: /^Dispatch date:/ }), null);
-  assert.ok(screen.getByTitle('Search orders, drivers, vehicles or addresses'));
+  assert.equal(screen.queryByTitle('Search orders, drivers, vehicles or addresses'), null);
   assert.ok(screen.getByTitle('Dispatch alerts and notifications'));
 });

@@ -13,7 +13,7 @@ ExternalLink,
 Plus,
 Trash2
 } from 'lucide-react';
-import React,{ useMemo,useState } from 'react';
+import React,{ useEffect,useMemo,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { allOperations, operations } from '../operations/api';
@@ -37,6 +37,8 @@ interface CustomersPageProps {
   jobs?: Job[];
   onBackToMonitor: () => void;
   onNotification?: (msg: string) => void;
+  openCustomerId?: string;
+  onOpenHandled?: () => void;
   onSelectJob?: (jobNumber: string) => void;
 }
 
@@ -44,7 +46,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   jobs = [],
   onBackToMonitor,
   onNotification,
-  onSelectJob
+  onSelectJob,
+  openCustomerId, onOpenHandled
 }) => {
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
@@ -70,6 +73,11 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [selectedCustomerForView, setSelectedCustomerForView] = useState<Customer | null>(null);
+  useEffect(() => {
+    if (!openCustomerId) return;
+    const record = customers.find(row => row.id === openCustomerId);
+    if (record) { setSelectedCustomerForView(record); onOpenHandled?.(); }
+  }, [openCustomerId, customers, onOpenHandled]);
 
   // Form state
   const [formData, setFormData] = useState<Partial<Customer>>({

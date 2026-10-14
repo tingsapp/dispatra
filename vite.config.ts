@@ -6,6 +6,8 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    // Staged previews share node_modules; keep their optimized dependencies separate.
+    cacheDir: path.resolve(__dirname, '.local/vite-cache'),
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

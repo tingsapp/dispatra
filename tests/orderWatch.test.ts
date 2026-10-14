@@ -17,7 +17,7 @@ const owner = { id:'owner',role:'ADMIN',login_id:'owner',display_name:'Owner',or
 const incident = () => ({ id:'incident',version:1,organization_id:'company',company_name:'Acme',order_id:'order',order_number:'DAO-1842',stop_id:'stop',kind:'STOP_OVERRUN',title:'Stop progress needs clarification',description:'Elapsed stop time exceeds the recorded plan; cause unconfirmed.',severity:'WARNING' as const,certainty:'NEEDS_CONFIRMATION' as const,status:'OPEN' as 'OPEN'|'ACKNOWLEDGED',evidence:[{label:'Recorded arrival',value:time,source:'Stop execution',at:time}],suggestions:['Ask the driver for current progress.'],response_due_at:time,acknowledged_at:null as string|null,resolved_at:null,resolution:'',driver_reply:null,created_at:time,updated_at:time });
 let cache: InstanceType<typeof QueryClient>;
 beforeEach(() => Object.assign(api, {
-  agentMonitor: async () => ({ observed_at:time,agents:(['ORDER','DISPATCH','TECHNICAL','OPERATIONAL'] as const).map(agent=>({agent,run:null,queued:0,stale:false,issue_count:agent==='OPERATIONAL'?1:0})),running:0,awaiting_approval:0,needs_attention:1,automatic_fixes_24h:0,errors_24h:0,issues:[] }),
+  agentMonitor: async () => ({ observed_at:time,agents:(['ORDER','DISPATCH','TECHNICAL','OPERATIONAL','CHAT'] as const).map(agent=>({agent,run:null,queued:0,stale:false,issue_count:agent==='OPERATIONAL'?1:0})),running:0,awaiting_approval:0,needs_attention:1,automatic_fixes_24h:0,errors_24h:0,issues:[] }),
   operationalIssues: async () => ({items:[incident()],next_before:null}),
   platformNotifications: async () => ({items:[],unread:0}),technicalReports: async () => ({items:[],next_before:null}),agentLogs: async()=>({items:[],next_before:null}),
 }));
@@ -32,7 +32,7 @@ test('Operational card shows evidence without technical repair controls',async()
   const user=userEvent.setup({document});let technicalCalls=0;
   api.technicalReports=async()=>{technicalCalls++;return {items:[],next_before:null};};
   mount();await user.click(await screen.findByRole('button',{name:'Operational agent: 1 open issue'}));
-  await screen.findByRole('dialog',{name:'Operational agent issues'});
+  await screen.findByRole('dialog',{name:'Operational agent log'});
   await user.click(await screen.findByRole('button',{name:/DAO-1842 · Stop progress/}));
   assert.ok(screen.getByText('Needs confirmation'));assert.ok(screen.getByText('Suggested responses'));
   assert.equal(screen.queryByRole('button',{name:'Review repair'}),null);assert.equal(technicalCalls,0);

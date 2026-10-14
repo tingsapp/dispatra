@@ -32,7 +32,7 @@ test('changing roles submits the matching API portal and retains the entered ema
   const signedIn: Account[] = [];
   api.login = async body => {
     requests.push(body);
-    return { id: 'user-1', login_id: body.login_id, display_name: 'User', role: ({ dispatch: 'DISPATCHER', customer: 'SHIPPER', driver: 'DRIVER', platform: 'ADMIN' } as const)[body.portal],
+    return { id: 'user-1', login_id: body.login_id, display_name: 'User', tms_workspace: false, role: ({ dispatch: 'DISPATCHER', customer: 'SHIPPER', driver: 'DRIVER', platform: 'ADMIN' } as const)[body.portal],
       organization: { id: 'company-1', name: 'Acme', slug: 'acme', active: true } };
   };
   view('dispatch', account => signedIn.push(account));

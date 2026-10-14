@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Tabs } from '../components/ui/Tabs';
 import { ConnectedTmsTab } from '../components/integrations/ConnectedTmsTab';
+import { ConnectorsTab } from '../components/integrations/connectors/ConnectorsTab';
 import { DispatraApiTab } from '../components/integrations/DispatraApiTab';
 import { TmsReview } from '../components/integrations/TmsReview';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
@@ -29,13 +31,16 @@ function ConnectedTms({ slug, importedRateCard }: { slug: string; importedRateCa
 }
 
 export function IntegrationsPage({ rates = [] }: { rates?: RateCard[] }) {
+  const workspace = useWorkspaceAccount();
+  const nativeTms = workspace ? !workspace.settings.data.tms_workspace : false;
   const slug = companySlugForCurrentPath() ?? 'example';
   const importedRateCard = rates.find(card => card.active && card.data.method === 'IMPORTED')?.data.name;
   return <div className="app-page h-full min-w-0 flex flex-col">
     <PageHeader title="Integrations" description="Connect your existing transportation system to Dispatra and exchange orders and operational updates." />
     <div className="page-content py-6"><div className="app-sections">
       <Tabs label="Integration sections" items={[
-        { id: 'tms', label: 'Connected TMS', pageWidth: 'reading', content: <ConnectedTms slug={slug} importedRateCard={importedRateCard} /> },
+        { id: 'connectors', label: 'Connectors', pageWidth: 'reading', content: <ConnectorsTab slug={slug} /> },
+        { id: 'tms', label: 'TMS API', hidden: nativeTms, pageWidth: 'reading', content: <ConnectedTms slug={slug} importedRateCard={importedRateCard} /> },
         { id: 'api', label: 'Dispatra API', pageWidth: 'reading', content: <DispatraApiTab slug={slug} /> },
       ]} />
     </div></div>

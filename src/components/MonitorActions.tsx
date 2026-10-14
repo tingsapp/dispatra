@@ -1,44 +1,31 @@
-import { DriverAvatar } from './DriverAvatar';
-import { SearchInput } from './ui/SearchInput';
 import { FloatingPanel } from './ui/FloatingPanel';
-import React, { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { allOperations } from '../operations/api';
+import React, { useEffect, useState } from 'react';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
-import { loadVehicles } from '../lib/vehicleStorage';
-import { formatPhone } from '../lib/phone';
 import { NotificationPanel, useUnreadNotifications } from '../portal/Notifications';
-import { lifecycleLabel } from '../domain/validation';
 import { MonitorActivity } from './activity/MonitorActivity';
+import type { AssistantReference } from '../operations/api';
 import { MonitorBadge } from './monitor/MonitorBadge';
 import {
-  Search,
   Bell,
   X,
   AlertTriangle,
   Clock,
-  CheckCircle2,
-  MapPin
+  CheckCircle2
 } from 'lucide-react';
-import { Driver, Job } from '../types';
+import { Job } from '../types';
 
 interface MonitorActionsProps {
   active?: boolean;
-  showSearchPopover?: boolean;
-  setShowSearchPopover?: React.Dispatch<React.SetStateAction<boolean>>;
+  showActivityPopover?: boolean;
+  setShowActivityPopover?: React.Dispatch<React.SetStateAction<boolean>>;
+  onSelectReference?: (reference: AssistantReference) => void;
   showNotificationPopover?: boolean;
   setShowNotificationPopover?: React.Dispatch<React.SetStateAction<boolean>>;
   onSelectJob?: (jobNumber: string) => void;
-  onSelectDriver?: (driverId: string) => void;
   /** Order agent notifications open Orders, where emails needing details are listed as drafts. */
   onOpenEmailDrafts?: () => void;
   onActionNotification: (msg: string) => void;
-  drivers?: Driver[];
   jobs?: Job[];
-}
-
-function SearchGroup({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  return <section aria-label={title}><h4 className="text-xs font-medium text-slate-400 px-1 pb-1">{title} ({count})</h4>{children}</section>;
 }
 
 interface DispatchAlert {
@@ -52,35 +39,28 @@ interface DispatchAlert {
 
 export const MonitorActions: React.FC<MonitorActionsProps> = ({
   active = true,
-  showSearchPopover: externalShowSearch,
-  setShowSearchPopover: externalSetShowSearch,
+  showActivityPopover: externalShowActivity,
+  setShowActivityPopover: externalSetShowActivity,
+  onSelectReference,
   showNotificationPopover: externalShowNotification,
   setShowNotificationPopover: externalSetShowNotification,
   onSelectJob,
-  onSelectDriver,
   onOpenEmailDrafts,
   onActionNotification,
-  drivers = [],
   jobs = []
 }) => {
   // Local states if not passed
-  const [internalSearchOpen, setInternalSearchOpen] = useState(false);
   const [internalNotificationOpen, setInternalNotificationOpen] = useState(false);
-  const [activityOpen, setActivityOpen] = useState(false);
+  const [internalActivityOpen, setInternalActivityOpen] = useState(active);
+  const activityOpen = externalShowActivity ?? internalActivityOpen;
+  const setActivityOpen = externalSetShowActivity || setInternalActivityOpen;
 
-  const isSearchOpen = externalShowSearch !== undefined ? externalShowSearch : internalSearchOpen;
-  const setIsSearchOpen = externalSetShowSearch || setInternalSearchOpen;
 
   const isNotificationOpen = externalShowNotification !== undefined ? externalShowNotification : internalNotificationOpen;
   const setIsNotificationOpen = externalSetShowNotification || setInternalNotificationOpen;
+  useEffect(() => { if (!active) setIsNotificationOpen(false); }, [active, setIsNotificationOpen]);
 
-  const [searchQuery, setSearchQuery] = useState('');
   const slug = companySlugForCurrentPath();
-  const vehicleQuery = useQuery({ queryKey: ['operations', slug, 'vehicles'], queryFn: () => allOperations.vehicles(slug!), enabled: !!slug && isSearchOpen });
-  const vehicles = useMemo(() => slug
-    ? (vehicleQuery.data ?? []).filter(row => row.active).map(row => ({ id: row.id, number: row.number, plate: row.plate, detail: [row.data.unit_number, row.data.make_model].filter(Boolean).join(' · ') }))
-    : loadVehicles().map(row => ({ id: row.id, number: row.vehicleNumber ?? row.unitNumber, plate: row.plateNumber, detail: [row.unitNumber, row.makeModel].filter(Boolean).join(' · ') })),
-    [slug, vehicleQuery.data]);
   const [alerts, setAlerts] = useState<DispatchAlert[]>([
     {
       id: 'alt-1',
@@ -112,18 +92,8 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   const apiUnread = useUnreadNotifications(slug ?? '');
   const unreadCount = slug ? apiUnread : alerts.filter((a) => a.unread).length;
 
-  const changeSearch = (next: boolean) => {
-    setIsSearchOpen(next);
-    if (next) {
-      setIsNotificationOpen(false);
-    }
-  };
-
   const changeNotification = (next: boolean) => {
     setIsNotificationOpen(next);
-    if (next) {
-      setIsSearchOpen(false);
-    }
   };
 
   const markAllAlertsRead = () => {
@@ -131,80 +101,12 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
     onActionNotification('Marked all alerts as read');
   };
 
-  // One query across orders, drivers, vehicles and stop addresses.
-  const q = searchQuery.toLowerCase().trim();
-  const has = (...values: (string | undefined | null)[]) => values.some(value => value?.toLowerCase().includes(q));
-  const digits = q.replace(/\D/g, '');
-  const phoneHas = (phone?: string) => digits.length >= 3 && !!phone && phone.replace(/\D/g, '').includes(digits);
-  const street = (address: string) => address.split(',')[0].trim();
-  const stopsOf = (job: Job) => job.pricingInput?.stops ?? [];
-  const filteredJobs = q ? jobs.filter(j => has(j.jobNumber, j.customerName, j.pickupAddress, j.dropoffAddress, ...stopsOf(j).flatMap(stop => [stop.label, stop.contactName]))) : [];
-  const filteredDrivers = q ? drivers.filter(d => has(d.name, d.driverNumber ?? d.id, d.email) || phoneHas(d.phone)) : [];
-  const filteredVehicles = q ? vehicles.filter(v => has(v.number, v.plate, v.detail)) : [];
-  const filteredAddresses = q ? [...jobs.flatMap(job => (stopsOf(job).length ? stopsOf(job).map(stop => stop.label ?? '') : [job.pickupAddress, job.dropoffAddress]).filter(text => text && has(text)).map(text => ({ text, job })))
-    .reduce((map, { text, job }) => map.set(text, [...(map.get(text) ?? []), job].filter((row, i, all) => all.indexOf(row) === i)), new Map<string, Job[]>())]
-    .map(([text, rows]) => ({ text, jobs: rows })) : [];
-  const resultCount = filteredJobs.length + filteredDrivers.length + filteredVehicles.length + filteredAddresses.length;
-  const pick = (select: () => void) => { select(); setIsSearchOpen(false); };
-
   return (
     <div className="absolute top-5 right-6 z-30 pointer-events-auto flex items-center gap-2.5 select-none">
-      {slug && <MonitorActivity key={slug} slug={slug} open={activityOpen} active={active} onOpenChange={next => {
+      {slug && <MonitorActivity key={slug} slug={slug} open={activityOpen} active={active} onSelectReference={onSelectReference} onOpenChange={next => {
         setActivityOpen(next);
-        if (next) { setIsSearchOpen(false); setIsNotificationOpen(false); }
+        if (next) setIsNotificationOpen(false);
       }} />}
-      {/* 1. SEARCH ICON BUTTON */}
-      <FloatingPanel open={isSearchOpen} onOpenChange={changeSearch} label="Search"
-        align="end" size="rich" className="app-map-menu p-3" autoFocusSelector="input" trigger={
-        <button
-          aria-expanded={isSearchOpen}
-          className="app-metric app-map-icon relative"
-          title="Search orders, drivers, vehicles or addresses"
-        >
-          <Search className="w-4 h-4 stroke-[2.2]" />
-        </button>
-        }>
-
-
-              <div className="flex items-center justify-between pb-2.5">
-                <span className="font-medium text-sm text-slate-900">
-                  Search
-                </span>
-                <button
-                  onClick={() => setIsSearchOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors"
-                  title="Close Search"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search orders, drivers, vehicles or addresses..." className="mt-3" />
-
-              <div className="mt-2.5 max-h-72 overflow-y-auto text-xs">
-                {!q ? <p className="py-3 px-1 text-slate-500">Search by order number, shipper, driver name or phone, vehicle number or plate, or any pickup or delivery address.</p>
-                : !resultCount ? <p className="py-6 text-center text-slate-400">No results for "{searchQuery}"</p>
-                : <div className="space-y-3 py-1">
-                  {filteredJobs.length > 0 && <SearchGroup title="Orders" count={filteredJobs.length}>{filteredJobs.map(job => <button type="button" key={job.id} onClick={() => pick(() => onSelectJob?.(job.jobNumber))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
-                    <span className="min-w-0"><span className="font-medium text-slate-900">{job.jobNumber}</span> <span className="text-slate-600">· {job.customerName}</span><span className="block text-slate-500 truncate">{street(job.pickupAddress)} → {street(job.dropoffAddress)}</span></span>
-                    <MonitorBadge>{lifecycleLabel(job)}</MonitorBadge>
-                  </button>)}</SearchGroup>}
-                  {filteredDrivers.length > 0 && <SearchGroup title="Drivers" count={filteredDrivers.length}>{filteredDrivers.map(driver => <button type="button" key={driver.id} onClick={() => pick(() => onSelectDriver?.(driver.id))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2 min-w-0"><DriverAvatar name={driver.name} avatar={driver.avatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" /><span className="min-w-0"><span className="font-medium text-slate-800">{driver.name}</span> <span className="text-slate-400">{driver.driverNumber ?? driver.id}</span>{driver.phone && <span className="block text-slate-500">{formatPhone(driver.phone)}</span>}</span></span>
-                    <MonitorBadge tone={driver.status === 'available' ? 'success' : driver.status === 'on_route' ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
-                  </button>)}</SearchGroup>}
-                  {filteredVehicles.length > 0 && <SearchGroup title="Vehicles" count={filteredVehicles.length}>{filteredVehicles.map(vehicle => { const driver = drivers.find(row => row.currentVehicleId === vehicle.id); return <button type="button" key={vehicle.id} onClick={() => pick(() => driver ? onSelectDriver?.(driver.id) : onActionNotification(`${vehicle.number} is not attached to a driver.`))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
-                    <span className="min-w-0"><span className="font-medium text-slate-900">{vehicle.number}</span> <span className="text-slate-600">· {vehicle.plate}</span>{vehicle.detail && <span className="block text-slate-500 truncate">{vehicle.detail}</span>}</span>
-                    <span className="text-slate-500 shrink-0">{driver ? driver.name : 'No driver'}</span>
-                  </button>; })}</SearchGroup>}
-                  {filteredAddresses.length > 0 && <SearchGroup title="Addresses" count={filteredAddresses.length}>{filteredAddresses.map(address => <button type="button" key={address.text} onClick={() => pick(() => onSelectJob?.(address.jobs[0].jobNumber))} className="w-full text-left p-1.5 hover:bg-slate-50 rounded-lg flex items-center justify-between gap-3">
-                    <span className="flex items-start gap-2 min-w-0"><MapPin className="w-3.5 h-3.5 mt-px text-slate-400 shrink-0" /><span className="min-w-0 truncate text-slate-800">{address.text}</span></span>
-                    <span className="text-slate-500 shrink-0">{address.jobs.map(job => job.jobNumber).join(', ')}</span>
-                  </button>)}</SearchGroup>}
-                </div>}
-              </div>
-      </FloatingPanel>
-
       {/* 2. NOTIFICATION ICON BUTTON */}
       <FloatingPanel open={isNotificationOpen} onOpenChange={changeNotification} label="Notifications"
         align="end" size="rich" className="app-map-menu p-3" autoFocusSelector="input" trigger={

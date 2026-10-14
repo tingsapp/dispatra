@@ -8,7 +8,7 @@ function AgentCardAction({ item, onOpen }: { item: AgentStatus; onOpen: (agent: 
   const name = AGENTS[item.agent].name;
   return <button type="button" onClick={() => onOpen(item.agent)} aria-haspopup="dialog" aria-label={item.issue_count ? `${name}: ${item.issue_count} open issue${item.issue_count === 1 ? '' : 's'}` : runProblem ? `${name}: ${item.stale ? 'progress overdue' : 'latest run failed'}` : `${name} details`}
     className="absolute -inset-px z-10 cursor-pointer rounded-xl transition-colors hover:bg-slate-900/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
-    {(item.issue_count > 0 || runProblem) && <span data-agent-issue-dot aria-hidden="true" className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full bg-rose-600 ring-4 ring-white" />}
+    {(item.issue_count > 0 || runProblem) && <span data-agent-issue-dot aria-hidden="true" className="admin-agent-issue-dot absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full bg-rose-600 ring-4 ring-white" />}
   </button>;
 }
 
@@ -31,6 +31,8 @@ function AgentCardProgress({ item, tone }: { item: AgentStatus; tone: string }) 
 }
 
 const BRANCHES = [
+  { id: 'chat', title: 'Chat agent', agent: 'CHAT' as const, icon: AGENTS.CHAT.icon, tone: 'bg-slate-100 text-slate-600', fill: 'bg-slate-200/60',
+    placement: 'col-start-1 col-span-3 row-start-4', compact: 'AI answers & workspace search', details: ['Workspace questions', 'Company records search'] },
   { id: 'requests', title: 'Booking requests', icon: Inbox, tone: 'bg-slate-100 text-slate-500',
     placement: 'col-start-1 row-start-1', compact: 'Email, portals, TMS', details: ['Email', 'Shipper portal', 'Dispatcher portal', 'TMS'] },
   { id: 'order', title: 'Order agent', agent: 'ORDER' as const, icon: AGENTS.ORDER.icon, tone: 'bg-blue-50 text-blue-600', fill: 'bg-blue-100/70',
@@ -61,7 +63,7 @@ function useFlowConnections() {
         const header = root.querySelector<HTMLElement>(`[data-flow-header="${branch.id}"]`);
         if (!header) return [];
         const target = header.getBoundingClientRect();
-        if (branch.id === 'technical' || branch.id === 'operational') return [`M ${center.left + center.width / 2 - bounds.left} ${center.bottom - bounds.top} V ${target.top - bounds.top - 18} H ${target.left + target.width / 2 - bounds.left} V ${target.top - bounds.top}`];
+        if (branch.id === 'technical' || branch.id === 'operational' || branch.id === 'chat') return [`M ${center.left + center.width / 2 - bounds.left} ${center.bottom - bounds.top} V ${target.top - bounds.top - 18} H ${target.left + target.width / 2 - bounds.left} V ${target.top - bounds.top}`];
         const left = branch.id === 'requests' || branch.id === 'dispatch';
         const upper = branch.id === 'requests' || branch.id === 'order';
         const sx = (left ? center.left : center.right) - bounds.left, sy = center.top + center.height * (upper ? .3 : .7) - bounds.top;
@@ -87,7 +89,7 @@ export function OrderFlowChart({ agents, onOpen }: { agents: AgentStatus[]; onOp
   return <section aria-label="Order flow" className="min-w-0">
     <div ref={canvas} className="relative grid grid-cols-[minmax(0,1fr)_76px_minmax(0,1fr)] items-start gap-x-3 gap-y-7 sm:grid-cols-[minmax(0,1fr)_144px_minmax(0,1fr)] sm:gap-x-7 sm:gap-y-10 lg:grid-cols-[minmax(0,1fr)_200px_minmax(0,1fr)] lg:gap-x-12 xl:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)] xl:gap-x-16 xl:gap-y-12">
       <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${drawing.width} ${drawing.height}`} preserveAspectRatio="none">
-        {drawing.paths.map((path, index) => <path key={index} d={path} fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 7" strokeLinecap="round" />)}
+        {drawing.paths.map((path, index) => <path key={index} className="admin-flow-connector" d={path} fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 7" strokeLinecap="round" />)}
       </svg>
       <div data-flow-hub role="group" aria-label="Order lifecycle" className="relative z-[1] col-start-2 row-start-1 row-span-2 w-full self-center rounded-2xl border border-slate-200 bg-white px-1.5 py-3 sm:px-3 sm:py-5 lg:px-5">
         <div className="flex flex-col items-center gap-1.5 sm:flex-row sm:gap-2.5"><span className="flex h-6 w-6 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Workflow size={18} strokeWidth={1.6} aria-hidden="true" /></span><h2 className="text-[10px] font-medium text-slate-800 sm:text-sm"><span className="sm:hidden">Workflow</span><span className="hidden sm:inline">Order workflow</span></h2></div>
