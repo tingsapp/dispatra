@@ -41,7 +41,7 @@ export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, s
       <div className="space-y-3">
         {dossierStops(job).map((stop, i) => <div key={stop.id} className="rounded-lg bg-slate-50 p-4 space-y-3">
           <div className="flex items-center gap-3">
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{i + 1} · {stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-app-accent-soft text-app-accent' : 'bg-emerald-100 text-emerald-700'}`}>{i + 1} · {stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
             {stop.residential && <span className="text-xs text-slate-500">Residential</span>}
           </div>
           <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">

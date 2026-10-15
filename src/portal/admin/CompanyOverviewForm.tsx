@@ -54,7 +54,7 @@ function OverviewEditor({ company, account, onReload }: {
       setBaseline({ company, dispatcher: account }); setDraft(fields({ company, dispatcher: account }));
     }
   }, [company, account, dirty, baseline.company.version, baseline.dispatcher?.version]);
-  const body = { version: baseline.company.version, name: draft.name.trim(), active: baseline.company.active,
+  const body = { version: baseline.company.version, name: draft.name.trim(), active: baseline.company.workspace_enabled ?? baseline.company.active,
     ...(draft.phone.trim() !== original.phone || draft.address.trim() !== original.address ? { settings_version: baseline.company.settings_version,
       ...(draft.phone.trim() !== original.phone ? { phone: draft.phone.trim() } : {}),
       ...(draft.address.trim() !== original.address ? { address: draft.address.trim() } : {}) } : {}),

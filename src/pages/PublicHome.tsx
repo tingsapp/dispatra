@@ -26,7 +26,7 @@ function HomeContent() {
     <main>
       <PublicHero labelledBy="home-title">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-blue-700"><span className="size-1.5 rounded-full bg-blue-600" />AI FOR DELIVERY TEAMS</p>
+          <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-app-accent"><span className="size-1.5 rounded-full bg-app-accent" />AI FOR DELIVERY TEAMS</p>
           <h1 id="home-title" className="mt-6 max-w-xl text-[42px] font-medium leading-[1.08] tracking-[-0.045em] sm:text-[54px] lg:text-[58px]">From order to delivery.<br /><span className="text-app-muted">One clear workflow.</span></h1>
           <p className="mt-6 max-w-md text-base leading-7 text-app-muted">Read orders from email, assign the right driver, and follow every delivery through completion. Your whole team, in one connected workspace.</p>
           <HeroWorkspaceEntry />

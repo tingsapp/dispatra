@@ -49,7 +49,7 @@ export function CompaniesPage({ creating, onCreatingChange, onOpen }: { creating
         <tbody>{rows.map(org => <tr key={org.id}>
           <td className="font-medium"><div className="flex items-center gap-3"><CompanyLogo src={org.logo_url} /><span>{org.name}</span></div></td>
           <td className="text-app-muted">/{org.slug}/</td>
-          <td><StatusBadge active={org.active} inactiveLabel="Suspended" /></td>
+          <td><StatusBadge active={org.active} inactiveLabel={org.workspace_enabled && org.payment_required ? "Payment required" : "Suspended"} /></td>
           <td>{org.active_dispatcher_count} active{org.dispatcher_count > org.active_dispatcher_count ? ` · ${org.dispatcher_count - org.active_dispatcher_count} inactive` : ''}</td>
           <td className="text-app-muted">{formatWhen(org.created_at)}</td>
           <td><a href={`/admin/companies/${org.id}`} className="text-app-text hover:underline underline-offset-4" aria-label={`Manage ${org.name}`}

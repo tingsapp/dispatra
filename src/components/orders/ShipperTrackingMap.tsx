@@ -57,7 +57,7 @@ function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect,
       contactName={stop.contact_name}
       selected={stop.orderId === selectedOrderId} onSelect={() => onSelect(stop.orderId)} />)}
     {liveTracking?.live && liveTracking.location && <GoogleOverlayMarker position={{ lat: liveTracking.location.latitude, lng: liveTracking.location.longitude }} label={`Driver ${liveTracking.driver?.first_name ?? ''}`} zIndex={30}>
-      <span className="grid size-9 place-items-center rounded-xl border-2 border-white bg-blue-600 text-white shadow-md"><Truck size={18} /></span>
+      <span className="grid size-9 place-items-center rounded-xl border-2 border-white bg-app-accent text-white shadow-md"><Truck size={18} /></span>
     </GoogleOverlayMarker>}
     <div className="shipper-map-controls" aria-label="Map controls">
       <button type="button" className="app-metric app-map-icon" onClick={focusHome} aria-label="Focus warehouse or fallback location" title="Your location"><LocateFixed size={18} /></button>

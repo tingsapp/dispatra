@@ -109,12 +109,24 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
   await user.type(screen.getByRole('textbox',{name:'Company name'}),'Warehouse Logistics Ltd');
   await user.type(address,'100 Main St, Vancouver, BC V6A 2S5');
   await user.type(screen.getByRole('textbox',{name:/^Email /}),'warehouse@example.ca');
+  await user.click(screen.getByRole('combobox',{name:'Assigned driver'}));
+  await user.click(screen.getByRole('option',{name:new RegExp(INITIAL_DRIVERS[0].name)}));
   await user.click(screen.getByRole('button',{name:'Create Shipper'}));
   const shipper=await waitFor(() => { const saved=loadCustomers().find(customer=>customer.name==='Warehouse Shipper'); assert.ok(saved); return saved; });
   assert.equal(shipper.address,'100 Main St, Vancouver, BC V6A 2S5');
   assert.equal(shipper.legalName,'Warehouse Logistics Ltd');
   assert.equal(shipper.contactName,'Warehouse Shipper');
   assert.equal(shipper.city,'');
+  assert.equal(shipper.assignedDriverId,INITIAL_DRIVERS[0].id);
+  await user.click(within(screen.getByRole('row',{name:/Warehouse Shipper/})).getByTitle('Edit shipper account'));
+  assert.match(screen.getByRole('combobox',{name:'Assigned driver'}).textContent!,new RegExp(INITIAL_DRIVERS[0].name));
+  await user.click(screen.getByRole('button',{name:'Save Changes'}));
+  assert.equal(loadCustomers().find(c=>c.id===shipper.id)?.assignedDriverId,INITIAL_DRIVERS[0].id);
+  await user.click(within(screen.getByRole('row',{name:/Warehouse Shipper/})).getByTitle('Edit shipper account'));
+  await user.click(screen.getByRole('combobox',{name:'Assigned driver'}));
+  await user.click(screen.getByRole('option',{name:'No assigned driver'}));
+  await user.click(screen.getByRole('button',{name:'Save Changes'}));
+  assert.equal(loadCustomers().find(c=>c.id===shipper.id)?.assignedDriverId,null);
   assert.equal(shipper.addresses?.find(item=>item.id===`${shipper.id}-primary`)?.address,shipper.address);
   await user.click(screen.getByRole('button',{name:'New Shipper'}));
   await user.click(screen.getByRole('combobox',{name:'Shipper type'}));
@@ -515,4 +527,22 @@ test('dispatcher completes an assigned order from order details after confirming
   await user.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Complete order'}));
   assert.equal(updated.lifecycleStatus,'COMPLETED'); assert.equal(updated.status,'completed'); assert.equal(updated.version,4); assert.match(notices.at(-1)!,/completed/);
   await waitFor(()=>assert.equal(screen.queryByRole('button',{name:'Complete order'}),null));
+});
+
+
+test('shipper standing assignment round-trips and becomes a booking constraint', async()=>{
+  const {shipperToCustomer,customerToShipper}=await import('../src/operations/adapters');
+  const {applyCustomerDefaults}=await import('../src/domain/orderAdapters');
+  const {shipperAssignment}=await import('../src/operations/shipperAssignment');
+  const row:any={id:'s1',number:'S1',name:'Shipper',kind:'INDIVIDUAL',company_name:'',email:'s@example.ca',phone:'',warehouse:{text:'100 Main St, Vancouver, BC V6A 2S5',city:'Vancouver',province:'BC',postal_code:'V6A 2S5',country:'CA'},status:'ACTIVE',rate_card_id:null,discount:{kind:'NONE',value:0},instructions:'',created_at:'2026-10-15',assigned_driver_id:'d1',assigned_driver_name:'Dana'};
+  const shipper=shipperToCustomer(row);
+  assert.equal(customerToShipper(shipper,row).assigned_driver_id,'d1');
+  assert.equal(customerToShipper({...shipper,assignedDriverId:null},row).assigned_driver_id,null);
+  assert.equal(customerToShipper({...shipper,assignedDriverId:undefined},row).assigned_driver_id,'d1');
+  const ctx=loadPricingContext(); const input=createDefaultOrderInput(ctx);
+  const booked=applyCustomerDefaults(input,shipper);
+  assert.equal(booked.requiredDriverId,'d1'); assert.equal(booked.requiredDriverName,'Dana');
+  assert.equal(applyCustomerDefaults(booked,undefined).requiredDriverId,null);
+  assert.deepEqual(shipperAssignment({booking:{assigned_driver:{id:'d1',name:'Dana'}}}),{id:'d1',name:'Dana'});
+  assert.equal(shipperAssignment({booking:{assigned_driver:{id:3,name:'invalid'}}}),null);
 });

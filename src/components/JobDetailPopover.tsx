@@ -97,7 +97,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
     id: driver.id, code: driver.driverNumber ?? driver.id.slice(0, 8), name: driver.name,
     avatar: driver.avatar, distance: driver.distance || '—', eta: driver.eta,
     status: driver.status === 'on_route' ? 'on_route' as const : 'available' as const,
-    unavailableReason: driver.accountStatus === 'INACTIVE' ? 'Inactive account'
+    unavailableReason: job.pricingInput?.requiredDriverId && driver.id !== job.pricingInput.requiredDriverId ? 'Requires shipper’s assigned driver' : driver.accountStatus === 'INACTIVE' ? 'Inactive account'
       : [driver.dutyStatus !== 'ON_DUTY' ? 'Off duty' : '', !driver.currentVehicleId ? 'No vehicle attached' : '', driver.status === 'on_route' ? 'On route' : ''].filter(Boolean).join(' ') || undefined,
   })) : ELIGIBLE_DRIVERS;
 
@@ -218,13 +218,13 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               <ContactCard label="Shipper" name={job.customerName} phone={job.customerPhone} email={job.customerEmail} />
               {driver
                 ? <ContactCard label="Driver" name={`${driver.name}${driver.driverNumber ? ` · ${driver.driverNumber}` : ''}`} phone={driver.phone} email={driver.email} />
-                : <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5"><div className="text-slate-500">Driver</div><div className="font-medium text-amber-700">Unassigned</div>{requested && <div className="text-slate-500 mt-0.5">Shipper requested {requested.name}</div>}</div>}
+                : <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5"><div className="text-slate-500">Driver</div><div className="font-medium text-amber-700">Unassigned</div>{job.pricingInput?.requiredDriverId ? <div className="text-slate-500 mt-0.5">Assigned shipper driver: {job.pricingInput.requiredDriverName ?? drivers.find(d => d.id === job.pricingInput?.requiredDriverId)?.name ?? 'Unavailable'}</div> : requested && <div className="text-slate-500 mt-0.5">Shipper requested {requested.name}</div>}</div>}
               {attention.map(item => <p key={item.flag} className="flex items-start gap-1.5 text-amber-800"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />{item.detail}</p>)}
 
               {/* Prototype-only AI fix demonstration */}
               {!live && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-2.5 flex items-center justify-between text-rose-600 font-medium">
                 <span className="text-xs truncate max-w-[170px]">{job.riskText}</span>
-                <button data-map-detail-toggle="recommendation" onClick={() => setShowAiRecommendation((prev) => !prev)} className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium shadow-xs transition-colors" title="Toggle AI Recommendation Fix">
+                <button data-map-detail-toggle="recommendation" onClick={() => setShowAiRecommendation((prev) => !prev)} className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-app-accent hover:bg-app-accent/90 text-white text-xs font-medium shadow-xs transition-colors" title="Toggle AI Recommendation Fix">
                   <Sparkles className="w-3 h-3 fill-white" /><span>AI Fix</span>
                 </button>
               </div>}
@@ -264,7 +264,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               className={`flex-1 font-semibold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 ${
                 showAssignDriver
                   ? 'bg-slate-900 text-white'
-                  : 'app-action app-primary text-white shadow-sm shadow-blue-600/20'
+                  : 'app-action app-primary text-white shadow-sm shadow-app-accent/20'
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
@@ -311,15 +311,15 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                 className={`mb-2.5 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
                   showAiRecommendation
                     ? 'bg-slate-100 border-slate-300'
-                    : 'bg-indigo-50/60 border-indigo-200/80 hover:bg-indigo-50'
+                    : 'bg-app-accent-soft/60 border-app-accent/80 hover:bg-app-accent-soft'
                 }`}
                 title="Click to view AI recommendation details"
               >
                 <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600 fill-indigo-600" />
-                  <span className="text-xs font-medium text-indigo-950">AI Recommendation</span>
+                  <Sparkles className="w-3.5 h-3.5 text-app-accent fill-app-accent" />
+                  <span className="text-xs font-medium text-app-accent">AI Recommendation</span>
                 </div>
-                <span className="text-xs font-medium text-indigo-700 bg-white px-1.5 py-0.5 rounded border border-indigo-200 group-hover:border-indigo-400">
+                <span className="text-xs font-medium text-app-accent bg-white px-1.5 py-0.5 rounded border border-app-accent/20 group-hover:border-app-accent/40">
                   {showAiRecommendation ? 'Open' : 'View'} &rarr;
                 </span>
               </div>}
@@ -382,7 +382,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                               className={`font-semibold ${
                                 isCurrent ? 'text-slate-700' : driver.unavailableReason ? 'text-slate-500' : driver.status === 'available'
                                   ? 'text-emerald-600'
-                                  : 'text-blue-600'
+                                  : 'text-app-accent'
                               }`}
                             >
                               {isCurrent ? 'Assigned' : driver.unavailableReason || (driver.status === 'available' ? 'Available' : 'On route')}
@@ -467,8 +467,8 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
 
               {/* AI Recommendation Banner */}
               <div className="flex items-center justify-between pt-2.5 pb-1">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600">
-                  <Sparkles className="w-3.5 h-3.5 fill-indigo-600" />
+                <div className="flex items-center gap-1.5 text-xs font-medium text-app-accent">
+                  <Sparkles className="w-3.5 h-3.5 fill-app-accent" />
                   <span>AI Recommendation</span>
                 </div>
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/70">
@@ -504,7 +504,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                     onApproveRecommendation();
                     setShowAiRecommendation(false);
                   }}
-                  className="flex-1 app-action app-primary text-white font-medium py-2 px-3 rounded-xl text-xs transition-colors shadow-sm shadow-blue-600/25"
+                  className="flex-1 app-action app-primary text-white font-medium py-2 px-3 rounded-xl text-xs transition-colors shadow-sm shadow-app-accent/25"
                 >
                   Approve
                 </button>

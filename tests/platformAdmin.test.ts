@@ -16,8 +16,8 @@ const { parsePortal, loginDestination, default: PortalApp } = await import('../s
 
 const ACME = '11111111-1111-4111-8111-111111111111';
 const owner = { id: '99999999-9999-4999-8999-999999999999', login_id: 'owner', display_name: '', role: 'ADMIN', organization: null } as never;
-const company = (overrides = {}) => ({ id: ACME, slug: 'acme', name: 'Acme Dispatch', logo_url: '', active: true, version: 1, phone: '(604) 555-0100', address: '123 Main Street, Vancouver, BC', settings_version: 1, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z',
-  dispatcher_count: 1, active_dispatcher_count: 1, shipper_account_count: 2, driver_account_count: 3, active_session_count: 1, shipper_count: 5, driver_count: 7, order_count: 12, ...overrides });
+const company = (overrides = {}) => ({ id: ACME, slug: 'acme', name: 'Acme Dispatch', logo_url: '', active: true, payment_required: false, version: 1, phone: '(604) 555-0100', address: '123 Main Street, Vancouver, BC', settings_version: 1, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z',
+  dispatcher_count: 1, active_dispatcher_count: 1, shipper_account_count: 2, driver_account_count: 3, active_session_count: 1, shipper_count: 5, driver_count: 7, order_count: 12, ...overrides, workspace_enabled: (overrides as { workspace_enabled?: boolean; active?: boolean }).workspace_enabled ?? (overrides as { active?: boolean }).active ?? true });
 const person = (overrides = {}) => ({ id: '22222222-2222-4222-8222-222222222222', login_id: 'dispatcher', display_name: 'First Desk', active: true, version: 1,
   created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z', last_login_at: null, active_session_count: 0, ...overrides });
 const plan = (overrides = {}) => ({ id: '8eb730cb-226b-4ec1-a3fc-132279938d62', name: 'Monthly subscription' as const, interval: 'MONTHLY' as const, trial_days: 30, monthly_price: null, currency: 'CAD', version: 1, updated_at: '2026-09-01T10:00:00Z', ...overrides });
@@ -30,6 +30,8 @@ let calls: string[] = [];
 beforeEach(() => {
   calls = [];
   Object.assign(api, {
+    paymentHistory: async () => ({ available: true, items: [], next_cursor: null }),
+    paymentMethod: async () => ({ status: 'MISSING', required: false, setup_available: false, monthly_price:null,currency:'CAD',vehicle_count:0,monthly_total:null,terms_version:1,subscription_status:'NOT_SUBSCRIBED',sync_error:false,trial_ends_at: null }),
     monthlyPlan: async () => plan(),
     companySubscription: async (id: string) => subscription({ organization_id: id }), companySubscriptions: async () => [agreement()], platformRevenue: async () => revenue(),
     agentMonitor: async () => ({ observed_at: new Date().toISOString(), agents: [], running: 0, awaiting_approval: 0, needs_attention: 0, automatic_fixes_24h: 0, errors_24h: 0, issues: [] }),
@@ -104,7 +106,7 @@ test('Subscription navigation shows only the monthly plan and free trial cards',
   assert.equal((screen.getByLabelText('Price per vehicle per month') as HTMLInputElement).value, '');
   assert.ok(screen.getByRole('heading', { name: 'Monthly subscription' }));
   assert.ok(screen.getByRole('heading', { name: 'One month free trial' }));
-  assert.ok(screen.getByText(/Access is suspended when the trial ends/));
+  assert.ok(screen.getByText(/Companies authorize monthly billing at their saved price per registered vehicle/));
   assert.equal(screen.queryByRole('heading', { name: 'Company subscriptions' }), null);
   assert.equal(screen.queryByRole('table', { name: 'Company subscriptions' }), null);
   assert.equal(screen.queryByLabelText('Search company subscriptions'), null);
@@ -222,7 +224,7 @@ test('Overview combines prefilled company and dispatcher fields and preserves dr
   assert.equal((screen.getByLabelText('Full name') as HTMLInputElement).value, 'First Desk');
   assert.equal((screen.getByLabelText('Email') as HTMLInputElement).value, 'dispatcher');
   assert.equal(screen.queryByLabelText('Company access'), null);
-  assert.deepEqual(screen.getAllByRole('tab').map(tab => tab.textContent), ['Overview', 'Subscription', 'History']);
+  assert.deepEqual(screen.getAllByRole('tab').map(tab => tab.textContent), ['Overview', 'Subscription & billing', 'History']);
   await user.clear(name); await user.type(name, 'Unsaved name');
   screen.getByRole('tab', { name: 'Overview' }).focus();
   await user.keyboard('{End}');
@@ -237,7 +239,7 @@ test('summary cards stay above all company tabs and all account records and acti
   const user = userEvent.setup({ document });
   mount(`/admin/companies/${ACME}`);
   await screen.findByLabelText('Company name');
-  for (const name of ['Overview', 'Subscription', 'History']) {
+  for (const name of ['Overview', 'Subscription & billing', 'History']) {
     await user.click(screen.getByRole('tab', { name }));
     const summary = screen.getByLabelText('Company totals');
     assert.deepEqual(within(summary).getAllByRole('term').map(row => row.textContent), ['Total Shippers', 'Total Drivers', 'Total Orders']);
@@ -556,58 +558,34 @@ test('a company dispatcher session at /admin gets no owner workspace', async () 
   assert.equal(listed, false);
 });
 
-test('company subscription saves its own terms and refreshes revenue without modifying workspace access', async () => {
-  const user = userEvent.setup({ document });
-  let submitted: Parameters<typeof api.updateCompanySubscription>[1] | undefined;
-  let latest = subscription({ currency: 'USD' });
-  let revenueReads = 0;
-  api.companySubscription = async () => latest;
-  api.platformRevenue = async () => { revenueReads++; return revenue(); };
-  api.updateCompanySubscription = async (id, body, key) => {
-    assert.equal(id, ACME); assert.ok(key); submitted = body;
-    latest = subscription({ ...body, version: 2 }); return latest as never;
-  };
-  mount(`/admin/companies/${ACME}/subscription`);
-  await cache.fetchQuery({ queryKey: ['platform', 'revenue'], queryFn: api.platformRevenue, gcTime: Infinity });
-  const form = within(await screen.findByRole('form', { name: 'Company subscription' }));
-  assert.equal(form.queryByLabelText('Subscription currency'), null);
-  assert.equal(screen.queryByText('Trial & workspace access'), null);
-  assert.equal(screen.getByRole('region', { name: 'Company subscription' }).classList.contains('app-panel'), false);
-  await user.click(form.getByRole('combobox', { name: 'Subscription status' }));
-  await user.click(screen.getByRole('option', { name: 'Active' }));
-  fireEvent.change(form.getByLabelText('Subscription start date'), { target: { value: '2026-10-01' } });
-  await user.type(form.getByLabelText('Price per vehicle per month'), '89.95');
-  await user.click(form.getByRole('button', { name: 'Save subscription' }));
-  await screen.findByText('Company subscription saved.');
-  assert.deepEqual(submitted, { version: 1, status: 'ACTIVE', monthly_price: '89.95', currency: 'USD', starts_on: '2026-10-01' });
-  assert.equal((form.getByRole('button', { name: 'Save subscription' }) as HTMLButtonElement).disabled, true);
-  assert.equal(cache.getQueryState(['platform', 'revenue'])?.isInvalidated, true);
-  await user.click(screen.getByRole('link', { name: 'Revenue' }));
-  await screen.findByRole('heading', { name: 'Revenue' });
-  await waitFor(() => assert.equal(revenueReads, 2));
+test('company subscription terms are read only and never submit account or billing changes', async () => {
+  let writes = 0;
+  api.companySubscription = async () => subscription({ status: 'ACTIVE', monthly_price: '89.95', currency: 'USD', starts_on: '2026-10-01' }) as never;
+  api.updateCompanySubscription = async () => { writes++; throw new Error('Read-only view cannot save terms.'); };
+  api.startCardSetup = async () => { writes++; throw new Error('Admin cannot add payment methods.'); };
+  api.confirmCardSetup = async () => { writes++; throw new Error('Admin cannot verify setup.'); };
+  mount(`/admin/companies/${ACME}/subscription?card_setup=cs_test_legacy`);
+  const panel = within(await screen.findByRole('tabpanel', { name: 'Subscription & billing' }));
+  await screen.findByRole('definition', { name: 'Price per vehicle per month' });
+  assert.equal(panel.getByRole('definition', { name: 'Price per vehicle per month' }).textContent, 'USD 89.95');
+  assert.equal(panel.getByRole('definition', { name: 'Subscription status' }).textContent, 'Active');
+  assert.equal(panel.getByRole('definition', { name: 'Subscription start date' }).textContent, '2026-10-01');
+  assert.equal(panel.getByRole('definition', { name: 'Currency' }).textContent, 'USD');
+  assert.equal(screen.getByRole('tabpanel', { name: 'Subscription & billing' }).querySelector('input, select, textarea, form'), null);
+  assert.equal(panel.queryByRole('button', { name: /Save subscription|Add payment method|Replace payment method/ }), null);
+  assert.equal(panel.queryByRole('tablist'), null);
+  assert.equal(writes, 0);
 });
 
-test('company subscription keeps its draft and retry key through failure and reloads version conflicts explicitly', async () => {
-  const user = userEvent.setup({ document });
-  const keys: string[] = [];
-  api.updateCompanySubscription = async (_id, _body, key) => { keys.push(key); throw new ApiError(503, 'Subscription connection interrupted.'); };
+test('read-only company subscription updates when the saved terms refresh', async () => {
+  api.companySubscription = async () => subscription({ monthly_price: '39.99', currency: 'CAD' }) as never;
   mount(`/admin/companies/${ACME}/subscription`);
-  await screen.findByLabelText('Price per vehicle per month');
-  await user.type(screen.getByLabelText('Price per vehicle per month'), '39.99');
-  for (let attempt = 0; attempt < 2; attempt++) {
-    await user.click(screen.getByRole('button', { name: 'Save subscription' }));
-    await waitFor(() => assert.equal(keys.length, attempt + 1));
-    await screen.findByText('Subscription connection interrupted.');
-  }
-  assert.equal(keys[0], keys[1]);
-  api.updateCompanySubscription = async () => { throw new ApiError(409, 'Company subscription changed. Reload before continuing.'); };
-  await user.click(screen.getByRole('button', { name: 'Save subscription' }));
-  await screen.findByRole('button', { name: 'Reload latest subscription' });
+  const price = await screen.findByRole('definition', { name: 'Price per vehicle per month' });
+  assert.equal(price.textContent, 'CAD 39.99');
   api.companySubscription = async () => subscription({ monthly_price: '60.00', version: 2 }) as never;
   await cache.invalidateQueries({ queryKey: ['platform', 'subscription', ACME] });
-  assert.equal((screen.getByLabelText('Price per vehicle per month') as HTMLInputElement).value, '39.99');
-  await user.click(screen.getByRole('button', { name: 'Reload latest subscription' }));
-  await waitFor(() => assert.equal((screen.getByLabelText('Price per vehicle per month') as HTMLInputElement).value, '60.00'));
+  await waitFor(() => assert.equal(price.textContent, 'CAD 60.00'));
+  assert.equal(screen.queryByRole('button', { name: 'Save subscription' }), null);
 });
 
 test('platform revenue renders currencies independently, explains projections and links to company subscriptions', async () => {
@@ -635,8 +613,8 @@ test('platform revenue renders currencies independently, explains projections an
   assert.ok(screen.getByRole('table', { name: 'Company subscriptions' }));
   assert.equal(screen.queryByRole('heading', { name: 'Recurring revenue' }), null);
   assert.equal(screen.queryByText(/Collected revenue is unavailable/), null);
-  await user.click(screen.getByRole('link', { name: 'Manage Acme Dispatch subscription' }));
-  await screen.findByRole('tabpanel', { name: 'Subscription' });
+  await user.click(screen.getByRole('link', { name: 'View Acme Dispatch subscription' }));
+  await screen.findByRole('tabpanel', { name: 'Subscription & billing' });
   assert.equal(location.pathname, `/admin/companies/${ACME}/subscription`);
 });
 
@@ -685,4 +663,22 @@ test('subscription money keeps exact cents for large platform sums', async () =>
   assert.equal(subscriptionMoney('900719925474099.91', 'CAD'), 'CAD 900,719,925,474,099.91');
   assert.equal(subscriptionMoney('0.00', 'USD'), 'USD 0.00');
   assert.equal(subscriptionMoney(null, 'CAD'), 'Not set');
+});
+
+
+test('company Subscription and billing displays the saved customer payment method', async () => {
+  api.paymentMethod = async () => ({status:'SAVED',required:false,setup_available:true,monthly_price:'10.00',currency:'CAD',vehicle_count:0,monthly_total:'0.00',terms_version:1,subscription_status:'active',sync_error:false,trial_ends_at:null,brand:'visa',last4:'4242',exp_month:12,exp_year:2030});
+  mount(`/admin/companies/${ACME}/subscription`);
+  await screen.findByRole('tabpanel',{name:'Subscription & billing'});
+  assert.ok(await screen.findByText('visa •••• 4242'));
+  const panel = screen.getByRole('tabpanel',{name:'Subscription & billing'});
+  const card = within(panel).getByRole('region',{name:'Payment method'});
+  const payments = within(panel).getByRole('region',{name:'Payment history'});
+  assert.equal(panel.firstElementChild?.firstElementChild, card);
+  assert.equal(card.nextElementSibling, payments);
+  assert.equal(within(card).queryByRole('button'),null);
+  assert.equal(within(card).queryByRole('checkbox'),null);
+  assert.equal(within(panel).queryByRole('tablist'),null);
+  assert.ok(within(payments).getByRole('heading',{name:'Payment history'}));
+  assert.equal(screen.queryByRole('tab',{name:'Payment method'}),null);
 });

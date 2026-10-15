@@ -152,7 +152,7 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label htmlFor="company-contact-name" className="app-label">
-                    Contact Full Name
+                    Full Name
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />

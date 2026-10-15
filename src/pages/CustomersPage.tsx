@@ -31,6 +31,8 @@ import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
 import { ContactInput } from '../components/ui/ContactInput';
 import { formatPhone } from '../lib/phone';
+import { loadDrivers } from '../lib/driverStorage';
+import { INITIAL_DRIVERS } from '../data/mockData';
 import { DirectoryPasswordForm } from '../components/entities/DirectoryPasswordForm';
 
 interface CustomersPageProps {
@@ -53,6 +55,10 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const queryClient = useQueryClient();
   const shipperQuery = useQuery({ queryKey: ['operations', slug, 'shippers'], queryFn: () => allOperations.shippers(slug!), enabled: !!slug });
   const ratesQuery = useQuery({ queryKey: ['operations', slug, 'rates'], queryFn: () => allOperations.rates(slug!), enabled: !!slug });
+  const driverQuery = useQuery({ queryKey: ['operations', slug, 'drivers'], queryFn: () => allOperations.drivers(slug!), enabled: !!slug });
+  const [localDrivers] = useState(() => slug ? [] : loadDrivers(INITIAL_DRIVERS));
+  const driverOptions = slug ? (driverQuery.data ?? []).filter(d => d.active && !d.archived_at).map(d => ({ value: d.id, label: `${d.name} (${d.number})` }))
+    : localDrivers.filter(d => d.accountStatus !== 'INACTIVE').map(d => ({ value: d.id, label: `${d.name} (${d.driverNumber ?? d.id})` }));
   const [localCustomers, setCustomers] = useState<Customer[]>(() => slug ? [] : loadCustomers());
   const customers = slug ? (shipperQuery.data ?? []).map(shipperToCustomer) : localCustomers;
   const [warehouseCoordinates, setWarehouseCoordinates] = useState<SelectedAddress | undefined>();
@@ -127,6 +133,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     setWarehouseCoordinates(undefined);
     setFormData({
       name: '',
+      assignedDriverId: null,
       customerType: 'BUSINESS',
       legalName: '',
       contactName: '',
@@ -375,7 +382,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                             customer.status === 'Preferred'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : customer.status === 'Active'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              ? 'bg-app-accent-soft text-app-accent border-app-accent/20'
                               : customer.status === 'On Hold'
                               ? 'bg-amber-50 text-amber-700 border-amber-200'
                               : 'bg-slate-100 text-slate-700 border-slate-200'
@@ -429,7 +436,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 selectedCustomerForView.status === 'Preferred'
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : selectedCustomerForView.status === 'Active'
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  ? 'bg-app-accent-soft text-app-accent border-app-accent/20'
                   : selectedCustomerForView.status === 'On Hold'
                   ? 'bg-amber-50 text-amber-700 border-amber-200'
                   : 'bg-slate-100 text-slate-700 border-slate-200'
@@ -462,6 +469,11 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 Email: <a href={`mailto:${selectedCustomerForView.email}`} className="hover:underline">{selectedCustomerForView.email}</a>,
                 'Primary facility address': selectedCustomerForView.address,
               }} />
+            </section>
+
+            <section className="space-y-3" aria-label="Driver assignment">
+              <h4 className="app-section-title">Driver assignment</h4>
+              <ReadFields values={{ 'Assigned driver': selectedCustomerForView.assignedDriverId ? driverOptions.find(d => d.value === selectedCustomerForView.assignedDriverId)?.label ?? selectedCustomerForView.assignedDriverName ?? 'Saved driver (unavailable)' : 'No assigned driver' }} />
             </section>
 
             <section className="space-y-3" aria-label="Pricing relationship">
@@ -513,6 +525,21 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
               <FormSection title="Billing">
                 <div><span className="app-label">Shipper rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.filter(c => !importedCardIds.has(c.id) || c.id === formData.rateCardId).map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">New orders start on it; dispatch can change it per order.</span></div>
+              </FormSection>
+
+              <FormSection title="Driver assignment">
+                <div className="sm:col-span-2">
+                  <span className="app-label">Assigned driver</span>
+                  <Select aria-label="Assigned driver" className="w-full" value={formData.assignedDriverId ?? ''}
+                    disabled={!!slug && driverQuery.isPending}
+                    onValueChange={value => setFormData({ ...formData, assignedDriverId: value || null })}
+                    options={[{ value: '', label: 'No assigned driver' }, ...driverOptions,
+                      ...(formData.assignedDriverId && !driverOptions.some(d => d.value === formData.assignedDriverId)
+                        ? [{ value: formData.assignedDriverId, label: `${formData.assignedDriverName ?? 'Saved driver'} (unavailable)` }] : [])]} />
+                  <p className="mt-1 text-xs text-slate-500">New orders require this driver. Auto dispatch waits until they are available. Existing orders keep their saved assignment.</p>
+                  {slug && driverQuery.isPending && <p role="status" className="mt-1 text-xs text-slate-500">Loading drivers…</p>}
+                  {slug && driverQuery.error && <p role="alert" className="mt-1 text-xs text-rose-700">Could not load drivers. <button type="button" className="underline" onClick={() => void driverQuery.refetch()}>Retry</button></p>}
+                </div>
               </FormSection>
 
               <section aria-label="Discount" className="space-y-3">

@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 /** Public pages share the brand, login action and responsive gutters. */
 export function PublicHeader() {
   return <header className="mx-auto flex w-full max-w-7xl shrink-0 items-center justify-between gap-6 px-6 py-6 lg:px-10">
-    <a href="/" aria-label="Dispatra home" className="inline-flex items-center gap-2.5 text-xl font-medium tracking-tight"><BrandLogo /></a>
+    <a href="/" aria-label="Dispatra home" className="inline-flex min-w-0 items-center gap-2.5 text-xl font-medium tracking-tight"><BrandLogo /></a>
     <Button asChild className="px-5"><a href="/login">Login</a></Button>
   </header>;
 }

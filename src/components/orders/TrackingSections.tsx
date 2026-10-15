@@ -17,7 +17,7 @@ export function TrackingSummary({ tracking: t, timeZone, title, showDriver = tru
     {step >= 0 && <ol className="grid grid-cols-5 gap-1" aria-label="Shipment progress">{STEPS.map((label, index) => {
       const done = index < step || t.stage === 'DELIVERED'; const current = index === step && t.stage !== 'DELIVERED';
       return <li key={label} aria-current={current ? 'step' : undefined} className="space-y-1.5">
-        <div className={`h-1.5 rounded-full ${done ? 'bg-emerald-500' : current ? 'bg-blue-600' : 'bg-slate-200'}`} />
+        <div className={`h-1.5 rounded-full ${done ? 'bg-emerald-500' : current ? 'bg-app-accent' : 'bg-slate-200'}`} />
         <p className={`text-[11px] leading-tight ${done || current ? 'font-medium text-slate-800' : 'text-slate-400'}`}>{label}</p>
       </li>;
     })}</ol>}
@@ -35,12 +35,12 @@ export function TrackingDetails({ tracking: t, timeZone, now, showLocationStatus
       <div className="min-w-0 space-y-4">
       {showDriverContact && t.driver && <TrackingDriverContact driver={t.driver} onMessage={onMessageDriver} />}
       <div><p className="app-label">Stops</p><ul className="mt-1 space-y-2">{t.stops.map((stop, index) => <li key={stop.id} className="flex gap-2">
-        <span className={`mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-full text-[10px] font-semibold text-white ${stop.completed_at ? 'bg-emerald-500' : stop.kind === 'PICKUP' ? 'bg-slate-700' : 'bg-blue-600'}`}>{stop.completed_at ? <Check className="h-3 w-3" /> : stop.kind === 'PICKUP' ? 'P' : 'D'}</span>
+        <span className={`mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-full text-[10px] font-semibold text-white ${stop.completed_at ? 'bg-emerald-500' : stop.kind === 'PICKUP' ? 'bg-slate-700' : 'bg-app-accent'}`}>{stop.completed_at ? <Check className="h-3 w-3" /> : stop.kind === 'PICKUP' ? 'P' : 'D'}</span>
         <div className="min-w-0"><p className="truncate text-slate-800">{index + 1}. {stop.address.text}</p>
           <p className="text-xs text-slate-500">{stop.completed_at ? `${stop.kind === 'PICKUP' ? 'Picked up' : 'Delivered'} ${formatWhen(stop.completed_at, timeZone)}` : stop.arrived_at ? `Driver arrived ${time(stop.arrived_at, timeZone)}` : stop.eta && trackingMoving(t) ? `ETA ${time(stop.eta, timeZone)}` : stop.planned_at ? `Planned ${formatWhen(stop.planned_at, timeZone)}` : 'Not yet scheduled'}</p></div>
       </li>)}</ul></div></div>
       <div><p className="app-label">Timeline</p><ol className="mt-1 space-y-2 border-l border-slate-200 pl-3">{[...t.events].reverse().map((event, index) => <li key={`${event.kind}-${event.at}`} className="relative">
-        <span className={`absolute -left-[17px] top-1.5 h-2 w-2 rounded-full ${index === 0 ? 'bg-blue-600' : event.kind === 'ISSUE' ? 'bg-amber-500' : 'bg-slate-300'}`} />
+        <span className={`absolute -left-[17px] top-1.5 h-2 w-2 rounded-full ${index === 0 ? 'bg-app-accent' : event.kind === 'ISSUE' ? 'bg-amber-500' : 'bg-slate-300'}`} />
         <p className={index === 0 ? 'font-medium text-slate-900' : 'text-slate-700'}>{event.label}</p><p className="text-xs text-slate-500">{formatWhen(event.at, timeZone)}</p>
       </li>)}</ol></div>
     </div>

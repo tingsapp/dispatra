@@ -21,6 +21,9 @@ export interface Customer extends CustomerOperations {
   // ---- Pricing relationship (see types/pricing.ts) ----
   /** Customer-specific Rate Card. `null` = inherit from organization. */
   rateCardId: string | null;
+  /** Standing driver for new Orders; absent on older records. */
+  assignedDriverId?: string | null;
+  assignedDriverName?: string | null;
   /** Legacy quote context only; ignored for new pricing. */
   customerGroupId?: string | null;
   /** Negotiated discount applied to this shipper across all rate cards. */
@@ -287,7 +290,7 @@ export function normalizeCustomer(stored: Customer): Customer {
     else addresses.push(updatedPrimary);
   }
   const current = Object.fromEntries(Object.entries(c).filter(([key]) => key !== 'paymentTerms')) as unknown as Customer;
-  return { customerType: 'BUSINESS', legalName: c.name, currency: 'CAD',
+  return { assignedDriverId: null, customerType: 'BUSINESS', legalName: c.name, currency: 'CAD',
     communicationPreferences: { sms: false, email: true, tracking: true }, ...current, address, addresses, status: c.status === 'Preferred' ? 'Active' : c.status,
     tags: [...new Set([...(c.tags ?? []), ...(c.status === 'Preferred' ? ['Preferred'] : [])])] };
 }

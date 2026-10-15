@@ -17,7 +17,7 @@ export function SubscriptionBillingPage() {
       <Card title="One month free trial" description={`Every new company gets ${plan.data.trial_days} days to try Dispatra.`}>
         <div className="space-y-4 text-sm">
           <p className="text-3xl font-semibold text-app-text">Free <span className="text-sm font-normal text-app-muted">for {plan.data.trial_days} days</span></p>
-          <p className="text-app-muted">No credit card required. Access is suspended when the trial ends, until an admin activates the company.</p>
+          <p className="text-app-muted">No credit card required during the trial. Companies authorize monthly billing at their saved price per registered vehicle to continue after the trial.</p>
           <a href="/signup" className="inline-block text-app-text underline underline-offset-4">Open trial signup</a>
         </div>
       </Card>

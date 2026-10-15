@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 export type TabItem = { id: string; label: string; content: ReactNode; disabled?: boolean; hidden?: boolean; pageWidth?: 'reading' | 'wide' };
 
 /** Accessible local navigation. Mounted panels preserve drafts and navigation guards. */
-export function Tabs({ label, items, keepMounted = true, initialActiveId }: { label: string; items: TabItem[]; keepMounted?: boolean; initialActiveId?: string }) {
+export function Tabs({ label, items, keepMounted = true, initialActiveId, hideTabList = false }: { label: string; items: TabItem[]; keepMounted?: boolean; initialActiveId?: string; hideTabList?: boolean }) {
   const visibleItems = items.filter(item => !item.hidden);
   const [active, setActive] = useState(visibleItems.find(item => item.id === initialActiveId && !item.disabled)?.id ?? visibleItems.find(item => !item.disabled)?.id);
   const activeId = visibleItems.some(item => item.id === active && !item.disabled) ? active : visibleItems.find(item => !item.disabled)?.id;
@@ -11,7 +11,7 @@ export function Tabs({ label, items, keepMounted = true, initialActiveId }: { la
   const id = useId();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   return <div className="min-w-0 space-y-5" data-page-width={items.find(item => item.id === activeId)?.pageWidth}>
-    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto pb-1">
+    <div role="tablist" aria-label={label} hidden={hideTabList} className="flex gap-1 overflow-x-auto pb-1">
       {visibleItems.map((item, index) => <button key={item.id} type="button" role="tab"
         ref={node => { buttons.current[index] = node; }}
         id={`${id}-tab-${item.id}`} aria-controls={`${id}-panel-${item.id}`}
@@ -27,8 +27,8 @@ export function Tabs({ label, items, keepMounted = true, initialActiveId }: { la
           event.preventDefault(); setActive(visibleItems[next].id); buttons.current[next]?.focus();
         }}>{item.label}</button>)}
     </div>
-    {items.map(item => <div key={item.id} role="tabpanel" id={`${id}-panel-${item.id}`}
-      aria-labelledby={`${id}-tab-${item.id}`} hidden={item.hidden || activeId !== item.id} tabIndex={0} className="space-y-5">
+    {items.map(item => <div key={item.id} role={hideTabList ? 'region' : 'tabpanel'} id={`${id}-panel-${item.id}`}
+      aria-label={hideTabList ? item.label : undefined} aria-labelledby={hideTabList ? undefined : `${id}-tab-${item.id}`} hidden={item.hidden || activeId !== item.id} tabIndex={0} className="space-y-5">
       {(keepMounted || activeId === item.id) && item.content}
     </div>)}
   </div>;

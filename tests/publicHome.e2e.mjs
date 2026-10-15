@@ -29,7 +29,7 @@ try {
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(origin);
-  assert.equal(await page.getByLabel('Workspace', { exact: true }).count(), 1);
+  assert.equal(await page.getByLabel('Workspace', { exact: true }).count(), 0);
   assert.equal(await page.getByRole('radio').count(), 0);
   assert.equal(await page.getByRole('banner').getByRole('link').count(), 2);
   assert.equal(await page.getByRole('banner').getByRole('link', {name:'Login',exact:true}).getAttribute('href'), '/login');
@@ -38,13 +38,12 @@ try {
   await page.getByRole('heading', {name:'Sign in',exact:true}).waitFor();
   await page.goBack();
   await page.waitForURL(origin + '/');
-  await page.getByLabel('Workspace', { exact: true }).fill('my-company');
-  await page.getByRole('button', { name: 'Start trial', exact: true }).click();
-  await page.waitForURL(origin + '/signup?company=my-company');
+  await page.getByRole('link', { name: 'Start Free Trial', exact: true }).click();
+  await page.waitForURL(origin + '/signup');
   await page.getByRole('heading', { name: 'Monthly plan' }).waitFor();
   await page.getByRole('button', { name: 'Start free trial', exact: true }).click();
   await page.getByRole('dialog', { name: 'Start your free trial' }).waitFor();
-  assert.equal(await page.getByLabel('Workspace', { exact: true }).inputValue(), 'my-company');
+  assert.equal(await page.getByLabel('Workspace', { exact: true }).inputValue(), '');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.getByRole('link', { name: 'Sign in', exact: true }).click();
   await page.waitForURL(origin + '/login');

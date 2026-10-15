@@ -30,15 +30,17 @@ export function DispatraConnectorCard() {
     <div className="flex items-center gap-3.5">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-app-hover"><BrandMark /></div>
       <div className="min-w-0 flex-1"><h3 className="text-base font-medium text-app-text">Dispatra</h3>
-        <p className="mt-1 text-xs text-app-muted">Checked: use Dispatra TMS. Unchecked: connect an External TMS.</p>
+        <p className="relative mt-1 text-xs text-app-muted">
+          <span className={mutation.isPending ? 'invisible' : ''}>Checked: use Dispatra TMS. Unchecked: connect an External TMS.</span>
+          {mutation.isPending && <span role="status" className="absolute inset-0">Switching workspace…</span>}
+        </p>
       </div>
       <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-app-hover">
-        <input type="checkbox" className="app-checkbox" checked={workspace ? !workspace.settings.data.tms_workspace : false}
+        <input type="checkbox" data-workspace-mode-toggle className="app-checkbox" checked={workspace ? !workspace.settings.data.tms_workspace : false}
           disabled={!workspace || mutation.isPending} onChange={event => mutation.mutate(event.target.checked)} />
         <span className="sr-only">{TMS_INTEGRATION_LABEL}</span>
       </label>
     </div>
-    {mutation.isPending && <p role="status" className="mt-2 pl-[54px] text-xs text-app-muted">Saving…</p>}
     <Notice error={mutation.error} />
   </article>;
 }

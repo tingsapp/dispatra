@@ -35,14 +35,14 @@ try {
   assert.equal(await page.getByLabel('Company name', { exact: true }).inputValue(), original.company_name);
   assert.equal(await page.getByText('Wrong local person', { exact: true }).count(), 0);
   await page.getByLabel('Company name', { exact: true }).fill('Dispatra Demo verification');
-  await page.getByLabel('Contact Full Name', { exact: true }).fill('Profile Verification');
+  await page.getByLabel('Full Name', { exact: true }).fill('Profile Verification');
   await page.getByLabel('Phone', { exact: true }).fill('6045550155');
   await page.getByLabel('Company address', { exact: true }).fill('123 Demo Street, Vancouver, BC V5Y 1V4');
   await page.getByRole('button', { name: 'Save Company', exact: true }).click();
   await page.getByText('Changes saved.', { exact: true }).waitFor();
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.getByLabel('Email', { exact: true }).waitFor();
-  assert.equal(await page.getByLabel('Contact Full Name', { exact: true }).inputValue(), 'Profile Verification');
+  assert.equal(await page.getByLabel('Full Name', { exact: true }).inputValue(), 'Profile Verification');
   assert.equal(await page.getByLabel('Company address', { exact: true }).inputValue(), '123 Demo Street, Vancouver, BC V5Y 1V4');
   const me = await (await context.request.get(`${origin}/api/v1/auth/me`)).json();
   assert.equal(me.organization.name, 'Dispatra Demo verification');

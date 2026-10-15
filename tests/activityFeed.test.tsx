@@ -34,53 +34,105 @@ function mount(active = true) {
   return render(<QueryClientProvider client={cache}><Actions active={active} /></QueryClientProvider>);
 }
 
-test('activity opens without focusing close, ignores outside/Escape, and toggles from its trigger', async () => {
+test('Ask Dispatra starts collapsed and expands on keyboard focus without replacing the input or losing drafts', async () => {
   let reads = 0;
   operations.activity = async slug => { assert.equal(slug, 'acme'); reads++; return page([entry('AGENT:1', 'Reading the order queue.')]); };
   const view = mount(); const user = userEvent.setup({ document });
-  const trigger = screen.getByRole('button', { name: 'Dispatra AI' });
-  const panel = await screen.findByRole('dialog', { name: 'Dispatra AI' });
+  const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
+  assert.equal(input.getAttribute('placeholder'), 'Ask Dispatra...');
+  assert.equal(input.getAttribute('aria-expanded'), 'false');
+  assert.equal(reads, 0);
+  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra' }), null);
+  assert.equal(screen.queryByRole('button', { name: 'Dispatra' }), null);
+  await user.tab();
+  const panel = await screen.findByRole('dialog', { name: 'Dispatra' });
+  assert.ok(within(panel).getByRole('heading', { name: 'Live activity' }));
+  const toggle = within(panel).getByRole('button', { name: 'Show chat' });
+  assert.equal(toggle.querySelectorAll('circle').length, 2);
+  assert.equal(toggle.querySelector('svg')?.getAttribute('width'), '16');
+  assert.deepEqual(Array.from(toggle.querySelectorAll('g')).map(group => group.getAttribute('stroke')), ['#1447e6', '#0d0d0d']);
   await within(panel).findByText('Reading the order queue.');
+  const activityList = screen.getByRole('list', { name: 'Recent order and agent activity' });
   assert.equal(reads, 1);
-  assert.notEqual(document.activeElement, within(panel).getByRole('button', { name: 'Close Dispatra AI' }));
+  assert.equal(document.activeElement, input);
+  assert.equal(within(panel).getByRole('textbox', { name: 'Message Dispatra' }), input);
+  assert.equal(input.getAttribute('aria-expanded'), 'true');
+  await user.type(input, 'Find my order');
+  await user.click(screen.getByRole('button', { name: 'Show chat' }));
+  assert.ok(within(panel).getByRole('heading', { name: 'Dispatra' }));
+  assert.deepEqual(Array.from(within(panel).getByRole('button', { name: 'Show live activity' }).querySelectorAll('g')).map(group => group.getAttribute('stroke')), ['#0d0d0d', '#1447e6']);
+  assert.equal(screen.queryByRole('list', { name: 'Recent order and agent activity' }), null);
+  assert.equal((input as HTMLTextAreaElement).value, 'Find my order');
+  await user.click(screen.getByRole('button', { name: 'Show live activity' }));
+  assert.ok(within(panel).getByRole('heading', { name: 'Live activity' }));
+  assert.ok(screen.getByRole('list', { name: 'Recent order and agent activity' }));
+  assert.equal(screen.getByRole('list', { name: 'Recent order and agent activity' }), activityList, 'switching views retains the feed rather than clearing and replaying it');
   assert.equal(within(panel).queryByRole('button', { name: 'View history' }), null);
   assert.equal(panel.querySelector('[class*="border-t"]'), null);
   await user.click(document.body);
-  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra' }));
   await user.keyboard('{Escape}');
-  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
-  await user.click(trigger);
-  await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Dispatra AI' }), null));
-  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
-  await user.click(trigger);
-  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
-  assert.equal(document.activeElement, trigger);
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra' }));
+  await user.click(screen.getByRole('button', { name: 'Close Dispatra' }));
+  await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Dispatra' }), null));
+  assert.equal(input.getAttribute('aria-expanded'), 'false');
+  assert.equal((input as HTMLTextAreaElement).value, 'Find my order');
+  await user.click(input);
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra' }));
+  assert.equal(document.activeElement, input);
   await user.click(screen.getByRole('button', { name: /^Notifications/ }));
   await screen.findByRole('dialog', { name: 'Notifications' });
   await user.click(document.body);
   await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Notifications' }), null));
-  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
-  await user.click(screen.getByRole('button', { name: 'Close Dispatra AI' }));
-  await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Dispatra AI' }), null));
-  assert.equal(document.activeElement, trigger);
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra' }));
+  await user.click(screen.getByRole('button', { name: 'Close Dispatra' }));
+  await waitFor(() => assert.equal(screen.queryByRole('dialog', { name: 'Dispatra' }), null));
+  assert.equal(screen.getByRole('textbox', { name: 'Message Dispatra' }), input);
   view.rerender(<QueryClientProvider client={cache}><Actions active /></QueryClientProvider>);
-  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra AI' }), null, 'refreshing the page data must not reopen dismissed Activity');
-  await user.click(trigger);
-  assert.ok(screen.getByRole('dialog', { name: 'Dispatra AI' }));
+  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra' }), null, 'refreshing the page data must not reopen dismissed Activity');
+  await user.click(input);
+  assert.ok(screen.getByRole('dialog', { name: 'Dispatra' }));
 });
 
 test('activity streams without pause, play or history controls', async () => {
   let reads = 0;
   operations.activity = async () => { reads++; return page([entry('AGENT:1', 'Reading the order queue.')]); };
   mount(); const user = userEvent.setup({ document });
-  const panel = await screen.findByRole('dialog', { name: 'Dispatra AI' });
+  await user.click(screen.getByRole('textbox', { name: 'Message Dispatra' }));
+  const panel = await screen.findByRole('dialog', { name: 'Dispatra' });
   await within(panel).findByText('Reading the order queue.');
   assert.equal(within(panel).queryByRole('button', { name: /Pause|Resume|View history/ }), null);
-  assert.deepEqual(within(panel).getAllByRole('button').map(button => button.getAttribute('aria-label')), ['Close Dispatra AI', 'Send message']);
+  assert.deepEqual(within(panel).getAllByRole('button').map(button => button.getAttribute('aria-label')), ['Show chat', 'Close Dispatra', 'Send message']);
   const count = reads;
   await act(async () => { await cache.invalidateQueries({ queryKey: [...activityKey('acme'), 'latest'] }); });
   assert.ok(reads > count);
-  assert.ok(screen.getByText('Live activity'));
+  assert.ok(screen.getByRole('heading', { name: 'Live activity' }));
+});
+
+test('view layers switch access immediately and preserve both panes through rapid toggles', async () => {
+  reduced = true;
+  mount(); const user = userEvent.setup({ document });
+  await user.click(screen.getByRole('textbox', { name: 'Message Dispatra' }));
+  await screen.findByText('Reading the order queue.');
+  const conversation = screen.getByRole('log', { name: 'Dispatra conversation', hidden: true });
+  const chatPane = conversation.closest('.assistant-view-layer')!;
+  const activityList = screen.getByRole('list', { name: 'Recent order and agent activity' });
+  const activityPane = activityList.closest('.assistant-view-layer')!;
+  assert.equal(chatPane.getAttribute('aria-hidden'), 'true');
+  assert.ok(chatPane.hasAttribute('inert'));
+  assert.equal(activityPane.getAttribute('data-active'), 'true');
+  for (let index = 0; index < 3; index++) {
+    await user.click(screen.getByRole('button', { name: 'Show chat' }));
+    assert.equal(screen.getByRole('log', { name: 'Dispatra conversation' }), conversation);
+    assert.equal(chatPane.getAttribute('data-active'), 'true');
+    assert.equal(chatPane.hasAttribute('inert'), false);
+    assert.ok(activityPane.hasAttribute('inert'));
+    assert.equal(screen.getAllByRole('heading').length, 1);
+    await user.click(screen.getByRole('button', { name: 'Show live activity' }));
+    assert.equal(screen.getByRole('list', { name: 'Recent order and agent activity' }), activityList);
+    assert.equal(activityPane.hasAttribute('inert'), false);
+    assert.ok(chatPane.hasAttribute('inert'));
+  }
 });
 
 test('opening rows and new records slide upward once in chronological order; reduced motion respects visibility', async () => {
@@ -109,10 +161,55 @@ test('reduced motion shows the latest recorded rows immediately without the open
   assert.ok(screen.getByText('First saved step.'));
 });
 
+test('console rows retain recorded time, actor, severity and order context without inventing agent work', async () => {
+  const driver: CompanyActivityEntry = { ...entry('EVENT:driver', 'Arrival recorded'), source: 'EVENT', actor: 'DRIVER', agent: null, kind: 'stop.arrived', order_number: '#1042' };
+  const warning: CompanyActivityEntry = { ...entry('AGENT:warning', 'Assignment needs review'), agent: 'DISPATCH', level: 'WARNING' };
+  const error: CompanyActivityEntry = { ...entry('AGENT:error', 'Email processing failed'), level: 'ERROR' };
+  render(<ActivityLog entries={[error, warning, driver]} active reducedMotion timeZone="America/Vancouver" />);
+  const rows = screen.getAllByRole('listitem');
+  assert.equal(rows[0].querySelector('time')?.getAttribute('dateTime'), driver.created_at);
+  assert.ok(rows[0].querySelector('time')?.textContent?.startsWith('02:00:00'));
+  assert.ok(within(rows[0]).getByText('[Driver]'));
+  assert.ok(within(rows[0]).getByText('#1042'));
+  assert.ok(within(rows[0]).getByText('INFO'));
+  assert.ok(within(rows[1]).getByText('[Dispatch agent]'));
+  assert.ok(within(rows[1]).getByText('WARNING').className.includes('text-amber-700'));
+  assert.ok(within(rows[2]).getByText('ERROR').className.includes('text-rose-700'));
+  assert.ok(rows.every(row => row.className.includes('font-mono')));
+  assert.equal(screen.queryByText(/Working|Processing|Thinking/), null);
+});
+
+test('the console shows the latest six saved entries and does not replay unchanged records', async () => {
+  const entries = Array.from({ length: 8 }, (_, index) => entry(`AGENT:${8 - index}`, `Saved step ${8 - index}`));
+  const view = render(<ActivityLog entries={entries} active reducedMotion />);
+  const identities = () => screen.getAllByRole('listitem').map(row => row.getAttribute('data-activity-entry'));
+  assert.deepEqual(identities(), ['AGENT:3', 'AGENT:4', 'AGENT:5', 'AGENT:6', 'AGENT:7', 'AGENT:8']);
+  view.rerender(<ActivityLog entries={[...entries]} active reducedMotion />);
+  assert.deepEqual(identities(), ['AGENT:3', 'AGENT:4', 'AGENT:5', 'AGENT:6', 'AGENT:7', 'AGENT:8']);
+  view.rerender(<ActivityLog entries={[entry('AGENT:9', 'New saved step'), ...entries]} active reducedMotion />);
+  await screen.findByText('New saved step');
+  assert.deepEqual(identities(), ['AGENT:4', 'AGENT:5', 'AGENT:6', 'AGENT:7', 'AGENT:8', 'AGENT:9']);
+});
+
+test('activity refresh indication follows the actual read rather than implying a running agent', async () => {
+  mount(); const user = userEvent.setup({ document });
+  await user.click(screen.getByRole('textbox', { name: 'Message Dispatra' }));
+  await screen.findByText('Watching for new activity');
+  let finish: () => void = () => {};
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  operations.activity = async () => { await pending; return page([entry('AGENT:1', 'Reading the order queue.')]); };
+  await act(async () => { void cache.invalidateQueries({ queryKey: [...activityKey('acme'), 'latest'] }); });
+  await screen.findByText('Refreshing activity…');
+  await act(async () => { finish(); });
+  await screen.findByText('Watching for new activity');
+  assert.equal(screen.queryByText('Refreshing activity…'), null);
+});
+
 test('hidden or inactive maps do not refresh and failed refresh keeps saved rows explicit', async () => {
   let fail = false, reads = 0;
   operations.activity = async () => { reads++; if (fail) throw new Error('Activity refresh unavailable.'); return page([entry('AGENT:1', 'Reading the order queue.')]); };
   mount(); const user = userEvent.setup({ document });
+  await user.click(screen.getByRole('textbox', { name: 'Message Dispatra' }));
   await screen.findByText('Reading the order queue.');
   Object.defineProperty(document, 'hidden', { configurable: true, value: true });
   await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
@@ -127,33 +224,52 @@ test('hidden or inactive maps do not refresh and failed refresh keeps saved rows
   assert.ok(screen.getByText('Reading the order queue.'));
   cleanup(); cache.clear();
   mount(false);
-  await user.click(screen.getByRole('button', { name: 'Dispatra AI' }));
-  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra AI' }), null);
+  const inactiveInput = screen.getByRole('textbox', { name: 'Message Dispatra' });
+  assert.equal((inactiveInput as HTMLTextAreaElement).disabled, true);
+  await user.click(inactiveInput);
+  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra' }), null);
 });
 
 
-test('a question replaces activity with messages, stops feed refresh and keeps conversation through close/reopen', async () => {
+test('chat and activity can switch during a reply, resume activity refresh and retain conversation through close/reopen', async () => {
   let activityReads = 0;
   operations.activity = async () => { activityReads++; return page([entry('AGENT:1', 'Reading the order queue.')]); };
   let payload: unknown;
-  operations.assistant = async (_slug, body) => { payload = body; return { message: 'Found the requested order.', references: [{ key: 'ORDER:1', kind: 'ORDER', id: '1', label: '#100', detail: 'NEW', order_number: '#100', driver_id: null }], mode: 'AI', observed_at: new Date().toISOString(), limited: false }; };
+  let finishThinking: () => void = () => {};
+  const thinking = new Promise<void>(resolve => { finishThinking = resolve; });
+  operations.assistant = async (_slug, body) => { payload = body; await thinking; return { message: 'Found the requested order.', references: [{ key: 'ORDER:1', kind: 'ORDER', id: '1', label: '#100', detail: 'NEW', order_number: '#100', driver_id: null }], mode: 'AI', observed_at: new Date().toISOString(), limited: false }; };
   mount(); const user = userEvent.setup({ document });
+  await user.click(screen.getByRole('textbox', { name: 'Message Dispatra' }));
   await screen.findByText('Reading the order queue.');
-  const input = screen.getByRole('textbox', { name: 'Message Dispatra AI' });
+  const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
   await user.type(input, 'Find order 100');
   assert.ok(screen.getByRole('list', { name: 'Recent order and agent activity' }), 'typing a draft retains the initial activity feed');
-  assert.equal(screen.queryByRole('log', { name: 'Dispatra AI conversation' }), null);
+  assert.equal(screen.queryByRole('log', { name: 'Dispatra conversation' }), null);
   await user.keyboard('{Enter}');
+  assert.equal(screen.getByRole('status').textContent, 'Thinking...');
+  const activityCount = activityReads;
+  await user.click(screen.getByRole('button', { name: 'Show live activity' }));
+  assert.ok(screen.getByRole('heading', { name: 'Live activity' }));
+  assert.equal(screen.queryByRole('status'), null);
+  await waitFor(() => assert.ok(activityReads > activityCount));
+  const refreshedCount = activityReads;
+  await act(async () => { await cache.invalidateQueries({ queryKey: [...activityKey('acme'), 'latest'] }); });
+  assert.ok(activityReads > refreshedCount);
+  await act(async () => { finishThinking(); });
+  assert.equal(screen.queryByRole('article', { name: 'Dispatra message' }), null, 'a completed reply must not override the selected activity view');
+  assert.ok(screen.getByRole('list', { name: 'Recent order and agent activity' }));
+  await user.click(screen.getByRole('button', { name: 'Show chat' }));
   await screen.findByText('Found the requested order.');
+  assert.ok(screen.getByRole('article', { name: 'Dispatra message' }));
   assert.deepEqual(payload, { message: 'Find order 100', history: [] });
   assert.equal(screen.queryByRole('list', { name: 'Recent order and agent activity' }), null);
-  assert.ok(screen.getByRole('log', { name: 'Dispatra AI conversation' }));
+  assert.ok(screen.getByRole('log', { name: 'Dispatra conversation' }));
   const count = activityReads;
   await act(async () => { await cache.invalidateQueries({ queryKey: [...activityKey('acme'), 'latest'] }); });
   assert.equal(activityReads, count);
-  await user.click(screen.getByRole('button', { name: 'Close Dispatra AI' }));
+  await user.click(screen.getByRole('button', { name: 'Close Dispatra' }));
   await waitFor(() => assert.equal(screen.queryByText('Found the requested order.'), null));
-  await user.click(screen.getByRole('button', { name: 'Dispatra AI' }));
+  await user.click(screen.getByRole('textbox', { name: 'Message Dispatra' }));
   await screen.findByText('Found the requested order.');
   assert.equal(screen.getAllByText('Find order 100').length, 1);
 });
@@ -162,7 +278,7 @@ test('failed questions retain the draft, retry the same payload without duplicat
   const payloads: unknown[] = []; let fail = true;
   operations.assistant = async (_slug, body) => { payloads.push(body); if (fail) throw new Error('Temporarily unavailable'); return { message: 'Recovered answer.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false }; };
   mount(); const user = userEvent.setup({ document });
-  const input = screen.getByRole('textbox', { name: 'Message Dispatra AI' });
+  const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
   await user.type(input, 'Where is my order?{Enter}');
   await screen.findByText('Temporarily unavailable');
   assert.equal((input as HTMLTextAreaElement).value, 'Where is my order?');

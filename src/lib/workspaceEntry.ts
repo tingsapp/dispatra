@@ -21,6 +21,7 @@ export function accountWorkspace(account?: Account): string | undefined {
   if (account.role === 'ADMIN' && !account.organization) return '/admin';
   if (!['DISPATCHER', 'SHIPPER', 'DRIVER'].includes(account.role)) return undefined;
   const slug = workspaceSlug(account.organization?.slug ?? '');
+  if (slug && account.role === 'DISPATCHER' && account.organization?.payment_required) return `/${slug}/profile`;
   if (slug && account.role === 'DISPATCHER' && account.tms_workspace) return `/${slug}/integrations`;
   return slug ? roleHome(slug, account.role) : undefined;
 }
@@ -34,5 +35,5 @@ export function signupDestination(input: string): string | undefined {
 
 /** Monitor is shared by both dispatcher modes; External TMS keeps its other page restrictions. */
 export function dispatcherPageAvailable(page: string | undefined, externalTms: boolean): boolean {
-  return !externalTms || ['monitor', 'profile', 'help', 'integrations'].includes(page ?? '');
+  return !externalTms || ['monitor', 'profile', 'help', 'integrations', 'subscription'].includes(page ?? '');
 }

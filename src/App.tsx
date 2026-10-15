@@ -1,5 +1,6 @@
+import { changeDispatchMode } from './operations/changeDispatchMode';
 import { dateTime } from './lib/dateTimeFormat';
-import { LocateFixed,PanelLeft,Sparkles } from 'lucide-react';
+import { PanelLeft,Sparkles } from 'lucide-react';
 import { AnimatePresence,motion } from 'motion/react';
 import { lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +10,7 @@ import { changeAssignment } from './operations/assignment';
 import { driverToUi } from './operations/adapters';
 import { api } from './portal/api';
 import { companySettingsKey, useWorkspaceAccount } from './portal/WorkspaceAccount';
+import { useWorkspaceTransition } from './components/layout/WorkspaceTransition';
 import { orderToUi } from './operations/orderAdapters';
 import { MonitorActions } from './components/MonitorActions';
 import { DetailModalDialog } from './components/DetailModalDialog';
@@ -38,6 +40,7 @@ import { CustomersPage } from './pages/CustomersPage';
 import { DriversPage } from './pages/DriversPage';
 import { HelpSupportPage } from './pages/HelpSupportPage';
 import { JobsPage } from './pages/JobsPage';
+import { SubscriptionPage } from './pages/SubscriptionPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { RateCardsPage } from './pages/RateCardsPage';
 import { VehiclesPage } from './pages/VehiclesPage';
@@ -50,7 +53,9 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ d
 const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', OPERATIONAL: 'Operational risk', NO_DRIVER: 'No driver' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
 
 export default function App({ onSignOut, loggingOut = false, logoutError }: { onSignOut?: () => void; loggingOut?: boolean; logoutError?: unknown } = {}) {
-  const tmsWorkspace = useWorkspaceAccount()?.settings.data.tms_workspace === true;
+  const savedTmsWorkspace = useWorkspaceAccount()?.settings.data.tms_workspace === true;
+  const presentation = useWorkspaceTransition();
+  const tmsWorkspace = presentation ? !presentation.displayedMode : savedTmsWorkspace;
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = usePageNavigation();
@@ -124,14 +129,9 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const [showNeedsAttentionPopover, setShowNeedsAttentionPopover] = useState<boolean>(false);
   const [showNotificationPopover, setShowNotificationPopover] = useState<boolean>(false);
   const [assistantEntity, setAssistantEntity] = useState<AssistantReference | null>(null);
-  const [showActivityPopover, setShowActivityPopover] = useState(() => activeTab === 'monitor');
-  const activityAutoOpened = useRef(activeTab === 'monitor');
+  const [showActivityPopover, setShowActivityPopover] = useState(false);
   useEffect(() => {
-    if (activeTab !== 'monitor') { setShowActivityPopover(false); return; }
-    if (!activityAutoOpened.current) {
-      activityAutoOpened.current = true;
-      setShowActivityPopover(true);
-    }
+    if (activeTab !== 'monitor') setShowActivityPopover(false);
   }, [activeTab]);
   const [showAccountPopover, setShowAccountPopover] = useState<boolean>(false);
   const [showDriverPopover, setShowDriverPopover] = useState<boolean>(false);
@@ -425,15 +425,21 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     showToast(message);
     await refreshDispatch();
   };
+  const dispatchModePendingRef = useRef(false);
+  const [dispatchModePending, setDispatchModePending] = useState(false);
   const handleDispatchModeChange = async (mode: 'AUTO' | 'MANUAL') => {
+    if (dispatchModePendingRef.current) return;
     if (!slug) { setDispatchMode(mode); showToast(`Dispatch mode set to ${mode === 'AUTO' ? 'Auto' : 'Manual'}`); return; }
     const current = settingsQuery.data;
     if (!current || mode === current.data.dispatch_mode) return;
-    if (mode === 'AUTO' && !(await confirmDialog({ title: 'Turn on auto dispatch?', message: 'Priced orders that are due soon will be assigned to the best available driver automatically. You will be notified of each assignment and of any order no driver can take.', confirmLabel: 'Turn on' }))) return;
+    dispatchModePendingRef.current = true; setDispatchModePending(true);
     try {
-      queryClient.setQueryData(companySettingsKey(slug), await api.saveCompanySettings(slug, { version: current.version, data: { ...current.data, dispatch_mode: mode } }, crypto.randomUUID()));
+      const saved = await changeDispatchMode(slug, current, mode, () => setActiveTab('integrations'));
+      if (!saved) return;
+      queryClient.setQueryData(companySettingsKey(slug), saved);
       showToast(mode === 'AUTO' ? 'Auto dispatch is on.' : 'Auto dispatch is off. Orders wait for a dispatcher.');
     } catch (error) { showToast(error instanceof Error ? error.message : 'Could not change the dispatch mode.'); }
+    finally { dispatchModePendingRef.current = false; setDispatchModePending(false); }
   };
 
   const handleUpdateJob = useCallback((updatedJob: Job) => {
@@ -553,6 +559,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         onLogout={onSignOut}
         onOpenPricing={() => { setModalDialog({ isOpen: false, type: null }); setActiveTab('rate-cards'); }}
         dispatchMode={dispatchMode}
+        dispatchModePending={dispatchModePending || (!!slug && !settingsQuery.data)}
         onDispatchModeChange={handleDispatchModeChange}
         onOpenProfile={handleOpenProfile}
         onOpenHelp={handleOpenHelp}
@@ -584,6 +591,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
           />
         ) : activeTab === 'integrations' ? (
           <IntegrationsPage rates={rateQuery.data ?? []} />
+        ) : activeTab === 'subscription' ? (
+          <SubscriptionPage />
         ) : activeTab === 'profile' ? (
           <ProfilePage
             onNotification={showToast}
@@ -658,38 +667,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
             />
 
             {activeTab === 'monitor' && <>
-            {/* TOP METRICS (Active Jobs, Available Drivers, Needs Attention) */}
-            <TopMetrics
-              offsetForMenu={!sidebarOpen}
-              drivers={drivers}
-              jobs={activeOrders}
-              hiddenOrderIds={hiddenOrderIds}
-              onOrderVisibilityChange={handleOrderVisibilityChange}
-              activeJobsCount={activeJobsCount}
-              availableDriversCount={availableDriversCount}
-              needsAttentionCount={needsAttentionItems.length}
-              needsAttentionItems={needsAttentionItems}
-              showActiveJobsMenu={showActiveJobsMenu}
-              setShowActiveJobsMenu={setShowActiveJobsMenu}
-              showAvailableDriversMenu={showAvailableDriversMenu}
-              setShowAvailableDriversMenu={setShowAvailableDriversMenu}
-              showNeedsAttentionPopover={showNeedsAttentionPopover}
-              setShowNeedsAttentionPopover={setShowNeedsAttentionPopover}
-              onSelectJob={(num) => {
-                handleSelectJob(num);
-                setShowActiveJobsMenu(false);
-                setShowNeedsAttentionPopover(false);
-              }}
-              onSelectDriver={(id) => {
-                handleSelectDriver(id);
-                setShowAvailableDriversMenu(false);
-              }}
-              onActionNotification={showToast}
-              onOpenAllJobs={handleOpenAllJobs}
-              onOpenAllDrivers={handleOpenAllDrivers}
-              onOpenAllExceptions={handleOpenAllExceptions}
-            />
-
             {/* DRIVER MARKER FLOW (D14 + Driver Actions Child) */}
             <AnimatePresence>
               {showDriverPopover && (
@@ -740,22 +717,43 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               setShowSettingsPopover={setShowMapSettings}
               onZoomIn={handleZoomIn}
               onZoomOut={handleZoomOut}
+              onFocusMap={handleResetSpecView}
+              focusLabel={`Focus map on ${companyLocation.label}`}
               onActionNotification={showToast}
             />
-
-            {/* RE-CENTER MAP QUICK ACTION BUTTON */}
-            <button
-              onClick={handleResetSpecView}
-              className="absolute bottom-6 left-6 z-30 h-10 w-10 bg-white rounded-xl shadow-md shadow-slate-900/10 border border-slate-200/90 text-slate-600 hover:text-blue-600 hover:bg-slate-50 flex items-center justify-center transition-all active:scale-95"
-              title={`Focus map on ${companyLocation.label}`}
-              aria-label={`Focus map on ${companyLocation.label}`}
-            >
-              <LocateFixed className="w-5 h-5" strokeWidth={1.75} />
-            </button>
             </>}
             {/* MONITOR ACTIVITY AND NOTIFICATIONS */}
             <MonitorActions
               active={activeTab === 'monitor'}
+              metrics={activeTab === 'monitor' && <TopMetrics
+                drivers={drivers}
+                jobs={activeOrders}
+                hiddenOrderIds={hiddenOrderIds}
+                onOrderVisibilityChange={handleOrderVisibilityChange}
+                activeJobsCount={activeJobsCount}
+                availableDriversCount={availableDriversCount}
+                needsAttentionCount={needsAttentionItems.length}
+                needsAttentionItems={needsAttentionItems}
+                showActiveJobsMenu={showActiveJobsMenu}
+                setShowActiveJobsMenu={setShowActiveJobsMenu}
+                showAvailableDriversMenu={showAvailableDriversMenu}
+                setShowAvailableDriversMenu={setShowAvailableDriversMenu}
+                showNeedsAttentionPopover={showNeedsAttentionPopover}
+                setShowNeedsAttentionPopover={setShowNeedsAttentionPopover}
+                onSelectJob={(num) => {
+                  handleSelectJob(num);
+                  setShowActiveJobsMenu(false);
+                  setShowNeedsAttentionPopover(false);
+                }}
+                onSelectDriver={(id) => {
+                  handleSelectDriver(id);
+                  setShowAvailableDriversMenu(false);
+                }}
+                onActionNotification={showToast}
+                onOpenAllJobs={handleOpenAllJobs}
+                onOpenAllDrivers={handleOpenAllDrivers}
+                onOpenAllExceptions={handleOpenAllExceptions}
+              />}
               onSelectReference={reference => {
                 if (reference.kind === 'ORDER' && reference.order_number) {
                   if (jobs.some(job => job.id === reference.id)) handleSelectJob(reference.order_number);
@@ -791,7 +789,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               transition={{ duration: 0.18 }}
               className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-auto bg-slate-900/95 text-white px-4 py-2.5 rounded-xl shadow-xl shadow-slate-900/20 text-xs font-medium flex items-center gap-2.5"
             >
-              <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
+              <Sparkles className="w-4 h-4 text-app-accent shrink-0" />
               <span>{toastMessage}</span>
             </motion.div>
           )}

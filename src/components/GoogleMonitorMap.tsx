@@ -1,3 +1,4 @@
+import { APP_ACCENT } from '../lib/appearance';
 import { APIProvider, Map, Polyline, useMap } from '@vis.gl/react-google-maps';
 import { Plane, Truck } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
@@ -259,15 +260,15 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />
     {props.demo !== false && <>
-    {visibleJobs.some(({ job }) => job.assignedDriverId === 'D14') && <><Polyline path={BLUE_PATH} strokeColor="#1d4ed8" strokeOpacity={0.8} strokeWeight={7} clickable={false} />
-    <Polyline path={BLUE_PATH} strokeColor="#60a5fa" strokeWeight={4} clickable={false} /></>}
+    {visibleJobs.some(({ job }) => job.assignedDriverId === 'D14') && <><Polyline path={BLUE_PATH} strokeColor={APP_ACCENT} strokeOpacity={0.8} strokeWeight={7} clickable={false} />
+    <Polyline path={BLUE_PATH} strokeColor={APP_ACCENT} strokeWeight={4} clickable={false} /></>}
     {visibleJobs.some(({ job }) => job.assignedDriverId === 'D28') && <><Polyline path={GREEN_PATH} strokeColor="#047857" strokeOpacity={0.7} strokeWeight={5} clickable={false} />
     <Polyline path={GREEN_PATH} strokeColor="#34d399" strokeWeight={3} clickable={false} /></>}
     {visibleJobs.some(({ job }) => job.routeId === 'orange-route') && <><Polyline path={ORANGE_PATH} strokeColor="#c2410c" strokeOpacity={0.7} strokeWeight={5} clickable={false} />
     <Polyline path={ORANGE_PATH} strokeColor="#fb923c" strokeWeight={3} clickable={false} /></>}
 
     <GoogleOverlayMarker position={{ lat: 49.196, lng: -123.184 }} label="Vancouver Airport cargo">
-      <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full shadow-md border border-blue-200 text-blue-700 font-semibold text-xs whitespace-nowrap">
+      <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full shadow-md border border-app-accent/20 text-app-accent font-semibold text-xs whitespace-nowrap">
         <Plane className="w-3.5 h-3.5" /> Vancouver Airport (YVR Cargo)
       </div>
     </GoogleOverlayMarker>
@@ -281,9 +282,9 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     })}
     {props.demo !== false && <GoogleOverlayMarker id="d14-marker-container" position={{ lat: movingDriver.lat, lng: movingDriver.lng }} label="Driver D14, Arles" onSelect={() => props.onSelectDriver('D14', [movingDriverRef.current.lng, movingDriverRef.current.lat])}>
       <div className="relative group flex items-center justify-center w-[46px] h-[46px]">
-        <div className="absolute inset-0 rounded-full bg-blue-500/25 animate-radar-ping pointer-events-none" />
-        <div className="absolute inset-1.5 rounded-full bg-blue-400/20 animate-radar-ping-fast pointer-events-none" />
-        <div className="relative w-9 h-9 rounded-full bg-blue-600 text-white shadow-lg ring-2 ring-white grid place-items-center group-hover:scale-110 transition-transform"><Truck className="w-5 h-5" style={{ transform: `rotate(${movingDriver.heading - 90}deg)` }} /></div>
+        <div className="absolute inset-0 rounded-full bg-app-accent/25 animate-radar-ping pointer-events-none" />
+        <div className="absolute inset-1.5 rounded-full bg-app-accent/20 animate-radar-ping-fast pointer-events-none" />
+        <div className="relative w-9 h-9 rounded-full bg-app-accent text-white shadow-lg ring-2 ring-white grid place-items-center group-hover:scale-110 transition-transform"><Truck className="w-5 h-5" style={{ transform: `rotate(${movingDriver.heading - 90}deg)` }} /></div>
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none">D14 • Arles</div>
       </div>
     </GoogleOverlayMarker>
@@ -294,7 +295,7 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
       return <GoogleOverlayMarker key={driver.id} position={{ lat: driver.lat, lng: driver.lng }} label={label}
         onSelect={() => props.onSelectDriver(driver.id, [driver.lng, driver.lat])}>
         <div className="flex items-center gap-2 bg-white rounded-full px-2.5 py-1 shadow-lg border border-slate-200/90 hover:border-emerald-300 transition-all whitespace-nowrap">
-          <div className={`w-6 h-6 rounded-full ${available ? 'bg-emerald-500' : driver.status === 'offline' ? 'bg-slate-400' : 'bg-blue-600'} text-white grid place-items-center shrink-0`}><Truck className="w-3.5 h-3.5" /></div>
+          <div className={`w-6 h-6 rounded-full ${available ? 'bg-emerald-500' : driver.status === 'offline' ? 'bg-slate-400' : 'bg-app-accent'} text-white grid place-items-center shrink-0`}><Truck className="w-3.5 h-3.5" /></div>
           <div className="pr-1 leading-none"><div className="text-xs font-bold text-slate-800">{driver.driverNumber ?? driver.id} • {driver.name.split(' ')[0]}</div><div className="text-xs text-slate-500 font-medium">{driver.statusLabel}</div></div>
         </div>
       </GoogleOverlayMarker>;

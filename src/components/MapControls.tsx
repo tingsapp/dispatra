@@ -2,7 +2,7 @@ import React from 'react';
 import { FloatingPanel } from './ui/FloatingPanel';
 import { MenuItem, MenuList, MenuSeparator } from './ui/Menu';
 import { Switch } from './ui/Switch';
-import { Settings as SettingsIcon, Plus, Minus, Map as MapIcon, Globe, Activity, Tag } from 'lucide-react';
+import { Settings as SettingsIcon, Plus, Minus, Map as MapIcon, Globe, Activity, Tag, LocateFixed } from 'lucide-react';
 import { MapLayerConfig } from '../types';
 
 interface MapControlsProps {
@@ -12,6 +12,8 @@ interface MapControlsProps {
   setShowSettingsPopover: React.Dispatch<React.SetStateAction<boolean>>;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onFocusMap: () => void;
+  focusLabel: string;
   onActionNotification: (msg: string) => void;
 }
 
@@ -22,10 +24,15 @@ export const MapControls: React.FC<MapControlsProps> = ({
   setShowSettingsPopover,
   onZoomIn,
   onZoomOut,
+  onFocusMap,
+  focusLabel,
   onActionNotification
 }) => {
   return <div className="absolute bottom-6 right-6 z-30 flex flex-col items-end gap-3 pointer-events-auto select-none">
     <div className="flex flex-col gap-2">
+      <button type="button" onClick={onFocusMap} className="app-metric app-map-icon" title={focusLabel} aria-label={focusLabel}>
+        <LocateFixed size={18} strokeWidth={1.75} />
+      </button>
       <FloatingPanel open={showSettingsPopover} onOpenChange={setShowSettingsPopover}
         side="left" align="end" label="Map settings" size="compact" trigger={
           <button type="button" className="app-metric app-map-icon" title="Map Layer Settings">

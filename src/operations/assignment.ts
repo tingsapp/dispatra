@@ -1,3 +1,4 @@
+import { shipperAssignment } from './shipperAssignment';
 import type { components } from '../portal/schema';
 import { allOperations, operations } from './api';
 
@@ -17,12 +18,16 @@ export function assignableRoute(routes: Route[], driverId: string, vehicleId: st
 }
 
 export async function assignToDriver(slug: string, order: Order, driverId: string, vehicleId: string) {
+  const required = shipperAssignment(order)?.id;
+  if (required && driverId !== required) throw new Error('This order requires the shipper’s assigned driver.');
   const route = assignableRoute(await allOperations.routes(slug), driverId, vehicleId);
   return operations.assignOrder(slug, order, driverId, vehicleId, route);
 }
 
 /** A route is the assignment unit. Release its planned route before moving an order. */
 export async function changeAssignment(slug: string, order: Order, driverId: string | null, vehicleId: string | null, route?: Route) {
+  const required = shipperAssignment(order)?.id;
+  if (driverId && required && driverId !== required) throw new Error('This order requires the shipper’s assigned driver.');
   if (driverId && !vehicleId) throw new Error('The driver needs an attached vehicle.');
   if (!driverId && !route) throw new Error('This order is already unassigned.');
   if (route && driverId === route.driver_id) return;

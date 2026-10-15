@@ -21,13 +21,13 @@ function CompanyEditor() {
       })}>
         <div><h4 className="app-section-title text-slate-900 mb-4">Contact Information</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <Field label="Contact Full Name" maxLength={160} value={data.contact_name} onChange={e => editor.patch({ contact_name: e.target.value })} />
+            <Field label="Full Name" maxLength={160} value={data.contact_name} onChange={e => editor.patch({ contact_name: e.target.value })} />
             <Field label="Email" readOnly value={account.login_id} autoComplete="username" />
             <Field label="Phone" type="tel" maxLength={50} value={data.phone} onChange={e => editor.patch({ phone: e.target.value })} />
             <Field label="Role" readOnly value="Dispatcher" />
           </div>
           <p className="mt-2 text-xs text-slate-500">Email and role belong to your sign-in account.</p>
-          {account.organization?.trial_ends_at && !account.organization.trial_activated_at && <p className="mt-3 text-sm text-app-muted">Your 30-day trial ends {new Date(account.organization.trial_ends_at).toLocaleDateString()}. Contact Dispatra to activate your company.</p>}
+          {account.organization?.trial_ends_at && !account.organization.trial_activated_at && <p className="mt-3 text-sm text-app-muted">Your 30-day trial ends {new Date(account.organization.trial_ends_at).toLocaleDateString()}. Authorize monthly billing at your company’s saved price per registered vehicle before the trial ends to keep using Dispatra.</p>}
         </div>
       </CompanyIdentity>
     </fieldset>

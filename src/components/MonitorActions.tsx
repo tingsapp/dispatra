@@ -15,6 +15,7 @@ import {
 import { Job } from '../types';
 
 interface MonitorActionsProps {
+  metrics?: React.ReactNode;
   active?: boolean;
   showActivityPopover?: boolean;
   setShowActivityPopover?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -38,6 +39,7 @@ interface DispatchAlert {
 }
 
 export const MonitorActions: React.FC<MonitorActionsProps> = ({
+  metrics,
   active = true,
   showActivityPopover: externalShowActivity,
   setShowActivityPopover: externalSetShowActivity,
@@ -51,7 +53,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
 }) => {
   // Local states if not passed
   const [internalNotificationOpen, setInternalNotificationOpen] = useState(false);
-  const [internalActivityOpen, setInternalActivityOpen] = useState(active);
+  const [internalActivityOpen, setInternalActivityOpen] = useState(false);
   const activityOpen = externalShowActivity ?? internalActivityOpen;
   const setActivityOpen = externalSetShowActivity || setInternalActivityOpen;
 
@@ -102,17 +104,21 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   };
 
   return (
-    <div className="absolute top-5 right-6 z-30 pointer-events-auto flex items-center gap-2.5 select-none">
-      {slug && <MonitorActivity key={slug} slug={slug} open={activityOpen} active={active} onSelectReference={onSelectReference} onOpenChange={next => {
-        setActivityOpen(next);
-        if (next) setIsNotificationOpen(false);
-      }} />}
+    <>
+      {slug && <div className="absolute bottom-6 left-6 z-40 pointer-events-auto">
+        <MonitorActivity key={slug} slug={slug} open={activityOpen} active={active} onSelectReference={onSelectReference} onOpenChange={next => {
+          setActivityOpen(next);
+          if (next) setIsNotificationOpen(false);
+        }} />
+      </div>}
+    <div className="app-map-toolbar absolute top-5 right-6 z-30 pointer-events-auto flex items-start gap-2.5 select-none">
+      {metrics}
       {/* 2. NOTIFICATION ICON BUTTON */}
       <FloatingPanel open={isNotificationOpen} onOpenChange={changeNotification} label="Notifications"
         align="end" size="rich" className="app-map-menu p-3" autoFocusSelector="input" trigger={
         <button
           aria-expanded={isNotificationOpen}
-          className="app-metric app-map-icon relative"
+          className="app-metric app-map-icon relative shrink-0"
           title="Dispatch alerts and notifications"
           aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         >
@@ -167,7 +173,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
                       onActionNotification(`Alert: ${alt.title}`);
                     }}
                     className={`py-2.5 px-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors ${
-                      alt.unread ? 'bg-blue-50/40' : ''
+                      alt.unread ? 'bg-app-accent-soft/40' : ''
                     }`}
                   >
                     <div className="flex items-start gap-2">
@@ -181,7 +187,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
                             <Clock className="w-2.5 h-2.5 stroke-[2.5]" />
                           </div>
                         ) : (
-                          <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                          <div className="w-4 h-4 rounded-full bg-app-accent-soft text-app-accent flex items-center justify-center">
                             <CheckCircle2 className="w-2.5 h-2.5 stroke-[2.5]" />
                           </div>
                         )}
@@ -204,5 +210,6 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
         </>}
       </FloatingPanel>
     </div>
+    </>
   );
 };

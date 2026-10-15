@@ -19,7 +19,7 @@ export function VehicleTable({ vehicles, drivers, vehicleTypes, onDetails, onDel
           const costPerKm = type ? billing.operatingCost.costPerKmByVehicleId[type.id] : undefined;
           const inactive = vehicle.recordStatus === 'INACTIVE';
           const status = inactive ? 'Inactive' : vehicle.availability?.replaceAll('_', ' ') || vehicle.statusLabel;
-          const tone = inactive ? 'bg-slate-100 text-slate-600 border-slate-200' : vehicle.availability === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : vehicle.availability === 'IN_USE' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200';
+          const tone = inactive ? 'bg-slate-100 text-slate-600 border-slate-200' : vehicle.availability === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : vehicle.availability === 'IN_USE' ? 'bg-app-accent-soft text-app-accent border-app-accent/20' : 'bg-amber-50 text-amber-700 border-amber-200';
           const equipment = [...new Set([...(vehicle.equipment ?? []), ...(vehicle.hasLiftgate ? ['Liftgate'] : []), ...(vehicle.hasReefer ? ['Reefer'] : [])])];
           return <tr key={vehicle.id} onClick={() => onDetails(vehicle)} className="cursor-pointer transition-colors hover:bg-slate-50/80">
             <td className="px-4 py-3.5"><div className="font-medium text-slate-900">{vehicle.vehicleNumber ?? vehicle.unitNumber}</div><div className="mt-0.5 text-xs text-slate-500">{vehicle.year || '—'}</div></td>

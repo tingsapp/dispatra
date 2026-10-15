@@ -8,7 +8,7 @@ function InboxRow({ item, current, onSelect }: { item: ChatInboxItem; current: b
   const preview = item.last_message ? `${item.last_message.mine ? 'You: ' : ''}${item.last_message.body}` : '';
   return <li><button type="button" onClick={onSelect} aria-current={current || undefined}
     aria-label={`${item.unread ? `${item.unread} unread. ` : ''}${item.title}, order ${item.order_number}. ${preview}`}
-    className={`w-full rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-50 ${current ? 'bg-slate-100' : item.unread ? 'bg-blue-50/40' : ''}`}>
+    className={`w-full rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-50 ${current ? 'bg-slate-100' : item.unread ? 'bg-app-accent-soft/40' : ''}`}>
     <span className="flex items-center justify-between gap-2">
       <span className={`truncate text-sm text-slate-900 ${item.unread ? 'font-medium' : ''}`}>{item.title}</span>
       {item.last_message_at && <span className="shrink-0 text-xs text-slate-400">{notificationAge(item.last_message_at)}</span>}

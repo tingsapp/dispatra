@@ -30,7 +30,11 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
   const requested = input.preferredDriverId ?? '';
   const driverOptions = [{ value: '', label: 'No preference' }, ...drivers.map(d => ({ value: d.id, label: d.name })),
     ...(requested && !drivers.some(d => d.id === requested) ? [{ value: requested, label: 'Previously requested driver (unavailable)' }] : [])];
-  const serviceExtras = <div>
+  const serviceExtras = input.requiredDriverId ? <div>
+      <span className="app-label">Assigned driver</span>
+      <p className="text-sm text-slate-700">{input.requiredDriverName ?? drivers.find(d => d.id === input.requiredDriverId)?.name ?? 'Saved driver (unavailable)'}</p>
+      <p className="mt-1 text-xs text-slate-500">Your orders require this driver. Dispatch waits until they are available.</p>
+    </div> : <div>
       <label className="app-label">Want specific driver?</label>
       <Select aria-label="Want specific driver?" className="w-full" value={requested} onValueChange={v => setInput({ ...input, preferredDriverId: v || null })} options={driverOptions} />
       <span className="mt-1 block text-xs text-slate-500">Optional. Dispatch uses this driver when they are available.</span>

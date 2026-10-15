@@ -1,3 +1,4 @@
+import { APP_ACCENT } from '../../lib/appearance';
 import { Truck } from 'lucide-react';
 import { StopMarkerCircle } from '../map/StopMarkerCircle';
 
@@ -33,12 +34,12 @@ export function PreviewMap({ completed = false }: { completed?: boolean }) {
     <g fill="#92988f" fontFamily="Inter, sans-serif" fontSize="9" letterSpacing="1">
       <text x="290" y="107">VANCOUVER</text><text x="70" y="364">DELIVERY DISTRICT</text><text x="380" y="476">RIVERFRONT</text>
     </g>
-    <path d={route} fill="none" stroke="#3b82f6" strokeOpacity="0.12" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-    <path data-preview-route="true" d={route} fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <path d={route} fill="none" stroke={APP_ACCENT} strokeOpacity="0.12" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+    <path data-preview-route="true" d={route} fill="none" stroke={APP_ACCENT} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     <StopMarkerCircle kind="PICKUP" cx={225} cy={385} />
     <StopMarkerCircle kind="DROPOFF" cx={465} cy={93} />
     <g data-preview-driver="true" transform="translate(465 150)">
-      <rect x="-18" y="-18" width="36" height="36" rx="10" fill={completed ? '#16a34a' : '#2563eb'} stroke="white" strokeWidth="2" />
+      <rect x="-18" y="-18" width="36" height="36" rx="10" fill={completed ? '#16a34a' : APP_ACCENT} stroke="white" strokeWidth="2" />
       <Truck x="-8" y="-8" width="16" height="16" color="white" />
     </g>
   </svg>;

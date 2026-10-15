@@ -32,10 +32,10 @@ export function CompanySubscriptionsTable({ onOpen }: { onOpen: (id: string) => 
         <td className="whitespace-nowrap">{!row.trial_ends_at ? 'No trial' : row.trial_activated_at ? 'Activated' : new Date(row.trial_ends_at).getTime() <= Date.now() ? 'Trial ended' : 'Free trial'}</td>
         <td className="whitespace-nowrap text-app-muted">{formatWhen(row.trial_ends_at, '—')}</td>
         <td><StatusBadge active={row.workspace_active} inactiveLabel="Suspended" /></td>
-        <td><a href={`/admin/companies/${row.organization_id}/subscription`} aria-label={`Manage ${row.company_name} subscription`} className="text-app-text underline-offset-4 hover:underline" onClick={event => {
+        <td><a href={`/admin/companies/${row.organization_id}/subscription`} aria-label={`View ${row.company_name} subscription`} className="text-app-text underline-offset-4 hover:underline" onClick={event => {
           if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
           event.preventDefault(); onOpen(row.organization_id);
-        }}>Manage</a></td>
+        }}>View</a></td>
       </tr>)}</tbody>
     </table></div>}
     {query.data && !rows.length && <p className="py-6 text-sm text-app-muted">{search || status ? 'No company subscriptions match these filters.' : 'No companies yet. Company subscriptions will appear here.'}</p>}

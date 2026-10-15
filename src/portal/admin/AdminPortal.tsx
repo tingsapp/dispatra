@@ -43,7 +43,7 @@ export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { ac
   const description = !route ? 'This administration page does not exist.' : route.page === 'revenue' ? 'Expected recurring revenue.' : route.page === 'billing' ? 'Default monthly plan and free trial.' : route.page === 'monitor' ? 'Agent activity and platform health.' : route.page === 'profile' ? 'Your owner account and password.' : route.page === 'company' ? 'Company details, subscription and dispatcher account.' : 'Dispatch companies on this Dispatra installation.';
   useEffect(() => { document.title = `${title} · Dispatra administration`; }, [title]);
   return <PortalShell company="Platform administration" login={account.login_id} primary={title} icon={Building2} settings={false} description={description}
-    titleBadge={route?.page === 'company' && company ? <StatusBadge active={company.active} inactiveLabel="Suspended" /> : undefined}
+    titleBadge={route?.page === 'company' && company ? <StatusBadge active={company.active} inactiveLabel={company.workspace_enabled && company.payment_required ? "Payment required" : "Suspended"} /> : undefined}
     account={{ name: account.display_name || account.login_id, role: 'Platform owner', profileCurrent: route?.page === 'profile' }}
     navigation={[{ label: 'Monitor', href: '/admin/monitor', icon: Activity, current: route?.page === 'monitor', badge: monitor.data?.needs_attention ?? 0,
       badgeLabel: monitor.data?.needs_attention === 1 ? 'report needs attention' : 'reports need attention' },

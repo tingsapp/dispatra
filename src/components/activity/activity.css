@@ -1,63 +1,54 @@
-.company-activity-trigger-icon { color: #525252; }
-.company-activity-trigger.app-metric { background: white; }
-.company-activity-trigger.app-metric:hover,
-.company-activity-trigger.app-metric[aria-expanded="true"] { background: white; }
-.company-activity-trigger.app-metric:focus-visible { background: white; outline: 2px solid #525252; outline-offset: 2px; }
-.company-activity-waves { overflow: hidden; border-radius: inherit; }
-.company-activity-pulse {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 64px;
-  height: 64px;
-  transform: translate3d(-50%, -50%, 0) scale(.15625);
-  transform-origin: center;
-  background: rgb(115 115 115 / 24%);
-  border-radius: 50%;
-  opacity: 0;
-  animation: companyActivityPulse 4s ease-out infinite;
-  will-change: transform, opacity;
-}
-.company-activity-pulse:nth-child(2) { animation-delay: .3s; }
-.company-activity-pulse-paused .company-activity-pulse { animation-play-state: paused; }
-@keyframes companyActivityPulse {
-  0% { transform: translate3d(-50%, -50%, 0) scale(.15625); opacity: .95; }
-  27%, 100% { transform: translate3d(-50%, -50%, 0) scale(1); opacity: 0; }
-}
 .company-activity-row { transition: transform 700ms cubic-bezier(.22, 1, .36, 1), background-color 700ms ease; }
 .company-activity-icon { transition: background-color 700ms ease, color 700ms ease; }
-.company-activity-panel[data-panel-size="rich"] {
+.company-activity-panel {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(26rem, calc(100vw - 112px));
+  height: 66px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 48px);
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: white;
+  color: #0d0d0d;
+  box-shadow: 0 2px 8px #0000000a;
+  transition: height 280ms cubic-bezier(.22, 1, .36, 1), width 280ms cubic-bezier(.22, 1, .36, 1), background-color 200ms ease, box-shadow 200ms ease;
+}
+.company-activity-panel[data-expanded="true"] {
   width: min(26rem, calc(100vw - 48px));
   height: min(40rem, calc(100dvh - 100px));
-  max-width: calc(100vw - 48px);
-  max-height: calc(100dvh - 88px);
-  background: rgb(39 48 43 / 88%);
-  -webkit-backdrop-filter: blur(6px) saturate(115%);
-  backdrop-filter: blur(6px) saturate(115%);
-  color: #f8faf9;
-  border-color: rgb(255 255 255 / 20%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 8px 28px rgb(16 24 20 / 16%);
+  box-shadow: 0 8px 28px rgb(16 24 20 / 16%);
 }
-.company-activity-panel .text-app-muted { color: rgb(255 255 255 / 80%); }
-.company-activity-panel .text-rose-700 { color: #fecdd3; }
+.assistant-panel-content { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+.assistant-view-layer {
+  opacity: 0;
+  transform: translateY(4px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(.22, 1, .36, 1), visibility 0s linear 220ms;
+}
+.assistant-view-layer[data-active="true"] {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+.assistant-toggle-icon g { transition: stroke 200ms ease; }
+.assistant-search-composer { padding: 8px 12px; }
+.assistant-search-composer:focus-within { outline: 1px solid #8f8f8f; outline-offset: 2px; }
+.assistant-search-composer textarea { padding: 0 40px 0 0; font-size: 13px; line-height: 24px; }
 .company-activity-panel .company-activity-row { background: transparent; }
-.company-activity-panel .company-activity-row:last-child { background: rgb(255 255 255 / 8%); }
-.company-activity-panel .company-activity-icon { background: rgb(255 255 255 / 10%); color: #f8faf9; }
-.company-activity-panel .company-activity-icon.bg-blue-600 { background: rgb(96 165 250 / 24%); color: #bfdbfe; }
-.company-activity-panel .company-activity-icon.bg-emerald-600 { background: rgb(52 211 153 / 24%); color: #a7f3d0; }
-.company-activity-panel .company-activity-icon.bg-amber-50 { background: rgb(251 191 36 / 16%); color: #fde68a; }
-.company-activity-panel button[aria-label]:hover { background: rgb(255 255 255 / 12%); color: white; }
-.company-activity-panel button:focus-visible { outline-color: #bfdbfe; }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .company-activity-panel[data-panel-size="rich"] { background: rgb(39 48 43 / 94%); }
-}
+.company-activity-panel button[aria-label="Close Dispatra"]:hover { background: var(--color-app-hover); color: #0d0d0d; }
 @media (prefers-reduced-motion: reduce) {
-  .company-activity-pulse { animation: none; opacity: 0; }
-  .company-activity-row, .company-activity-icon { transition: none; }
+  .company-activity-panel, .company-activity-row, .company-activity-icon { transition: none; }
+  .assistant-view-layer, .assistant-toggle-icon g { transition: none; }
+  .assistant-view-layer { transform: none; }
 }
-
-.company-activity-panel > .app-floating-panel-scroll { display: flex; flex-direction: column; height: 100%; overflow: hidden; scrollbar-gutter: auto; }
-.company-activity-panel .assistant-panel-body { scrollbar-gutter: auto; scrollbar-width: none; }
-.company-activity-panel .assistant-panel-body::-webkit-scrollbar { display: none; }
+.company-activity-panel .assistant-view-scroll { scrollbar-gutter: auto; scrollbar-width: none; }
+.company-activity-panel .assistant-view-scroll::-webkit-scrollbar { display: none; }
 .company-activity-panel .assistant-message { overflow-wrap: anywhere; }
 .company-activity-panel .assistant-reference { overflow-wrap: anywhere; }

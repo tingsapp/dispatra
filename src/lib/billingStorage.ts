@@ -4,6 +4,8 @@ import { normalizeFuelSurcharge } from './billingEngine';
 import { isValidTaxRate } from './taxRate';
 import { BillingConfig, TaxRate, TaxProfileConfig } from '../types/billing';
 
+export const BILLING_CONFIG_UPDATED_EVENT = 'dispatra:billing-config-updated';
+
 export const BILLING_STORAGE_KEY = 'dispatra_billing_v2';
 const FUEL_DEFAULT_VERSION = 1;
 const UNITS_DEFAULT_VERSION = 1;
@@ -175,6 +177,7 @@ export const loadBillingConfig = (): BillingConfig => {
 export const saveBillingConfig = (config: BillingConfig): void => {
   try {
     localStorage.setItem(scopedStorageKey(BILLING_STORAGE_KEY), JSON.stringify({ ...config, fuelDefaultVersion: FUEL_DEFAULT_VERSION, unitsDefaultVersion: UNITS_DEFAULT_VERSION, fuelSurcharge: normalizeFuelSurcharge(config.fuelSurcharge) }));
+    window.dispatchEvent(new Event(BILLING_CONFIG_UPDATED_EVENT));
   } catch {
     // Storage unavailable (private mode / quota) — settings stay in memory.
   }

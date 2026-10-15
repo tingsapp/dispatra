@@ -284,44 +284,52 @@ test('saving webhooks clears the secret and tab changes preserve unsaved drafts'
   fireEvent(window, event); assert.equal(event.defaultPrevented, true); assert.ok(screen.getByRole('alertdialog'));
 });
 
-test('sidebar places Integrations immediately before the account card and supports the collapsed rail', async () => {
+test('collapsed sidebar opens Integration in the account menu', async () => {
   const user = userEvent.setup({ document }); let destination = '';
-  const props = { activeTab: 'integrations', isOpen: true, onToggle: () => {}, setActiveTab: (page: string) => { destination = page; }, showAccountPopover: false,
-    setShowAccountPopover: () => {}, onActionNotification: () => {}, dispatchMode: 'MANUAL' as const, onDispatchModeChange: () => {} };
-  const view = render(React.createElement(Sidebar, props));
-  const integration = screen.getByRole('button', { name: 'Integrations' }); const account = screen.getByRole('button', { name: 'Dispatcher Account' });
-  assert.equal(integration.nextElementSibling, account); assert.equal(integration.getAttribute('aria-current'), 'page');
+  function Harness() {
+    const [open, setOpen] = React.useState(false);
+    return React.createElement(Sidebar, { activeTab: 'integrations', isOpen: false, onToggle: () => {}, setActiveTab: (page: string) => { destination = page; },
+      showAccountPopover: open, setShowAccountPopover: setOpen, onActionNotification: () => {}, dispatchMode: 'MANUAL', onDispatchModeChange: () => {} });
+  }
+  render(React.createElement(Harness));
+  assert.equal(screen.queryByRole('button', { name: 'Integrations' }), null);
   assert.ok(screen.getByRole('switch', { name: 'Auto dispatch' }));
-  await user.click(integration); assert.equal(destination, 'integrations');
-  view.rerender(React.createElement(Sidebar, { ...props, isOpen: false }));
-  assert.equal(screen.getByRole('button', { name: 'Integrations' }).getAttribute('title'), 'Integrations');
+  assert.equal(screen.getByRole('button', { name: 'Dispatcher Account' }).getAttribute('title'), 'Dispatcher Account');
+  await user.click(screen.getByRole('button', { name: 'Dispatcher Account' }));
+  assert.equal(screen.getByRole('menuitem', { name: 'Integration' }).getAttribute('data-active'), 'true');
+  await user.click(screen.getByRole('menuitem', { name: 'Integration' }));
+  assert.equal(destination, 'integrations');
 });
-test('TMS workspace shows only Profile, Integration, Help, Auto dispatch and guarded direct Log out', async () => {
+test('TMS workspace uses the account menu for Integration, Subscription and guarded Logout', async () => {
   const user = userEvent.setup({ document });
   const visited: string[] = [];
   let logouts = 0; const modes: string[] = [];
-  const props = { tmsWorkspace: true, activeTab: 'integrations', isOpen: true, onToggle: () => {},
-    setActiveTab: (page: string) => visited.push(page), showAccountPopover: false, setShowAccountPopover: () => {},
-    onActionNotification: () => {}, onLogout: () => { logouts++; }, dispatchMode: 'MANUAL' as const, onDispatchModeChange: (mode: string) => modes.push(mode) };
-  const view = render(React.createElement(Sidebar, props));
-  assert.deepEqual(within(screen.getByRole('navigation')).getAllByRole('button').map(button => button.textContent), ['Profile', 'Integration', 'Help']);
-  assert.equal(screen.queryByRole('button', { name: 'Dispatcher Account' }), null);
-  assert.ok(screen.getByRole('switch', { name: 'Auto dispatch' }));
+  function Harness({ loggingOut = false, isOpen = true }: { loggingOut?: boolean; isOpen?: boolean }) {
+    const [open, setOpen] = React.useState(false);
+    return React.createElement(Sidebar, { tmsWorkspace: true, activeTab: 'integrations', isOpen, onToggle: () => {},
+      setActiveTab: (page: string) => visited.push(page), showAccountPopover: open, setShowAccountPopover: setOpen,
+      onActionNotification: () => {}, onLogout: () => { logouts++; }, loggingOut, dispatchMode: 'MANUAL', onDispatchModeChange: (mode: string) => modes.push(mode) });
+  }
+  const view = render(React.createElement(Harness));
+  assert.deepEqual(within(screen.getByRole('navigation')).getAllByRole('button').map(button => button.textContent), ['Profile', 'Help']);
   await user.click(screen.getByRole('switch', { name: 'Auto dispatch' })); assert.deepEqual(modes, ['AUTO']);
-  assert.equal(screen.getByRole('button', { name: 'Integration' }).getAttribute('aria-current'), 'page');
-  for (const label of ['Profile', 'Integration', 'Help']) await user.click(screen.getByRole('button', { name: label }));
+  for (const label of ['Profile', 'Help']) await user.click(screen.getByRole('button', { name: label }));
+  await user.click(screen.getByRole('button', { name: 'Dispatcher Account' }));
+  assert.deepEqual(screen.getAllByRole('menuitem').map(item => item.textContent), ['Profile', 'Subscription', 'Integration', 'Help', 'Logout']);
+  await user.click(screen.getByRole('menuitem', { name: 'Integration' }));
   await user.click(screen.getByRole('button',{name:'Dispatra — Monitor'}));
-  assert.deepEqual(visited, ['profile', 'integrations', 'help', 'monitor']);
+  assert.deepEqual(visited, ['profile', 'help', 'integrations', 'monitor']);
   let proceed = () => {};
   const guard = (event: Event) => { event.preventDefault(); proceed = (event as CustomEvent).detail.proceed; };
   window.addEventListener(SETTINGS_NAVIGATION_EVENT, guard);
   try {
-    await user.click(screen.getByRole('button', { name: 'Log out' }));
+    await user.click(screen.getByRole('button', { name: 'Dispatcher Account' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Logout' }));
     assert.equal(logouts, 0);
     proceed(); assert.equal(logouts, 1);
   } finally { window.removeEventListener(SETTINGS_NAVIGATION_EVENT, guard); }
-  view.rerender(React.createElement(Sidebar, { ...props, isOpen: false, loggingOut: true }));
-  assert.equal(screen.getByRole('button', { name: 'Integration' }).getAttribute('title'), 'Integration');
-  assert.equal((screen.getByRole('button', { name: 'Log out' }) as HTMLButtonElement).disabled, true);
-  assert.equal(screen.queryByRole('button', { name: 'Dispatcher Account' }), null);
+  view.rerender(React.createElement(Harness, { isOpen: false, loggingOut: true }));
+  await user.click(screen.getByRole('button', { name: 'Dispatcher Account' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Logout' }));
+  assert.equal(logouts, 1);
 });

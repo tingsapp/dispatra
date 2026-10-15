@@ -2,9 +2,8 @@ import {
   BarChart2,
   Building2,
   ClipboardList,
+  Settings,
   HelpCircle,
-  LogOut,
-  Plug,
   Truck,
   User,
   Users
@@ -15,7 +14,8 @@ import { AccountMenu } from './layout/AccountMenu';
 import { SidebarHeader } from './layout/SidebarHeader';
 import { useSidebarDrawer } from './layout/useSidebarDrawer';
 import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
-import { loadUserProfile } from '../lib/profileStorage';
+import { loadUserProfile, USER_PROFILE_UPDATED_EVENT } from '../lib/profileStorage';
+import { BILLING_CONFIG_UPDATED_EVENT, loadBillingConfig } from '../lib/billingStorage';
 import { SETTINGS_NAVIGATION_EVENT } from './settings/useSettingsGuard';
 import { Notice } from '../portal/ui';
 
@@ -33,6 +33,7 @@ interface SidebarProps {
   /** Ends the dispatcher session and returns to the login page. */
   onLogout?: () => void;
   onOpenPricing?: () => void;
+  dispatchModePending?: boolean;
   dispatchMode: 'AUTO' | 'MANUAL';
   onDispatchModeChange: (mode: 'AUTO' | 'MANUAL') => void;
   onOpenProfile?: () => void;
@@ -53,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   onOpenPricing,
   dispatchMode,
+  dispatchModePending = false,
   onDispatchModeChange,
   onOpenProfile,
   onOpenHelp
@@ -61,19 +63,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const collapsed = !isOpen && !mobile;
   const hidden = !isOpen && mobile;
   const [localProfile, setProfile] = useState(() => loadUserProfile());
+  const [localCompany, setLocalCompany] = useState(() => loadBillingConfig().company);
 
   useEffect(() => {
     const handleSync = () => {
       setProfile(loadUserProfile());
+      setLocalCompany(loadBillingConfig().company);
     };
     window.addEventListener('storage', handleSync);
+    window.addEventListener(USER_PROFILE_UPDATED_EVENT, handleSync);
+    window.addEventListener(BILLING_CONFIG_UPDATED_EVENT, handleSync);
     handleSync();
-    return () => window.removeEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener(USER_PROFILE_UPDATED_EVENT, handleSync);
+      window.removeEventListener(BILLING_CONFIG_UPDATED_EVENT, handleSync);
+    };
   }, [activeTab, showAccountPopover]);
 
   const workspace = useWorkspaceAccount();
-  const name = workspace?.settings.data.contact_name || workspace?.account.login_id || '';
-  const profile = workspace ? { name, role: 'Dispatcher', avatarInitials: name.slice(0, 1).toUpperCase(), avatarUrl: '' } : localProfile;
+  const name = workspace
+    ? workspace.settings.data.contact_name.trim() || workspace.account.display_name.trim() || workspace.account.login_id
+    : localProfile.name.trim();
+  const firstName = name.split(/\s+/)[0] || 'Account';
+  const companyName = workspace
+    ? workspace.settings.data.company_name.trim() || workspace.account.organization?.name || ''
+    : localCompany.name;
+  const companyLogo = workspace ? workspace.settings.data.logo_url : localCompany.logoDataUrl;
+  const avatarInitial = companyName.trim().slice(0, 1).toUpperCase() || firstName.slice(0, 1).toUpperCase();
 
   const logout = () => {
     if (loggingOut) return;
@@ -83,7 +100,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = tmsWorkspace ? [
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'integrations', label: 'Integration', icon: Plug },
     { id: 'help', label: 'Help', icon: HelpCircle },
   ] : [
     { id: 'jobs', label: 'Orders', icon: ClipboardList },
@@ -91,6 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'vehicles', label: 'Vehicles', icon: Truck },
     { id: 'customers', label: 'Shippers', icon: Building2 },
     { id: 'reports', label: 'Analytics', icon: BarChart2 },
+    { id: 'rate-cards', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -147,26 +164,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Bottom Dispatcher Profile & Anchored Account Popover */}
         <div className="p-2">
-          {tmsWorkspace ? <>
-            <button type="button" aria-label="Log out" title={collapsed ? 'Log out' : undefined} disabled={loggingOut}
-              className="app-nav-item disabled:opacity-50" onClick={logout}>
-              <LogOut className="w-4.5 h-4.5 shrink-0 text-slate-700" strokeWidth={1.75} />
-              <span className={collapsed ? 'sr-only' : undefined}>{loggingOut ? 'Logging out…' : 'Log out'}</span>
-            </button>
-            <Notice error={logoutError} />
-          </> : <>
-          <button type="button" aria-label="Integrations" title={collapsed ? 'Integrations' : undefined}
-            aria-current={activeTab === 'integrations' ? 'page' : undefined} className="app-nav-item mb-1"
-            onClick={() => { setShowAccountPopover(false); setActiveTab('integrations'); }}>
-            <Plug className="w-4.5 h-4.5 shrink-0 text-slate-700" strokeWidth={1.75} />
-            <span className={collapsed ? 'sr-only' : undefined}>Integrations</span>
-          </button>
           <AccountMenu open={showAccountPopover} onOpenChange={setShowAccountPopover}
             modal={mobile}
             collapsed={collapsed}
             activeTab={activeTab}
             onProfile={() => { setActiveTab('profile'); onOpenProfile?.(); }}
-            onPricing={() => { onOpenPricing?.(); }}
+            onPricing={tmsWorkspace ? undefined : () => { if (onOpenPricing) onOpenPricing(); else setActiveTab('rate-cards'); }}
+            onSubscription={() => setActiveTab('subscription')}
+            onIntegration={() => setActiveTab('integrations')}
             onHelp={() => { setActiveTab('help'); onOpenHelp?.(); }}
             onLogout={logout}
             trigger={
@@ -178,34 +183,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
             title="Dispatcher Account"
           >
             <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-medium text-xs flex items-center justify-center shrink-0 overflow-hidden">
-              {profile.avatarUrl ? (
+              {companyLogo ? (
                 <img
-                  src={profile.avatarUrl}
-                  alt={profile.name}
-                  className="w-full h-full object-cover"
+                  src={companyLogo}
+                  alt={`${companyName} logo`}
+                  className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                profile.avatarInitials || 'SK'
+                avatarInitial
               )}
             </div>
             <div className={collapsed ? 'sr-only' : 'min-w-0 flex-1'}>
               <div className="app-account-name text-sm font-medium text-slate-900 leading-snug truncate">
-                {(profile.name || 'Sarah').trim().split(/\s+/)[0]}
+                {firstName}
               </div>
-              <div className="text-xs text-slate-500 truncate">{profile.role || 'Dispatcher'}</div>
+              <div className="text-xs text-slate-500 truncate">{companyName}</div>
             </div>
           </button>
             }
           />
 
-          </>}
+          <Notice error={logoutError} />
           <div className={`mt-1 flex items-center py-3 ${collapsed ? 'justify-center' : 'justify-between px-3'}`} title={collapsed ? `Auto dispatch: ${dispatchMode === 'AUTO' ? 'on' : 'off'}` : undefined}>
             <span className={collapsed ? 'sr-only' : 'text-sm font-normal text-slate-700'}>Auto dispatch</span>
             <Switch
               checked={dispatchMode === 'AUTO'}
+              aria-disabled={dispatchModePending}
+              aria-busy={dispatchModePending}
               aria-label="Auto dispatch"
               onCheckedChange={checked => {
+                if (dispatchModePending) return;
                 onDispatchModeChange(checked ? 'AUTO' : 'MANUAL');
               }}
             />

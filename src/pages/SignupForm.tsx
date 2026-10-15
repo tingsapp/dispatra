@@ -70,7 +70,7 @@ export function SignupForm({ onPendingChange }: { onPendingChange?: (pending: bo
         <label htmlFor="trial-terms">I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Terms and Conditions</a>.</label>
       </div>
       <Notice error={error ? new Error(error) : signup.error} />
-      <p className="text-xs leading-5 text-app-muted">Verify your email to start your 30-day trial. After the trial, contact Dispatra to activate your company and continue. No credit card required.</p>
+      <p className="text-xs leading-5 text-app-muted">Verify your email to start your 30-day trial. No credit card is required for the trial. To continue afterward, authorize monthly automatic billing at your company’s saved rate per registered vehicle.</p>
     </DialogBody>
     <DialogFooter><Button disabled={signup.isPending || addressResolving}>{signup.isPending ? 'Creating your workspace…' : 'Start trial'}</Button></DialogFooter>
   </form>;

@@ -17,6 +17,8 @@ test('an incomplete email draft opens as blank form fields instead of failing', 
   assert.equal(input.customerId, 'shipper-1');
   assert.equal(input.serviceId, '');
   assert.equal(input.source, 'EMAIL');
+  assert.equal(input.requiredDriverId, null);
+  assert.equal(input.requiredDriverName, null);
   assert.equal(input.externalReference, 'PO-77');
   assert.deepEqual(input.stops.map(stop => [stop.type, stop.label]), [['PICKUP', warehouse.text], ['DROPOFF', '']]);
   assert.equal(input.stops[1].contactName, 'Bob');

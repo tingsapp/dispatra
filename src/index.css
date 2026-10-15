@@ -3,6 +3,7 @@
 @import "./styles/controls.css";
 @import "./components/home/preview.css";
 @import "./components/activity/activity.css";
+@import "./components/integrations/connectors/workspace-mode.css";
 @import "./portal/admin/order-flow.css";
 @import "./portal/admin/agent-report-log.css";
 

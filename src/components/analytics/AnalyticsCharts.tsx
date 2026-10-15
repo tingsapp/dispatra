@@ -1,9 +1,10 @@
+import { APP_ACCENT } from '../../lib/appearance';
 import type { ReactNode } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, type DotProps, type TooltipContentProps } from 'recharts';
 import { activityDays, sourceLabels, type Analytics } from '../../operations/analyticsAdapters';
 import type { OrderDateSelection } from '../orders/OrderDateFilter';
 
-const colors = { total: '#3b82f6', onTime: '#3b82f6', late: '#f59e0b', unknown: '#cbd5e1', sources: '#000000' };
+const colors = { total: APP_ACCENT, onTime: APP_ACCENT, late: '#f59e0b', unknown: '#cbd5e1', sources: '#000000' };
 const dayLabel = (date: string) => new Intl.DateTimeFormat('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`));
 const fullDate = (date: string) => new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`));
 const axis = { fontSize: 11, fill: '#94a3b8' };

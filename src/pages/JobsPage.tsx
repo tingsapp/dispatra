@@ -500,7 +500,7 @@ export function JobsPage({
                         <span className="truncate font-medium">{draft.pickup}</span>
                       </div>
                       <div className="flex items-start gap-1.5 text-slate-500 mt-1">
-                        <span className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-none" />
+                        <span className="w-2 h-2 rounded-full bg-app-accent mt-1 flex-none" />
                         <span className="truncate">{draft.dropoff}</span>
                       </div>
                     </td>
@@ -555,7 +555,7 @@ export function JobsPage({
                           <span className="truncate font-medium">{job.pickupAddress}</span>
                         </div>
                         <div className="flex items-start gap-1.5 text-slate-500 mt-1">
-                          <span className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-none" />
+                          <span className="w-2 h-2 rounded-full bg-app-accent mt-1 flex-none" />
                           <span className="truncate">{job.dropoffAddress}</span>
                         </div>
                       </td>
@@ -589,7 +589,7 @@ export function JobsPage({
                             </div>
                           </div>
                         ) : job.lifecycleStatus === 'NEW' ? (
-                          <DriverAssignmentMenu drivers={drivers} requestedId={job.pricingInput?.preferredDriverId} open={reassigningJobId === job.id}
+                          <DriverAssignmentMenu drivers={drivers} requestedId={job.pricingInput?.preferredDriverId} requiredId={job.pricingInput?.requiredDriverId} open={reassigningJobId === job.id}
                             onOpenChange={open => setReassigningJobId(open ? job.id : null)}
                             onSelect={driverId => handleReassignDriver(job, driverId)} />
                         ) : (

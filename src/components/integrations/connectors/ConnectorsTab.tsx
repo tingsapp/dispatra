@@ -5,7 +5,7 @@ import { Check, RefreshCw, Plus } from 'lucide-react';
 import { connectors, type Connector } from '../../../integrations/connectors';
 import { confirmDialog } from '../../ui/ConfirmDialog';
 import { ConnectorDialog } from './ConnectorDialog';
-import { DispatraConnectorCard } from './DispatraConnectorCard';
+import { WorkspaceModeLayout } from './WorkspaceModeLayout';
 import { useWorkspaceAccount } from '../../../portal/WorkspaceAccount';
 
 const LABELS: Record<Connector['status'], string> = {
@@ -14,14 +14,14 @@ const LABELS: Record<Connector['status'], string> = {
 };
 
 const ICON_COLORS: Record<string, string> = {
-  'rose-rocket': 'bg-rose-500 text-white', cartoncloud: 'bg-sky-600 text-white',
-  truckmate: 'bg-blue-700 text-white', mcleod: 'bg-red-700 text-white',
-  aljex: 'bg-indigo-600 text-white', turvo: 'bg-teal-600 text-white',
+  'rose-rocket': 'bg-rose-500 text-white', cartoncloud: 'bg-app-accent text-white',
+  truckmate: 'bg-app-accent text-white', mcleod: 'bg-red-700 text-white',
+  aljex: 'bg-app-accent text-white', turvo: 'bg-teal-600 text-white',
 };
 
-export function ConnectorsTab({ slug }: { slug: string }) {
+export function ConnectorsTab({ slug, nativeTms: presentedMode }: { slug: string; nativeTms?: boolean }) {
   const workspace = useWorkspaceAccount();
-  const nativeTms = workspace ? !workspace.settings.data.tms_workspace : false;
+  const nativeTms = presentedMode ?? (workspace ? !workspace.settings.data.tms_workspace : false);
   const cache = useQueryClient(); const queryKey = ['operations', slug, 'connectors'];
   const query = useQuery({ queryKey, queryFn: () => connectors.list(slug), enabled: !nativeTms, refetchInterval: data => data.state.data?.some(row => ['CONNECTING', 'SYNCING'].includes(row.status)) ? 3000 : 15000, refetchIntervalInBackground: false });
   const [selected, setSelected] = useState<Connector | null>(null);
@@ -41,14 +41,13 @@ export function ConnectorsTab({ slug }: { slug: string }) {
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not update this connection.'); }
     finally { setPending(null); }
   };
-  return <section aria-label="Connectors" className="space-y-5">
-    <p className="text-sm text-app-muted">Choose how you manage your transportation operations.</p>
-    {!nativeTms && query.isPending && <p role="status" className="text-sm text-app-muted">Loading connectors…</p>}
-    {!nativeTms && query.error && <div role="alert" className="space-y-2 text-sm"><p>Connectors could not be loaded.</p><Button type="button" variant="outline" onClick={() => void query.refetch()}>Try again</Button></div>}
+  return <section aria-label={nativeTms ? undefined : 'Connectors'} className="space-y-5">
+    <WorkspaceModeLayout nativeTms={nativeTms}>
+    {query.isPending && <p role="status" className="text-sm text-app-muted">Loading connectors…</p>}
+    {query.error && <div role="alert" className="space-y-2 text-sm"><p>Connectors could not be loaded.</p><Button type="button" variant="outline" onClick={() => void query.refetch()}>Try again</Button></div>}
     {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     <div className="grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-2">
-      <DispatraConnectorCard />
-      {(!nativeTms ? query.data ?? [] : []).map(row => {
+      {(query.data ?? []).map(row => {
         const busy = ['CONNECTING', 'SYNCING'].includes(row.status); const connected = row.status === 'CONNECTED';
         const hasConnection = row.version != null && row.status !== 'DISCONNECTED';
         const actionLabel = connected || row.status === 'SYNC_FAILED' ? `Sync ${row.name}`
@@ -95,6 +94,7 @@ export function ConnectorsTab({ slug }: { slug: string }) {
       {!review.rows.length && <p className="text-sm text-app-muted">No orders need review.</p>}
       {review.rows.map(item => <div key={item.id} className="text-sm"><p className="font-medium">{item.reference}</p><ul className="list-disc pl-5 text-xs text-app-muted">{item.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul></div>)}
     </section>}
+    </WorkspaceModeLayout>
     {!nativeTms && selected && <ConnectorDialog key={selected.id} slug={slug} connector={selected} onClose={() => setSelected(null)} onSaved={refresh} />}
   </section>;
 }

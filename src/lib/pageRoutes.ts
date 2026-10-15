@@ -9,6 +9,7 @@ export const PAGE_PATHS: Record<string, string> = {
   'rate-cards': '/settings',
   integrations: '/integrations',
   profile: '/profile',
+  subscription: '/subscription',
   help: '/help',
 };
 

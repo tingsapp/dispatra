@@ -1,3 +1,4 @@
+import { shipperAssignment } from './shipperAssignment';
 import type { Job } from '../types';
 import type { PricingOrderInput, PricingSnapshot, ChargeLine } from '../types/pricing';
 import type { Order, Shipper, RateCard, CatalogItem, Booking, EmailIntake } from './api';
@@ -32,6 +33,7 @@ export function orderToInput(order: Order): PricingOrderInput {
     source: order.source === 'SHIPPER_PORTAL' || order.source === 'EMAIL' || order.source === 'IMPORT' ? order.source : 'DISPATCHER',
     importedPrice: facts.imported_total == null ? null : Number(facts.imported_total), importedTaxAmount: facts.imported_tax == null ? null : Number(facts.imported_tax),
     externalSource: null, externalReference: facts.external_reference, adjustments: facts.adjustments.map((a, i) => ({ id: String(i), amount: Number(a.amount), reason: a.reason, taxable: a.taxable })),
+    requiredDriverId: shipperAssignment(order)?.id ?? null, requiredDriverName: shipperAssignment(order)?.name ?? null,
     rateCardOverrideId: facts.rate_card_id ?? null, preferredDriverId: facts.preferred_driver_id ?? null, stage: order.pricing.stage,
   };
 }
@@ -42,7 +44,7 @@ export function draftToInput(draft: Record<string, unknown>): PricingOrderInput 
   const blank = { text: '', city: '', province: '', postal_code: '', country: 'CA' };
   const stops = (facts.stops ?? []).map(stop => ({ ...stop, address: stop.address ?? blank, contact_name: stop.contact_name ?? '', phone: stop.phone ?? '', instructions: stop.instructions ?? '' }));
   const items = (facts.items ?? []).map(item => ({ ...item, quantity: item.quantity ?? 1, weight_kg: item.weight_kg ?? 0, length_cm: item.length_cm ?? 0, width_cm: item.width_cm ?? 0, height_cm: item.height_cm ?? 0 }));
-  const order = { facts: { accessorials: [], adjustments: [], external_reference: '', ...facts, stops, items }, shipper_id: facts.shipper_id, billing_shipper_id: facts.shipper_id,
+  const order = { booking: {}, facts: { accessorials: [], adjustments: [], external_reference: '', ...facts, stops, items }, shipper_id: facts.shipper_id, billing_shipper_id: facts.shipper_id,
     service_id: facts.service_id ?? '', scheduled_at: facts.scheduled_at ?? '', source: 'EMAIL', pricing: { stage: 'ESTIMATE' } } as unknown as Order;
   return orderToInput(order);
 }

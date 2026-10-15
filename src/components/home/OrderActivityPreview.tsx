@@ -38,12 +38,12 @@ export function OrderActivityPreview({ onCompletedChange }: { onCompletedChange?
   useEffect(() => { onCompletedChange?.(current.status === 'Completed'); }, [current.status, onCompletedChange]);
   return <>
     <div className="absolute left-3 top-3 rounded-xl border border-app-border bg-white px-3 py-2.5 shadow-md">
-      <div className="flex items-center gap-5 text-[11px] font-medium"><span>Order 1042</span><span className={`flex items-center gap-1.5 ${current.status === 'Completed' ? 'text-emerald-700' : 'text-blue-600'}`}>{current.status === 'Completed' ? <Check className="size-3" aria-hidden="true" /> : <span className="size-1 rounded-full bg-blue-500" />}{current.status}</span></div>
+      <div className="flex items-center gap-5 text-[11px] font-medium"><span>Order 1042</span><span className={`flex items-center gap-1.5 ${current.status === 'Completed' ? 'text-emerald-700' : 'text-app-accent'}`}>{current.status === 'Completed' ? <Check className="size-3" aria-hidden="true" /> : <span className="size-1 rounded-full bg-app-accent" />}{current.status}</span></div>
       <p className="mt-1 text-[10px] text-app-muted">Vancouver → Richmond · Email</p>
     </div>
     <section aria-label="Sample order activity" aria-live="off" className="absolute bottom-3 left-3 right-3 rounded-xl border border-app-border bg-white/95 p-3 shadow-lg backdrop-blur-sm sm:left-auto sm:w-[280px]">
-      <div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className={`size-1.5 rounded-full ${paused || reducedMotion ? 'bg-slate-400' : 'bg-blue-600'}`} /><h3 className="text-[11px] font-medium">Order activity</h3></div>
-        {!reducedMotion && <button type="button" onClick={() => setPaused(value => !value)} aria-label={paused ? 'Play preview animation' : 'Pause preview animation'} className="inline-flex size-6 items-center justify-center rounded-md text-app-muted hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">{paused ? <Play className="size-3" aria-hidden="true" /> : <Pause className="size-3" aria-hidden="true" />}</button>}
+      <div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className={`size-1.5 rounded-full ${paused || reducedMotion ? 'bg-slate-400' : 'bg-app-accent'}`} /><h3 className="text-[11px] font-medium">Order activity</h3></div>
+        {!reducedMotion && <button type="button" onClick={() => setPaused(value => !value)} aria-label={paused ? 'Play preview animation' : 'Pause preview animation'} className="inline-flex size-6 items-center justify-center rounded-md text-app-muted hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent">{paused ? <Play className="size-3" aria-hidden="true" /> : <Pause className="size-3" aria-hidden="true" />}</button>}
       </div>
       <ol className="relative mt-2 h-[144px] overflow-hidden" aria-label="Recent sample order events">
         {Array.from({ length: Math.min(currentStage + 1, 4) }, (_, index) => Math.max(0, currentStage - 3) + index)
@@ -68,9 +68,9 @@ function ActivityRow({ sequence, currentSequence, reducedMotion }: { sequence: n
   const event = events[sequence % events.length];
   const Icon = event.icon;
   const latest = age === 0;
-  return <li aria-hidden={age > 2} className={`preview-event-row absolute inset-x-0 top-0 flex h-12 items-center gap-2.5 rounded-lg px-2 py-1.5 ${latest ? event.status === 'Completed' ? 'bg-emerald-50/80' : 'bg-blue-50/80' : ''}`}
+  return <li aria-hidden={age > 2} className={`preview-event-row absolute inset-x-0 top-0 flex h-12 items-center gap-2.5 rounded-lg px-2 py-1.5 ${latest ? event.status === 'Completed' ? 'bg-emerald-50/80' : 'bg-app-accent-soft/80' : ''}`}
     style={{ transform: `translateY(${(2 - age + (arrived || reducedMotion ? 0 : 1)) * 48}px)` }}>
-    <span className={`preview-event-icon flex size-6 shrink-0 items-center justify-center rounded-lg ${event.status === 'Completed' ? 'bg-emerald-600 text-white' : latest ? 'bg-blue-600 text-white' : 'bg-slate-100 text-app-muted'}`}><Icon className="size-3" aria-hidden="true" /></span>
+    <span className={`preview-event-icon flex size-6 shrink-0 items-center justify-center rounded-lg ${event.status === 'Completed' ? 'bg-emerald-600 text-white' : latest ? 'bg-app-accent text-white' : 'bg-slate-100 text-app-muted'}`}><Icon className="size-3" aria-hidden="true" /></span>
     <div className="min-w-0 flex-1"><p className="text-[10px] font-medium leading-4">{event.title}</p><p className="text-[9px] leading-4 text-app-muted">{event.actor}</p></div><span className="self-start pt-0.5 text-[9px] tabular-nums text-app-muted">{event.time}</span>
   </li>;
 }

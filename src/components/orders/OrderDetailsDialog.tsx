@@ -18,6 +18,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
   onComplete?: (job: Job) => void;
 }) {
   const requested = job.pricingInput?.preferredDriverId;
+  const required = job.pricingInput?.requiredDriverId;
   const editable = !!onEdit && orderEditable(job);
   const completable = !!onComplete && orderCompletable(job);
   const locatable = !!onLocate && orderLifecycle(job) !== 'COMPLETED';
@@ -25,7 +26,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
   return <Dialog size="md" onClose={onClose}>
     <DialogHeader onClose={onClose} title={<>
       <span>{job.jobNumber}</span>
-      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">{job.serviceLevel || job.jobType}</span>
+      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-app-accent-soft text-app-accent border border-app-accent/20">{job.serviceLevel || job.jobType}</span>
       {job.pricing?.status === 'PRICED' && <span className="text-sm font-normal text-slate-600">${job.pricing.total.toFixed(2)} {job.pricing.currency}</span>}
     </>} />
     {/* One bordered section per New Order form section; inner groups are borderless grey */}
@@ -36,10 +37,11 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
           <label className="app-label">Assigned driver</label>
           <Select aria-label="Reassign driver" className="w-full" value={job.assignedDriverId || 'unassigned'} onValueChange={(v) => onReassign(job, v)}
             options={[{ value: 'unassigned', label: '— Unassigned (Needs Dispatch) —' },
-              ...drivers.map((d) => ({ value: d.id, label: `${d.name} (${d.driverNumber ?? d.id}) · ${d.statusLabel} (${d.vehicle.split(' ')[0]})${d.id === requested ? ' · Requested' : ''}` }))]} />
+              ...drivers.map((d) => ({ value: d.id, disabled: !!required && d.id !== required, label: `${d.name} (${d.driverNumber ?? d.id}) · ${d.statusLabel} (${d.vehicle.split(' ')[0]})${d.id === requested ? ' · Requested' : ''}` }))]} />
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-          {requested && <Detail label="Shipper's requested driver" value={drivers.find(d => d.id === requested)?.name ?? 'Driver no longer available'}
+          {required && <Detail label="Shipper's assigned driver" value={job.pricingInput?.requiredDriverName ?? drivers.find(d => d.id === required)?.name ?? 'Saved driver (unavailable)'} hint="This order requires this driver." />}
+          {!required && requested && <Detail label="Shipper's requested driver" value={drivers.find(d => d.id === requested)?.name ?? 'Driver no longer available'}
             hint={job.assignedDriverId && job.assignedDriverId !== requested ? 'Assigned to a different driver' : null} />}
           <Detail label="Handling instructions" value={job.handlingInstructions} />
         </dl>

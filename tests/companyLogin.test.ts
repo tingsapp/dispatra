@@ -33,7 +33,7 @@ test('changing roles submits the matching API portal and retains the entered ema
   api.login = async body => {
     requests.push(body);
     return { id: 'user-1', login_id: body.login_id, display_name: 'User', tms_workspace: false, role: ({ dispatch: 'DISPATCHER', customer: 'SHIPPER', driver: 'DRIVER', platform: 'ADMIN' } as const)[body.portal],
-      organization: { id: 'company-1', name: 'Acme', slug: 'acme', active: true } };
+      organization: { id: 'company-1', name: 'Acme', slug: 'acme', active: true, payment_required: false } };
   };
   view('dispatch', account => signedIn.push(account));
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'User@Example.com' } });

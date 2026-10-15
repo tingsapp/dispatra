@@ -13,7 +13,7 @@ export function AgentReportDetails({ entry, actions, activityControls }: { entry
     <ol aria-label="Activity entries" className="space-y-3">{entry.entries.map(row => <li key={row.id} className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)] gap-3 text-xs leading-5">
       <time dateTime={row.created_at} title={formatWhen(row.created_at)} className="text-[11px] tabular-nums text-app-muted">{clockTime(row.created_at)}</time>
       <div className="min-w-0"><p className="break-words text-app-text">{row.message}</p>
-        <p className="break-words text-[11px] text-app-muted"><span className="text-blue-600">Activity</span> · {row.company_name ?? 'Platform'} · {AGENTS[row.agent].name}</p>
+        <p className="break-words text-[11px] text-app-muted"><span className="text-app-accent">Activity</span> · {row.company_name ?? 'Platform'} · {AGENTS[row.agent].name}</p>
       </div>
     </li>)}</ol>
     {activityControls && <div className="flex justify-end">{activityControls}</div>}

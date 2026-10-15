@@ -13,12 +13,12 @@ export function normalizeOrderInput(input: PricingOrderInput): PricingOrderInput
 }
 export const snapshotCustomer = (c?: Customer): Order['customerSnapshot'] => c ? { id: c.id, name: c.name, phone: c.phone, email: c.email, billingEmail: c.email, legalName: c.legalName, address: c.address } : undefined;
 export function applyCustomerDefaults(input: PricingOrderInput, c?: Customer, previous?: Customer): PricingOrderInput {
-  if (!c) return { ...input, customerId: null };
+  if (!c) return { ...input, customerId: null, requiredDriverId: null, requiredDriverName: null };
   const warehouse = c.address.trim();
   const previousWarehouse = previous?.address.trim();
   let defaultPickupApplied = false;
   return { ...input, customerId: c.id, serviceId: c.defaultServiceId || input.serviceId,
-    rateCardOverrideId: null,
+    rateCardOverrideId: null, requiredDriverId: c.assignedDriverId ?? null, requiredDriverName: c.assignedDriverName ?? null,
     scheduledAt: input.scheduledAt && c.defaultWindowStart ? `${input.scheduledAt.slice(0,10)}T${c.defaultWindowStart}` : input.scheduledAt,
     scheduledEndAt: input.scheduledAt && c.defaultWindowEnd ? `${input.scheduledAt.slice(0,10)}T${c.defaultWindowEnd}` : input.scheduledEndAt,
     stops: input.stops.map(s => {

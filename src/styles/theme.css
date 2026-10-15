@@ -27,6 +27,8 @@
   --color-app-text: #0d0d0d;
   --color-app-muted: #6b6b6b;
   --color-app-border: #e5e5e5;
+  --color-app-accent: #1447e6;
+  --color-app-accent-soft: #eff6ff;
   --spacing-sidebar: 260px;
   --spacing-sidebar-rail: 64px;
   --text-sm: 0.875rem;

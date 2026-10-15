@@ -58,23 +58,19 @@ try {
     const current = await terms.json();
     const configured = await context.request.patch(origin + `/api/v1/platform/organizations/${company.id}/subscription`, {
       headers: { Origin: origin, 'X-Requested-With': 'Dispatra', 'Idempotency-Key': crypto.randomUUID() },
-      data: { version: current.version, status: current.status, monthly_price: current.monthly_price, currency, starts_on: current.starts_on },
+      data: { version: current.version, status: 'ACTIVE', monthly_price: price, currency, starts_on: '2026-01-31' },
     });
     assert.equal(configured.status(), 200, await configured.text());
     await page.goto(origin + `/admin/companies/${company.id}/subscription`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('tabpanel', { name: 'Subscription', exact: true }).waitFor();
-    await page.getByLabel('Price per vehicle per month').fill(price);
-    assert.equal(await page.getByLabel('Subscription currency').count(), 0);
-    assert.equal(await page.getByText('Trial & workspace access', { exact: true }).count(), 0);
-    await page.getByLabel('Subscription start date').fill('2026-01-31');
-    await page.getByRole('combobox', { name: 'Subscription status', exact: true }).click();
-    await page.getByRole('option', { name: 'Active', exact: true }).click();
-    await page.getByRole('button', { name: 'Save subscription', exact: true }).click();
-    await page.getByText('Company subscription saved.', { exact: true }).waitFor();
+    await page.getByRole('tabpanel', { name: 'Subscription & billing', exact: true }).waitFor();
+    const panel = page.getByRole('tabpanel', { name: 'Subscription & billing', exact: true });
+    await panel.locator('dd').filter({ hasText: currency + ' ' + price }).waitFor();
+    assert.equal(await panel.locator('input, select, textarea, form').count(), 0);
+    assert.equal(await panel.getByRole('tablist').count(), 0);
   };
   await configure(first, '89.95', 'CAD');
   await page.reload({ waitUntil: 'domcontentloaded' });
-  assert.equal(await page.getByLabel('Price per vehicle per month').inputValue(), '89.95');
+  assert.ok(await page.locator('dd').filter({ hasText: 'CAD 89.95' }).isVisible());
   await configure(second, '49.95', 'USD');
   await page.getByRole('link', { name: 'Subscription', exact: true }).click();
   await page.getByLabel('Price per vehicle per month', { exact: true }).fill('75.00');
@@ -95,13 +91,17 @@ try {
     await page.screenshot({ path: `/tmp/dispatra-platform-revenue-${width}.png`, fullPage: true });
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole('link', { name: `Manage ${first.name} subscription`, exact: true }).click();
+  await page.getByRole('link', { name: `View ${first.name} subscription`, exact: true }).click();
   await page.waitForURL(origin + `/admin/companies/${first.id}/subscription`);
-  assert.equal(await page.getByLabel('Price per vehicle per month').inputValue(), '89.95');
-  await page.getByRole('combobox', { name: 'Subscription status', exact: true }).click();
-  await page.getByRole('option', { name: 'Paused', exact: true }).click();
-  await page.getByRole('button', { name: 'Save subscription', exact: true }).click();
-  await page.getByText('Company subscription saved.', { exact: true }).waitFor();
+  assert.ok(await page.locator('dd').filter({ hasText: 'CAD 89.95' }).isVisible());
+  const latest = await (await context.request.get(origin + `/api/v1/platform/organizations/${first.id}/subscription`)).json();
+  const paused = await context.request.patch(origin + `/api/v1/platform/organizations/${first.id}/subscription`, {
+    headers: { Origin: origin, 'X-Requested-With': 'Dispatra', 'Idempotency-Key': crypto.randomUUID() },
+    data: { version: latest.version, status: 'PAUSED', monthly_price: latest.monthly_price, currency: latest.currency, starts_on: latest.starts_on },
+  });
+  assert.equal(paused.status(), 200);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.getByRole('tabpanel', { name: 'Subscription & billing', exact: true }).getByText('Paused', { exact: true }).waitFor();
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -114,5 +114,5 @@ try {
   await page.getByRole('region', { name: 'USD recurring revenue' }).waitFor();
   await page.waitForFunction(() => !document.querySelector('section[aria-label="CAD recurring revenue"]'));
   assert.deepEqual(errors, []);
-  console.log('PASS: independent company terms/save/reload, default preservation, per-currency revenue, pause exclusion, audit history, deep links and 1440/390/320px layouts.');
+  console.log('PASS: read-only company terms/reload, default preservation, per-currency revenue, pause exclusion, audit history, deep links and 1440/390/320px layouts.');
 } finally { await browser.close(); }

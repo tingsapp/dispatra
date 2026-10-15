@@ -19,7 +19,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
   /** Edge-to-edge map canvas with workspace controls floating above it. */
   map?: boolean;
   /** Dispatcher-style account card with a Profile / Logout menu instead of the plain sign-out control. */
-  account?: { name: string; role: string; profileCurrent: boolean };
+  account?: { name: string; role: string; profileCurrent: boolean; activeTab?: string; onSettings?: () => void; onSubscription?: () => void; onIntegration?: () => void };
   navigation?: { label: string; href: string; icon: LucideIcon; current: boolean; badge?: number; badgeLabel?: string }[];
   company: string; login: string; primary: string; icon: LucideIcon; settings: boolean;
   onHome: () => void; onSettings: () => void; onLogout: () => void; loggingOut: boolean; children: ReactNode;
@@ -50,8 +50,12 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
 
       </nav>
       {account ? <div className="mt-auto p-2">
-        <AccountMenu open={menuOpen} onOpenChange={setMenuOpen} modal={mobile} collapsed={collapsed} activeTab={account.profileCurrent ? 'profile' : ''}
-          onProfile={() => navigate(onSettings)} onLogout={() => { if (!loggingOut) onLogout(); }}
+        <AccountMenu open={menuOpen} onOpenChange={setMenuOpen} modal={mobile} collapsed={collapsed} activeTab={account.activeTab ?? (account.profileCurrent ? 'profile' : '')}
+          onProfile={() => navigate(onSettings)}
+          onPricing={account.onSettings ? () => navigate(account.onSettings!) : undefined}
+          onSubscription={account.onSubscription ? () => navigate(account.onSubscription!) : undefined}
+          onIntegration={account.onIntegration ? () => navigate(account.onIntegration!) : undefined}
+          onLogout={() => { if (!loggingOut) onLogout(); }}
           trigger={<button type="button" aria-expanded={menuOpen} aria-label={`${account.role} account`} title={`${account.role} account`} className="app-account-card group">
             <span className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-medium text-xs flex items-center justify-center shrink-0 uppercase">{initials(account.name)}</span>
             <span className={collapsed ? 'sr-only' : 'min-w-0 flex-1 text-left'}>

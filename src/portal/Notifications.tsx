@@ -8,7 +8,7 @@ import { notificationsKey, syncKey, type SyncSummary } from './sync';
 const SEVERITY = {
   CRITICAL: { icon: AlertTriangle, tone: 'bg-rose-100 text-rose-600', label: 'Critical' },
   WARNING: { icon: Clock, tone: 'bg-amber-100 text-amber-600', label: 'Warning' },
-  INFO: { icon: CheckCircle2, tone: 'bg-blue-100 text-blue-600', label: 'Information' },
+  INFO: { icon: CheckCircle2, tone: 'bg-app-accent-soft text-app-accent', label: 'Information' },
 } as const;
 
 /** Compact age for inbox rows: Just now, 5m ago, 3h ago, then a short date. */
@@ -65,7 +65,7 @@ export function NotificationInbox<T extends InboxRow>({ rows, unread, loading, l
           const severity = SEVERITY[row.severity];
           const Icon = severity.icon;
           return <li key={row.id}><button type="button" onClick={() => onOpen(row)} aria-label={`${row.read_at ? '' : 'Unread. '}${severity.label}. ${row.title}. ${row.body}`}
-            className={`w-full text-left py-2.5 px-2 hover:bg-slate-50 rounded-xl transition-colors ${row.read_at ? '' : 'bg-blue-50/40'}`}>
+            className={`w-full text-left py-2.5 px-2 hover:bg-slate-50 rounded-xl transition-colors ${row.read_at ? '' : 'bg-app-accent-soft/40'}`}>
             <span className="flex items-start gap-2">
               <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full flex items-center justify-center ${severity.tone}`}><Icon className="w-2.5 h-2.5 stroke-[2.5]" /></span>
               <span className="min-w-0 flex-1">
@@ -75,7 +75,7 @@ export function NotificationInbox<T extends InboxRow>({ rows, unread, loading, l
                 </span>
                 <span className="block text-xs text-slate-500 mt-0.5 line-clamp-2">{row.body}</span>
               </span>
-              {!row.read_at && <span aria-hidden className="mt-1.5 w-1.5 h-1.5 shrink-0 rounded-full bg-blue-600" />}
+              {!row.read_at && <span aria-hidden className="mt-1.5 w-1.5 h-1.5 shrink-0 rounded-full bg-app-accent" />}
             </span>
           </button></li>;
         })}</ul>}

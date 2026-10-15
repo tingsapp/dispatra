@@ -8,13 +8,14 @@ interface Props {
   drivers: Pick<Driver, 'id' | 'name' | 'avatar' | 'statusLabel' | 'driverNumber'>[];
   /** The shipper's optional driver preference: listed first and labelled. */
   requestedId?: string | null;
+  requiredId?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (driverId: string) => void;
 }
 
 /** Presentation only: assignment eligibility and updates remain with the caller. */
-export function DriverAssignmentMenu({ drivers, requestedId, open, onOpenChange, onSelect }: Props) {
+export function DriverAssignmentMenu({ drivers, requestedId, requiredId, open, onOpenChange, onSelect }: Props) {
   const ordered = requestedId ? [...drivers].sort((a, b) => Number(b.id === requestedId) - Number(a.id === requestedId)) : drivers;
   return <DropdownMenu open={open} onOpenChange={onOpenChange}>
     <DropdownMenuTrigger asChild>
@@ -22,7 +23,7 @@ export function DriverAssignmentMenu({ drivers, requestedId, open, onOpenChange,
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start">
       <p className="px-3 py-2 text-xs text-app-muted">Select Driver</p>
-      {ordered.length ? ordered.map(driver => <DropdownMenuItem key={driver.id} onSelect={() => onSelect(driver.id)}>
+      {ordered.length ? ordered.map(driver => <DropdownMenuItem key={driver.id} disabled={!!requiredId && driver.id !== requiredId} onSelect={() => onSelect(driver.id)}>
         <span className="flex items-center gap-3">
           <DriverAvatar name={driver.name} avatar={driver.avatar} alt="" className="size-8 shrink-0 rounded-full object-cover" />
           <span className="min-w-0 flex-1">

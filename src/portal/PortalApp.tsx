@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, Account, ApiError, LoginInput } from './api';
+import { CompanyAccountPortal } from './CompanyAccountPortal';
 import { WorkspaceAccount } from './WorkspaceAccount';
 import { ShipperPortal } from './ShipperPortal';
 import { DriverPortal } from './DriverPortal';
@@ -47,7 +48,7 @@ function Portal() {
   if (legacy) history.replaceState(null, '', legacy + location.search + location.hash);
   let route = parsePortal(location.pathname);
   const client = useQueryClient();
-  const me = useQuery({ queryKey:['account'], queryFn:api.me, retry:false });
+  const me = useQuery({ queryKey:['account'], queryFn:api.me, retry:false, refetchInterval:30000 });
   const logout = useMutation({ mutationFn:api.logout, onSuccess: () => { client.clear(); location.assign(route?.portal === 'platform' ? '/admin' : '/login'); } });
   if (!route) return <main className="mx-auto max-w-lg px-6 py-24"><h1 className="text-3xl font-medium">Dispatra</h1><p className="mt-4 text-slate-600">Sign in to open your workspace.</p><a className="mt-6 inline-block text-slate-700 underline underline-offset-4" href="/login">Sign in →</a></main>;
   if (me.isPending) return <PageLoading>Loading your workspace…</PageLoading>;
@@ -74,6 +75,11 @@ function Portal() {
     history.replaceState(null, '', accountWorkspace(account)!);
     route = parsePortal(location.pathname)!;
   }
+  if (route.workspace && account.role === 'DISPATCHER' && account.organization?.slug === route.slug && pageForPath(location.pathname) === 'profile' && new URLSearchParams(location.search).has('card_setup')) {
+    history.replaceState(null, '', `/${route.slug}/subscription${location.search}${location.hash}`);
+    route = parsePortal(location.pathname)!;
+  }
+  if (route.workspace && account.role === 'DISPATCHER' && account.organization?.slug === route.slug && account.organization.payment_required) return <CompanyAccountPortal account={account} onLogout={() => logout.mutate()} loggingOut={logout.isPending} logoutError={logout.error} />;
   if (route.workspace) return account.role === 'DISPATCHER' && account.organization?.slug === route.slug
     ? <Suspense fallback={<PageLoading>Loading workspace…</PageLoading>}><WorkspaceAccount key={account.id} account={account}><Workspace onSignOut={() => logout.mutate()} loggingOut={logout.isPending} logoutError={logout.error} /></WorkspaceAccount></Suspense>
     : <main className="mx-auto max-w-lg space-y-5 px-6 py-24"><h1 className="text-2xl font-medium">Sign in to this workspace</h1><p className="text-slate-600">This account does not have dispatcher access to {route.slug}.</p><Button onClick={() => logout.mutate()}>Sign out</Button></main>;

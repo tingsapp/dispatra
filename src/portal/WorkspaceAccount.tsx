@@ -5,6 +5,7 @@ import { Button, Notice } from './ui';
 import type { components } from './schema';
 import { setServerCompanySettings } from '../lib/serverCompanySettings';
 import { PageLoading } from '../components/ui/PageLoading';
+import { WorkspaceTransition } from '../components/layout/WorkspaceTransition';
 export type SettingsView = components['schemas']['SettingsView'];
 export const companySettingsKey = (slug: string) => ['company-settings', slug] as const;
 const Context = createContext<{ account: Account; settings: SettingsView; reload: () => Promise<SettingsView> } | null>(null);
@@ -23,5 +24,5 @@ export function WorkspaceAccount({ account, children }: { account: Account; chil
     const result = await query.refetch();
     if (result.error || !result.data) throw result.error ?? new Error('Unable to reload settings.');
     return result.data;
-  } }}>{children}</Context.Provider>;
+  } }}><WorkspaceTransition nativeTms={!query.data.data.tms_workspace}>{children}</WorkspaceTransition></Context.Provider>;
 }

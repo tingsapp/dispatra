@@ -122,7 +122,7 @@ export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: strin
               </td>
               <td className="py-3.5 px-4 max-w-xs">
                 <div className="flex items-start gap-1.5 text-slate-700"><span className="w-2 h-2 rounded-full bg-emerald-500 mt-1 flex-none" /><span className="truncate font-medium">{job.pickupAddress}{pickups.length > 1 && ` +${pickups.length - 1}`}</span></div>
-                <div className="flex items-start gap-1.5 text-slate-500 mt-1"><span className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-none" /><span className="truncate">{job.dropoffAddress}{drops.length > 1 && ` +${drops.length - 1}`}</span></div>
+                <div className="flex items-start gap-1.5 text-slate-500 mt-1"><span className="w-2 h-2 rounded-full bg-app-accent mt-1 flex-none" /><span className="truncate">{job.dropoffAddress}{drops.length > 1 && ` +${drops.length - 1}`}</span></div>
               </td>
               <td className="py-3.5 px-4 whitespace-nowrap">
                 <div className="flex items-center gap-1 text-slate-700 font-medium"><Clock className="w-3.5 h-3.5 text-slate-400" />{formatWhen(job.pricingInput?.scheduledAt ?? job.scheduledTime, timeZone)}</div>
@@ -147,7 +147,7 @@ export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: strin
     {detail && ctx && <Dialog size="md" onClose={() => setDetailId(null)}>
       <DialogHeader onClose={() => setDetailId(null)} title={<>
         <span>{detail.jobNumber}</span>
-        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">{detail.serviceLevel || detail.jobType}</span>
+        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-app-accent-soft text-app-accent border border-app-accent/20">{detail.serviceLevel || detail.jobType}</span>
         {detail.pricing?.status === 'PRICED' && <span className="text-sm font-normal text-slate-600">${detail.pricing.total.toFixed(2)} {detail.pricing.currency}</span>}
       </>} />
       <DialogBody className="space-y-5">

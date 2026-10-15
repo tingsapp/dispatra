@@ -192,7 +192,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             }).sort().at(-1);
             return <div key={stop.id} className="rounded-lg border border-slate-200 p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-app-accent-soft text-app-accent' : 'bg-emerald-100 text-emerald-700'}`}>{stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
                 <button type="button" disabled={value.stops.length <= 2} onClick={() => onChange(removeOrderStop(value, stop.id))} className="ml-auto p-1.5 -mr-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 shrink-0" title="Remove stop" aria-label={`Remove stop ${i + 1}`}><Trash2 className="w-4 h-4" /></button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

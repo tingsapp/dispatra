@@ -32,6 +32,8 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   lastLogin: 'Today at 07:15 (Pacific Time)'
 };
 
+export const USER_PROFILE_UPDATED_EVENT = 'dispatra:user-profile-updated';
+
 export const PROFILE_STORAGE_KEY = 'dispatra_user_profile_v1';
 
 export function loadUserProfile(): UserProfile {
@@ -52,6 +54,7 @@ export function loadUserProfile(): UserProfile {
 export function saveUserProfile(profile: UserProfile): void {
   try {
     localStorage.setItem(scopedStorageKey(PROFILE_STORAGE_KEY), JSON.stringify(profile));
+    window.dispatchEvent(new Event(USER_PROFILE_UPDATED_EVENT));
   } catch (err) {
     console.warn('Could not save profile to localStorage:', err);
   }

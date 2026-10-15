@@ -22,7 +22,7 @@ export function GoogleOrderMarkers({ job, stops, onSelect }: GoogleOrderMarkersP
   const risk = job.status === 'at_risk';
   const late = job.status === 'late_start';
   const unassigned = job.status === 'no_driver';
-  const color = risk ? 'bg-rose-600' : late ? 'bg-amber-500' : unassigned ? 'bg-slate-700' : 'bg-blue-600';
+  const color = risk ? 'bg-rose-600' : late ? 'bg-amber-500' : unassigned ? 'bg-slate-700' : 'bg-app-accent';
   const label = risk ? 'At Risk' : late ? 'Late Start' : unassigned ? 'No Driver' : job.statusLabel;
   const Icon = risk ? Package : late ? Clock3 : unassigned ? UserX : Package;
   const statusStop = [...stops].reverse().find(stop => stop.lat === job.lat && stop.lng === job.lng);
@@ -35,7 +35,7 @@ export function GoogleOrderMarkers({ job, stops, onSelect }: GoogleOrderMarkersP
       const accessibleLabel = `Order ${job.jobNumber}, ${typeLabel}${stop.label ? `, ${stop.label}` : ''}${hasStatus ? `, ${label}` : ''}`;
       return <GoogleOverlayMarker key={stop.id} position={{ lat: stop.lat, lng: stop.lng }}
         label={accessibleLabel} title={`${job.jobNumber} · ${typeLabel}\n${stop.label}`}
-        className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
         onSelect={() => onSelect(job.jobNumber, [stop.lng, stop.lat])}>
         <div className="relative flex size-9 items-center justify-center">
           <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">

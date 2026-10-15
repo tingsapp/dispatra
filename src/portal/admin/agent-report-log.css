@@ -19,7 +19,7 @@
   align-items: start;
 }
 .agent-report-line:hover, .agent-report-line[aria-expanded="true"] { background: #f8fafc; }
-.agent-report-line:focus-visible { outline: 2px solid #3b82f6; outline-offset: -2px; }
+.agent-report-line:focus-visible { outline: 2px solid var(--color-app-accent); outline-offset: -2px; }
 .agent-report-time { color: #94a3b8; font-size: 11px; font-variant-numeric: tabular-nums; line-height: 20px; }
 .agent-report-level { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; line-height: 20px; }
 .agent-report-message { min-width: 0; grid-column: 1 / -1; grid-row: 2; }

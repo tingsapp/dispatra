@@ -6,7 +6,7 @@ const TONES = {
   success: 'bg-emerald-50 text-emerald-700',
   warning: 'bg-amber-50 text-amber-700',
   danger: 'bg-rose-50 text-rose-700',
-  info: 'bg-blue-50 text-blue-700',
+  info: 'bg-app-accent-soft text-app-accent',
 } as const;
 
 /** Compact metadata inside Monitor menus; status text stays readable on one line. */

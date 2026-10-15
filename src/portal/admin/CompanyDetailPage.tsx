@@ -10,7 +10,7 @@ import { CompanySubscriptionPage } from './CompanySubscriptionPage';
 import { auditLabel, formatWhen } from './format';
 import { auditKey, companyKey } from './queryKeys';
 
-export function CompanyDetailPage({ id, initialTab, onBack }: { id: string; initialTab?: 'subscription'; onBack: () => void }) {
+export function CompanyDetailPage({ id, initialTab, onBack }: { id: string; initialTab?: 'subscription' | 'payment-method'; onBack: () => void }) {
   const query = useQuery({ queryKey: companyKey(id), queryFn: () => api.company(id) });
   if (query.error instanceof ApiError && query.error.status === 404) return <div className="space-y-4 py-10 text-center"><p className="text-sm text-app-muted">This company does not exist or is no longer available.</p><Button variant="outline" onClick={onBack}>Back to companies</Button></div>;
   if (!query.data) return <QueryState query={query} loading="Loading company…" />;
@@ -22,9 +22,9 @@ export function CompanyDetailPage({ id, initialTab, onBack }: { id: string; init
       { label: 'Total Drivers', value: company.driver_count, icon: Truck },
       { label: 'Total Orders', value: company.order_count, icon: Package },
     ]} />
-    <Tabs label="Company administration" initialActiveId={initialTab} items={[
+    <Tabs label="Company administration" initialActiveId={initialTab === 'payment-method' ? 'subscription' : initialTab} items={[
       { id: 'overview', label: 'Overview', content: <CompanyOverviewForm company={company} /> },
-      { id: 'subscription', label: 'Subscription', content: <CompanySubscriptionPage company={company} /> },
+      { id: 'subscription', label: 'Subscription & billing', content: <CompanySubscriptionPage company={company} /> },
       { id: 'history', label: 'History', content: <AuditSection id={company.id} /> },
     ]} />
   </div>;

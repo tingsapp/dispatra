@@ -1,5 +1,6 @@
 import createClient from 'openapi-fetch';
 import type { paths, components } from './schema';
+export type PaymentTarget = { kind: 'owner'; id: string } | { kind: 'company'; slug: string };
 export type Account = components['schemas']['AccountView'];
 export type Customer = components['schemas']['CustomerAccessView'];
 export type Profile = components['schemas']['CustomerView'];
@@ -47,6 +48,21 @@ export type OperationalIncident = components['schemas']['IncidentView'];
 export type OperationalQuestion = components['schemas']['QuestionView'];
 export type OperationalReply = components['schemas']['Reply'];
 export const api = {
+  paymentHistory: async (target: PaymentTarget, after?: string) => target.kind === 'owner'
+    ? unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}/payments', { params: { path: { organization_id: target.id }, query: { after } } }))
+    : unwrap(await client.GET('/api/v1/companies/{slug}/billing/payments', { params: { path: { slug: target.slug }, query: { after } } })),
+  paymentMethod: async (target: PaymentTarget) => target.kind === 'owner'
+    ? unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}/payment-method', { params: { path: { organization_id: target.id } } }))
+    : unwrap(await client.GET('/api/v1/companies/{slug}/billing/payment-method', { params: { path: { slug: target.slug } } })),
+  startCardSetup: async (target: PaymentTarget, key: string, termsVersion: number) => target.kind === 'owner'
+    ? unwrap(await client.POST('/api/v1/platform/organizations/{organization_id}/payment-method/setup', { body: { consent: true, terms_version: termsVersion }, params: { path: { organization_id: target.id }, header: { 'Idempotency-Key': key } } }))
+    : unwrap(await client.POST('/api/v1/companies/{slug}/billing/payment-method/setup', { body: { consent: true, terms_version: termsVersion }, params: { path: { slug: target.slug }, header: { 'Idempotency-Key': key } } })),
+  confirmCardSetup: async (target: PaymentTarget, session: string) => target.kind === 'owner'
+    ? unwrap(await client.POST('/api/v1/platform/organizations/{organization_id}/payment-method/confirm', { body: { session_id: session }, params: { path: { organization_id: target.id } } }))
+    : unwrap(await client.POST('/api/v1/companies/{slug}/billing/payment-method/confirm', { body: { session_id: session }, params: { path: { slug: target.slug } } })),
+  refreshPaymentMethod: async (target: PaymentTarget) => target.kind === 'owner'
+    ? unwrap(await client.POST('/api/v1/platform/organizations/{organization_id}/payment-method/refresh', { params: { path: { organization_id: target.id } } }))
+    : unwrap(await client.POST('/api/v1/companies/{slug}/billing/payment-method/refresh', { params: { path: { slug: target.slug } } })),
   operationalIssues: async (status: 'OPEN' | 'ALL' = 'OPEN', before?: string) => unwrap(await client.GET('/api/v1/platform/agents/operational/issues', { params: { query: { status, before, limit: 12 } } })),
   runOperationalCheck: async (key: string) => unwrap(await client.POST('/api/v1/platform/agents/operational/check', { params: { header: { 'Idempotency-Key': key } } })),
   acknowledgeOperationalIssue: async (row: OperationalIncident) => unwrap(await client.POST('/api/v1/platform/agents/operational/issues/{identity}/acknowledge', { body: { version: row.version }, params: { path: { identity: row.id }, header: { 'Idempotency-Key': crypto.randomUUID() } } })),

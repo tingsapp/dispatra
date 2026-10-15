@@ -7,7 +7,7 @@ function AgentCardAction({ item, onOpen }: { item: AgentStatus; onOpen: (agent: 
   const runProblem = item.stale || item.run?.status === 'FAILED';
   const name = AGENTS[item.agent].name;
   return <button type="button" onClick={() => onOpen(item.agent)} aria-haspopup="dialog" aria-label={item.issue_count ? `${name}: ${item.issue_count} open issue${item.issue_count === 1 ? '' : 's'}` : runProblem ? `${name}: ${item.stale ? 'progress overdue' : 'latest run failed'}` : `${name} details`}
-    className="absolute -inset-px z-10 cursor-pointer rounded-xl transition-colors hover:bg-slate-900/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
+    className="absolute -inset-px z-10 cursor-pointer rounded-xl transition-colors hover:bg-slate-900/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent">
     {(item.issue_count > 0 || runProblem) && <span data-agent-issue-dot aria-hidden="true" className="admin-agent-issue-dot absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full bg-rose-600 ring-4 ring-white" />}
   </button>;
 }
@@ -15,7 +15,7 @@ function AgentCardAction({ item, onOpen }: { item: AgentStatus; onOpen: (agent: 
 function AgentState({ item }: { item: AgentStatus }) {
   const working = item.run?.status === 'RUNNING' && !item.stale;
   return <div className="shrink-0 text-center sm:text-left xl:text-right">
-    <p className={`text-[10px] sm:text-[11px] ${working ? 'text-blue-700' : item.stale || item.run?.status === 'FAILED' ? 'text-rose-700' : 'text-app-muted'}`}>{agentLabel(item)}</p>
+    <p className={`text-[10px] sm:text-[11px] ${working ? 'text-app-accent' : item.stale || item.run?.status === 'FAILED' ? 'text-rose-700' : 'text-app-muted'}`}>{agentLabel(item)}</p>
   </div>;
 }
 
@@ -35,7 +35,7 @@ const BRANCHES = [
     placement: 'col-start-1 col-span-3 row-start-4', compact: 'AI answers & workspace search', details: ['Workspace questions', 'Company records search'] },
   { id: 'requests', title: 'Booking requests', icon: Inbox, tone: 'bg-slate-100 text-slate-500',
     placement: 'col-start-1 row-start-1', compact: 'Email, portals, TMS', details: ['Email', 'Shipper portal', 'Dispatcher portal', 'TMS'] },
-  { id: 'order', title: 'Order agent', agent: 'ORDER' as const, icon: AGENTS.ORDER.icon, tone: 'bg-blue-50 text-blue-600', fill: 'bg-blue-100/70',
+  { id: 'order', title: 'Order agent', agent: 'ORDER' as const, icon: AGENTS.ORDER.icon, tone: 'bg-app-accent-soft text-app-accent', fill: 'bg-app-accent-soft/70',
     placement: 'col-start-3 row-start-1', compact: 'Intake & validation', details: ['Email intake', 'Booking validation'] },
   { id: 'dispatch', title: 'Dispatch agent', agent: 'DISPATCH' as const, icon: AGENTS.DISPATCH.icon, tone: 'bg-amber-50 text-amber-600', fill: 'bg-amber-100/60',
     placement: 'col-start-1 row-start-2', compact: 'Assignment & suggestions', details: ['Auto assignment', 'Manual suggestions'] },
@@ -92,7 +92,7 @@ export function OrderFlowChart({ agents, onOpen }: { agents: AgentStatus[]; onOp
         {drawing.paths.map((path, index) => <path key={index} className="admin-flow-connector" d={path} fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 7" strokeLinecap="round" />)}
       </svg>
       <div data-flow-hub role="group" aria-label="Order lifecycle" className="relative z-[1] col-start-2 row-start-1 row-span-2 w-full self-center rounded-2xl border border-slate-200 bg-white px-1.5 py-3 sm:px-3 sm:py-5 lg:px-5">
-        <div className="flex flex-col items-center gap-1.5 sm:flex-row sm:gap-2.5"><span className="flex h-6 w-6 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Workflow size={18} strokeWidth={1.6} aria-hidden="true" /></span><h2 className="text-[10px] font-medium text-slate-800 sm:text-sm"><span className="sm:hidden">Workflow</span><span className="hidden sm:inline">Order workflow</span></h2></div>
+        <div className="flex flex-col items-center gap-1.5 sm:flex-row sm:gap-2.5"><span className="flex h-6 w-6 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl bg-app-accent-soft text-app-accent"><Workflow size={18} strokeWidth={1.6} aria-hidden="true" /></span><h2 className="text-[10px] font-medium text-slate-800 sm:text-sm"><span className="sm:hidden">Workflow</span><span className="hidden sm:inline">Order workflow</span></h2></div>
         <ol aria-label="Order lifecycle stages" className="mt-4 space-y-3 sm:mt-5">
           {['New', 'Assigned', 'In progress', 'Completed'].map((stage, index) => <li key={stage} className="relative flex flex-col items-center gap-1 sm:flex-row sm:gap-2 lg:gap-3">
             {index < 3 && <span aria-hidden="true" className="absolute left-1/2 top-full h-3 border-l border-slate-200 sm:left-[13px] sm:top-7" />}
@@ -105,7 +105,7 @@ export function OrderFlowChart({ agents, onOpen }: { agents: AgentStatus[]; onOp
         const Icon = branch.icon;
         return <section key={branch.id} data-flow-branch className={`relative z-[1] min-w-0 ${branch.placement}`} aria-label={branch.title}>
           <div data-flow-header={branch.id} className="relative flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-1.5 py-2 text-center sm:min-h-14 sm:flex-row sm:justify-start sm:gap-2 sm:px-3 sm:py-3 sm:text-left xl:gap-3 xl:px-4">
-            {item && <AgentCardProgress item={item} tone={branch.fill ?? 'bg-blue-100/70'} />}
+            {item && <AgentCardProgress item={item} tone={branch.fill ?? 'bg-app-accent-soft/70'} />}
             {item && <AgentCardAction item={item} onOpen={onOpen} />}
             <span className={`relative z-[1] flex h-5 w-5 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-lg ${branch.tone}`}><Icon size={17} strokeWidth={1.6} aria-hidden="true" /></span>
             <h3 className="relative z-[1] min-w-0 text-[11px] leading-4 font-medium text-slate-800 sm:text-sm sm:leading-5">{branch.title}</h3>

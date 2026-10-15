@@ -6,7 +6,7 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http:
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'CustomEvent', 'localStorage']) {
   Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: dom.window[name as keyof Window] });
 }
-const { render, screen, cleanup, fireEvent, waitFor, within } = await import('@testing-library/react');
+const { render, screen, cleanup, waitFor, within } = await import('@testing-library/react');
 const { accountWorkspace, signupDestination, dispatcherPageAvailable } = await import('../src/lib/workspaceEntry');
 const { PublicHome } = await import('../src/pages/PublicHome');
 const { api, ApiError } = await import('../src/portal/api');
@@ -14,7 +14,7 @@ import type { Account } from '../src/portal/api';
 const originalMe = api.me;
 const anonymous = async () => { throw new ApiError(401, 'Sign in'); };
 const account = (role: Account['role']): Account => ({ id: 'user-1', login_id: 'user@example.com', display_name: 'User', role, tms_workspace: false,
-  organization: role === 'ADMIN' ? null : { id: 'company-1', name: 'Acme', slug: 'acme', active: true } });
+  organization: role === 'ADMIN' ? null : { id: 'company-1', name: 'Acme', slug: 'acme', active: true, payment_required: false } });
 afterEach(() => { cleanup(); localStorage.clear(); api.me = originalMe; });
 
 test('resume destinations use the authenticated role and company rather than remembered entry', () => {
@@ -26,14 +26,15 @@ test('resume destinations use the authenticated role and company rather than rem
   assert.equal(accountWorkspace({ ...account('SHIPPER'), tms_workspace: true }), '/acme/shipper');
   assert.equal(accountWorkspace({ ...account('DRIVER'), tms_workspace: true }), '/acme/driver');
 });
-test('homepage restores the prefixed company input and Start trial, keeping shared login separate', () => {
+test('homepage offers a direct free-trial action without a workspace input', () => {
   api.me = anonymous;
   render(React.createElement(PublicHome));
-  const input = screen.getByLabelText('Workspace');
+  const trial = screen.getByRole('link', { name: 'Start Free Trial' });
   const hero = screen.getByRole('heading', { level: 1, name: /From order to delivery/ }).closest('section');
-  assert.ok(hero?.contains(input));
-  assert.ok(screen.getByText('dispatra.com/'));
-  assert.ok(screen.getByRole('button', { name: 'Start trial' }));
+  assert.ok(hero?.contains(trial));
+  assert.equal(trial.getAttribute('href'), '/signup');
+  assert.equal(screen.queryByRole('textbox'), null);
+  assert.equal(screen.queryByText('dispatra.com/'), null);
   assert.equal(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href'), '/login');
   assert.equal(screen.queryByRole('radio'), null);
   assert.equal(screen.getByRole('link', { name: 'Sign in to your workspace' }).getAttribute('href'), '/login');
@@ -49,19 +50,12 @@ test('company identifiers produce signup destinations and reject URLs or reserve
     assert.equal(signupDestination(invalid), undefined, invalid);
   }
 });
-test('invalid homepage identifiers show an error without saving preferences', () => {
-  api.me = anonymous;
-  render(React.createElement(PublicHome));
-  fireEvent.change(screen.getByLabelText('Workspace'), { target: { value: 'admin' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Start trial' }));
-  assert.ok(screen.getByRole('alert'));
-  assert.equal(localStorage.length, 0);
-});
 test('authenticated resume uses the session company even with a remembered company', async () => {
   localStorage.setItem('dispatra_public_workspace_v1', JSON.stringify({ slug: 'last-company', role: 'shipper' }));
   api.me = async () => account('DRIVER');
   render(React.createElement(PublicHome));
-  assert.equal((screen.getByLabelText('Workspace') as HTMLInputElement).value, '');
+  assert.equal(screen.queryByRole('textbox'), null);
+  assert.equal(screen.getByRole('link', { name: 'Start Free Trial' }).getAttribute('href'), '/signup');
   await waitFor(() => assert.equal(screen.getByRole('link', { name: 'Open my workspace' }).getAttribute('href'), '/acme/driver'));
 });
 

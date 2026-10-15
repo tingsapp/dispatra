@@ -70,6 +70,7 @@ export const validateAssignment = (job: Pick<Job, 'id' | 'pricing' | 'pricingInp
   if (job.status === 'completed' || orderClosed(job as Job)) return ['Completed orders cannot be reassigned.'];
   if (job.pricing?.status !== 'PRICED' || !job.pricingInput) return ['Resolve pricing before assigning this order.'];
   if (job.pricing.stage !== 'FINAL' && job.pricing.quoteExpiresAt && Date.parse(job.pricing.quoteExpiresAt) < now.getTime()) return ['Quote has expired. Re-price explicitly before assigning.'];
+  if (job.pricingInput.requiredDriverId && driver.id !== job.pricingInput.requiredDriverId) return ['This order requires the shipper’s assigned driver.'];
   if (driver.status === 'offline') return ['Driver is offline.'];
   const fleet = loadVehicles();
   const operationalErrors = validateOperationalAssignment(job, driver, fleet, ctx.billing.general.timeZone, ctx.catalogue.vehicles);

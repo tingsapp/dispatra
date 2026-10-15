@@ -5,6 +5,7 @@ import { Tabs } from '../components/ui/Tabs';
 import { ConnectedTmsTab } from '../components/integrations/ConnectedTmsTab';
 import { ConnectorsTab } from '../components/integrations/connectors/ConnectorsTab';
 import { DispatraApiTab } from '../components/integrations/DispatraApiTab';
+import { useWorkspaceTransition } from '../components/layout/WorkspaceTransition';
 import { TmsReview } from '../components/integrations/TmsReview';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { tmsForm, tmsInput, type TmsForm } from '../integrations/preview';
@@ -32,16 +33,19 @@ function ConnectedTms({ slug, importedRateCard }: { slug: string; importedRateCa
 
 export function IntegrationsPage({ rates = [] }: { rates?: RateCard[] }) {
   const workspace = useWorkspaceAccount();
-  const nativeTms = workspace ? !workspace.settings.data.tms_workspace : false;
+  const savedNativeTms = workspace ? !workspace.settings.data.tms_workspace : false;
+  const presentation = useWorkspaceTransition();
+  const nativeTms = presentation?.displayedMode ?? savedNativeTms;
+  const phase = presentation?.phase ?? 'idle';
   const slug = companySlugForCurrentPath() ?? 'example';
   const importedRateCard = rates.find(card => card.active && card.data.method === 'IMPORTED')?.data.name;
-  return <div className="app-page h-full min-w-0 flex flex-col">
-    <PageHeader title="Integrations" description="Connect your existing transportation system to Dispatra and exchange orders and operational updates." />
+  return <div className="integration-workspace app-page h-full min-w-0 flex flex-col" data-mode={nativeTms ? 'dispatra' : 'external'} data-transition={phase}>
+    <PageHeader title="Integrations" description="Choose where you manage operations and connect the tools in your workspace." />
     <div className="page-content py-6"><div className="app-sections">
-      <Tabs label="Integration sections" items={[
-        { id: 'connectors', label: 'Connectors', pageWidth: 'reading', content: <ConnectorsTab slug={slug} /> },
+      <Tabs label="Integration sections" hideTabList={nativeTms} items={[
+        { id: 'connectors', label: 'Connectors', pageWidth: 'reading', content: <ConnectorsTab slug={slug} nativeTms={nativeTms} /> },
         { id: 'tms', label: 'TMS API', hidden: nativeTms, pageWidth: 'reading', content: <ConnectedTms slug={slug} importedRateCard={importedRateCard} /> },
-        { id: 'api', label: 'Dispatra API', pageWidth: 'reading', content: <DispatraApiTab slug={slug} /> },
+        { id: 'api', label: 'Dispatra API', hidden: nativeTms, pageWidth: 'reading', content: <DispatraApiTab slug={slug} /> },
       ]} />
     </div></div>
   </div>;

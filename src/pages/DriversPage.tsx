@@ -275,7 +275,7 @@ export function DriversPage({
                         <span
                           className={`px-2 py-0.5 text-xs font-medium rounded-full border ${
                             driver.status === 'on_route'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              ? 'bg-app-accent-soft text-app-accent border-app-accent/20'
                               : driver.status === 'available' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
                           }`}
                         >

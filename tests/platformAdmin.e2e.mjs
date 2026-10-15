@@ -121,7 +121,7 @@ try {
   assert.equal(settings.data.phone, '(604) 555-0199');
   assert.equal(settings.data.address, '456 Saved Street, Vancouver, BC');
   // Profile logo appears in the owner list without changing the company name or navigation.
-  const logoUrl = `${origin}/dispatra.png`;
+  const logoUrl = `${origin}/dispatra-logo.png`;
   const logoSaved = await desk.evaluate(async ({ slug, settings, logoUrl }) => {
     const response = await fetch(`/api/v1/companies/${slug}/settings`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'Dispatra', 'Idempotency-Key': crypto.randomUUID() },

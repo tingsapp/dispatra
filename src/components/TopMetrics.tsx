@@ -15,8 +15,6 @@ import { OrderMapCheckbox, type OrderMapVisibilityProps } from './monitor/OrderM
 import { MonitorBadge } from './monitor/MonitorBadge';
 
 interface TopMetricsProps extends OrderMapVisibilityProps {
-  /** Shift right to make room for the floating menu button when the sidebar is hidden. */
-  offsetForMenu?: boolean;
   drivers: Driver[];
   jobs: Job[];
   activeJobsCount: number;
@@ -38,7 +36,6 @@ interface TopMetricsProps extends OrderMapVisibilityProps {
 }
 
 export const TopMetrics: React.FC<TopMetricsProps> = ({
-  offsetForMenu = false,
   drivers,
   jobs,
   hiddenOrderIds,
@@ -118,11 +115,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
   };
 
   return (
-    <div
-      className={`app-map-metrics absolute top-5 flex items-start gap-2 z-30 pointer-events-auto select-none transition-[left] duration-300 ease-in-out ${
-        offsetForMenu ? 'left-[4.25rem] sm:left-6' : 'left-6'
-      }`}
-    >
+    <div className="app-map-metrics flex min-w-0 flex-wrap items-start justify-end gap-2 pointer-events-auto select-none">
       {/* 1. ACTIVE JOBS BADGE & MENU */}
       <FloatingPanel open={showActiveJobsMenu} onOpenChange={changeActiveJobs}
         label="Active Orders menu" role="region" size="rich" className="app-map-menu p-3" autoFocusSelector="input"
@@ -333,7 +326,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     >
                       <div className="relative shrink-0">
                         <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="size-8 rounded-full object-cover" />
-                        <span className={`absolute bottom-0 right-0 size-2 rounded-full ring-2 ring-white ${driver.status === 'available' ? 'bg-emerald-500' : driver.status === 'on_route' ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                        <span className={`absolute bottom-0 right-0 size-2 rounded-full ring-2 ring-white ${driver.status === 'available' ? 'bg-emerald-500' : driver.status === 'on_route' ? 'bg-app-accent' : 'bg-slate-400'}`} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">

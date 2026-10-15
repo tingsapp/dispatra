@@ -17,7 +17,7 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (session: DispatcherSess
     catch (problem) { setError(problem instanceof Error ? problem.message : 'Could not sign in.'); }
   };
   return <main className="app-canvas min-h-dvh px-6 py-6">
-    <a href="/" aria-label="Dispatra home" className="inline-flex items-center gap-2.5 rounded-lg text-lg font-medium tracking-tight text-slate-900"><BrandLogo /></a>
+    <a href="/" aria-label="Dispatra home" className="inline-flex min-w-0 items-center gap-2.5 rounded-lg text-lg font-medium tracking-tight text-slate-900"><BrandLogo /></a>
     <div className="mx-auto max-w-sm py-16 sm:py-24">
       <h1 className="text-center text-3xl font-medium tracking-tight text-slate-900">Sign in</h1>
       <p className="mt-3 text-center text-sm leading-6 text-slate-500">Dispatch workspace for your delivery company.</p>

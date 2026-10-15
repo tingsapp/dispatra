@@ -5,6 +5,24 @@
   --app-menu-shadow: 0 8px 28px #00000014, 0 2px 6px #00000008;
 }
 
+/* Choose the supplied icon from available brand width, including compact rails. */
+.app-brand-logo {
+  container: app-brand / inline-size;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 1;
+  width: 8rem;
+  min-width: 1.75rem;
+  max-width: 100%;
+  height: 2rem;
+}
+.app-brand-wordmark { width: 100%; height: 100%; object-fit: contain; object-position: left center; }
+.app-brand-fallback { display: none; width: 1.75rem; height: 1.75rem; object-fit: contain; }
+@container app-brand (width < 8rem) {
+  .app-brand-wordmark { display: none; }
+  .app-brand-fallback { display: block; }
+}
+
 /* A single scrolling canvas keeps headings and content together, as in the
    supplied Scheduled-page reference. Short sections use a centered column. */
 .app-page {
@@ -279,12 +297,11 @@ svg.lucide { stroke-width: 1.75; }
 .app-metric-icon svg { width: 1.125rem; height: 1.125rem; }
 .app-map-icon { justify-content: center; width: 2.75rem; padding: 0; }
 .app-map-icon:focus-visible svg { color: #0d0d0d; stroke-width: 2.25; }
-.app-map-metrics { flex-wrap: wrap; max-width: calc(100% - 10rem); }
+.app-map-toolbar { max-width: calc(100% - 3rem); }
 .app-map-menu { max-width: calc(100vw - 2rem); }
-@media (max-width: 1100px) {
-  .app-map-metrics { top: 5rem; left: 1rem; right: 1rem; max-width: none; }
-}
 @media (max-width: 640px) {
+  .app-map-toolbar { right: 1rem; max-width: calc(100% - 5.25rem); }
+  .app-map-metrics .app-metric { gap: .375rem; padding-inline: .5rem; }
 }
 @media (max-width: 950px) {
   .app-map-metrics > div { position: static; }

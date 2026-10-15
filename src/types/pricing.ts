@@ -249,6 +249,9 @@ export interface PricingOrderInput {
   rateCardOverrideId: string | null;
   /** Optional driver the shipper would like; a dispatch preference, never an assignment. */
   preferredDriverId?: string | null;
+  /** Server snapshot of the shipper’s standing assignment, or prototype booking default. */
+  requiredDriverId?: string | null;
+  requiredDriverName?: string | null;
   /** ESTIMATE prices from estimates; FINAL uses actuals where available. */
   stage: 'ESTIMATE' | 'FINAL';
 }
