@@ -14,8 +14,8 @@ export const PAGE_PATHS: Record<string, string> = {
 };
 
 /** First path segments that can never be a company slug (keep in sync with the API's reserved slugs). */
-export const RESERVED_SLUGS = ['admin', 'platform', 'prototype', 'api', 'assets', 'static', 'app', 'health', 'ready', 'login', 'signup', 'customer', 'dispatch',
-  'shipper', 'driver', 'www', 'pricing', 'about', 'contact', 'blog', 'help', 'docs', 'terms', 'privacy', 'support'];
+export const RESERVED_SLUGS = ['admin', 'platform', 'prototype', 'api', 'assets', 'static', 'app', 'health', 'ready', 'login', 'signup', 'plans', 'customer', 'dispatch',
+  'shipper', 'driver', 'www', 'pricing', 'about', 'how-it-works', 'contact', 'blog', 'help', 'docs', 'terms', 'privacy', 'support'];
 const RESERVED = new Set(RESERVED_SLUGS);
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const trim = (path: string) => path.replace(/\/+$/, '') || '/';

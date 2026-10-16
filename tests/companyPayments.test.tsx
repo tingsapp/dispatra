@@ -11,12 +11,13 @@ const { default: PortalApp } = await import('../src/portal/PortalApp');
 const { api, ApiError } = await import('../src/portal/api');
 const { adminRoute, adminHref } = await import('../src/portal/admin/adminRoutes');
 const original = { ...api };
-const missing = { status:'MISSING' as const, required:true, setup_available:true, sync_error:false, monthly_price:'10.00',currency:'CAD',vehicle_count:2,monthly_total:'20.00',terms_version:1,starts_at:'2026-09-01T00:00:00Z',subscription_status:'NOT_SUBSCRIBED',trial_ends_at:'2026-09-01T00:00:00Z' };
+const missing = { status:'MISSING' as const, required:true, setup_available:true, sync_error:false, recurring_authorized:false, monthly_price:'10.00',currency:'CAD',vehicle_count:2,monthly_total:'20.00',terms_version:1,starts_at:'2026-09-01T00:00:00Z',subscription_status:'NOT_SUBSCRIBED',trial_ends_at:'2026-09-01T00:00:00Z' };
 beforeEach(() => { api.paymentMethod = async () => missing; api.paymentHistory = async () => ({ available: true, items: [], next_cursor: null }); });
 afterEach(() => { cleanup(); Object.assign(api, original); history.replaceState(null, '', '/acme/profile'); });
 function mount() {
   const cache = new QueryClient({ defaultOptions:{ queries:{retry:false,gcTime:0}, mutations:{retry:false,gcTime:0} } });
   render(<QueryClientProvider client={cache}><CompanyPaymentMethod target={{kind:'company',slug:'acme'}} /></QueryClientProvider>);
+  return cache;
 }
 
 test('missing card requires consent, uncertain retries preserve the operation key, and setup failures stay visible', async () => {
@@ -39,8 +40,8 @@ test('missing card requires consent, uncertain retries preserve the operation ke
 test('returning from Stripe waits for server verification, refreshes masked card data, and removes the URL token', async () => {
   history.replaceState(null,'','/acme/profile?card_setup=cs_test_saved');
   let verified=false;
-  api.confirmCardSetup = async (_target, session) => { assert.equal(session,'cs_test_saved'); verified=true; return {...missing,status:'SAVED',required:false,last4:'4242',brand:'visa',exp_month:12,exp_year:2030}; };
-  api.paymentMethod = async () => verified ? {...missing,status:'SAVED',required:false,last4:'4242',brand:'visa',exp_month:12,exp_year:2030} : missing;
+  api.confirmCardSetup = async (_target, session) => { assert.equal(session,'cs_test_saved'); verified=true; return {...missing,status:'SAVED',required:false,recurring_authorized:true,subscription_status:'PENDING',last4:'4242',brand:'visa',exp_month:12,exp_year:2030}; };
+  api.paymentMethod = async () => verified ? {...missing,status:'SAVED',required:false,recurring_authorized:true,subscription_status:'PENDING',last4:'4242',brand:'visa',exp_month:12,exp_year:2030} : missing;
   mount();
   await screen.findByText(/visa •••• 4242/);
   assert.equal(location.search,'');
@@ -158,4 +159,58 @@ test('recurring consent shows exact saved rate, fleet total and hosted recovery'
   assert.match(screen.getByRole('checkbox').parentElement!.textContent!, /monthly automatic charges/);
   assert.equal(screen.getByRole('link',{name:'Complete subscription payment with Stripe'}).getAttribute('href'),'https://invoice.stripe.com/i/recover');
   assert.equal(screen.queryByText(/Adding a card does not charge/),null);
+});
+
+
+test('saved card has an explicit recurring purchase without card replacement or automatic writes', async () => {
+  let writes=0,cardSetups=0;
+  const saved={...missing,status:'SAVED' as const,last4:'4242',brand:'visa',exp_month:12,exp_year:2030};
+  let current=saved;
+  api.paymentMethod=async()=>current;
+  api.startCardSetup=async()=>{cardSetups++;throw new Error('Card replacement must not be used to subscribe.');};
+  api.startCompanySubscription=async(slug,key,version)=>{
+    writes++;assert.equal(slug,'acme');assert.ok(key);assert.equal(version,1);
+    current={...saved,recurring_authorized:true,subscription_status:'PENDING'};
+    return current;
+  };
+  const cache=mount();
+  const start=await screen.findByRole('button',{name:'Start subscription'});
+  assert.equal(writes,0);
+  assert.equal((start as HTMLButtonElement).disabled,true);
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(start);
+  await screen.findByText('Subscription: Starting subscription');
+  assert.equal(writes,1);assert.equal(cardSetups,0);
+  assert.equal(screen.queryByRole('button',{name:'Start subscription'}),null);
+  assert.ok(screen.getByText('visa •••• 4242'));
+  current={...current,subscription_status:'active',required:false};
+  await cache.invalidateQueries({queryKey:['company-payment-method','company','acme']});
+  await screen.findByText('Subscription: active');
+});
+
+test('saved-card purchase retries reuse the operation key and changed terms require fresh consent', async () => {
+  let current={...missing,status:'SAVED' as const,last4:'4242',brand:'visa',exp_month:12,exp_year:2030};
+  api.paymentMethod=async()=>current;
+  const keys:string[]=[];
+  api.startCompanySubscription=async(_slug,key)=>{keys.push(key);throw new ApiError(503,'Subscription setup is temporarily unavailable.');};
+  const cache=mount();
+  const start=await screen.findByRole('button',{name:'Start subscription'});
+  fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(start);
+  await screen.findByRole('alert');fireEvent.click(start);
+  await waitFor(()=>assert.equal(keys.length,2));
+  assert.equal(keys[0],keys[1]);
+  current={...current,monthly_price:'15.00',monthly_total:'30.00',terms_version:2};
+  await cache.invalidateQueries({queryKey:['company-payment-method','company','acme']});
+  await waitFor(()=>assert.equal((screen.getByRole('checkbox') as HTMLInputElement).checked,false));
+  assert.equal((start as HTMLButtonElement).disabled,true);
+});
+
+test('expired cards and enrolled subscriptions do not offer another purchase', async () => {
+  api.paymentMethod=async()=>({...missing,status:'EXPIRED',last4:'4242',brand:'visa',exp_month:1,exp_year:2020});
+  mount();await screen.findByRole('button',{name:'Replace payment method'});
+  assert.equal(screen.queryByRole('button',{name:'Start subscription'}),null);
+  cleanup();
+  api.paymentMethod=async()=>({...missing,status:'SAVED',recurring_authorized:true,subscription_status:'active',last4:'4242',brand:'visa',exp_month:12,exp_year:2030});
+  mount();await screen.findByRole('button',{name:'Replace payment method'});
+  assert.equal(screen.queryByRole('button',{name:'Start subscription'}),null);
 });

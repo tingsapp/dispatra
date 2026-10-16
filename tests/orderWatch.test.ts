@@ -48,12 +48,14 @@ test('Acknowledgement keeps the issue open',async()=>{
   await screen.findByText('Acknowledged · still open');assert.equal(screen.queryByText('Resolved'),null);
 });
 
-test('Review orders queues only the operational worker',async()=>{
+test('Monitor opens operational evidence without queuing a worker',async()=>{
   const user=userEvent.setup({document});let reviews=0;let technical=0;
-  api.runOperationalCheck=async()=>{reviews++;return {id:'run',agent:'OPERATIONAL',status:'QUEUED',step:'Waiting',progress:0,created_at:time,heartbeat_at:time,finished_at:null};};
+  api.runOperationalCheck=async()=>{reviews++;throw new Error('Unexpected operational review');};
   api.runTechnicalCheck=async()=>{technical++;throw new Error('Unexpected technical review');};
-  mount();await user.click(await screen.findByRole('button',{name:'Review orders'}));
-  await screen.findByText('Operational order review requested.');assert.equal(reviews,1);assert.equal(technical,0);
+  mount();await user.click(await screen.findByRole('button',{name:'Operational agent: 1 open issue'}));
+  await screen.findByRole('dialog',{name:'Operational agent log'});
+  assert.equal(screen.queryByRole('button',{name:'Review orders'}),null);
+  assert.equal(reviews,0);assert.equal(technical,0);
 });
 
 test('Driver selects a reason and retry preserves payload and key',async()=>{

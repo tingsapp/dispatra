@@ -16,11 +16,11 @@ const { parsePortal, loginDestination, default: PortalApp } = await import('../s
 
 const ACME = '11111111-1111-4111-8111-111111111111';
 const owner = { id: '99999999-9999-4999-8999-999999999999', login_id: 'owner', display_name: '', role: 'ADMIN', organization: null } as never;
-const company = (overrides = {}) => ({ id: ACME, slug: 'acme', name: 'Acme Dispatch', logo_url: '', active: true, payment_required: false, version: 1, phone: '(604) 555-0100', address: '123 Main Street, Vancouver, BC', settings_version: 1, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z',
+const company = (overrides = {}) => ({ id: ACME, slug: 'acme', name: 'Acme Dispatch', logo_url: '', tms_workspace: false, active: true, payment_required: false, version: 1, phone: '(604) 555-0100', address: '123 Main Street, Vancouver, BC', settings_version: 1, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z',
   dispatcher_count: 1, active_dispatcher_count: 1, shipper_account_count: 2, driver_account_count: 3, active_session_count: 1, shipper_count: 5, driver_count: 7, order_count: 12, ...overrides, workspace_enabled: (overrides as { workspace_enabled?: boolean; active?: boolean }).workspace_enabled ?? (overrides as { active?: boolean }).active ?? true });
 const person = (overrides = {}) => ({ id: '22222222-2222-4222-8222-222222222222', login_id: 'dispatcher', display_name: 'First Desk', active: true, version: 1,
   created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z', last_login_at: null, active_session_count: 0, ...overrides });
-const plan = (overrides = {}) => ({ id: '8eb730cb-226b-4ec1-a3fc-132279938d62', name: 'Monthly subscription' as const, interval: 'MONTHLY' as const, trial_days: 30, monthly_price: null, currency: 'CAD', version: 1, updated_at: '2026-09-01T10:00:00Z', ...overrides });
+const plan = (overrides = {}) => ({ id: '8eb730cb-226b-4ec1-a3fc-132279938d62', name: 'Monthly subscription' as const, interval: 'MONTHLY' as const, trial_days: 30, trial_enabled: true, monthly_price: null, currency: 'CAD', version: 1, updated_at: '2026-09-01T10:00:00Z', ...overrides });
 const subscription = (overrides = {}) => ({ organization_id: ACME, status: 'NOT_SUBSCRIBED' as const, monthly_price: null, currency: 'CAD', starts_on: null, version: 1, updated_at: '2026-09-01T10:00:00Z', ...overrides });
 const agreement = (overrides = {}) => ({ ...subscription(), company_name: 'Acme Dispatch', company_slug: 'acme', workspace_active: true, trial_ends_at: null, trial_activated_at: null, contributing: false, ...overrides });
 const revenue = (overrides = {}) => ({ as_of: '2026-10-14', currencies: [], total_companies: 1, active_subscriptions: 0, scheduled_subscriptions: 0, not_subscribed: 1, paused_subscriptions: 0, cancelled_subscriptions: 0, ...overrides });
@@ -94,19 +94,25 @@ test('successful owner login immediately opens the admin panel without reloading
   assert.equal((await screen.findByRole('cell', { name: 'Acme Dispatch' })).textContent, 'Acme Dispatch');
 });
 
-test('Subscription navigation shows only the monthly plan and free trial cards', async () => {
+test('Subscription navigation shows both plan pricing cards with a configurable trial card', async () => {
   const user = userEvent.setup({ document });
   let subscriptionReads = 0;
   api.companySubscriptions = async () => { subscriptionReads++; return [agreement()]; };
   mount();
   await user.click(screen.getByRole('link', { name: 'Subscription' }));
   assert.equal(location.pathname, '/admin/billing');
-  await screen.findByLabelText('Price per vehicle per month');
+  await screen.findByLabelText('TMS + Smart Dispatching price per vehicle per month');
   assert.ok(screen.getByRole('heading', { name: 'Subscription', level: 1 }));
-  assert.equal((screen.getByLabelText('Price per vehicle per month') as HTMLInputElement).value, '');
-  assert.ok(screen.getByRole('heading', { name: 'Monthly subscription' }));
-  assert.ok(screen.getByRole('heading', { name: 'One month free trial' }));
-  assert.ok(screen.getByText(/Companies authorize monthly billing at their saved price per registered vehicle/));
+  assert.equal((screen.getByLabelText('TMS + Smart Dispatching price per vehicle per month') as HTMLInputElement).value, '');
+  assert.ok(screen.getByRole('heading', { name: 'TMS + Smart Dispatching' }));
+  assert.ok(screen.getByRole('heading', { name: 'Smart Dispatching' }));
+  assert.ok(screen.getByRole('heading', { name: 'Free trial' }));
+  assert.ok(screen.getByLabelText('Smart Dispatching price per vehicle per month'));
+  assert.equal((screen.getByLabelText('Smart Dispatching currency') as HTMLInputElement).value, 'CAD');
+  assert.equal(screen.getByRole('switch', {name:'Enable free trial'}).getAttribute('aria-checked'),'true');
+  assert.equal((screen.getByLabelText('Trial length (days)') as HTMLInputElement).value,'30');
+  assert.equal(screen.getByRole('link', {name:'View public plans'}).getAttribute('href'), '/plans');
+  assert.equal(screen.queryByText(/Payment collection has not been configured/), null);
   assert.equal(screen.queryByRole('heading', { name: 'Company subscriptions' }), null);
   assert.equal(screen.queryByRole('table', { name: 'Company subscriptions' }), null);
   assert.equal(screen.queryByLabelText('Search company subscriptions'), null);
@@ -118,14 +124,14 @@ test('billing plan saves exact decimal strings and currency through typed transp
   let saved: unknown;
   api.updateMonthlyPlan = async (body, key) => { saved = body; assert.ok(key); return plan({ monthly_price: body.monthly_price, currency: body.currency, version: 2 }) as never; };
   mount('/admin/billing');
-  await screen.findByLabelText('Price per vehicle per month');
-  await user.type(screen.getByLabelText('Price per vehicle per month'), '49.95');
-  await user.clear(screen.getByLabelText('Currency'));
-  await user.type(screen.getByLabelText('Currency'), 'usd');
-  await user.click(screen.getByRole('button', { name: 'Save plan' }));
-  await screen.findByText('Subscription plan saved.');
-  assert.deepEqual(saved, { version: 1, monthly_price: '49.95', currency: 'USD' });
-  assert.equal((screen.getByRole('button', { name: 'Save plan' }) as HTMLButtonElement).disabled, true);
+  await screen.findByLabelText('TMS + Smart Dispatching price per vehicle per month');
+  await user.type(screen.getByLabelText('TMS + Smart Dispatching price per vehicle per month'), '49.95');
+  await user.clear(screen.getByLabelText('TMS + Smart Dispatching currency'));
+  await user.type(screen.getByLabelText('TMS + Smart Dispatching currency'), 'usd');
+  await user.click(screen.getByRole('button', { name: 'Save plans' }));
+  await screen.findByText('Subscription plans saved.');
+  assert.deepEqual(saved, { version: 1, monthly_price: '49.95', currency: 'USD', dispatch_monthly_price: null, dispatch_currency: 'CAD', trial_enabled: true, trial_days: 30 });
+  assert.equal((screen.getByRole('button', { name: 'Save plans' }) as HTMLButtonElement).disabled, true);
 });
 
 test('billing conflict preserves draft until explicit reload and uncertain retries reuse key', async () => {
@@ -133,21 +139,21 @@ test('billing conflict preserves draft until explicit reload and uncertain retri
   const keys: string[] = [];
   api.updateMonthlyPlan = async (_body, key) => { keys.push(key); throw new ApiError(503, 'Connection interrupted.'); };
   mount('/admin/billing');
-  await screen.findByLabelText('Price per vehicle per month');
-  await user.type(screen.getByLabelText('Price per vehicle per month'), '39.99');
-  await user.click(screen.getByRole('button', { name: 'Save plan' }));
+  await screen.findByLabelText('TMS + Smart Dispatching price per vehicle per month');
+  await user.type(screen.getByLabelText('TMS + Smart Dispatching price per vehicle per month'), '39.99');
+  await user.click(screen.getByRole('button', { name: 'Save plans' }));
   await screen.findByText('Connection interrupted.');
-  await user.click(screen.getByRole('button', { name: 'Save plan' }));
+  await user.click(screen.getByRole('button', { name: 'Save plans' }));
   await waitFor(() => assert.equal(keys.length, 2));
   assert.equal(keys[0], keys[1]);
   api.updateMonthlyPlan = async () => { throw new ApiError(409, 'Subscription plan changed. Reload before saving.'); };
-  await user.click(screen.getByRole('button', { name: 'Save plan' }));
+  await user.click(screen.getByRole('button', { name: 'Save plans' }));
   await screen.findByRole('button', { name: 'Reload latest' });
   api.monthlyPlan = async () => plan({ monthly_price: '80.00', version: 2 }) as never;
   await cache.invalidateQueries({ queryKey: ['platform', 'billing', 'plan'] });
-  assert.equal((screen.getByLabelText('Price per vehicle per month') as HTMLInputElement).value, '39.99');
+  assert.equal((screen.getByLabelText('TMS + Smart Dispatching price per vehicle per month') as HTMLInputElement).value, '39.99');
   await user.click(screen.getByRole('button', { name: 'Reload latest' }));
-  await waitFor(() => assert.equal((screen.getByLabelText('Price per vehicle per month') as HTMLInputElement).value, '80.00'));
+  await waitFor(() => assert.equal((screen.getByLabelText('TMS + Smart Dispatching price per vehicle per month') as HTMLInputElement).value, '80.00'));
 });
 
 test('subscription plan read failure offers recovery without loading company subscriptions', async () => {
@@ -208,7 +214,7 @@ test('empty, search and first-load error states are explicit', async () => {
   await screen.findByText('No companies yet. Add your first dispatch company.');
   await user.type(screen.getByLabelText('Search companies'), 'zz');
   await screen.findByText('No companies match these filters.');
-  assert.ok(calls.some(call => call.includes('"search":"zz"')));
+  await waitFor(() => assert.ok(calls.some(call => call.includes('"search":"zz"'))));
   cleanup();
   api.organizations = async () => { throw new ApiError(503, 'Database unavailable. Please try again.'); };
   mount('/admin/companies');
@@ -324,9 +330,9 @@ test('Add company includes optional company phone and address in creation', asyn
   await screen.findByRole('cell', { name: 'Acme Dispatch' });
   await user.click(screen.getByRole('button', { name: 'Add company' }));
   const form = within(screen.getByRole('form', { name: 'Add company' }));
-  const tms = form.getByRole('checkbox', { name: /Use Dispatra TMS/ }) as HTMLInputElement;
+  const tms = form.getByRole('radio', { name: 'TMS + Smart Dispatching' }) as HTMLInputElement;
   assert.equal(tms.checked, true);
-  await user.click(tms);
+  await user.click(form.getByRole('radio', { name:'Smart Dispatching only' }));
   await user.type(form.getByLabelText('Company name'), 'New company');
   await user.type(form.getByLabelText('Company identifier'), 'new-company');
   await user.type(form.getByLabelText('Phone number'), '6045550188');
@@ -568,9 +574,10 @@ test('company subscription terms are read only and never submit account or billi
   const panel = within(await screen.findByRole('tabpanel', { name: 'Subscription & billing' }));
   await screen.findByRole('definition', { name: 'Price per vehicle per month' });
   assert.equal(panel.getByRole('definition', { name: 'Price per vehicle per month' }).textContent, 'USD 89.95');
-  assert.equal(panel.getByRole('definition', { name: 'Subscription status' }).textContent, 'Active');
-  assert.equal(panel.getByRole('definition', { name: 'Subscription start date' }).textContent, '2026-10-01');
+  assert.equal(panel.getByRole('definition', { name: 'Status' }).textContent, 'Active');
+  assert.equal(panel.getByRole('definition', { name: 'Start date' }).textContent, '2026-10-01');
   assert.equal(panel.getByRole('definition', { name: 'Currency' }).textContent, 'USD');
+  assert.equal(panel.getByRole('definition', { name: 'Recurring billing' }).textContent, 'Authorization required from the company dispatcher');
   assert.equal(screen.getByRole('tabpanel', { name: 'Subscription & billing' }).querySelector('input, select, textarea, form'), null);
   assert.equal(panel.queryByRole('button', { name: /Save subscription|Add payment method|Replace payment method/ }), null);
   assert.equal(panel.queryByRole('tablist'), null);
@@ -667,7 +674,7 @@ test('subscription money keeps exact cents for large platform sums', async () =>
 
 
 test('company Subscription and billing displays the saved customer payment method', async () => {
-  api.paymentMethod = async () => ({status:'SAVED',required:false,setup_available:true,monthly_price:'10.00',currency:'CAD',vehicle_count:0,monthly_total:'0.00',terms_version:1,subscription_status:'active',sync_error:false,trial_ends_at:null,brand:'visa',last4:'4242',exp_month:12,exp_year:2030});
+  api.paymentMethod = async () => ({status:'SAVED',required:false,setup_available:true,recurring_authorized:true,monthly_price:'10.00',currency:'CAD',vehicle_count:0,monthly_total:'0.00',terms_version:1,subscription_status:'active',sync_error:false,trial_ends_at:null,brand:'visa',last4:'4242',exp_month:12,exp_year:2030});
   mount(`/admin/companies/${ACME}/subscription`);
   await screen.findByRole('tabpanel',{name:'Subscription & billing'});
   assert.ok(await screen.findByText('visa •••• 4242'));
@@ -675,10 +682,95 @@ test('company Subscription and billing displays the saved customer payment metho
   const card = within(panel).getByRole('region',{name:'Payment method'});
   const payments = within(panel).getByRole('region',{name:'Payment history'});
   assert.equal(panel.firstElementChild?.firstElementChild, card);
-  assert.equal(card.nextElementSibling, payments);
+  const subscription = within(panel).getByRole('region',{name:'Company subscription'});
+  assert.equal(card.nextElementSibling, subscription);
+  assert.equal(subscription.nextElementSibling, payments);
+  assert.ok(subscription.classList.contains('app-panel'));
   assert.equal(within(card).queryByRole('button'),null);
   assert.equal(within(card).queryByRole('checkbox'),null);
   assert.equal(within(panel).queryByRole('tablist'),null);
   assert.ok(within(payments).getByRole('heading',{name:'Payment history'}));
   assert.equal(screen.queryByRole('tab',{name:'Payment method'}),null);
+});
+
+test('both plan prices and currencies save independently and retain exact decimals', async () => {
+  const user = userEvent.setup({ document });
+  let saved: unknown;
+  api.updateMonthlyPlan = async (body, key) => {
+    saved = body; assert.ok(key);
+    return plan({ ...body, version:2 }) as never;
+  };
+  mount('/admin/billing');
+  await screen.findByLabelText('TMS + Smart Dispatching price per vehicle per month');
+  await user.type(screen.getByLabelText('TMS + Smart Dispatching price per vehicle per month'), '99.95');
+  await user.type(screen.getByLabelText('Smart Dispatching price per vehicle per month'), '29.90');
+  await user.clear(screen.getByLabelText('Smart Dispatching currency'));
+  await user.type(screen.getByLabelText('Smart Dispatching currency'), 'usd');
+  await user.click(screen.getByRole('button', {name:'Save plans'}));
+  await screen.findByText('Subscription plans saved.');
+  assert.deepEqual(saved,{version:1,monthly_price:'99.95',currency:'CAD',dispatch_monthly_price:'29.90',dispatch_currency:'USD',trial_enabled:true,trial_days:30});
+  assert.equal((screen.getByRole('button',{name:'Save plans'}) as HTMLButtonElement).disabled,true);
+  await user.clear(screen.getByLabelText('Smart Dispatching price per vehicle per month'));
+  await user.click(screen.getByRole('button',{name:'Save plans'}));
+  await waitFor(()=>assert.deepEqual(saved,{version:2,monthly_price:'99.95',currency:'CAD',dispatch_monthly_price:null,dispatch_currency:'USD',trial_enabled:true,trial_days:30}));
+});
+
+
+test('admin can disable the trial and save its duration without changing either plan price', async () => {
+  const user=userEvent.setup({document});let saved:unknown;
+  api.monthlyPlan=async()=>plan({monthly_price:'99.95',dispatch_monthly_price:'29.90',dispatch_currency:'CAD'}) as never;
+  api.updateMonthlyPlan=async(body,key)=>{assert.ok(key);saved=body;return plan({...body,version:2}) as never;};
+  mount('/admin/billing');
+  const days=await screen.findByLabelText('Trial length (days)');
+  await user.clear(days);await user.type(days,'14');
+  await user.click(screen.getByRole('switch',{name:'Enable free trial'}));
+  assert.ok(screen.getByText('New free trial signups are disabled.'));
+  await user.click(screen.getByRole('button',{name:'Save plans'}));
+  await screen.findByText('Subscription plans saved.');
+  assert.deepEqual(saved,{version:1,monthly_price:'99.95',currency:'CAD',dispatch_monthly_price:'29.90',dispatch_currency:'CAD',trial_enabled:false,trial_days:14});
+  assert.equal(screen.getByRole('switch',{name:'Enable free trial'}).getAttribute('aria-checked'),'false');
+  assert.equal((days as HTMLInputElement).value,'14');
+});
+
+test('company list and details show the saved plan, including the legacy full-plan default', async () => {
+  const user = userEvent.setup({document});
+  api.organizations = async () => [company(),company({id:'33333333-3333-4333-8333-333333333333',slug:'dispatch-only',name:'Dispatch Only',tms_workspace:true})];
+  api.company = async () => company({tms_workspace:true});
+  mount('/admin/companies');
+  const full = (await screen.findByRole('cell',{name:'Acme Dispatch'})).closest('tr')!;
+  const dispatch = screen.getByRole('cell',{name:'Dispatch Only'}).closest('tr')!;
+  assert.ok(within(full).getByRole('cell',{name:'TMS + Smart Dispatching'}));
+  assert.ok(within(dispatch).getByRole('cell',{name:'Smart Dispatching only'}));
+  assert.ok(screen.getByRole('columnheader',{name:'Plan'}));
+  await user.click(within(full).getByRole('link',{name:'Manage Acme Dispatch'}));
+  await screen.findByText('Smart Dispatching only',{exact:true});
+});
+
+test('Add company keeps the chosen plan on uncertain retries, changes the key when switching, and locks radios while pending', async () => {
+  const user = userEvent.setup({document});
+  const requests:{body:Parameters<typeof api.createOrganization>[0];key:string}[]=[];
+  let reject:(error:Error)=>void=()=>{};
+  api.createOrganization = (body,key) => {requests.push({body,key});return new Promise((_resolve,rejectPromise)=>{reject=rejectPromise;});};
+  mount('/admin/companies');await screen.findByRole('cell',{name:'Acme Dispatch'});
+  await user.click(screen.getByRole('button',{name:'Add company'}));
+  const form=within(screen.getByRole('form',{name:'Add company'}));
+  assert.equal((form.getByRole('radio',{name:'TMS + Smart Dispatching'}) as HTMLInputElement).checked,true);
+  await user.type(form.getByLabelText('Company name'),'Plan Test');
+  await user.type(form.getByLabelText('Company identifier'),'plan-test');
+  await user.type(form.getByLabelText('Email'),'plan-test@example.com');
+  await user.click(form.getByRole('radio',{name:'Smart Dispatching only'}));
+  await user.click(form.getByRole('button',{name:'Create company'}));
+  await waitFor(()=>assert.equal((form.getByRole('button',{name:'Creating…'}) as HTMLButtonElement).disabled,true));
+  assert.equal((form.getByRole('radio',{name:'Smart Dispatching only'}) as HTMLInputElement).matches(':disabled'),true);
+  reject(new ApiError(503,'Please retry.'));await screen.findByText('Please retry.');
+  assert.equal((form.getByRole('radio',{name:'Smart Dispatching only'}) as HTMLInputElement).checked,true);
+  await user.click(form.getByRole('button',{name:'Create company'}));
+  await waitFor(()=>assert.equal(requests.length,2));
+  assert.equal(requests[0].key,requests[1].key);assert.equal(requests[1].body.tms_workspace,true);
+  reject(new ApiError(503,'Please retry.'));await screen.findByText('Please retry.');
+  await user.click(form.getByRole('radio',{name:'TMS + Smart Dispatching'}));
+  await user.click(form.getByRole('button',{name:'Create company'}));
+  await waitFor(()=>assert.equal(requests.length,3));
+  assert.notEqual(requests[2].key,requests[1].key);assert.equal(requests[2].body.tms_workspace,false);
+  reject(new ApiError(503,'Please retry.'));await screen.findByText('Please retry.');
 });

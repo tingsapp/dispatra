@@ -2,6 +2,7 @@ import React, { useId, useRef, useState } from 'react';
 import { AddressAutocomplete, type SelectedAddress } from '../components/ui/AddressAutocomplete';
 import { Button } from '../components/ui/button';
 import { ContactInput } from '../components/ui/ContactInput';
+import { cn } from '../lib/utils';
 import { PasswordInput } from '../components/ui/PasswordInput';
 export { Button };
 export function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
@@ -19,8 +20,8 @@ export function Notice({ error, success }: { error?: unknown; success?: string }
   if (error) return <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error instanceof Error ? error.message : 'Unable to complete this request.'}</p>;
   return success ? <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{success}</p> : null;
 }
-export function Card({ children, title, description, plain = false }: { children: React.ReactNode; title: string; description?: string; plain?: boolean }) {
-  return <section className={plain ? undefined : "app-panel"}><h2 className="app-section-title text-app-text">{title}</h2>{description && <p className="mt-1 text-sm text-app-muted">{description}</p>}<div className="mt-6">{children}</div></section>;
+export function Card({ children, title, description, plain = false, className }: { children: React.ReactNode; title: string; description?: string; plain?: boolean; className?: string }) {
+  return <section className={cn(!plain && 'app-panel', className) || undefined}><h2 className="app-section-title text-app-text">{title}</h2>{description && <p className="mt-1 text-sm text-app-muted">{description}</p>}<div className="mt-6">{children}</div></section>;
 }
 export function useOperationKey() {
   const current = useRef({ payload: '', key: '' });

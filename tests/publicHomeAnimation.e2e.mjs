@@ -7,6 +7,17 @@ const browser = await chromium.launch({ channel: 'chrome', headless: true });
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'no-preference' });
   await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+  // The virtual clock does not deliver native intersection updates reliably after screenshots.
+  // Keep this loop/geometry test in view; real offscreen suspension is covered in homepageRedesign.e2e.mjs.
+  await context.addInitScript(() => {
+    const NativeObserver = window.IntersectionObserver;
+    window.IntersectionObserver = class {
+      constructor(callback, options) { this.callback = callback; this.native = new NativeObserver(callback, options); }
+      observe(target) { if (target.hasAttribute('data-preview-active')) this.callback([{ target, isIntersecting: true }]); else this.native.observe(target); }
+      unobserve(target) { this.native.unobserve(target); }
+      disconnect() { this.native.disconnect(); }
+    };
+  });
   const page = await context.newPage();
   const checkMapGeometry = async () => {
     const alignment = await page.locator('[data-preview-route]').evaluate(route => {

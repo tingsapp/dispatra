@@ -1,18 +1,15 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { Mail, Route, ScanLine } from 'lucide-react';
-import { MonitorPreview } from '../components/home/MonitorPreview';
+import { WhyDispatra } from '../components/home/WhyDispatra';
+import { DeliveryDemo } from '../components/home/DeliveryDemo';
+import { HomePlans } from '../components/home/HomePlans';
+import { HomeTeam } from '../components/home/HomeTeam';
+import { HomeClosing, HomeQuestions } from '../components/home/HomeQuestions';
 import { HeroWorkspaceEntry } from '../components/home/HeroWorkspaceEntry';
 import { PublicHeader, PublicHero } from '../components/home/PublicPageLayout';
 import { PublicFooter } from '../components/home/PublicFooter';
 import { accountWorkspace } from '../lib/workspaceEntry';
 import { api } from '../portal/api';
-
-const steps = [
-  { icon: Mail, number: '01', title: 'Orders come in.', description: 'The email agent reads incoming order requests and brings them into your workspace.' },
-  { icon: Route, number: '02', title: 'The right driver goes out.', description: 'The dispatch agent finds an eligible driver and assigns the order in Auto mode.' },
-  { icon: ScanLine, number: '03', title: 'Every delivery comes together.', description: 'Drivers follow their routes, capture delivery proof, and complete each order.' },
-];
 
 export function PublicHome() {
   const [cache] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } }));
@@ -21,22 +18,24 @@ export function PublicHome() {
 function HomeContent() {
   const account = useQuery({ queryKey: ['public', 'account'], queryFn: api.me });
   const resume = account.data?.role === 'ADMIN' ? undefined : accountWorkspace(account.data);
-  return <div className="min-h-dvh bg-app-canvas font-sans text-app-text">
-    <PublicHeader />
+  return <div className="public-site home-page min-h-dvh bg-app-canvas font-sans text-app-text">
+    <PublicHeader navigation />
     <main>
-      <PublicHero labelledBy="home-title">
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-app-accent"><span className="size-1.5 rounded-full bg-app-accent" />AI FOR DELIVERY TEAMS</p>
-          <h1 id="home-title" className="mt-6 max-w-xl text-[42px] font-medium leading-[1.08] tracking-[-0.045em] sm:text-[54px] lg:text-[58px]">From order to delivery.<br /><span className="text-app-muted">One clear workflow.</span></h1>
-          <p className="mt-6 max-w-md text-base leading-7 text-app-muted">Read orders from email, assign the right driver, and follow every delivery through completion. Your whole team, in one connected workspace.</p>
+      <PublicHero labelledBy="home-title" centered>
+        <div>
+          <p className="home-eyebrow">AI for delivery teams</p>
+          <h1 id="home-title">From order to delivery.<br /><span>One clear workflow.</span></h1>
+          <p className="home-hero-description">Bring orders, dispatch, routes, and proof of delivery together. Run your operation in Dispatra, or connect Smart Dispatching to your existing TMS.</p>
           <HeroWorkspaceEntry />
+          <div className="home-hero-paths"><a href="#home-plan-full">The full TMS workspace <span aria-hidden="true">↗</span></a><span aria-hidden="true" /><a href="#home-plan-dispatch">Smart Dispatching for your TMS <span aria-hidden="true">↗</span></a></div>
         </div>
-        <MonitorPreview />
       </PublicHero>
-      <section id="how-it-works" aria-labelledby="workflow-title" className="mx-auto max-w-7xl scroll-mt-8 px-6 py-16 sm:py-20 lg:px-10">
-        <div className="max-w-xl"><p className="text-xs font-medium uppercase tracking-[0.16em] text-app-muted">A SIMPLER DELIVERY DAY</p><h2 id="workflow-title" className="mt-3 text-3xl font-medium tracking-tight">Three steps. One connected team.</h2></div>
-        <div className="mt-10 grid gap-8 sm:grid-cols-3 sm:gap-9">{steps.map(({ icon: Icon, number, title, description }) => <article key={number}><div className="flex items-center gap-3"><span className="inline-flex size-10 items-center justify-center rounded-xl bg-app-surface ring-1 ring-app-border"><Icon className="size-5" strokeWidth={1.5} aria-hidden="true" /></span><span className="text-xs tabular-nums text-slate-400">{number}</span></div><h3 className="mt-5 text-base font-medium tracking-tight">{title}</h3><p className="mt-2 max-w-sm text-sm leading-6 text-app-muted">{description}</p></article>)}</div>
-      </section>
+      <DeliveryDemo />
+      <WhyDispatra />
+      <HomePlans />
+      <HomeTeam />
+      <HomeQuestions />
+      <HomeClosing />
     </main>
     <PublicFooter workspaceHref={resume} />
   </div>;

@@ -1,44 +1,39 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import { BrandLogo } from '../layout/AppBrand';
-import { Button } from '../ui/button';
 
 const linkClass = 'w-fit rounded text-sm text-app-muted transition-colors hover:text-app-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-accent focus-visible:ring-offset-4';
 
 export function PublicFooter({ workspaceHref }: { workspaceHref?: string }) {
-  return <footer className="mt-8 border-t border-slate-200 bg-slate-50/70">
+  return <footer className="public-footer mt-8 bg-slate-50/70">
     <div className="mx-auto max-w-7xl px-6 lg:px-10">
-      <div className="flex flex-col gap-7 border-b border-slate-200 py-10 sm:py-12 md:flex-row md:items-center md:justify-between">
-        <div className="max-w-xl">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-app-accent">YOUR NEXT DELIVERY DAY</p>
-          <h2 className="mt-3 text-3xl font-medium leading-tight tracking-tight sm:text-4xl">Less coordinating.<br />More delivering.</h2>
-        </div>
-        <div className="flex shrink-0 flex-col items-start gap-3">
-          <Button asChild className="gap-3 px-6"><a href="/signup">Start free trial<ArrowRight className="size-4" aria-hidden="true" /></a></Button>
-          <p className="text-xs text-app-muted">30 days free. No credit card required.</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-10 py-10 lg:grid-cols-[1.6fr_1fr_1fr] lg:gap-16 lg:py-12">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-9 py-10 sm:py-12 lg:grid-cols-[1.5fr_1fr_1fr_1fr] lg:gap-12">
         <div className="col-span-2 lg:col-span-1">
           <a href="/" aria-label="Dispatra home" className="inline-flex min-w-0 items-center gap-2.5 text-xl font-medium tracking-tight"><BrandLogo /></a>
-          <p className="mt-4 max-w-sm text-sm leading-6 text-app-muted">A connected workspace for orders, dispatch, and delivery. Built around your team’s day.</p>
-          <p className="mt-2 text-xs text-app-muted">A product of Tingsapp Inc.</p>
-          <a href={workspaceHref ?? '/login'} className={`${linkClass} mt-5 inline-flex items-center gap-2 text-app-text`}>{workspaceHref ? 'Open my workspace' : 'Sign in to your workspace'}<ArrowRight className="size-3.5" aria-hidden="true" /></a>
+          <p className="mt-4 max-w-xs text-sm leading-6 text-app-muted">A connected workspace for orders, dispatch, and delivery.</p>
+          <a href={workspaceHref ?? '/login'} className={`${linkClass} mt-5 inline-flex items-center gap-2`}>{workspaceHref ? 'Open my workspace' : 'Sign in to your workspace'}<ArrowRight className="size-3.5" aria-hidden="true" /></a>
         </div>
-        <nav aria-label="Explore Dispatra" className="flex flex-col items-start gap-4">
-          <h3 className="text-sm font-medium">Explore</h3>
-          <a href="/" className={linkClass}>Home</a>
-          <a href="/#how-it-works" className={linkClass}>How it works</a>
-          <a href="/signup" className={linkClass}>Plans &amp; free trial</a>
+        <nav aria-label="Product" className="flex flex-col items-start gap-3">
+          <h3 className="mb-1 text-sm font-medium">Product</h3>
+          <a href="/how-it-works" className={linkClass}>How it works</a>
+          <a href="/plans" className={linkClass}>Plans &amp; free trial</a>
+          <a href="/help" className={linkClass}>FAQs</a>
+          <a href="/contact#dispatra-chat-title" className={linkClass}>Talk to Dispatra</a>
         </nav>
-        <nav aria-label="Team portals" className="flex flex-col items-start gap-4">
-          <h3 className="text-sm font-medium">For your team</h3>
+        <nav aria-label="Company" className="flex flex-col items-start gap-3">
+          <h3 className="mb-1 text-sm font-medium">Company</h3>
+          <a href="/about" className={linkClass}>About</a>
           <a href="/dispatch" className={linkClass}>Dispatchers</a>
           <a href="/shipper" className={linkClass}>Shippers</a>
           <a href="/driver" className={linkClass}>Drivers</a>
         </nav>
+        <nav aria-label="Driver apps" className="col-span-2 flex flex-col items-start gap-3 lg:col-span-1">
+          <h3 className="mb-1 text-sm font-medium">Driver apps</h3>
+          <a href="https://play.google.com/store/apps" target="_blank" rel="noopener noreferrer" className={`${linkClass} inline-flex items-center gap-2`}><img src="/store-icons/google-play.svg" width={20} height={20} alt="" aria-hidden="true" className="size-5 shrink-0" />Google Play<ArrowUpRight className="size-3.5" aria-hidden="true" /><span className="sr-only"> (Android, opens in a new tab)</span></a>
+          <a href="https://www.apple.com/app-store/" target="_blank" rel="noopener noreferrer" className={`${linkClass} inline-flex items-center gap-2`}><img src="/store-icons/app-store.svg" width={20} height={20} alt="" aria-hidden="true" className="size-5 shrink-0" />App Store<ArrowUpRight className="size-3.5" aria-hidden="true" /><span className="sr-only"> (iOS, opens in a new tab)</span></a>
+        </nav>
       </div>
-      <div className="flex flex-col gap-3 border-t border-slate-200 py-6 text-xs text-app-muted sm:flex-row sm:items-center sm:justify-between">
-        <p>© {new Date().getFullYear()} Tingsapp Inc. All rights reserved.</p>
+      <div className="flex flex-col gap-4 py-6 text-xs text-app-muted sm:flex-row sm:items-center sm:justify-between">
+        <p>Dispatra © {new Date().getFullYear()}</p>
         <nav aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-2">
           <a href="/terms" className={linkClass}>Terms and Conditions</a>
           <a href="/privacy" className={linkClass}>Privacy Policy</a>

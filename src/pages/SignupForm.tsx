@@ -7,7 +7,7 @@ import { api, type TrialSignupInput } from '../portal/api';
 import { Field, Button, Notice, useOperationKey } from '../portal/ui';
 import { accountWorkspace, signupDestination, TMS_INTEGRATION_LABEL } from '../lib/workspaceEntry';
 
-export function SignupForm({ onPendingChange }: { onPendingChange?: (pending: boolean) => void }) {
+export function SignupForm({ onPendingChange, trialDays = 30, trialEnabled = true }: { onPendingChange?: (pending: boolean) => void; trialDays?: number; trialEnabled?: boolean }) {
   const [form, setForm] = useState<TrialSignupInput>(() => {
     const candidate = new URLSearchParams(location.search).get('company') ?? '';
     const slug = signupDestination(candidate) ? candidate.trim().toLowerCase() : '';
@@ -27,7 +27,7 @@ export function SignupForm({ onPendingChange }: { onPendingChange?: (pending: bo
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (signup.isPending || addressResolving) return;
+    if (signup.isPending || addressResolving || !trialEnabled) return;
     if (!acceptedTerms) { setError('Please accept the Terms and Conditions to start your trial.'); return; }
     if (!signupDestination(form.slug)) { setError('Choose a valid company workspace name.'); return; }
     if (form.password !== confirmation) { setError('Passwords do not match.'); return; }
@@ -69,9 +69,10 @@ export function SignupForm({ onPendingChange }: { onPendingChange?: (pending: bo
           onChange={event => { setAcceptedTerms(event.target.checked); setError(''); }} />
         <label htmlFor="trial-terms">I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Terms and Conditions</a>.</label>
       </div>
+      {!trialEnabled && <p role="status" className="text-sm text-app-muted">Free trials are currently unavailable. Contact Dispatra to get started.</p>}
       <Notice error={error ? new Error(error) : signup.error} />
-      <p className="text-xs leading-5 text-app-muted">Verify your email to start your 30-day trial. No credit card is required for the trial. To continue afterward, authorize monthly automatic billing at your company’s saved rate per registered vehicle.</p>
+      <p className="text-xs leading-5 text-app-muted">Verify your email to start your {trialDays}-day trial. No credit card is required for the trial. To continue afterward, authorize monthly automatic billing at your company’s saved rate per registered vehicle.</p>
     </DialogBody>
-    <DialogFooter><Button disabled={signup.isPending || addressResolving}>{signup.isPending ? 'Creating your workspace…' : 'Start trial'}</Button></DialogFooter>
+    <DialogFooter><Button disabled={signup.isPending || addressResolving || !trialEnabled}>{signup.isPending ? 'Creating your workspace…' : 'Start trial'}</Button></DialogFooter>
   </form>;
 }

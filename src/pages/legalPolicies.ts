@@ -18,7 +18,7 @@ export const legalPolicies = {
       },
       {
         title: '4. Free trial',
-        text: 'The standard free trial runs for 30 days after successful email verification. You do not need a credit card to start it, and starting a trial does not authorize a charge. When the trial expires, an active paid subscription and a valid saved payment method are required to continue accessing the company workspace. Administrative suspension is separate from trial or payment eligibility. Trial expiry or restricted access does not automatically delete company records.',
+        text: 'Free trial availability and duration are shown on the Plans page when you sign up. An accepted trial starts after successful email verification. You do not need a credit card to start it, and starting a trial does not authorize a charge. When the trial expires, an active paid subscription and a valid saved payment method are required to continue accessing the company workspace. Administrative suspension is separate from trial or payment eligibility. Trial expiry or restricted access does not automatically delete company records.',
       },
       {
         title: '5. Subscription and payment method',

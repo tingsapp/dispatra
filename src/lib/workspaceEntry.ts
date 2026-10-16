@@ -2,6 +2,11 @@ import type { Account } from '../portal/api';
 import { companySlugForPath, roleHome } from './pageRoutes';
 
 export const TMS_INTEGRATION_LABEL = 'Use Dispatra TMS';
+export const COMPANY_PLANS = [
+  { externalTms: false, label: 'TMS + Smart Dispatching', description: 'Full Dispatra TMS and smart dispatching.' },
+  { externalTms: true, label: 'Smart Dispatching only', description: 'Connect smart dispatching to your existing TMS.' },
+] as const;
+export const companyPlanLabel = (externalTms?: boolean) => COMPANY_PLANS[externalTms === true ? 1 : 0].label;
 
 export type WorkspaceRole = 'dispatcher' | 'shipper' | 'driver';
 export const workspacePortals = { dispatcher: 'dispatch', shipper: 'customer', driver: 'driver' } as const;
@@ -30,7 +35,7 @@ export function accountWorkspace(account?: Account): string | undefined {
 export function signupDestination(input: string): string | undefined {
   const slug = input.trim().toLowerCase();
   return slug.length >= 2 && slug.length <= 63 && workspaceSlug(slug) === slug
-    ? `/signup?company=${encodeURIComponent(slug)}` : undefined;
+    ? `/plans?company=${encodeURIComponent(slug)}` : undefined;
 }
 
 /** Monitor is shared by both dispatcher modes; External TMS keeps its other page restrictions. */

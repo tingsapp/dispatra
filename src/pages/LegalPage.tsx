@@ -4,16 +4,16 @@ import { legalPolicies } from './legalPolicies';
 
 export default function LegalPage({ policy }: { policy: keyof typeof legalPolicies }) {
   const content = legalPolicies[policy];
-  return <div className="min-h-dvh bg-app-canvas font-sans text-app-text">
+  return <div className="public-site min-h-dvh bg-app-canvas font-sans text-app-text">
     <PublicHeader />
-    <main className="mx-auto max-w-3xl px-6 pb-14 pt-8 sm:pt-12">
+    <main className="public-legal-main">
       <nav aria-label="Policies" className="mb-8 flex flex-wrap gap-5 text-sm">
         <a href="/terms" aria-current={policy === 'terms' ? 'page' : undefined} className="text-app-muted underline-offset-4 hover:underline aria-[current=page]:text-app-text">Terms and Conditions</a>
         <a href="/privacy" aria-current={policy === 'privacy' ? 'page' : undefined} className="text-app-muted underline-offset-4 hover:underline aria-[current=page]:text-app-text">Privacy Policy</a>
       </nav>
       <article>
         <header className="mb-10">
-          <p className="text-xs font-medium uppercase tracking-wider text-app-muted">Updated <time dateTime="2026-10-15">October 15, 2026</time></p>
+          <p className="home-eyebrow">Updated <time dateTime="2026-10-15">October 15, 2026</time></p>
           <h1 className="mt-4 text-3xl font-medium tracking-tight sm:text-4xl">{content.title}</h1>
           <p className="mt-4 text-base leading-7 text-app-muted">{content.introduction}</p>
         </header>
@@ -29,7 +29,7 @@ export default function LegalPage({ policy }: { policy: keyof typeof legalPolici
         </div>
         <p className="mt-10 text-sm leading-7 text-app-muted">Read our <a href={policy === 'terms' ? '/privacy' : '/terms'} className="underline underline-offset-4">{policy === 'terms' ? 'Privacy Policy' : 'Terms and Conditions'}</a> together with this {policy === 'terms' ? 'agreement' : 'Policy'}.</p>
       </article>
-      <a href="/signup" className="mt-10 inline-block text-sm underline underline-offset-4">Back to plans &amp; free trial</a>
+      <a href="/plans" className="mt-10 inline-block text-sm underline underline-offset-4">Back to plans &amp; free trial</a>
     </main>
     <PublicFooter />
   </div>;

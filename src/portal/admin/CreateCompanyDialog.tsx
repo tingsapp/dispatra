@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { api, generatePassword, type Organization, type OrganizationInput } from '../api';
 import { Button, Field, Notice, useOperationKey } from '../ui';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../../components/ui/Dialog';
+import { COMPANY_PLANS } from '../../lib/workspaceEntry';
 import { AddressAutocomplete } from '../../components/ui/AddressAutocomplete';
 
 const empty = (): OrganizationInput => ({ name: '', phone: '', address: '', slug: '', admin_login: '', admin_display_name: '', password: generatePassword(), tms_workspace: false });
@@ -35,11 +36,16 @@ export function CreateCompanyDialog({ onClose, onCreated }: { onClose: () => voi
           </div>
           <div><Field label="Password" required minLength={12} maxLength={128} type="password" autoComplete="new-password" spellCheck={false} value={form.password} onChange={set('password')} />
             <p className="mt-1.5 text-xs text-app-muted">Generated for you. It is shown once after creation and never stored in the browser.</p></div>
-          <label className="flex items-start gap-3 text-sm leading-5">
-            <input type="checkbox" className="app-checkbox mt-0.5" checked={!(form.tms_workspace ?? false)}
-              onChange={event => setForm(current => ({ ...current, tms_workspace: !event.target.checked }))} />
-            <span>Use Dispatra TMS<span className="mt-1 block text-xs text-app-muted">Uncheck to connect an External TMS.</span></span>
-          </label>
+          <fieldset className="min-w-0" aria-label="Company plan">
+            <legend className="mb-3 text-sm font-medium">Plan</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {COMPANY_PLANS.map(option => <label key={option.label} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm leading-5 ${Boolean(form.tms_workspace) === option.externalTms ? 'border-app-accent bg-app-accent-soft/40' : 'border-app-border'}`}>
+                <input type="radio" name="company-plan" className="mt-0.5 size-4 shrink-0 accent-slate-900" aria-label={option.label}
+                  checked={Boolean(form.tms_workspace) === option.externalTms} onChange={() => setForm(current => ({ ...current, tms_workspace: option.externalTms }))} />
+                <span><span className="font-medium">{option.label}</span><span className="mt-1 block text-xs text-app-muted">{option.description}</span></span>
+              </label>)}
+            </div>
+          </fieldset>
           <Notice error={mutation.error} />
         </fieldset>
       </DialogBody>

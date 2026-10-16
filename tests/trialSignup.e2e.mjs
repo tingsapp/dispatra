@@ -24,8 +24,8 @@ try {
   await company.fill(slug);
   await page.screenshot({path:'/tmp/dispatra-trial-home-desktop.png',fullPage:true});
   await company.press('Enter');
-  await page.waitForURL(origin + '/signup?company=' + slug);
-  await page.getByRole('heading',{name:'Monthly plan'}).waitFor();
+  await page.waitForURL(origin + '/plans?company=' + slug);
+  await page.getByRole('heading',{name:'TMS + Smart Dispatching'}).waitFor();
   await page.screenshot({path:'/tmp/dispatra-trial-plans-desktop.png',fullPage:true});
   for (const width of [390,320]) {
     await page.setViewportSize({width,height:844});

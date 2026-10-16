@@ -8,6 +8,7 @@ import { ListSummary } from '../../components/layout/ListSummary';
 import { QueryState, StatusBadge } from './QueryState';
 import { CompanyLogo } from './CompanyLogo';
 import { CreateCompanyDialog } from './CreateCompanyDialog';
+import { companyPlanLabel } from '../../lib/workspaceEntry';
 import { formatWhen } from './format';
 import { companiesKey } from './queryKeys';
 
@@ -45,10 +46,11 @@ export function CompaniesPage({ creating, onCreatingChange, onOpen }: { creating
     <QueryState query={query} loading="Loading companies…" />
     {rows.length > 0 && <div className="app-table-shell overflow-x-auto">
       <table className="app-table text-left" aria-label="Dispatch companies" aria-busy={query.isFetching}>
-        <thead><tr><th>Company</th><th>Workspace</th><th>Status</th><th>Dispatchers</th><th>Created</th><th>Action</th></tr></thead>
+        <thead><tr><th>Company</th><th>Workspace</th><th>Plan</th><th>Status</th><th>Dispatchers</th><th>Created</th><th>Action</th></tr></thead>
         <tbody>{rows.map(org => <tr key={org.id}>
           <td className="font-medium"><div className="flex items-center gap-3"><CompanyLogo src={org.logo_url} /><span>{org.name}</span></div></td>
           <td className="text-app-muted">/{org.slug}/</td>
+          <td className="text-app-muted">{companyPlanLabel(org.tms_workspace)}</td>
           <td><StatusBadge active={org.active} inactiveLabel={org.workspace_enabled && org.payment_required ? "Payment required" : "Suspended"} /></td>
           <td>{org.active_dispatcher_count} active{org.dispatcher_count > org.active_dispatcher_count ? ` · ${org.dispatcher_count - org.active_dispatcher_count} inactive` : ''}</td>
           <td className="text-app-muted">{formatWhen(org.created_at)}</td>

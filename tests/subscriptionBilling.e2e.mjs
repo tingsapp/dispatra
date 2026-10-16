@@ -18,10 +18,10 @@ try {
   await page.getByLabel('Password', { exact: true }).fill(process.env.E2E_OWNER_PASSWORD);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('heading', { name: 'Subscription', exact: true }).waitFor();
-  await page.getByLabel('Price per vehicle per month', { exact: true }).fill('49.95');
-  await page.getByLabel('Currency', { exact: true }).fill('USD');
-  await page.getByRole('button', { name: 'Save plan', exact: true }).click();
-  await page.getByText('Subscription plan saved.', { exact: true }).waitFor();
+  await page.getByLabel('TMS + Smart Dispatching price per vehicle per month', { exact: true }).fill('49.95');
+  await page.getByLabel('TMS + Smart Dispatching currency', { exact: true }).fill('USD');
+  await page.getByRole('button', { name: 'Save plans', exact: true }).click();
+  await page.getByText('Subscription plans saved.', { exact: true }).waitFor();
   const stamp = Date.now().toString(36);
   const create = async suffix => {
     const slug = `billing-${suffix}-${stamp}`;
@@ -73,9 +73,9 @@ try {
   assert.ok(await page.locator('dd').filter({ hasText: 'CAD 89.95' }).isVisible());
   await configure(second, '49.95', 'USD');
   await page.getByRole('link', { name: 'Subscription', exact: true }).click();
-  await page.getByLabel('Price per vehicle per month', { exact: true }).fill('75.00');
-  await page.getByRole('button', { name: 'Save plan', exact: true }).click();
-  await page.getByText('Subscription plan saved.', { exact: true }).waitFor();
+  await page.getByLabel('TMS + Smart Dispatching price per vehicle per month', { exact: true }).fill('75.00');
+  await page.getByRole('button', { name: 'Save plans', exact: true }).click();
+  await page.getByText('Subscription plans saved.', { exact: true }).waitFor();
   await page.getByRole('link', { name: 'Revenue', exact: true }).click();
   await page.getByRole('heading', { name: 'Revenue', exact: true }).waitFor();
   const cad = page.getByRole('region', { name: 'CAD recurring revenue' });

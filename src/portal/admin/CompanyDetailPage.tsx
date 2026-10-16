@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Package, Truck, UsersRound } from 'lucide-react';
 import { api, ApiError } from '../api';
 import { Button } from '../ui';
+import { companyPlanLabel } from '../../lib/workspaceEntry';
 import { ListSummary } from '../../components/layout/ListSummary';
 import { Tabs } from '../../components/ui/Tabs';
 import { QueryState } from './QueryState';
@@ -22,6 +23,7 @@ export function CompanyDetailPage({ id, initialTab, onBack }: { id: string; init
       { label: 'Total Drivers', value: company.driver_count, icon: Truck },
       { label: 'Total Orders', value: company.order_count, icon: Package },
     ]} />
+    <p className="text-sm"><span className="text-app-muted">Plan: </span><span className="font-medium">{companyPlanLabel(company.tms_workspace)}</span></p>
     <Tabs label="Company administration" initialActiveId={initialTab === 'payment-method' ? 'subscription' : initialTab} items={[
       { id: 'overview', label: 'Overview', content: <CompanyOverviewForm company={company} /> },
       { id: 'subscription', label: 'Subscription & billing', content: <CompanySubscriptionPage company={company} /> },

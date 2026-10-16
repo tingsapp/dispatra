@@ -17,15 +17,15 @@ export function LoginPage({ portal, onLogin }: { portal: LoginInput['portal']; o
   };
   const credentials = <><Field label={selectedPortal === 'platform' ? 'Login ID' : 'Email'} type="text" autoComplete="username" required maxLength={254} value={login} onChange={e => { setLogin(e.target.value); mutation.reset(); }} /><Field label="Password" type="password" autoComplete="current-password" required maxLength={128} value={password} onChange={e => { setPassword(e.target.value); mutation.reset(); }} /><Notice error={mutation.error} /><Button className="w-full" disabled={mutation.isPending}>{mutation.isPending ? 'Signing in…' : 'Sign in'}</Button></>;
   const submit = (event: React.FormEvent) => { event.preventDefault(); if (!mutation.isPending) mutation.mutate(); };
-  if (portal === 'platform') return <div className="min-h-dvh bg-app-canvas"><PublicHeader /><main className="mx-auto max-w-sm px-6 py-16 sm:py-24">
-    <section><p className="text-center text-sm text-app-muted">Platform owner</p><h1 className="mt-3 text-center text-3xl font-medium tracking-tight">Platform administration</h1><p className="mt-3 text-center text-sm leading-6 text-app-muted">Sign in with the credentials provided by your administrator.</p>
+  if (portal === 'platform') return <div className="public-site min-h-dvh bg-app-canvas"><PublicHeader navigation={false} /><main className="mx-auto flex max-w-xl justify-center px-6 py-16 sm:py-24">
+    <section className="public-auth-card"><p className="home-eyebrow text-center">Platform owner</p><h1 className="mt-3 text-center text-3xl font-medium tracking-tight">Platform administration</h1><p className="mt-3 text-center text-sm leading-6 text-app-muted">Sign in with the credentials provided by your administrator.</p>
       <form className="mt-7 space-y-5" onSubmit={submit}>{credentials}</form>
       <p className="mt-6 text-center text-xs leading-5 text-app-muted">Use the owner account configured for this installation.</p>
     </section></main></div>;
-  return <div className="flex min-h-dvh flex-col bg-app-canvas font-sans text-app-text">
-    <PublicHeader />
+  return <div className="public-site flex min-h-dvh flex-col bg-app-canvas font-sans text-app-text">
+    <PublicHeader navigation={false} />
     <main className="flex flex-1 items-center justify-center px-6 py-10">
-    <section aria-labelledby="login-title" className="min-w-0 w-full max-w-sm">
+    <section aria-labelledby="login-title" className="public-auth-card">
         <h1 id="login-title" className="text-center text-2xl font-medium tracking-tight">Sign in</h1>
         <p className="mt-2 text-center text-sm text-app-muted">Choose your role to access your workspace.</p>
         <form onSubmit={submit} className="mt-6 space-y-5">

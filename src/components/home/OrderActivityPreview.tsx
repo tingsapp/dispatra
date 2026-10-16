@@ -1,17 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Check, Mail, PackageCheck, Pause, Play, Route, ScanLine, Truck } from 'lucide-react';
+import { Check, Pause, Play } from 'lucide-react';
 
-// Illustrative events only; this animation never reads or changes company orders.
-const events = [
-  { title: 'Order received from email', actor: 'Email agent', time: '09:00', status: 'New', icon: Mail },
-  { title: 'Order details prepared', actor: 'Email agent', time: '09:01', status: 'New', icon: PackageCheck },
-  { title: 'Eligible driver assigned', actor: 'Dispatch agent · Auto', time: '09:02', status: 'Assigned', icon: Route },
-  { title: 'Pickup confirmed', actor: 'Driver', time: '09:18', status: 'In progress', icon: Truck },
-  { title: 'Delivery proof captured', actor: 'Driver', time: '09:42', status: 'In progress', icon: ScanLine },
-  { title: 'Order completed', actor: 'Driver', time: '09:43', status: 'Completed', icon: Check },
-] as const;
+import { deliveryPreviewEvents as events, type PreviewStageRequest } from './deliveryPreviewData';
 
-export function OrderActivityPreview({ onCompletedChange }: { onCompletedChange?: (completed: boolean) => void } = {}) {
+export function OrderActivityPreview({ onCompletedChange, onStageChange, requestedStage, active = true }: { onCompletedChange?: (completed: boolean) => void; onStageChange?: (stage: number) => void; requestedStage?: PreviewStageRequest; active?: boolean } = {}) {
   const [stage, setStage] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
@@ -28,13 +20,18 @@ export function OrderActivityPreview({ onCompletedChange }: { onCompletedChange?
     };
   }, []);
   useEffect(() => {
-    if (paused || reducedMotion || hidden) return;
+    if (!requestedStage) return;
+    setStage(requestedStage.index); setPaused(true);
+  }, [requestedStage]);
+  useEffect(() => {
+    if (paused || reducedMotion || hidden || !active) return;
     const timer = window.setTimeout(() => setStage(current => current + 1), stage % events.length === events.length - 1 ? 5500 : 2600);
     return () => window.clearTimeout(timer);
-  }, [stage, paused, reducedMotion, hidden]);
+  }, [stage, paused, reducedMotion, hidden, active]);
 
-  const currentStage = reducedMotion ? events.length - 1 : stage;
+  const currentStage = reducedMotion && !requestedStage ? events.length - 1 : stage;
   const current = events[currentStage % events.length];
+  useEffect(() => { onStageChange?.(currentStage % events.length); }, [currentStage, onStageChange]);
   useEffect(() => { onCompletedChange?.(current.status === 'Completed'); }, [current.status, onCompletedChange]);
   return <>
     <div className="absolute left-3 top-3 rounded-xl border border-app-border bg-white px-3 py-2.5 shadow-md">

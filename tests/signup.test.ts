@@ -15,7 +15,7 @@ import type { TrialSignupInput } from '../src/portal/api';
 const original = { signup: api.signup, subscriptionPlan: api.subscriptionPlan, verification:api.verification, verifyEmail:api.verifyEmail, resendVerification:api.resendVerification };
 afterEach(() => { cleanup(); delete (globalThis as Record<string, unknown>).google; Object.assign(api, original); localStorage.clear(); sessionStorage.clear(); history.replaceState(null, '', '/signup?company=my-company'); });
 const view = () => render(React.createElement(QueryClientProvider, { client:new QueryClient({defaultOptions:{mutations:{retry:false,gcTime:0}}}) }, React.createElement(SignupForm)));
-const plan = { name: 'Monthly subscription' as const, interval: 'MONTHLY' as const, trial_days: 30, monthly_price: null, currency: 'CAD' };
+const plan = { name: 'Monthly subscription' as const, interval: 'MONTHLY' as const, trial_days: 30, trial_enabled: true, monthly_price: null, currency: 'CAD', dispatch_monthly_price: null, dispatch_currency: 'CAD' };
 const page = () => render(React.createElement(QueryClientProvider, { client:new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false,gcTime:0}}}) }, React.createElement(TrialPlansPage)));
 const fill = () => {
   for (const [label,value] of [['Company name','My Company'],['Full name','Jane Dispatcher'],['Email','Jane@Example.com'],['Password','Exact-password-123! '],['Confirm password','Exact-password-123! ']]) {
@@ -33,9 +33,11 @@ test('signup retains the homepage company identifier and explains the 30-day tri
 test('plans precede signup and the popup preserves the company identifier, dismisses and clears secrets', async () => {
   api.subscriptionPlan = async () => plan;
   page();
-  await screen.findByRole('heading', {name:'Monthly plan'});
-  assert.ok(screen.getByText('Contact us for pricing'));
-  assert.ok(screen.getByRole('heading', {name:'One month free trial'}));
+  await screen.findByRole('heading', {name:'TMS + Smart Dispatching'});
+  assert.equal(screen.getAllByText('Contact us for pricing').length, 2);
+  assert.ok(screen.getByRole('heading', {name:'Smart Dispatching'}));
+  assert.deepEqual(screen.getAllByRole('link', {name:'Contact now'}).map(link => link.getAttribute('href')), ['/contact?plan=full', '/contact?plan=dispatch']);
+  assert.ok(await screen.findByRole('heading', {name:'One month free trial'}));
   assert.equal(screen.getByRole('link', {name:'Sign in'}).getAttribute('href'), '/login');
   assert.equal(screen.queryByLabelText('Email'), null);
   const start = screen.getByRole('button', {name:'Start free trial'});
@@ -215,4 +217,36 @@ test('expired verification requires resend and clears the old code',async()=>{
   fireEvent.click(screen.getByRole('button',{name:'Resend code'}));
   await waitFor(()=>assert.equal((input as HTMLInputElement).value,''));
   assert.equal((screen.getByRole('button',{name:'Verify email'}) as HTMLButtonElement).disabled,false);
+});
+
+test('public plans display distinct configured prices and currencies, including a zero dispatch rate', async () => {
+  api.subscriptionPlan = async () => ({...plan, monthly_price:'99.95', currency:'CAD', dispatch_monthly_price:'29.90', dispatch_currency:'USD'});
+  page();
+  await screen.findByText('$99.95');
+  assert.ok(screen.getByText('US$29.90'));
+  assert.ok(screen.getByText('CAD / vehicle / month'));
+  assert.ok(screen.getByText('USD / vehicle / month'));
+  cleanup();
+  api.subscriptionPlan = async () => ({...plan, monthly_price:null, dispatch_monthly_price:'0.00',dispatch_currency:'CAD'});
+  page();
+  await screen.findByText('$0.00');
+  assert.equal(screen.getAllByText('Contact us for pricing').length,1);
+});
+
+
+test('disabled trial has no public signup option while both plan enquiries remain', async () => {
+  api.subscriptionPlan=async()=>({...plan,trial_enabled:false,trial_days:14});
+  page();await screen.findByRole('heading',{name:'TMS + Smart Dispatching'});
+  await waitFor(()=>assert.equal(screen.getAllByRole('link',{name:'Contact now'}).length,2));
+  assert.equal(screen.queryByRole('button',{name:'Start free trial'}),null);
+  assert.equal(screen.queryByRole('heading',{name:/free trial/i}),null);
+});
+
+test('configured trial length is shown in the public offer and signup dialog', async () => {
+  api.subscriptionPlan=async()=>({...plan,trial_enabled:true,trial_days:14});
+  page();await screen.findByRole('heading',{name:'14-day free trial'});
+  fireEvent.click(screen.getByRole('button',{name:'Start free trial'}));
+  assert.ok(screen.getByText('14 days to try Dispatra. No credit card required.'));
+  assert.ok(screen.getByText(/Verify your email to start your 14-day trial/));
+  assert.equal(screen.queryByText(/30 days to try/),null);
 });

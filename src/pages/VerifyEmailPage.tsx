@@ -24,10 +24,10 @@ export function EmailVerificationForm() {
   const remaining = status.data ? Math.max(0,Math.ceil((new Date(status.data.resend_at).getTime()-observed)/1000)) : 0;
   const expired = status.data && new Date(status.data.expires_at).getTime()<=observed;
   const delivery = status.data?.delivery_status;
-  return <div className="flex min-h-dvh flex-col bg-app-canvas text-app-text"><PublicHeader />
-    <main className="flex flex-1 items-center justify-center px-6 py-10"><section className="w-full max-w-sm">
+  return <div className="public-site flex min-h-dvh flex-col bg-app-canvas text-app-text"><PublicHeader navigation={false} />
+    <main className="flex flex-1 items-center justify-center px-6 py-10"><section className="public-auth-card">
       <h1 className="text-center text-2xl font-medium tracking-tight">Verify your email</h1>
-      <p className="mt-3 text-center text-sm leading-6 text-app-muted">Confirm your email before accessing your workspace. Your 30-day trial starts after verification.</p>
+      <p className="mt-3 text-center text-sm leading-6 text-app-muted">Confirm your email before accessing your workspace. Your trial starts after verification.</p>
       {status.isPending && <p role="status" className="mt-6 text-center text-sm">Loading verification…</p>}
       <Notice error={status.error} />
       {status.data && <>

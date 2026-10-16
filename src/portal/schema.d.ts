@@ -2683,6 +2683,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/billing/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Company Enroll */
+        post: operations["company_enroll_api_v1_companies__slug__billing_subscription_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/billing/payment-method/confirm": {
         parameters: {
             query?: never;
@@ -2830,6 +2847,23 @@ export interface paths {
         get: operations["owner_payments_api_v1_platform_organizations__organization_id__payments_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/assistant/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Message */
+        post: operations["public_message_api_v1_public_assistant_messages_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3008,6 +3042,7 @@ export interface components {
             errors_24h: number;
             /** Issues */
             issues: components["schemas"]["TechnicalIssueView"][];
+            machine?: components["schemas"]["MachineTelemetry"] | null;
         };
         /** AgentRunView */
         AgentRunView: {
@@ -3853,6 +3888,11 @@ export interface components {
             name: string;
             /** Logo Url */
             logo_url: string;
+            /**
+             * Tms Workspace
+             * @default false
+             */
+            tms_workspace: boolean;
             /** Active */
             active: boolean;
             /**
@@ -3972,6 +4012,11 @@ export interface components {
             trial_ends_at: string | null;
             /** Setup Available */
             setup_available: boolean;
+            /**
+             * Recurring Authorized
+             * @default false
+             */
+            recurring_authorized: boolean;
             /** Monthly Price */
             monthly_price?: string | null;
             /**
@@ -4109,6 +4154,11 @@ export interface components {
             name: string;
             /** Logo Url */
             logo_url: string;
+            /**
+             * Tms Workspace
+             * @default false
+             */
+            tms_workspace: boolean;
             /** Active */
             active: boolean;
             /**
@@ -5432,6 +5482,107 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** MachineActivity */
+        MachineActivity: {
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "EVENT" | "AGENT";
+            /** Kind */
+            kind: string;
+            /** From Node */
+            from_node: ("inputs" | "ORDER" | "data" | "DISPATCH" | "delivery" | "OPERATIONAL" | "TECHNICAL" | "CHAT") | null;
+            /**
+             * To Node
+             * @enum {string}
+             */
+            to_node: "inputs" | "ORDER" | "data" | "DISPATCH" | "delivery" | "OPERATIONAL" | "TECHNICAL" | "CHAT";
+            /** Title */
+            title: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "INFO" | "WARNING" | "ERROR";
+            /** Company Name */
+            company_name: string | null;
+            /** Reference */
+            reference: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** MachineAgentState */
+        MachineAgentState: {
+            /**
+             * Agent
+             * @enum {string}
+             */
+            agent: "ORDER" | "DISPATCH" | "TECHNICAL" | "OPERATIONAL" | "CHAT";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "PROCESSING" | "WAITING" | "ERROR" | "UNKNOWN";
+            /** Detail */
+            detail: string;
+            /** Company Name */
+            company_name: string | null;
+            /** Heartbeat At */
+            heartbeat_at: string | null;
+            /** Queued */
+            queued: number;
+        };
+        /** MachineTelemetry */
+        MachineTelemetry: {
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Agents */
+            agents: components["schemas"]["MachineAgentState"][];
+            workload: components["schemas"]["MachineWorkload"];
+            /** Activity */
+            activity: components["schemas"]["MachineActivity"][];
+            /** Activity Truncated */
+            activity_truncated: boolean;
+            /**
+             * Window Seconds
+             * @default 86400
+             */
+            window_seconds: number;
+        };
+        /** MachineWorkload */
+        MachineWorkload: {
+            /** Emails Waiting */
+            emails_waiting: number;
+            /** Emails Review */
+            emails_review: number;
+            /** Emails Failed */
+            emails_failed: number;
+            /** Orders Waiting */
+            orders_waiting: number;
+            /** Auto Waiting */
+            auto_waiting: number;
+            /** Manual Waiting */
+            manual_waiting: number;
+            /** No Driver */
+            no_driver: number;
+            /** Orders Assigned */
+            orders_assigned: number;
+            /** Orders In Progress */
+            orders_in_progress: number;
+            /** Routes In Progress */
+            routes_in_progress: number;
+            /** Completed 24H */
+            completed_24h: number;
+        };
         /** MailboxCheck */
         MailboxCheck: {
             /** Host */
@@ -5665,6 +5816,23 @@ export interface components {
             monthly_price: number | string | null;
             /** Currency */
             currency: string;
+            /** Dispatch Monthly Price */
+            dispatch_monthly_price?: number | string | null;
+            /**
+             * Dispatch Currency
+             * @default CAD
+             */
+            dispatch_currency: string;
+            /**
+             * Trial Enabled
+             * @default true
+             */
+            trial_enabled: boolean;
+            /**
+             * Trial Days
+             * @default 30
+             */
+            trial_days: number;
         };
         /** MonthlyPlanView */
         MonthlyPlanView: {
@@ -5681,6 +5849,11 @@ export interface components {
              */
             interval: "MONTHLY";
             /**
+             * Trial Enabled
+             * @default true
+             */
+            trial_enabled: boolean;
+            /**
              * Trial Days
              * @default 30
              */
@@ -5689,6 +5862,13 @@ export interface components {
             monthly_price: string | null;
             /** Currency */
             currency: string;
+            /** Dispatch Monthly Price */
+            dispatch_monthly_price?: string | null;
+            /**
+             * Dispatch Currency
+             * @default CAD
+             */
+            dispatch_currency: string;
             /**
              * Id
              * Format: uuid
@@ -6028,6 +6208,11 @@ export interface components {
              * Format: date-time
              */
             captured_at: string;
+        };
+        /** PublicAssistantReply */
+        PublicAssistantReply: {
+            /** Message */
+            message: string;
         };
         /** PushDeviceInput */
         PushDeviceInput: {
@@ -6943,6 +7128,19 @@ export interface components {
              */
             photo_required: boolean;
         };
+        /**
+         * SubscriptionEnrollmentRequest
+         * @description Explicit recurring authorization for the company's existing saved card.
+         */
+        SubscriptionEnrollmentRequest: {
+            /**
+             * Consent
+             * @constant
+             */
+            consent: true;
+            /** Terms Version */
+            terms_version: number;
+        };
         /** SubscriptionPlanView */
         SubscriptionPlanView: {
             /**
@@ -6958,6 +7156,11 @@ export interface components {
              */
             interval: "MONTHLY";
             /**
+             * Trial Enabled
+             * @default true
+             */
+            trial_enabled: boolean;
+            /**
              * Trial Days
              * @default 30
              */
@@ -6966,6 +7169,13 @@ export interface components {
             monthly_price: string | null;
             /** Currency */
             currency: string;
+            /** Dispatch Monthly Price */
+            dispatch_monthly_price?: string | null;
+            /**
+             * Dispatch Currency
+             * @default CAD
+             */
+            dispatch_currency: string;
         };
         /**
          * SyncChange
@@ -25288,6 +25498,106 @@ export interface operations {
             };
         };
     };
+    company_enroll_api_v1_companies__slug__billing_subscription_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionEnrollmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyPaymentView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     company_confirm_api_v1_companies__slug__billing_payment_method_confirm_post: {
         parameters: {
             query?: never;
@@ -26074,6 +26384,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompanyPaymentHistory"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    public_message_api_v1_public_assistant_messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantQuestion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAssistantReply"];
                 };
             };
             /** @description Bad Request */

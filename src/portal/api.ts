@@ -21,6 +21,9 @@ export type PlatformRevenue = components['schemas']['PlatformRevenueView'];
 export type SubscriptionFilter = { search?: string; status?: CompanySubscription['status'] };
 export type PlatformNotification = components['schemas']['PlatformNotificationView'];
 export type AgentMonitor = components['schemas']['AgentMonitorView'];
+export type MachineTelemetry = components['schemas']['MachineTelemetry'];
+export type MachineActivity = components['schemas']['MachineActivity'];
+export type MachineAgentState = components['schemas']['MachineAgentState'];
 export type AgentStatus = components['schemas']['AgentStatus'];
 export type AgentActivity = components['schemas']['AgentLogView'];
 export type AgentName = components['schemas']['AgentLogView']['agent'];
@@ -48,12 +51,14 @@ export type OperationalIncident = components['schemas']['IncidentView'];
 export type OperationalQuestion = components['schemas']['QuestionView'];
 export type OperationalReply = components['schemas']['Reply'];
 export const api = {
+  publicAssistant: async (body: components['schemas']['AssistantQuestion'], signal?: AbortSignal) => unwrap(await client.POST('/api/v1/public/assistant/messages', { body, signal })),
   paymentHistory: async (target: PaymentTarget, after?: string) => target.kind === 'owner'
     ? unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}/payments', { params: { path: { organization_id: target.id }, query: { after } } }))
     : unwrap(await client.GET('/api/v1/companies/{slug}/billing/payments', { params: { path: { slug: target.slug }, query: { after } } })),
   paymentMethod: async (target: PaymentTarget) => target.kind === 'owner'
     ? unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}/payment-method', { params: { path: { organization_id: target.id } } }))
     : unwrap(await client.GET('/api/v1/companies/{slug}/billing/payment-method', { params: { path: { slug: target.slug } } })),
+  startCompanySubscription: async (slug: string, key: string, termsVersion: number) => unwrap(await client.POST('/api/v1/companies/{slug}/billing/subscription', { body: { consent: true, terms_version: termsVersion }, params: { path: { slug }, header: { 'Idempotency-Key': key } } })),
   startCardSetup: async (target: PaymentTarget, key: string, termsVersion: number) => target.kind === 'owner'
     ? unwrap(await client.POST('/api/v1/platform/organizations/{organization_id}/payment-method/setup', { body: { consent: true, terms_version: termsVersion }, params: { path: { organization_id: target.id }, header: { 'Idempotency-Key': key } } }))
     : unwrap(await client.POST('/api/v1/companies/{slug}/billing/payment-method/setup', { body: { consent: true, terms_version: termsVersion }, params: { path: { slug: target.slug }, header: { 'Idempotency-Key': key } } })),
