@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useState } from 'react';
 import { PageLoading } from './components/ui/PageLoading';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { pageForPath } from './lib/pageRoutes';
+import { usePublicNavigation } from './lib/usePublicNavigation';
 import { loadSession, signOut } from './lib/sessionStorage';
 import { LoginPage } from './pages/LoginPage';
 import { PublicHome } from './pages/PublicHome';
@@ -18,17 +19,19 @@ export const PROTOTYPE_LOGIN_PATH = '/prototype/login';
 const isPrototypePath = (pathname: string) => pathname === PROTOTYPE_LOGIN_PATH || pathname === '/prototype' || pathname.startsWith('/prototype/');
 export default function Root() {
   const [session, setSession] = useState(loadSession);
-  const publicPath = location.pathname.replace(/\/+$/, '') || '/';
+  const publicLocation = usePublicNavigation();
+  const publicPath = publicLocation.pathname;
+  const publicKey = publicPath + publicLocation.search;
   if (publicPath === '/signup/verify') return <Suspense fallback={<PageLoading>Loading verification…</PageLoading>}><VerifyEmail /></Suspense>;
-  if (publicPath === '/terms' || publicPath === '/privacy') return <Suspense fallback={<PageLoading>Loading policy…</PageLoading>}><Legal policy={publicPath === '/terms' ? 'terms' : 'privacy'} /></Suspense>;
+  if (publicPath === '/terms' || publicPath === '/privacy') return <Suspense key={publicKey} fallback={<PageLoading>Loading policy…</PageLoading>}><Legal policy={publicPath === '/terms' ? 'terms' : 'privacy'} /></Suspense>;
   if (publicPath === '/signup') {
     location.replace(`/plans${location.search}${location.hash}`);
     return <PageLoading>Opening plans…</PageLoading>;
   }
-  if (publicPath === '/plans') return <Suspense fallback={<PageLoading>Loading plans…</PageLoading>}><Signup /></Suspense>;
-  if (publicPath === '/about' || publicPath === '/how-it-works' || publicPath === '/help') return <Suspense fallback={<PageLoading>Loading Dispatra…</PageLoading>}><Information page={publicPath} /></Suspense>;
-  if (publicPath === '/docs/integrations') return <Suspense fallback={<PageLoading>Loading integration guide…</PageLoading>}><IntegrationGuide /></Suspense>;
-  if (publicPath === '/contact') return <Suspense fallback={<PageLoading>Loading contact…</PageLoading>}><Contact /></Suspense>;
+  if (publicPath === '/plans') return <Suspense key={publicKey} fallback={<PageLoading>Loading plans…</PageLoading>}><Signup /></Suspense>;
+  if (publicPath === '/about' || publicPath === '/how-it-works' || publicPath === '/help') return <Suspense key={publicKey} fallback={<PageLoading>Loading Dispatra…</PageLoading>}><Information page={publicPath} /></Suspense>;
+  if (publicPath === '/docs/integrations') return <Suspense key={publicKey} fallback={<PageLoading>Loading integration guide…</PageLoading>}><IntegrationGuide /></Suspense>;
+  if (publicPath === '/contact') return <Suspense key={publicKey} fallback={<PageLoading>Loading contact…</PageLoading>}><Contact /></Suspense>;
   if (publicPath === '/') return <PublicHome />;
   if (!isPrototypePath(location.pathname)) return <Suspense fallback={<PageLoading>Loading Dispatra…</PageLoading>}><Portal /></Suspense>;
   if (location.pathname !== PROTOTYPE_LOGIN_PATH && pageForPath(location.pathname) === undefined) return <PublicHome />;

@@ -28,14 +28,6 @@ export function TrialPlansPage() {
   const trialButton = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
   useEffect(() => {
-    const scrollToPlan = () => {
-      if (['#plan-full', '#plan-dispatch'].includes(window.location.hash)) document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'start' });
-    };
-    scrollToPlan();
-    window.addEventListener('hashchange', scrollToPlan);
-    return () => window.removeEventListener('hashchange', scrollToPlan);
-  }, []);
-  useEffect(() => {
     // The trigger loses focus when its background becomes inert; restore it after dismissal removes inert.
     if (wasOpen.current && !signingUp) trialButton.current?.focus();
     wasOpen.current = signingUp;
