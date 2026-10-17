@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Bell, CheckCircle2, Clock } from 'lucide-react';
 import { FloatingPanel } from '../components/ui/FloatingPanel';
+import { DialogCloseButton } from '../components/ui/Dialog';
 import { operations, type AppNotification } from '../operations/api';
 import { notificationsKey, syncKey, type SyncSummary } from './sync';
 
@@ -27,7 +28,7 @@ export function useUnreadNotifications(slug: string) {
 }
 
 /** Inbox list with read and read-all actions; `onOpen` follows a notification to its record. */
-export function NotificationPanel({ slug, onOpen }: { slug: string; onOpen?: (row: AppNotification) => void }) {
+export function NotificationPanel({ slug, onOpen, onClose }: { slug: string; onOpen?: (row: AppNotification) => void; onClose?: () => void }) {
   const cache = useQueryClient();
   const unread = useUnreadNotifications(slug);
   const list = useQuery({ queryKey: notificationsKey(slug), queryFn: () => operations.notifications(slug) });
@@ -39,14 +40,14 @@ export function NotificationPanel({ slug, onOpen }: { slug: string; onOpen?: (ro
   const readAll = useMutation({ mutationFn: () => operations.readAllNotifications(slug), onSuccess: result => settle(result.updated) });
   const open = (row: AppNotification) => { if (!row.read_at) read.mutate(row); onOpen?.(row); };
   return <NotificationInbox rows={list.data ?? []} unread={unread} loading={list.isPending} loadError={list.error}
-    readError={read.error || readAll.error} readingAll={readAll.isPending} onMarkAllRead={() => readAll.mutate()} onOpen={open} />;
+    readError={read.error || readAll.error} readingAll={readAll.isPending} onMarkAllRead={() => readAll.mutate()} onOpen={open} onClose={onClose} />;
 }
 
 type InboxRow = Pick<AppNotification, 'id' | 'created_at' | 'severity' | 'title' | 'body' | 'read_at'>;
 /** Shared inbox presentation for company and platform accounts. */
-export function NotificationInbox<T extends InboxRow>({ rows, unread, loading, loadError, readError, readingAll, onMarkAllRead, onOpen }: {
+export function NotificationInbox<T extends InboxRow>({ rows, unread, loading, loadError, readError, readingAll, onMarkAllRead, onOpen, onClose }: {
   rows: T[]; unread: number; loading: boolean; loadError: unknown; readError: unknown; readingAll: boolean;
-  onMarkAllRead: () => void; onOpen: (row: T) => void;
+  onMarkAllRead: () => void; onOpen: (row: T) => void; onClose?: () => void;
 }) {
   return <div>
     <div className="flex items-center justify-between pb-2.5">
@@ -54,7 +55,10 @@ export function NotificationInbox<T extends InboxRow>({ rows, unread, loading, l
         <span className="font-medium text-sm text-slate-900">Notifications</span>
         {unread > 0 && <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-medium text-xs" aria-label={`${unread} unread`}>{unread}</span>}
       </div>
-      <button type="button" disabled={readingAll || !(unread > 0 || rows.some(row => !row.read_at))} onClick={() => onMarkAllRead()} className="text-xs font-medium text-slate-700 hover:text-slate-900 disabled:opacity-40">Mark all read</button>
+      <div className="flex shrink-0 items-center gap-2">
+        <button type="button" disabled={readingAll || !(unread > 0 || rows.some(row => !row.read_at))} onClick={() => onMarkAllRead()} className="text-xs font-medium text-slate-700 hover:text-slate-900 disabled:opacity-40">Mark all read</button>
+        {onClose && <DialogCloseButton label="Close notifications" onClick={onClose} />}
+      </div>
     </div>
     {Boolean(readError) && <p role="alert" className="mb-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">Could not update notifications. Try again.</p>}
     <div className="mt-1 max-h-80 overflow-y-auto">
@@ -101,6 +105,6 @@ export function NotificationDropdown({ unread, surface = false, children }: {
 export function NotificationBell({ slug, onOpen, surface = false }: { slug: string; onOpen?: (row: AppNotification) => void; surface?: boolean | 'white' }) {
   const unread = useUnreadNotifications(slug);
   return <NotificationDropdown unread={unread} surface={surface}>{close =>
-    <NotificationPanel slug={slug} onOpen={row => { close(); onOpen?.(row); }} />
+    <NotificationPanel slug={slug} onClose={close} onOpen={row => { close(); onOpen?.(row); }} />
   }</NotificationDropdown>;
 }

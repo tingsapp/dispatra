@@ -1289,6 +1289,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/driver/routes/{identity}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge */
+        post: operations["acknowledge_api_v1_companies__slug__driver_routes__identity__acknowledge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/analytics": {
         parameters: {
             query?: never;
@@ -2112,6 +2129,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/dispatch-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fleet Plan */
+        post: operations["fleet_plan_api_v1_companies__slug__dispatch_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/chats": {
         parameters: {
             query?: never;
@@ -2624,6 +2658,23 @@ export interface paths {
         };
         /** Review */
         get: operations["review_api_v1_companies__slug__integrations_connectors__provider__review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/integrations/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Providers */
+        get: operations["providers_api_v1_platform_integrations_providers_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3261,6 +3312,11 @@ export interface components {
             /** Version */
             version: number;
             /**
+             * Allow Live
+             * @default false
+             */
+            allow_live: boolean;
+            /**
              * Driver Id
              * Format: uuid
              */
@@ -3544,6 +3600,8 @@ export interface components {
             vehicle_name: string;
             /** Route Id */
             route_id: string | null;
+            /** Route Version */
+            route_version?: number | null;
             /**
              * Planned At
              * Format: date-time
@@ -3564,6 +3622,53 @@ export interface components {
         };
         /** CandidateMetrics */
         CandidateMetrics: {
+            /**
+             * Awaiting Duty
+             * @default false
+             */
+            awaiting_duty: boolean;
+            /** Zone */
+            zone?: string | null;
+            /**
+             * Zone Match
+             * @default false
+             */
+            zone_match: boolean;
+            /**
+             * Direction
+             * @default UNKNOWN
+             */
+            direction: string;
+            /**
+             * Worked Minutes
+             * @default 0
+             */
+            worked_minutes: number;
+            /**
+             * Remaining Minutes
+             * @default 0
+             */
+            remaining_minutes: number;
+            /**
+             * Completed Orders
+             * @default 0
+             */
+            completed_orders: number;
+            /**
+             * Workload Ratio
+             * @default 0
+             */
+            workload_ratio: number;
+            /**
+             * Live Insertion
+             * @default false
+             */
+            live_insertion: boolean;
+            /**
+             * Road Verified
+             * @default false
+             */
+            road_verified: boolean;
             /**
              * Extra Minutes
              * @description Estimated extra fleet driving: trip to pickup plus the Order, or the increase of a planned Route
@@ -3960,6 +4065,8 @@ export interface components {
             settings_version?: number | null;
             /** Active */
             active: boolean;
+            /** Tms Workspace */
+            tms_workspace?: boolean;
             dispatcher?: components["schemas"]["OverviewDispatcherUpdate"] | null;
         };
         /** CompanyOverviewView */
@@ -4236,14 +4343,19 @@ export interface components {
              * Auth
              * @enum {string}
              */
-            auth: "oauth" | "bearer" | "api_key" | "session" | "client_credentials";
+            auth: "oauth" | "bearer" | "api_key" | "session" | "client_credentials" | "request_setup";
             /** Ready */
             ready: boolean;
             /**
              * Status
              * @enum {string}
              */
-            status: "ACTIVATION_REQUIRED" | "NOT_CONNECTED" | "CONNECTING" | "CONNECTED" | "SYNCING" | "RECONNECT_REQUIRED" | "SYNC_FAILED" | "DISCONNECTED";
+            status: "ACTIVATION_REQUIRED" | "NOT_CONNECTED" | "CONNECTING" | "CONNECTED" | "SYNCING" | "RECONNECT_REQUIRED" | "SYNC_FAILED" | "DISCONNECTED" | "PAUSED";
+            /**
+             * Paused
+             * @default false
+             */
+            paused: boolean;
             /** Account */
             account?: string | null;
             /** Version */
@@ -4554,6 +4666,13 @@ export interface components {
              * @default 0
              */
             value: string;
+        };
+        /** DispatchZone */
+        DispatchZone: {
+            /** Name */
+            name: string;
+            /** Postal Codes */
+            postal_codes: string[];
         };
         /** DispatcherCreate */
         DispatcherCreate: {
@@ -6209,6 +6328,17 @@ export interface components {
              */
             captured_at: string;
         };
+        /** ProviderView */
+        ProviderView: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Initials */
+            initials: string;
+            /** Connected Dispatchers */
+            connected_dispatchers: number;
+        };
         /** PublicAssistantReply */
         PublicAssistantReply: {
             /** Message */
@@ -6579,6 +6709,18 @@ export interface components {
             /** Generation */
             generation: number;
         };
+        /** RouteStartCommand */
+        RouteStartCommand: {
+            /** Version */
+            version: number;
+            /** Generation */
+            generation: number;
+            /**
+             * Supports Live Updates
+             * @default false
+             */
+            supports_live_updates: boolean;
+        };
         /** RouteView */
         RouteView: {
             /**
@@ -6793,6 +6935,8 @@ export interface components {
              * @enum {string}
              */
             dispatch_mode: "AUTO" | "MANUAL";
+            /** Dispatch Zones */
+            dispatch_zones?: components["schemas"]["DispatchZone"][];
             /** Default Service Id */
             default_service_id?: string | null;
         };
@@ -6910,6 +7054,8 @@ export interface components {
              * @enum {string}
              */
             dispatch_mode: "AUTO" | "MANUAL";
+            /** Dispatch Zones */
+            dispatch_zones?: components["schemas"]["DispatchZone"][];
             /** Default Service Id */
             default_service_id?: string | null;
         };
@@ -15955,7 +16101,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RouteCommand"];
+                "application/json": components["schemas"]["RouteStartCommand"];
             };
         };
         responses: {
@@ -16862,6 +17008,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DriverNotificationView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    acknowledge_api_v1_companies__slug__driver_routes__identity__acknowledge_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RouteCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteView"];
                 };
             };
             /** @description Bad Request */
@@ -22097,6 +22344,100 @@ export interface operations {
             };
         };
     };
+    fleet_plan_api_v1_companies__slug__dispatch_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionView"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     inbox_api_v1_companies__slug__chats_get: {
         parameters: {
             query?: {
@@ -25130,6 +25471,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewItem"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    providers_api_v1_platform_integrations_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderView"][];
                 };
             };
             /** @description Bad Request */

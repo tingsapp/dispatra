@@ -3,8 +3,8 @@ import { PublicHeader } from '../components/home/PublicPageLayout';
 import { PublicFooter } from '../components/home/PublicFooter';
 import { PublicChatAssistant } from '../components/home/PublicChatAssistant';
 import { Button } from '../components/ui/button';
+import { DISPATRA_CONTACT_EMAIL as EMAIL } from '../lib/dispatraContact';
 
-const EMAIL = 'dispatra@tingsapp.com';
 const planNames = new Map([['full', 'TMS + Smart Dispatching'], ['dispatch', 'Smart Dispatching']]);
 
 export default function ContactPage() {

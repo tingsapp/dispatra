@@ -1,15 +1,14 @@
 import type { ReactNode } from 'react';
-import { Boxes, Plug, Route, Truck, Workflow } from 'lucide-react';
+import { Boxes, Route, Truck, Workflow } from 'lucide-react';
 import { DispatraConnectorCard } from './DispatraConnectorCard';
 
 export function WorkspaceModeLayout({ nativeTms, children }: { nativeTms: boolean; children: ReactNode }) {
-  const ModeIcon = nativeTms ? Workflow : Plug;
   return <div className="space-y-5" data-workspace-mode={nativeTms ? 'dispatra' : 'external'}>
-    <div className="flex h-8 items-center" aria-live="polite" aria-atomic="true">
-      <p key={nativeTms ? 'dispatra' : 'external'} className={`integration-mode-label inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${nativeTms ? 'bg-app-accent-soft text-app-accent' : 'bg-slate-100 text-slate-700'}`}>
-        <ModeIcon size={14} aria-hidden="true" />{nativeTms ? 'Dispatra workspace' : 'External TMS workspace'}
+    {nativeTms && <div className="flex h-8 items-center" aria-live="polite" aria-atomic="true">
+      <p className="integration-mode-label inline-flex items-center gap-2 rounded-full bg-app-accent-soft px-3 py-1.5 text-xs font-medium text-app-accent">
+        <Workflow size={14} aria-hidden="true" />Dispatra workspace
       </p>
-    </div>
+    </div>}
     <DispatraConnectorCard />
     <div className="integration-mode-stage">
       <div className="integration-mode-view" data-active={nativeTms} aria-hidden={!nativeTms} inert={!nativeTms}>

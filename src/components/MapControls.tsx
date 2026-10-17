@@ -1,5 +1,6 @@
 import React from 'react';
 import { FloatingPanel } from './ui/FloatingPanel';
+import { DialogCloseButton } from './ui/Dialog';
 import { MenuItem, MenuList, MenuSeparator } from './ui/Menu';
 import { Switch } from './ui/Switch';
 import { Settings as SettingsIcon, Plus, Minus, Map as MapIcon, Globe, Activity, Tag, LocateFixed } from 'lucide-react';
@@ -39,6 +40,10 @@ export const MapControls: React.FC<MapControlsProps> = ({
             <SettingsIcon className="w-4 h-4" />
           </button>
         }>
+        <div className="flex items-start justify-between gap-3 px-3 pt-2 pb-1">
+          <h3 className="text-sm font-medium">Map settings</h3>
+          <DialogCloseButton label="Close map settings" onClick={() => setShowSettingsPopover(false)} />
+        </div>
         <MenuList>
           <MenuItem icon={MapIcon} selected={layerConfig.mode === 'map'} aria-pressed={layerConfig.mode === 'map'}
             onClick={() => { setLayerConfig(prev => ({ ...prev, mode: 'map' })); onActionNotification('Switched to Standard Map view'); }}>Map</MenuItem>

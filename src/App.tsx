@@ -1,3 +1,6 @@
+import { ChatDialog } from './components/chat/OrderChat';
+import { DriverChatDialog } from './components/chat/DriverChatDialog';
+import type { ChatKind } from './chat/api';
 import { changeDispatchMode } from './operations/changeDispatchMode';
 import { dateTime } from './lib/dateTimeFormat';
 import { PanelLeft,Sparkles } from 'lucide-react';
@@ -103,6 +106,9 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const activeOrders = jobs.filter(isActiveMonitorOrder);
   const mapOrders = activeOrders.filter(job => !hiddenOrderIds.has(job.id));
   const [dossierJob, setDossierJob] = useState<Job | null>(null);
+  const [contactChat, setContactChat] = useState<{ order: Job; kind: ChatKind; driverId?: string } | null>(null);
+  const [driverChat, setDriverChat] = useState<Driver | null>(null);
+
   useEffect(() => { if (!slug) try { saveOrders(localJobs); } catch { showToast('Order changes could not be saved in this browser. Keep this session open and free storage before reloading.'); } }, [localJobs, slug]);
   const [operationalAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
   // Orders that could not be priced (no card, conflict, zone no-match, missing distance) join the list.
@@ -283,7 +289,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         }
         return;
       }
-      if (target.closest('[data-slot="popover-content"][aria-label="Driver actions"]')) return;
+      if (target.closest('[data-slot="popover-content"][aria-label="Driver actions"], [data-entity-dialog]')) return;
       setShowDriverPopover(false);
       setShowDriverActions(false);
       setShowJobDetail(false);
@@ -678,6 +684,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   setShowActions={setShowDriverActions}
                   onActionNotification={showToast}
                   onOpenFullProfile={() => handleOpenDriverProfile(activeDriver)}
+                  onMessage={slug ? () => setDriverChat(activeDriver) : undefined}
                   position={markerPositions.driver ?? markerPositions.d14 ?? undefined}
                 />
               )}
@@ -701,6 +708,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   onKeepCurrent={handleKeepCurrent}
                   onActionNotification={showToast}
                   onOpenFullDetails={() => handleOpenJobDossier(activeJob)}
+                  onMessage={slug ? kind => setContactChat({ order: activeJob, kind, driverId: kind === 'DISPATCH_DRIVER' ? activeJob.assignedDriverId : undefined }) : undefined}
                   onOpenAllDrivers={handleOpenAllDrivers}
                   position={markerPositions.job ?? markerPositions.job461 ?? undefined}
                   timeZone={settingsQuery.data?.data.time_zone}
@@ -799,6 +807,9 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
       {dossierJob && <MonitorOrderDetails job={dossierJob} jobs={jobs} drivers={drivers} onClose={() => setDossierJob(null)}
         onEdit={job => { setDossierJob(null); setEditJobId(job.id); setActiveTab('jobs'); }} onUpdateJob={handleUpdateJob} onNotification={showToast} />}
 
+      {slug && contactChat && <ChatDialog slug={slug} orderId={contactChat.order.id} orderNumber={contactChat.order.jobNumber} initialKind={contactChat.kind} expectedDriverId={contactChat.driverId} onClose={() => setContactChat(null)} />}
+      {slug && driverChat && <DriverChatDialog slug={slug} driver={driverChat} jobs={jobs} onClose={() => setDriverChat(null)} />}
+
       {/* FULL CLOSABLE DETAIL MODAL DIALOG (Z-[100] PORTAL OVERLAY) */}
       <DetailModalDialog
         state={modalDialog}
@@ -809,6 +820,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         onOrderVisibilityChange={handleOrderVisibilityChange}
         needsAttentionItems={needsAttentionItems}
         timeZone={slug ? settingsQuery.data?.data.time_zone : undefined}
+        onMessageDriver={slug ? driver => { handleCloseModal(); setDriverChat(driver); } : undefined}
         onEditDriver={driver => { handleCloseModal(); setOpenDriverId(driver.id); setActiveTab('drivers'); }}
         onSelectJob={(jobNum) => {
           handleCloseModal();

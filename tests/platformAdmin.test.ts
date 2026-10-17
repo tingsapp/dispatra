@@ -10,6 +10,8 @@ const { render, screen, cleanup, waitFor, within, fireEvent } = await import('@t
 const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { api, ApiError } = await import('../src/portal/api');
+const { integrationAdmin } = await import('../src/integrations/admin');
+const originalIntegrations={...integrationAdmin};
 const { AdminPortal } = await import('../src/portal/admin/AdminPortal');
 const { adminRoute, isAdminPath } = await import('../src/portal/admin/adminRoutes');
 const { parsePortal, loginDestination, default: PortalApp } = await import('../src/portal/PortalApp');
@@ -29,6 +31,7 @@ let cache: InstanceType<typeof QueryClient>;
 let calls: string[] = [];
 beforeEach(() => {
   calls = [];
+  integrationAdmin.providers=async()=>[];
   Object.assign(api, {
     paymentHistory: async () => ({ available: true, items: [], next_cursor: null }),
     paymentMethod: async () => ({ status: 'MISSING', required: false, setup_available: false, monthly_price:null,currency:'CAD',vehicle_count:0,monthly_total:null,terms_version:1,subscription_status:'NOT_SUBSCRIBED',sync_error:false,trial_ends_at: null }),
@@ -38,7 +41,7 @@ beforeEach(() => {
     platformNotifications: async () => ({ items: [], unread: 0 }), organizations: async () => [company()], company: async () => company(), companyAudit: async () => [], dispatchers: async () => [person()],
   });
 });
-afterEach(() => { cleanup(); Object.assign(api, original); localStorage.clear(); sessionStorage.clear(); history.replaceState(null, '', '/admin'); });
+afterEach(() => { cleanup(); Object.assign(api, original); Object.assign(integrationAdmin,originalIntegrations); localStorage.clear(); sessionStorage.clear(); history.replaceState(null, '', '/admin'); });
 
 function mount(path = '/admin') {
   history.replaceState(null, '', path);
@@ -743,7 +746,8 @@ test('company list and details show the saved plan, including the legacy full-pl
   assert.ok(within(dispatch).getByRole('cell',{name:'Smart Dispatching only'}));
   assert.ok(screen.getByRole('columnheader',{name:'Plan'}));
   await user.click(within(full).getByRole('link',{name:'Manage Acme Dispatch'}));
-  await screen.findByText('Smart Dispatching only',{exact:true});
+  assert.equal((await screen.findByRole('radio',{name:'Smart Dispatching only'}) as HTMLInputElement).checked,true);
+  assert.equal(screen.getAllByText('Smart Dispatching only',{exact:true}).length,2);
 });
 
 test('Add company keeps the chosen plan on uncertain retries, changes the key when switching, and locks radios while pending', async () => {
@@ -773,4 +777,34 @@ test('Add company keeps the chosen plan on uncertain retries, changes the key wh
   await waitFor(()=>assert.equal(requests.length,3));
   assert.notEqual(requests[2].key,requests[1].key);assert.equal(requests[2].body.tms_workspace,false);
   reject(new ApiError(503,'Please retry.'));await screen.findByText('Please retry.');
+});
+
+test('company overview switches plans through Save changes, retains conflict drafts and reloads the saved selection', async () => {
+  const user=userEvent.setup({document});
+  let current=company();let conflict=false;
+  const submitted:Parameters<typeof api.updateCompanyOverview>[1][]=[];
+  api.company=async()=>current;
+  api.updateCompanyOverview=async(_id,body)=>{
+    submitted.push(body);
+    if(conflict)throw new ApiError(409,'Company settings changed. Reload before continuing.');
+    current=company({tms_workspace:body.tms_workspace,version:body.version+1,settings_version:(body.settings_version??1)+1});
+    return {company:current,dispatcher:person()};
+  };
+  mount(`/admin/companies/${ACME}`);
+  await screen.findByRole('form',{name:'Company overview'});
+  const full=screen.getByRole('radio',{name:'TMS + Smart Dispatching'});
+  const dispatch=screen.getByRole('radio',{name:'Smart Dispatching only'});
+  assert.equal((full as HTMLInputElement).checked,true);
+  await user.click(dispatch);await user.click(screen.getByRole('button',{name:'Save changes'}));
+  await screen.findByText('Changes saved.');
+  assert.equal(submitted[0].tms_workspace,true);assert.equal(submitted[0].settings_version,1);
+  assert.equal((screen.getByRole('button',{name:'Save changes'}) as HTMLButtonElement).disabled,true);
+  conflict=true;await user.click(full);await user.click(screen.getByRole('button',{name:'Save changes'}));
+  await screen.findByText('Company settings changed. Reload before continuing.');
+  assert.equal((full as HTMLInputElement).checked,true);
+  await user.click(screen.getByRole('button',{name:'Reload latest'}));
+  await waitFor(()=>assert.equal((dispatch as HTMLInputElement).checked,true));
+  conflict=false;await user.click(full);await user.click(screen.getByRole('button',{name:'Save changes'}));
+  await screen.findByText('Changes saved.');
+  assert.equal(submitted.at(-1)?.tms_workspace,false);
 });

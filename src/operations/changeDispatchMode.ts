@@ -13,7 +13,7 @@ export async function changeDispatchMode(slug: string, current: SettingsView, mo
       if (current.data.tms_workspace) {
         const rows = await connectors.list(slug);
         if (!rows.some(row => row.ready && (row.status === 'CONNECTED' || (row.status === 'SYNCING' && !!row.last_sync_at)))) {
-          if (await confirmDialog({ title: 'Auto dispatch unavailable', message: AUTO_DISPATCH_UNAVAILABLE, confirmLabel: 'Open Integration', cancelLabel: 'Close' })) openIntegration();
+          if (await confirmDialog({ title: 'Auto dispatch unavailable', message: AUTO_DISPATCH_UNAVAILABLE, confirmLabel: 'Open Integration', cancelLabel: null })) openIntegration();
           return null;
         }
       }
@@ -22,7 +22,7 @@ export async function changeDispatchMode(slug: string, current: SettingsView, mo
     return await api.saveCompanySettings(slug, { version: current.version, data: { ...current.data, dispatch_mode: mode } }, crypto.randomUUID());
   } catch (error) {
     if (mode === 'MANUAL') throw error;
-    await confirmDialog({ title: 'Auto dispatch could not be turned on', message: error instanceof Error ? error.message : 'Could not verify your TMS connection. Try again.', confirmLabel: 'OK', cancelLabel: 'Close' });
+    await confirmDialog({ title: 'Auto dispatch could not be turned on', message: error instanceof Error ? error.message : 'Could not verify your TMS connection. Try again.', confirmLabel: null, cancelLabel: null });
     return null;
   }
 }

@@ -94,6 +94,14 @@ test('messages inbox lists chats newest first and opens the selected order chat'
   assert.ok(await screen.findByRole('button', { name: /^1 unread\. Fresh Test, order ORD-1/ }));
   assert.ok(screen.getByText('Read-only'));
   await user.click(screen.getByRole('button', { name: /Dana Driver, order ORD-2/ }));
-  assert.ok(await screen.findByRole('heading', { name: 'Order ORD-2' }));
+  assert.ok(await screen.findByRole('dialog', { name: 'Messages · ORD-2' }));
   assert.ok(await screen.findByRole('textbox', { name: 'Message Dana Driver' }));
+});
+
+
+test('a missing or reassigned requested counterpart never falls back to another recipient', async () => {
+  Object.assign(chat, {channels: async () => [channel('DISPATCH_SHIPPER','Shipper',null),channel('DISPATCH_DRIVER','New Driver',null,{driver_id:'new-driver'})]});
+  mount(React.createElement(OrderChat,{slug:'acme',orderId:'o1',initialKind:'DISPATCH_DRIVER',expectedDriverId:'old-driver'}));
+  assert.ok(await screen.findByText('This conversation is unavailable. Reopen the order to view its current chats.'));
+  assert.equal(screen.queryByRole('textbox'),null);
 });

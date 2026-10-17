@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type CompanyDetail, type DispatcherAccount } from '../api';
 import { Button, CredentialCard, Field, Notice, useOperationKey, type Credentials } from '../ui';
+import { COMPANY_PLANS } from '../../lib/workspaceEntry';
 import { PrefixedInput } from '../../components/ui/PrefixedInput';
 import { CompanyAccessButton } from './CompanyAccessButton';
 import { DispatcherDialog } from './DispatcherDialog';
@@ -34,7 +35,7 @@ export function CompanyOverviewForm({ company }: { company: CompanyDetail }) {
 
 type Snapshot = { company: CompanyDetail; dispatcher?: DispatcherAccount | null };
 const fields = ({ company, dispatcher }: Snapshot) => ({ name: company.name, phone: company.phone, address: company.address, login: dispatcher?.login_id ?? '',
-  displayName: dispatcher?.display_name ?? '', password: '', confirmation: '' });
+  displayName: dispatcher?.display_name ?? '', password: '', confirmation: '', externalTms: company.tms_workspace === true });
 
 function OverviewEditor({ company, account, onReload }: {
   company: CompanyDetail; account?: DispatcherAccount; onReload: () => Promise<Snapshot>;
@@ -47,7 +48,7 @@ function OverviewEditor({ company, account, onReload }: {
   const [draft, setDraft] = useState(() => fields(baseline));
   const [passwordError, setPasswordError] = useState('');
   const original = fields(baseline);
-  const dirty = draft.name.trim() !== original.name || draft.phone.trim() !== original.phone || draft.address.trim() !== original.address || draft.login.trim() !== original.login || draft.displayName.trim() !== original.displayName || Boolean(draft.password || draft.confirmation);
+  const dirty = draft.externalTms !== original.externalTms || draft.name.trim() !== original.name || draft.phone.trim() !== original.phone || draft.address.trim() !== original.address || draft.login.trim() !== original.login || draft.displayName.trim() !== original.displayName || Boolean(draft.password || draft.confirmation);
   const accept = (snapshot: Snapshot) => { setBaseline(snapshot); setDraft(fields(snapshot)); setPasswordError(''); };
   useEffect(() => {
     if (!dirty && company.version >= baseline.company.version && (account?.version ?? 0) >= (baseline.dispatcher?.version ?? 0)) {
@@ -55,7 +56,8 @@ function OverviewEditor({ company, account, onReload }: {
     }
   }, [company, account, dirty, baseline.company.version, baseline.dispatcher?.version]);
   const body = { version: baseline.company.version, name: draft.name.trim(), active: baseline.company.workspace_enabled ?? baseline.company.active,
-    ...(draft.phone.trim() !== original.phone || draft.address.trim() !== original.address ? { settings_version: baseline.company.settings_version,
+    ...(draft.phone.trim() !== original.phone || draft.address.trim() !== original.address || draft.externalTms !== original.externalTms ? { settings_version: baseline.company.settings_version,
+      ...(draft.externalTms !== original.externalTms ? { tms_workspace: draft.externalTms } : {}),
       ...(draft.phone.trim() !== original.phone ? { phone: draft.phone.trim() } : {}),
       ...(draft.address.trim() !== original.address ? { address: draft.address.trim() } : {}) } : {}),
     dispatcher: baseline.dispatcher ? { id: baseline.dispatcher.id, version: baseline.dispatcher.version,
@@ -89,6 +91,17 @@ function OverviewEditor({ company, account, onReload }: {
           <Field label="Company phone" type="tel" maxLength={50} value={draft.phone} onChange={event => change({ phone: event.target.value })} />
           <Field label="Company address" maxLength={500} autoComplete="street-address" value={draft.address} onChange={event => change({ address: event.target.value })} />
         </div>
+        <fieldset className="min-w-0" aria-label="Company plan">
+          <legend className="mb-3 text-sm font-medium">Plan</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {COMPANY_PLANS.map(option => <label key={option.label} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm leading-5 ${draft.externalTms === option.externalTms ? 'border-app-accent bg-app-accent-soft/40' : 'border-app-border'}`}>
+              <input type="radio" name="company-plan" className="mt-0.5 size-4 shrink-0 accent-slate-900" aria-label={option.label}
+                checked={draft.externalTms === option.externalTms} onChange={() => change({ externalTms: option.externalTms })} />
+              <span><span className="font-medium">{option.label}</span><span className="mt-1 block text-xs text-app-muted">{option.description}</span></span>
+            </label>)}
+          </div>
+          <p className="mt-3 text-xs text-app-muted">Changing the plan keeps this company’s saved subscription rate.</p>
+        </fieldset>
         {account && !account.login_id.includes('@') && <p className="text-xs text-app-muted">This account uses a legacy login ID. Enter an email address to update it.</p>}
         <dl aria-label="Company record dates" className="app-panel grid gap-5 text-sm sm:grid-cols-3">
           <Record label="Last sign-in" value={formatWhen(account?.last_login_at)} /><Record label="Company created" value={formatWhen(company.created_at)} /><Record label="Company updated" value={formatWhen(company.updated_at)} />

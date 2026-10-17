@@ -11,6 +11,7 @@ import { GoogleOverlayMarker } from './monitor/GoogleOverlayMarker';
 import { GoogleOrderMarkers } from './monitor/GoogleOrderMarkers';
 import { MONITOR_CAMERA } from './monitor/mapScene';
 import { isActiveMonitorOrder } from './monitor/orderVisibility';
+import { fitMonitorPoints as fitPoints, useMonitorMapCamera } from './monitor/useMonitorMapCamera';
 export { VANCOUVER_CENTER_LNG_LAT } from './monitor/mapScene';
 
 interface MarkerScreenPositions {
@@ -31,10 +32,6 @@ export interface MapController {
   /** Fit the view to visible open orders' stops and every located driver. */
   fitAll: () => void;
 }
-
-/** Keep the view clear of the top toolbar and the bottom-right controls. */
-const FIT_PADDING = { top: 120, right: 80, bottom: 90, left: 40 };
-const FIT_MAX_ZOOM = 15;
 
 interface GoogleMonitorMapProps {
   active?: boolean;
@@ -94,17 +91,6 @@ function GoogleTraffic({ enabled }: { enabled: boolean }) {
     return () => layer.setMap(null);
   }, [map, enabled]);
   return null;
-}
-
-function fitPoints(map: google.maps.Map, points: [number, number][]) {
-  const valid = points.filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
-  if (!valid.length) { map.panTo(MONITOR_CAMERA.center); map.setZoom(MONITOR_CAMERA.zoom); return; }
-  const bounds = new google.maps.LatLngBounds();
-  valid.forEach(([lng, lat]) => bounds.extend({ lat, lng }));
-  if (valid.every(([lng, lat]) => lng === valid[0][0] && lat === valid[0][1])) { map.panTo(bounds.getCenter()); map.setZoom(FIT_MAX_ZOOM); return; }
-  map.fitBounds(bounds, FIT_PADDING);
-  // Nearby stops would otherwise zoom in to building level.
-  google.maps.event.addListenerOnce(map, 'idle', () => { if ((map.getZoom() ?? 0) > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM); });
 }
 
 export function MonitorMapContent(props: GoogleMonitorMapProps) {
@@ -179,6 +165,7 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
       idleListener.remove();
       overlay.setMap(null);
       if (frame.current !== null) cancelAnimationFrame(frame.current);
+      frame.current = null;
       if (props.mapRef?.current === controller) props.mapRef.current = null;
       if (props.mapInstanceRef?.current === controller) props.mapInstanceRef.current = null;
     };
@@ -240,22 +227,21 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     queryFn: () => operations.orderRoadPath(slug!, job.id),
     enabled: !!slug && stops.length > 1, staleTime: Infinity, gcTime: 30 * 60_000, retry: false,
   })) });
-  const allPoints: [number, number][] = [
-    ...visibleJobs.flatMap(({ job, stops }) => stops.length ? stops.map(stop => [stop.lng, stop.lat] as [number, number]) : [[job.lng, job.lat] as [number, number]]),
-    ...(props.demo === false ? props.drivers ?? [] : []).filter(driver => Number.isFinite(driver.lat) && Number.isFinite(driver.lng)).map(driver => [driver.lng, driver.lat] as [number, number]),
-  ];
-  allPointsRef.current = allPoints;
-  // Open on the company's actual work once live data arrives; later refreshes never move the camera.
-  const fitted = useRef(false);
-  useEffect(() => {
-    if (!map || fitted.current || props.demo !== false || !allPoints.length) return;
-    fitted.current = true;
-    fitPoints(map, allPoints);
-  }, [map, props.demo, allPoints.length]);
   const roadPaths: Record<string, google.maps.LatLngLiteral[]> = Object.fromEntries(visibleJobs.flatMap(({ job }, index) => {
     const points = pathQueries[index]?.data?.points;
     return points ? [[job.id, points.map(([lat, lng]) => ({ lat, lng }))]] : [];
   }));
+  const locatedDrivers = (props.demo === false ? props.drivers ?? [] : [])
+    .filter(driver => Number.isFinite(driver.lat) && Number.isFinite(driver.lng));
+  const allPoints: [number, number][] = [
+    ...visibleJobs.flatMap(({ job, stops }) => stops.length ? stops.map(stop => [stop.lng, stop.lat] as [number, number]) : [[job.lng, job.lat] as [number, number]]),
+    ...Object.values(roadPaths).flatMap(points => points.map(({ lng, lat }) => [lng, lat] as [number, number])),
+    ...locatedDrivers.map(driver => [driver.lng, driver.lat] as [number, number]),
+  ];
+  allPointsRef.current = allPoints;
+  useMonitorMapCamera(map, allPoints, [
+    ...visibleJobs.map(({ job }) => `order:${job.id}`), ...locatedDrivers.map(driver => `driver:${driver.id}`),
+  ], props.demo === false && props.active !== false);
 
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />

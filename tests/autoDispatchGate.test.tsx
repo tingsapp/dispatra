@@ -78,6 +78,9 @@ test('connection lookup failure does not save or claim no connection',async()=>{
  connectors.list=async()=>{throw Error('Connection check failed. Try again.');};const user=mount();
  await user.click(screen.getByRole('switch'));const popup=await screen.findByRole('alertdialog',{name:'Auto dispatch could not be turned on'});
  assert.ok(within(popup).getByText('Connection check failed. Try again.'));assert.equal(writes,0);
+ assert.equal(within(popup).getAllByRole('button').length,1);
+ await user.click(within(popup).getByRole('button',{name:'Close dialog'}));
+ assert.equal(screen.queryByRole('alertdialog'),null);assert.equal(writes,0);
 });
 test('server rejection after a successful precheck appears in popup and leaves switch off',async()=>{
  connectors.list=async()=>[row];const user=mount();api.saveCompanySettings=async()=>{throw Error('The connector was disconnected. Open Integration.');};
@@ -92,6 +95,6 @@ test('pending checks ignore repeated switch clicks',async()=>{
  const toggle=screen.getByRole('switch');await user.click(toggle);await user.click(toggle);
  assert.equal(checks,1);assert.equal(toggle.getAttribute('aria-busy'),'true');assert.equal(writes,0);
  await act(async()=>finish([]));await screen.findByRole('alertdialog',{name:'Auto dispatch unavailable'});
- await user.click(screen.getByRole('button',{name:'Close'}));
+ await user.click(screen.getByRole('button',{name:'Close dialog'}));
  await waitFor(()=>assert.equal(toggle.getAttribute('aria-disabled'),'false'));
 });

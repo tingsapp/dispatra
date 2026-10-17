@@ -23,7 +23,7 @@ import { PasswordPage } from './PasswordPage';
 import { SignaturePad } from './SignaturePad';
 import { Button, Card, Field, Notice } from './ui';
 import type { components } from './schema';
-import { formatPhone } from '../lib/phone';
+import { formatPhone, phoneHref } from '../lib/phone';
 
 type Route = components['schemas']['RouteView'];
 type Visit = components['schemas']['RouteVisitView'];
@@ -241,6 +241,8 @@ function DriverOrderDialog({ slug, order, orders, route, online, onStartRoute, o
   const stopIds = new Set(order.stops.map(stop => stop.id));
   const visits = route?.stops.filter(visit => stopIds.has(visit.stop_id)) ?? [];
   const next = route?.stops.find(visit => visit.status !== 'COMPLETED');
+  const reviewKey = useRef(crypto.randomUUID());
+  const needsReview = route?.status === 'IN_PROGRESS' && (!!route.plan.requires_acknowledgement || !route.plan.live_updates_supported);
   const nextOrder = next && !stopIds.has(next.stop_id) ? orders.find(row => row.stops.some(stop => stop.id === next.stop_id)) : undefined;
   const done = ['COMPLETED'].includes(order.status);
   return <Dialog size="md" onClose={onClose}>
@@ -252,7 +254,7 @@ function DriverOrderDialog({ slug, order, orders, route, online, onStartRoute, o
           const items = order.items.filter(item => (stop.kind === 'PICKUP' ? item.pickup_id : item.delivery_id) === stop.id);
           return <div key={stop.id} className="space-y-1 border-t border-slate-100 pt-3 first-of-type:border-0 first-of-type:pt-0">
             <p className="font-medium text-slate-900"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${stop.kind === 'PICKUP' ? 'bg-emerald-500' : 'bg-app-accent'}`} />{index + 1}. {stop.kind === 'PICKUP' ? 'Pickup' : 'Delivery'} · {stop.address.text}</p>
-            {(stop.contact_name || stop.phone) && <p className="text-slate-600">{stop.contact_name}{stop.phone && <> · <a className="inline-flex items-center gap-1 text-inherit hover:underline" href={`tel:${stop.phone}`}><Phone className="h-3 w-3" />{formatPhone(stop.phone)}</a></>}</p>}
+            {(stop.contact_name || stop.phone) && <p className="text-slate-600">{stop.contact_name}{phoneHref(stop.phone) ? <> · <a className="inline-flex items-center gap-1 text-inherit hover:underline" href={phoneHref(stop.phone)} aria-label={`Call ${stop.contact_name || 'stop contact'}`}><Phone className="h-3 w-3" aria-hidden="true" />{formatPhone(stop.phone)}</a></> : stop.phone ? <> · {formatPhone(stop.phone)}</> : null}</p>}
             {(stop.window_start || stop.window_end) && <p className="text-xs text-slate-500">{stop.kind === 'PICKUP' ? 'Ready' : 'Deliver'} {stop.window_start ? `from ${formatWhen(stop.window_start, timeZone)}` : ''} {stop.window_end ? `by ${formatWhen(stop.window_end, timeZone)}` : ''}</p>}
             {stop.instructions && <p className="text-xs text-slate-600">Instructions: {stop.instructions}</p>}
             {items.length > 0 && <p className="text-xs text-slate-500">{items.map(item => `${item.quantity} × ${item.description || 'package'}${item.fragile ? ' (fragile)' : ''}`).join(', ')}</p>}
@@ -269,11 +271,12 @@ function DriverOrderDialog({ slug, order, orders, route, online, onStartRoute, o
           <Button type="button" disabled={busy || !online} onClick={() => call(() => onStartRoute(route))}>Start route</Button>
           {!online && <p className="text-xs text-amber-700">Go On Duty from the sidebar switch to start the route.</p>}
         </div>}
-        {!done && route?.status === 'IN_PROGRESS' && <>
+        {!done && route?.status === 'IN_PROGRESS' && needsReview && <div className="space-y-3"><p>When safely stopped, review the remaining stops to enable compatible assignments during delivery.</p><ol className="list-decimal pl-5">{route.stops.filter(v => v.status !== 'COMPLETED').map(v => <li key={v.id}>{v.stop.address.text}</li>)}</ol><Button type="button" disabled={busy} onClick={() => call(() => operations.acknowledgeRoute(slug, route, reviewKey.current))}>Acknowledge updated route</Button></div>}
+        {!done && route?.status === 'IN_PROGRESS' && !needsReview && <>
           {nextOrder && <p className="text-slate-600">Next stop is on order <button type="button" className="font-medium text-app-accent hover:underline" onClick={() => onOpen(nextOrder.id)}>{nextOrder.number}</button>. Complete stops in the planned order.</p>}
           <ol className="space-y-3">{visits.map(visit => <VisitControls key={visit.id} slug={slug} route={route} visit={visit} current={next?.id === visit.id} onChange={refresh} />)}</ol>
         </>}
-        {route?.status === 'IN_PROGRESS' && route.stops.every(visit => visit.status === 'COMPLETED') && <Button type="button" disabled={busy} onClick={() => call(() => onFinishRoute(route))}>Complete job</Button>}
+        {route?.status === 'IN_PROGRESS' && !needsReview && route.stops.every(visit => visit.status === 'COMPLETED') && <Button type="button" disabled={busy} onClick={() => call(() => onFinishRoute(route))}>Complete job</Button>}
       </section>
       <OrderChatSection slug={slug} orderId={order.id} />
     </DialogBody>

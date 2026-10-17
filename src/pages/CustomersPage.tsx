@@ -30,7 +30,7 @@ import { Switch } from '../components/ui/Switch';
 import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
 import { ContactInput } from '../components/ui/ContactInput';
-import { formatPhone } from '../lib/phone';
+import { formatPhone, phoneHref } from '../lib/phone';
 import { loadDrivers } from '../lib/driverStorage';
 import { INITIAL_DRIVERS } from '../data/mockData';
 import { DirectoryPasswordForm } from '../components/entities/DirectoryPasswordForm';
@@ -465,7 +465,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               <ReadFields values={{
                 ...(selectedCustomerForView.customerType !== 'INDIVIDUAL' && selectedCustomerForView.legalName ? { 'Company name': selectedCustomerForView.legalName } : {}),
                 ...(selectedCustomerForView.contactName && selectedCustomerForView.contactName !== selectedCustomerForView.name ? { 'Primary contact': selectedCustomerForView.contactName } : {}),
-                Phone: <a href={`tel:${selectedCustomerForView.phone}`} className="hover:underline">{formatPhone(selectedCustomerForView.phone)}</a>,
+                Phone: phoneHref(selectedCustomerForView.phone) ? <a href={phoneHref(selectedCustomerForView.phone)} className="hover:underline">{formatPhone(selectedCustomerForView.phone)}</a> : formatPhone(selectedCustomerForView.phone) || 'Phone unavailable',
                 Email: <a href={`mailto:${selectedCustomerForView.email}`} className="hover:underline">{selectedCustomerForView.email}</a>,
                 'Primary facility address': selectedCustomerForView.address,
               }} />
@@ -501,7 +501,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         </Dialog>
       )}
 
-      {initialCredential && <Dialog size="md" onClose={() => setInitialCredential(null)}><DialogHeader title="Shipper account created" onClose={() => setInitialCredential(null)} /><DialogBody className="space-y-3 text-sm"><p>Give these login details to {initialCredential.name}. The password is shown only once.</p><p><strong>Email:</strong> {initialCredential.email}</p><p><strong>Initial password:</strong> <code>{initialCredential.password}</code></p></DialogBody><DialogFooter><Button type="button" onClick={() => setInitialCredential(null)}>Done</Button></DialogFooter></Dialog>}
+      {initialCredential && <Dialog size="md" onClose={() => setInitialCredential(null)}><DialogHeader title="Shipper account created" onClose={() => setInitialCredential(null)} /><DialogBody className="space-y-3 text-sm"><p>Give these login details to {initialCredential.name}. The password is shown only once.</p><p><strong>Email:</strong> {initialCredential.email}</p><p><strong>Initial password:</strong> <code>{initialCredential.password}</code></p></DialogBody></Dialog>}
 
       {/* ADD / EDIT SHIPPER MODAL */}
       {isModalOpen && (

@@ -18,3 +18,15 @@ export function formatPhoneInput(value: string): string {
   const local = (country ? digits.slice(1) : digits).slice(0, 10);
   return `${country ? '+1 ' : ''}${local ? nanp(local) : ''}`.trimEnd();
 }
+
+/** Safe dialer URL for a saved contact; no invented number or external messaging fallback. */
+export function phoneHref(value: string | null | undefined): string | undefined {
+  const raw = value?.trim();
+  if (!raw) return;
+  const parts = raw.match(/^(.*?)(?:\s*(?:ext\.?|x|#)\s*(\d+))?$/i);
+  const number = parts?.[1].trim() ?? '';
+  if (!/^\+?[\d\s().-]+$/.test(number)) return;
+  const digits = number.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) return;
+  return `tel:${number.startsWith('+') ? '+' : ''}${digits}${parts?.[2] ? `;ext=${parts[2]}` : ''}`;
+}

@@ -44,11 +44,10 @@ export function ConnectorDialog({ slug, connector, onClose, onSaved, navigate = 
           </div>}
       {error && <p role="alert" className="mt-4 text-sm text-rose-700">{error}</p>}
     </DialogBody>
-    <DialogFooter>
-      <Button type="button" variant="outline" onClick={close} disabled={pending}>Close</Button>
-      {connector.ready && <Button type="button"  onClick={connect} disabled={pending || (connector.auth !== 'oauth' && connector.credential_fields.some(field => !values[field.key]))}>
+    {connector.ready && <DialogFooter>
+      <Button type="button"  onClick={connect} disabled={pending || (connector.auth !== 'oauth' && connector.credential_fields.some(field => !values[field.key]))}>
         {pending ? 'Connecting…' : connector.auth === 'oauth' ? `Continue to ${connector.name}` : 'Connect'}
-      </Button>}
-    </DialogFooter>
+      </Button>
+    </DialogFooter>}
   </Dialog>;
 }

@@ -1,3 +1,4 @@
+import { bookingInstant } from './time';
 import type { SelectedAddress } from '../components/ui/AddressAutocomplete';
 import type { Customer } from '../lib/customerStorage';
 import type { Address, Shipper, ShipperInput } from './api';
@@ -61,6 +62,7 @@ export function driverToUi(row: ApiDriver, vehicle?: ApiVehicle, monitor?: { on_
     status, statusLabel: onDuty ? 'Available' : 'Off duty', vehicle: vehicle ? `${vehicle.number} · ${vehicle.plate}` : 'Unassigned',
     currentVehicleId: row.vehicle_id, nextStop: 'Not set', eta: '—', distance: '—', lastUpdate: row.last_seen_at ?? 'Not set',
     phone: row.phone, email: row.email, address: row.address.text,
+    shiftStart: details.shift_start ?? '', shiftEnd: details.shift_end ?? '',
     skills: details.qualifications ?? [], maximumWorkMinutes: details.maximum_work_minutes ?? 480,
     accountStatus: row.active ? 'ACTIVE' : 'INACTIVE',
     dutyStatus: onDuty ? 'ON_DUTY' : 'OFF_DUTY', locationPermissionStatus: row.location_permission as UiDriver['locationPermissionStatus'],
@@ -69,14 +71,15 @@ export function driverToUi(row: ApiDriver, vehicle?: ApiVehicle, monitor?: { on_
   };
 }
 
-export function driverFromUi(form: UiDriver, previous?: ApiDriver, coordinates?: SelectedAddress): DriverInput {
+export function driverFromUi(form: UiDriver, previous?: ApiDriver, coordinates?: SelectedAddress, timeZone = 'America/Vancouver'): DriverInput {
   const old = previous?.data as Partial<DriverInput> | undefined;
   return {
     name: form.name.trim(), avatar_url: form.avatar.startsWith('http') ? form.avatar : '', email: form.email?.trim() ?? '',
     phone: form.phone?.trim() ?? '', address: canadianAddress(form.address ?? '', previous?.address, coordinates),
     vehicle_id: form.currentVehicleId || null,
     qualifications: form.skills ?? old?.qualifications ?? [], crew_size: old?.crew_size ?? 1,
-    shift_start: form.shiftStart || null, shift_end: form.shiftEnd || null,
+    shift_start: form.shiftStart === undefined ? old?.shift_start ?? null : form.shiftStart ? bookingInstant(form.shiftStart, timeZone) : null,
+    shift_end: form.shiftEnd === undefined ? old?.shift_end ?? null : form.shiftEnd ? bookingInstant(form.shiftEnd, timeZone) : null,
     maximum_work_minutes: form.maximumWorkMinutes ?? old?.maximum_work_minutes ?? 480,
     active: form.accountStatus !== 'INACTIVE',
   };

@@ -9,6 +9,7 @@ const Prototype = lazy(() => import('./App'));
 const prototypeCache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const Signup = lazy(() => import('./pages/SignupPage'));
 const Information = lazy(() => import('./pages/PublicInformationPage'));
+const IntegrationGuide = lazy(() => import('./pages/IntegrationGuidePage'));
 const Contact = lazy(() => import('./pages/ContactPage'));
 const Legal = lazy(() => import('./pages/LegalPage'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmailPage'));
@@ -26,6 +27,7 @@ export default function Root() {
   }
   if (publicPath === '/plans') return <Suspense fallback={<PageLoading>Loading plans…</PageLoading>}><Signup /></Suspense>;
   if (publicPath === '/about' || publicPath === '/how-it-works' || publicPath === '/help') return <Suspense fallback={<PageLoading>Loading Dispatra…</PageLoading>}><Information page={publicPath} /></Suspense>;
+  if (publicPath === '/docs/integrations') return <Suspense fallback={<PageLoading>Loading integration guide…</PageLoading>}><IntegrationGuide /></Suspense>;
   if (publicPath === '/contact') return <Suspense fallback={<PageLoading>Loading contact…</PageLoading>}><Contact /></Suspense>;
   if (publicPath === '/') return <PublicHome />;
   if (!isPrototypePath(location.pathname)) return <Suspense fallback={<PageLoading>Loading Dispatra…</PageLoading>}><Portal /></Suspense>;

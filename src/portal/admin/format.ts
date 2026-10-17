@@ -19,6 +19,15 @@ const AUDIT_LABELS: Record<string, string> = {
   'dispatcher.password_reset': 'Dispatcher password reset',
   'dispatcher.password_changed': 'Dispatcher password changed',
   'dispatcher.sessions_revoked': 'Dispatcher sessions signed out',
+  'connector.admin_pause': 'TMS connection paused',
+  'connector.admin_resume': 'TMS connection resumed',
+  'connector.admin_retry': 'TMS synchronization retry queued',
+  'connector.setup_requested': 'TMS setup requested',
+  'connector.setup_in_progress': 'TMS setup started',
+  'connector.setup_completed': 'TMS setup completed',
+  'connector.setup_cancelled': 'TMS setup cancelled',
+  'connector.provider_enabled': 'TMS provider enabled',
+  'connector.provider_paused': 'TMS provider paused',
 };
 export const auditLabel = (action: string) => AUDIT_LABELS[action] ?? action;
 

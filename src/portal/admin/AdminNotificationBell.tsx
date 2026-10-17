@@ -14,7 +14,7 @@ export function AdminNotificationBell({ accountId, onOpenCompany, onOpenMonitor,
   return <NotificationDropdown unread={data?.unread ?? 0} surface>{close =>
     <NotificationInbox rows={(data?.items ?? []).map(row => ({ ...row, title: `${row.company_name} · ${row.title}` }))}
       unread={data?.unread ?? 0} loading={isPending} loadError={error} readError={readError}
-      readingAll={readingAll} onMarkAllRead={() => readAll.mutate()} onOpen={row => {
+      readingAll={readingAll} onClose={close} onMarkAllRead={() => readAll.mutate()} onOpen={row => {
         if (!row.read_at) read.mutate(row);
         close(); if (row.target === 'operational') (onOpenOperational ?? onOpenMonitor)(); else if (row.target === 'monitor') onOpenMonitor(); else onOpenCompany(row.organization_id);
       }} />

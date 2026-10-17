@@ -24,6 +24,10 @@ const original = { ...operations };
 const pane = document.createElement('div');
 const lines = new Set<FakePolyline>();
 const fits: google.maps.LatLngLiteral[][] = [];
+const pans: unknown[] = [];
+const zooms: number[] = [];
+let canvasWidth = 1200;
+pane.getBoundingClientRect = () => ({ width: canvasWidth, height: 800 } as DOMRect);
 class FakeLatLng {
   position: google.maps.LatLngLiteral;
   constructor(lat: google.maps.LatLngLiteral | number, lng?: number) { this.position = typeof lat === 'number' ? { lat, lng: lng! } : lat; }
@@ -47,13 +51,13 @@ class FakeBounds {
   extend(point: google.maps.LatLngLiteral) { this.points.push(point); }
   getCenter() { return new FakeLatLng(this.points[0]); }
 }
-const map = { getCenter: () => new FakeLatLng({lat:0,lng:0}), getDiv: () => pane, addListener: () => ({remove(){}}), fitBounds: (bounds: FakeBounds) => fits.push(bounds.points), getZoom: () => 10, panTo(){}, setZoom(){}, setTilt(){}, setHeading(){} };
+const map = { getCenter: () => new FakeLatLng({lat:0,lng:0}), getDiv: () => pane, addListener: () => ({remove(){}}), fitBounds: (bounds: FakeBounds) => fits.push(bounds.points), getZoom: () => 10, panTo(point: unknown){pans.push(point);}, setZoom(zoom: number){zooms.push(zoom);}, setTilt(){}, setHeading(){} };
 Object.defineProperty(globalThis, 'google', { configurable: true, value: { maps: { OverlayView: FakeOverlay, Polyline: FakePolyline, LatLng: FakeLatLng, LatLngBounds: FakeBounds, event: {addListener:()=>({remove(){}}),addListenerOnce:()=>({remove(){}}),trigger(){}} } } });
 const context = { status: APILoadingStatus.LOADED, loadedLibraries: {geometry:{}}, importLibrary: async () => ({}), mapInstances: {default: map}, internalUsageAttributionIds:null } as unknown as APIProviderContextValue;
 const job = (id: string, number: string): Job => ({ ...INITIAL_JOBS[0], id, jobNumber:number, version:1, pricingInput: {stops:[{id:'p',type:'PICKUP',label:'Warehouse',latitude:49.2,longitude:-123.1},{id:'d',type:'DROPOFF',label:'Recipient',latitude:49.3,longitude:-123.2}]} as Job['pricingInput'],lat:49.3,lng:-123.2 });
 const orders = [job('first','#100'),job('second','#200')];
 let cache: QueryClient;
-afterEach(()=>{cleanup();cache?.clear();Object.assign(operations,original);pane.remove();lines.clear();fits.length=0;});
+afterEach(()=>{cleanup();cache?.clear();Object.assign(operations,original);pane.remove();lines.clear();fits.length=0;pans.length=0;zooms.length=0;canvasWidth=1200;});
 after(()=>dom.window.close());
 const tree = (children: React.ReactNode) => { cache = new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}}); document.body.appendChild(pane); return <QueryClientProvider client={cache}><APIProviderContext.Provider value={context}>{children}</APIProviderContext.Provider></QueryClientProvider>; };
 
@@ -71,7 +75,9 @@ test('checkboxes hide complete order markers and cached road paths without selec
   }
   const view=render(tree(<Harness/>));const user=userEvent.setup({document});
   await waitFor(()=>assert.equal(lines.size,2));assert.deepEqual(calls.sort(),['first','second']);assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length,2);
+  const beforeToggle = fits.length;
   await user.click(screen.getByRole('checkbox',{name:'Show #100 on map'}));
+  await waitFor(() => assert.ok(fits.length > beforeToggle, 'Checkbox changes automatically fit the remaining visible work'));
   assert.equal(screen.queryByRole('button',{name:/^Order #100,/}),null);assert.equal(lines.size,1);assert.deepEqual(selected,[]);assert.ok(screen.getByRole('region',{name:'Active Orders menu'}));
   await user.type(screen.getByPlaceholderText('Search orders, shippers or addresses...'),'200');assert.equal(screen.queryByRole('checkbox',{name:'Show #100 on map'}),null);
   await user.clear(screen.getByPlaceholderText('Search orders, shippers or addresses...'));assert.equal((screen.getByRole('checkbox',{name:'Show #100 on map'}) as HTMLInputElement).checked,false);
@@ -81,6 +87,7 @@ test('checkboxes hide complete order markers and cached road paths without selec
   await user.click(screen.getByRole('checkbox',{name:'Show #100 on map'}));await waitFor(()=>assert.equal(lines.size,3));assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length,2);
   for(const number of ['#100','#200','#300']) await user.click(screen.getByRole('checkbox',{name:`Show ${number} on map`}));
   assert.equal(lines.size,0);assert.equal(screen.queryByRole('button',{name:/^Order #/}),null);assert.ok(screen.getByRole('button',{name:/^Driver /}));
+  await waitFor(() => assert.deepEqual((pans.at(-1) as FakeLatLng).toJSON(), {lat:INITIAL_DRIVERS[0].lat,lng:INITIAL_DRIVERS[0].lng}));
 });
 
 test('full Active Orders list shares visibility controls and excludes completed/cancelled records', async () => {
@@ -105,4 +112,76 @@ test('Drivers popup filters/searches real records and selects a driver with the 
   await user.click(dialog.getByRole('button',{name:'All (3)'}));const search=dialog.getByPlaceholderText('Search by driver name, ID, vehicle...');await user.type(search,'DDD-2');assert.equal(dialog.getAllByRole('button',{name:/DDD-/}).length,1);
   await user.clear(search);await user.type(search,'no match');assert.ok(dialog.getByText('No drivers match your search or filter.'));
   await user.clear(search);const driver=dialog.getByRole('button',{name:`DDD-2 ${driverRows[1].name}`});driver.focus();await user.keyboard('{Enter}');assert.deepEqual(selected,[driverRows[1].id]);assert.equal(closes,1);
+});
+
+test('live bounds react to arrivals, completion, checkboxes, changed coordinates and delayed road geometry', async () => {
+  let resolveRoad!: (value: never) => void;
+  operations.orderRoadPath = async (_slug, id) => id === 'distant'
+    ? new Promise(resolve => { resolveRoad = resolve; })
+    : { points: [[49.2,-123.1],[49.3,-123.2]] } as never;
+  const props = { demo: false, drivers: [], onSelectJob() {}, onSelectDriver() {}, layerConfig: { mode: 'map' as const, traffic: false, labels: true } };
+  const content = (rows: Job[]) => <QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><MonitorMapContent {...props} jobs={rows} /></APIProviderContext.Provider></QueryClientProvider>;
+  const view = render(tree(<MonitorMapContent {...props} jobs={orders} />));
+  await waitFor(() => assert.ok(fits.length && lines.size === 2, 'Initial bounds and road paths must settle'));
+  // Let cached road geometry settle before testing identical data refreshes.
+  await new Promise(resolve => setTimeout(resolve, 80));
+  const initial = fits.length;
+  view.rerender(content(orders.map(row => ({ ...row, version: 2 })).reverse()));
+  await new Promise(resolve => setTimeout(resolve, 80));
+  assert.equal(fits.length, initial, 'Identical refreshes retain camera framing');
+  const distant: Job = { ...job('distant','#300'), lat:51, lng:-120, pricingInput: { ...orders[0].pricingInput!, stops: orders[0].pricingInput!.stops.map(stop => stop.type === 'DROPOFF' ? {...stop,latitude:51,longitude:-120} : stop) } };
+  view.rerender(content([...orders,distant]));
+  await waitFor(() => assert.ok(fits.length > initial && fits.at(-1)!.some(p => p.lat === 51), 'New orders must be included in bounds'));
+  const beforeRoad = fits.length;
+  resolveRoad({points:[[49.2,-123.1],[52,-119],[51,-120]]} as never);
+  await waitFor(() => assert.ok(fits.length > beforeRoad && fits.at(-1)!.some(p => p.lat === 52), 'Delayed road geometry must update bounds'));
+  const beforeCompletion = fits.length;
+  view.rerender(content([...orders,{...distant,lifecycleStatus:'COMPLETED'}]));
+  await waitFor(() => assert.ok(fits.length > beforeCompletion && fits.at(-1)!.every(p => p.lat < 51), 'Completed orders must leave bounds'));
+  assert.equal(screen.queryByRole('button',{name:/^Order #300,/}),null);
+  const beforeHide = fits.length;
+  view.rerender(content([orders[1]]));
+  await waitFor(() => assert.ok(fits.length > beforeHide, "Hidden orders must leave bounds"));
+  assert.equal(screen.queryByRole('button',{name:/^Order #100,/}),null);
+  view.rerender(content([]));
+  await waitFor(() => assert.equal(zooms.at(-1),11));
+  assert.deepEqual(pans.at(-1),{lat:49.2827,lng:-123.1207});assert.equal(lines.size,0);
+  const beforeRestore = fits.length;
+  view.rerender(content(orders));await waitFor(() => assert.ok(fits.length > beforeRestore, "Restored orders must return to bounds"));
+  const beforeMove = fits.length;
+  const moved: Job = {...orders[0],pricingInput:{...orders[0].pricingInput!,stops:orders[0].pricingInput!.stops.map(stop => ({...stop,latitude:50}))}};
+  view.rerender(content([moved,orders[1]]));
+  await waitFor(() => assert.ok(fits.length > beforeMove && fits.at(-1)!.some(p => p.lat === 50), 'Changed coordinates must update bounds'));
+});
+
+test('bounds wait for a visible canvas and resume after navigation, resize and map replacement', async () => {
+  operations.orderRoadPath = async () => ({points:[[49.2,-123.1],[49.3,-123.2]]} as never);
+  const props = {demo:false,drivers:[],onSelectJob(){},onSelectDriver(){},layerConfig:{mode:'map' as const,traffic:false,labels:true}};
+  const content = (active:boolean, rows=orders, value=context) => <QueryClientProvider client={cache}><APIProviderContext.Provider value={value}><MonitorMapContent {...props} jobs={rows} active={active} /></APIProviderContext.Provider></QueryClientProvider>;
+  canvasWidth=0;
+  const view=render(tree(<MonitorMapContent {...props} jobs={orders}/>));
+  await new Promise(resolve=>setTimeout(resolve,80));assert.equal(fits.length,0);
+  canvasWidth=390;fireEvent(window,new Event('resize'));await waitFor(()=>assert.equal(fits.length,1));
+  canvasWidth=320;fireEvent(window,new Event('resize'));await waitFor(()=>assert.equal(fits.length,2));
+  fireEvent(window,new Event('resize'));await new Promise(resolve=>setTimeout(resolve,40));assert.equal(fits.length,2);
+  view.rerender(content(false,[orders[0]]));canvasWidth=1200;fireEvent(window,new Event('resize'));
+  await new Promise(resolve=>setTimeout(resolve,40));assert.equal(fits.length,2);
+  view.rerender(content(true,[orders[0]]));await waitFor(()=>assert.equal(fits.length,3));
+  const replacementFits:unknown[]=[];
+  const replacement={...context,mapInstances:{default:{...map,fitBounds:(bounds:FakeBounds)=>replacementFits.push(bounds.points)}}} as unknown as APIProviderContextValue;
+  view.rerender(content(true,[orders[0]],replacement));await waitFor(()=>assert.equal(replacementFits.length,1));
+  canvasWidth=390;fireEvent(window,new Event('resize'));view.unmount();
+  await new Promise(resolve=>setTimeout(resolve,40));assert.equal(replacementFits.length,1,'Unmount cancels pending camera changes');
+});
+
+
+test('bounds follow located drivers even when no orders are displayed', async () => {
+  const props = {demo:false,jobs:[],onSelectJob(){},onSelectDriver(){},layerConfig:{mode:'map' as const,traffic:false,labels:true}};
+  const first = INITIAL_DRIVERS[0];
+  const view=render(tree(<MonitorMapContent {...props} drivers={[first]}/>));
+  await waitFor(()=>assert.equal(zooms.at(-1),15));
+  const moved={...first,lat:50,lng:-122};
+  view.rerender(<QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><MonitorMapContent {...props} drivers={[moved]}/></APIProviderContext.Provider></QueryClientProvider>);
+  await waitFor(()=>assert.deepEqual((pans.at(-1) as FakeLatLng).toJSON(),{lat:50,lng:-122}));
+  assert.ok(screen.getByRole('button',{name:/^Driver /}));
 });

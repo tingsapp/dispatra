@@ -9,6 +9,13 @@ import { cn } from '../../lib/utils';
  */
 const SIZE = { form: 'app-form-dialog', md: 'max-w-2xl', lg: 'max-w-3xl', xl: 'max-w-6xl' } as const;
 
+/** Icon-only dismissal shared by modal and rich-popup headers. */
+export const DialogCloseButton = React.forwardRef<HTMLButtonElement, Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & { label?: string }>(
+  function DialogCloseButton({ label = 'Close dialog', className, ...props }, ref) {
+    return <button {...props} ref={ref} type="button" aria-label={label} className={cn('app-dialog-close shrink-0', className)}><X className="w-5 h-5" aria-hidden="true" /></button>;
+  },
+);
+
 export function Dialog({ onClose, size = 'md', children, className, entity = true, zIndex = 'z-50' }: {
   onClose: () => void; size?: keyof typeof SIZE; children: React.ReactNode; className?: string; entity?: boolean; zIndex?: string;
 }) {
@@ -28,7 +35,7 @@ export function DialogHeader({ title, description, onClose, leading, children, c
         {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
       </div>
     </div>
-    <div className="flex shrink-0 items-center gap-2">{children}<button type="button" onClick={onClose} disabled={closeDisabled} aria-label={closeLabel} className="app-dialog-close"><X className="w-5 h-5" /></button></div>
+    <div className="flex shrink-0 items-center gap-2">{children}<DialogCloseButton onClick={onClose} disabled={closeDisabled} label={closeLabel} /></div>
   </div>;
 }
 

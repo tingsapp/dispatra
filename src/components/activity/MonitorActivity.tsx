@@ -56,7 +56,7 @@ export function MonitorActivity({ slug, open, active, onOpenChange, onSelectRefe
     </div>
     <div id={`${contentId}-view`} role="region" aria-label="Dispatra content" className="assistant-panel-body relative min-h-0 flex-1 overflow-hidden">
       <div data-active={chatting} aria-hidden={!chatting} inert={!chatting} tabIndex={chatting ? 0 : -1} className="assistant-view-layer assistant-view-scroll absolute inset-0 flex min-h-0 flex-col overflow-y-auto overscroll-contain focus-visible:rounded-lg focus-visible:outline focus-visible:outline-1 focus-visible:outline-slate-400">
-        <AssistantConversation messages={chat.messages} pending={chat.pending} active={chatting} onSelect={onSelectReference} />
+        <AssistantConversation messages={chat.messages} pending={chat.pending} active={chatting && visible} reducedMotion={reducedMotion} onSelect={onSelectReference} />
       </div>
       <div data-active={!chatting} aria-hidden={chatting} inert={chatting} className="assistant-view-layer assistant-view-scroll absolute inset-0 flex min-h-0 flex-col overflow-y-auto overscroll-contain">
         {query.isPending && !page && <p role="status" className="py-8 text-center text-xs text-app-muted">Loading activity…</p>}

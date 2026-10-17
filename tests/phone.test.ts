@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatPhone, formatPhoneInput } from '../src/lib/phone';
+import { formatPhone, formatPhoneInput, phoneHref } from '../src/lib/phone';
 import { isValidEmail } from '../src/lib/email';
 
 test('phone numbers display in North American format and leave anything else as entered', () => {
@@ -26,4 +26,12 @@ test('phone fields format as typed without trailing separators', () => {
 test('email validation accepts real addresses and rejects malformed ones', () => {
   for (const ok of ['a@b.co', 'first.last+tag@sub.company.ca', ' ops@dispatra.com ']) assert.ok(isValidEmail(ok), ok);
   for (const bad of ['', 'plain', 'a@b', 'a@b.c', 'a b@c.com', 'a@@b.com', 'a..b@c.com', '.a@c.com', 'a.@c.com', 'a@-b.com', 'a@b..com', `${'x'.repeat(250)}@b.com`, undefined]) assert.ok(!isValidEmail(bad), String(bad));
+});
+
+
+test('contact calls use normalized saved phone numbers and reject missing or unsafe targets', () => {
+  assert.equal(phoneHref('+1 (604) 555-0101'),'tel:+16045550101');
+  assert.equal(phoneHref('(604) 555-0101 ext. 42'),'tel:6045550101;ext=42');
+  assert.equal(phoneHref('604-555-0101'),'tel:6045550101');
+  for(const value of ['',undefined,'Unavailable','123','javascript:1234567890','+1+6045550101'])assert.equal(phoneHref(value),undefined);
 });

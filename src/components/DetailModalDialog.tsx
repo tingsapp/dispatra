@@ -1,3 +1,4 @@
+import { PersonContactActions } from './contact/PersonContactActions';
 import { DriverAvatar } from './DriverAvatar';
 import { DriverActivity } from './entities/DriverActivity';
 import { DriverOrders } from './entities/DriverOrders';
@@ -8,7 +9,7 @@ import { useOverlayMotion } from './ui/useOverlayMotion';
 import { lifecycleLabel } from '../domain/validation';
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, MapPin, Phone, MessageSquare, Sparkles } from 'lucide-react';
+import { X, MapPin, Sparkles } from 'lucide-react';
 import { Job, Driver, NeedsAttentionItem, ModalDialogType } from '../types';
 import { formatWhen } from './orders/OrderDossierSections';
 import { ReadFields } from './entities/Fields';
@@ -43,6 +44,7 @@ interface DetailModalDialogProps extends OrderMapVisibilityProps {
   /** Company time zone for scheduled times; the prototype falls back to its local settings. */
   timeZone?: string;
   /** Opens the driver on the Drivers page for editing. */
+  onMessageDriver?: (driver: Driver) => void;
   onEditDriver?: (driver: Driver) => void;
 }
 
@@ -68,7 +70,8 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
     allExceptions,
     needsAttentionItems,
     timeZone,
-    onEditDriver
+    onEditDriver,
+    onMessageDriver
   } = props;
 
   const effectiveIsOpen = isOpen ?? state?.isOpen ?? false;
@@ -123,6 +126,7 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
               timeZone={timeZone ?? loadBillingConfig().general.timeZone}
               onSelectJob={onSelectJob}
               onEditDriver={onEditDriver}
+              onMessageDriver={onMessageDriver}
             />
           )}
 
@@ -189,8 +193,9 @@ const DriverDetailView: React.FC<{
   timeZone: string;
   onClose: () => void;
   onSelectJob?: (jobNumber: string) => void;
+  onMessageDriver?: (driver: Driver) => void;
   onEditDriver?: (driver: Driver) => void;
-}> = ({ driver, jobs, timeZone, onClose, onSelectJob, onEditDriver }) => {
+}> = ({ driver, jobs, timeZone, onClose, onSelectJob, onEditDriver, onMessageDriver }) => {
   const active = jobs.filter(job => job.assignedDriverId === driver.id && ['ASSIGNED', 'IN_PROGRESS'].includes(job.lifecycleStatus ?? ''));
   const phone = formatPhone(driver.phone);
   return (
@@ -239,8 +244,7 @@ const DriverDetailView: React.FC<{
 
       <div className="px-6 py-4 flex items-center justify-between gap-2 shrink-0 border-t border-slate-100">
         <div className="flex items-center gap-2">
-          {driver.phone && <a href={`tel:${driver.phone}`} className="app-action app-secondary"><Phone className="w-3.5 h-3.5 text-slate-600" /><span>Call</span></a>}
-          {driver.phone && <a href={`sms:${driver.phone}`} className="app-action app-secondary"><MessageSquare className="w-3.5 h-3.5 text-slate-600" /><span>Text</span></a>}
+          <PersonContactActions name={driver.name} phone={driver.phone} onMessage={onMessageDriver && (() => onMessageDriver(driver))} labelled />
         </div>
         {onEditDriver && <button type="button" onClick={() => onEditDriver(driver)} className="app-action app-primary text-white">Edit driver</button>}
       </div>
@@ -272,7 +276,7 @@ const AllJobsRosterView: React.FC<OrderMapVisibilityProps & {
     return true;
   });
   const street = (address: string) => address.split(',')[0].trim();
-  const tab = (value: typeof filter, label: string) => <button type="button" onClick={() => setFilter(value)} className={`app-tab ${filter === value ? 'bg-app-selected text-app-text' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>;
+  const tab = (value: typeof filter, label: string) => <button type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`app-tab ${filter === value ? 'bg-app-selected text-app-text' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>;
 
   return (
     <>
@@ -285,22 +289,35 @@ const AllJobsRosterView: React.FC<OrderMapVisibilityProps & {
         </div>
       </div>
 
-      <ul aria-label="Active orders" className="app-dialog-body space-y-2">
+      <ul aria-label="Active orders" className="app-dialog-body divide-y divide-slate-100">
         {filtered.length === 0 && <li className="py-10 text-center text-sm text-slate-500">{jobs.length ? 'No orders match your search or filter.' : 'No active orders.'}</li>}
         {filtered.map((j) => {
           const driver = drivers.find(d => d.id === j.assignedDriverId);
-          return <li key={j.id} className="flex items-start gap-1">
-            <OrderMapCheckbox job={j} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={onOrderVisibilityChange} />
+          return <li key={j.id} className="flex items-start gap-1 py-1 first:pt-0 last:pb-0">
+            <div className="shrink-0 pt-1.5"><OrderMapCheckbox job={j} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={onOrderVisibilityChange} /></div>
             <button type="button" onClick={() => { onSelectJob?.(j.jobNumber); onClose(); }}
-              className="min-w-0 flex-1 text-left p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 text-xs">
-              <span className="flex flex-wrap sm:flex-nowrap items-center gap-2 min-w-0">
-                <span className="shrink-0 font-medium text-slate-900 text-xs">{j.jobNumber}</span>
-                <MonitorBadge tone={atRisk(j) ? 'danger' : 'neutral'}>{atRisk(j) ? 'At risk' : lifecycleLabel(j)}</MonitorBadge>
-                <span className="min-w-0 basis-full sm:basis-auto truncate text-slate-500">{j.customerName}</span>
+              className="min-w-0 flex-1 rounded-lg px-2 py-3 text-left hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-app-accent transition-colors grid grid-cols-1 sm:grid-cols-[minmax(0,.9fr)_minmax(0,1.3fr)_minmax(0,1fr)] items-start gap-x-4 gap-y-2 text-[13px] leading-5">
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="font-medium text-slate-900">{j.jobNumber}</span>
+                  <MonitorBadge tone={atRisk(j) ? 'danger' : 'neutral'}>{atRisk(j) ? 'At risk' : lifecycleLabel(j)}</MonitorBadge>
+                </span>
+                <span className="mt-1 block truncate text-slate-500" title={j.customerName}>{j.customerName}</span>
               </span>
-              <span className={`min-w-0 truncate sm:max-w-40 sm:text-right font-medium ${driver ? 'text-slate-800' : 'text-amber-700'}`}>{driver ? driver.name : 'Unassigned'}</span>
-              <span className="truncate text-slate-600" title={`${j.pickupAddress} → ${j.dropoffAddress}`}>{street(j.pickupAddress)} → {street(j.dropoffAddress)}</span>
-              <span className="sm:text-right text-slate-500 whitespace-nowrap">{formatWhen(j.pricingInput?.scheduledAt ?? j.scheduledTime, timeZone)}</span>
+              <span className="grid min-w-0 gap-1 text-slate-600">
+                <span className="flex min-w-0 items-center gap-2" title={j.pickupAddress}>
+                  <span aria-hidden="true" className="size-2 shrink-0 rounded-full border border-slate-400 bg-white" />
+                  <span className="sr-only">Pickup: </span><span className="truncate">{street(j.pickupAddress)}</span>
+                </span>
+                <span className="flex min-w-0 items-center gap-2" title={j.dropoffAddress}>
+                  <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-slate-600" />
+                  <span className="sr-only">Drop-off: </span><span className="truncate">{street(j.dropoffAddress)}</span>
+                </span>
+              </span>
+              <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 sm:block sm:text-right">
+                <span className={`min-w-0 truncate sm:block font-medium ${driver ? 'text-slate-800' : 'text-amber-700'}`} title={driver?.name}>{driver ? driver.name : 'Unassigned'}</span>
+                <span className="text-xs text-slate-500 sm:mt-1 sm:block">{formatWhen(j.pricingInput?.scheduledAt ?? j.scheduledTime, timeZone)}</span>
+              </span>
             </button>
           </li>;
         })}
@@ -339,24 +356,30 @@ const AllDriversRosterView: React.FC<{
       </div>
     </div>
     <DialogBody>
-      {filtered.length === 0 && <p className="py-8 text-center text-sm text-slate-500">{drivers.length ? 'No drivers match your search or filter.' : 'No drivers yet.'}</p>}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {filtered.map(driver => <button key={driver.id} type="button" aria-label={`${driver.driverNumber ?? driver.id} ${driver.name}`}
-          onClick={() => { onSelectDriver?.(driver.id); onClose(); }}
-          className="min-w-0 text-left p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors flex items-start gap-3 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400">
-          <DriverAvatar name={driver.name} avatar={driver.avatar} alt="" className="size-8 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <span className="min-w-0 font-medium text-slate-900 break-words">{driver.name}</span>
-              <MonitorBadge tone={driver.status === 'available' ? 'success' : driver.status === 'on_route' ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
-            </div>
-            <p className="text-slate-500">{driver.driverNumber ?? driver.id}</p>
-            <p className="truncate text-slate-500" title={driver.vehicle}>{driver.vehicle}</p>
-            {driver.nextStop && driver.nextStop !== 'Not set' && <p className="truncate text-slate-500" title={driver.nextStop}>Next: {driver.nextStop}</p>}
-            {driver.eta && driver.eta !== '—' && <p className="text-slate-500">{driver.eta}</p>}
-          </div>
-        </button>)}
-      </div>
+      <ul aria-label="Drivers" className="divide-y divide-slate-100">
+        {filtered.length === 0 && <li className="py-8 text-center text-sm text-slate-500">{drivers.length ? 'No drivers match your search or filter.' : 'No drivers yet.'}</li>}
+        {filtered.map(driver => <li key={driver.id} className="py-1 first:pt-0 last:pb-0">
+          <button type="button" aria-label={`${driver.driverNumber ?? driver.id} ${driver.name}`}
+            onClick={() => { onSelectDriver?.(driver.id); onClose(); }}
+            className="flex w-full min-w-0 items-start gap-3 rounded-lg px-2 py-3 text-left text-[13px] leading-5 hover:bg-slate-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-app-accent">
+            <DriverAvatar name={driver.name} avatar={driver.avatar} alt="" className="size-8 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+            <span className="grid min-w-0 flex-1 grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <span className="min-w-0">
+                <span className="block font-medium text-slate-900 [overflow-wrap:anywhere]">{driver.name}</span>
+                <span className="mt-1 block text-slate-500 [overflow-wrap:anywhere]">{driver.driverNumber ?? driver.id}</span>
+              </span>
+              <span className="order-3 min-w-0 text-slate-500 sm:order-2">
+                <span className="block truncate" title={driver.vehicle}>{driver.vehicle}</span>
+                {driver.nextStop && driver.nextStop !== 'Not set' && <span className="mt-1 block truncate" title={driver.nextStop}>Next: {driver.nextStop}</span>}
+                {driver.eta && driver.eta !== '—' && <span className="mt-1 block [overflow-wrap:anywhere]">{driver.eta}</span>}
+              </span>
+              <span className="order-2 sm:order-3 sm:text-right">
+                <MonitorBadge tone={driver.status === 'available' ? 'success' : driver.status === 'on_route' ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
+              </span>
+            </span>
+          </button>
+        </li>)}
+      </ul>
     </DialogBody>
   </>;
 };
@@ -381,53 +404,36 @@ const AllExceptionsView: React.FC<{
     <>
       <DialogHeader title="Needs Attention" description={`${exceptions.length} ${exceptions.length === 1 ? 'alert' : 'alerts'}`} onClose={onClose} />
 
-      <DialogBody className="space-y-3 text-xs">
-        {exceptions.length === 0 && <p className="py-8 text-center text-sm text-slate-500">No alerts requiring attention.</p>}
-        {exceptions.map((item) => (
-          <div
-            key={item.id}
-            className="p-3.5 rounded-xl border border-slate-200 space-y-2"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-slate-900 text-xs">{item.jobNumber}</span>
+      <DialogBody>
+        <ul aria-label="Alerts requiring attention" className="divide-y divide-slate-100">
+          {exceptions.length === 0 && <li className="py-8 text-center text-sm text-slate-500">No alerts requiring attention.</li>}
+          {exceptions.map(item => <li key={item.id} className="flex flex-col gap-3 px-2 py-4 first:pt-2 last:pb-2 sm:flex-row sm:items-start sm:gap-6 text-[13px] leading-5">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-slate-900 [overflow-wrap:anywhere]">{item.jobNumber}</span>
                 <MonitorBadge tone={item.badgeColor === 'red' ? 'danger' : 'warning'}>{item.statusLabel}</MonitorBadge>
               </div>
-              {item.jobNumber === '#461' && onApproveAiFix && (
-                <button
-                  onClick={() => {
-                    onApproveAiFix();
-                    onClose();
-                  }}
-                  className="app-action app-primary app-action-compact text-xs"
-                >
-                  <Sparkles className="w-3.5 h-3.5 fill-white" />
-                  <span>Execute AI Remedy (Maria D09)</span>
-                </button>
-              )}
+              <p className="text-slate-700 [overflow-wrap:anywhere]">{item.subtitle}</p>
+              <div className="flex items-start gap-1.5 text-slate-500">
+                <MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-slate-400" />
+                <span className="min-w-0 [overflow-wrap:anywhere]">{item.pickupAddress}</span>
+              </div>
             </div>
-
-            <p className="text-slate-700 text-xs">{item.subtitle}</p>
-            <div className="text-slate-500 text-xs flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-slate-400" />
-              <span>{item.pickupAddress}</span>
-            </div>
-
-            <div className="pt-1 flex items-center justify-end">
-              {onSelectJob && (
-                <button
-                  onClick={() => {
-                    onSelectJob(item.jobNumber);
-                    onClose();
-                  }}
-                  className="font-medium text-slate-700 hover:text-slate-700 transition-colors"
-                >
-                  Inspect on Map &rarr;
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+            {(onSelectJob || (item.jobNumber === '#461' && onApproveAiFix)) && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-3 sm:flex-col sm:items-end">
+              {item.jobNumber === '#461' && onApproveAiFix && <button type="button"
+                onClick={() => { onApproveAiFix(); onClose(); }}
+                className="app-action app-primary app-action-compact max-w-full whitespace-normal text-xs">
+                <Sparkles aria-hidden="true" className="size-3.5 shrink-0 fill-white" />
+                <span>Execute AI Remedy (Maria D09)</span>
+              </button>}
+              {onSelectJob && <button type="button"
+                onClick={() => { onSelectJob(item.jobNumber); onClose(); }}
+                className="rounded-md py-1 font-medium text-slate-700 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent">
+                Inspect on Map &rarr;
+              </button>}
+            </div>}
+          </li>)}
+        </ul>
       </DialogBody>
 
     </>

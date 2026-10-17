@@ -1,3 +1,4 @@
+import { PersonContactActions } from './contact/PersonContactActions';
 import { DriverAvatar } from './DriverAvatar';
 import { FloatingPanel } from './ui/FloatingPanel';
 import { MenuItem, MenuList, MenuSeparator } from './ui/Menu';
@@ -5,8 +6,6 @@ import { useOverlayMotion } from './ui/useOverlayMotion';
 import React from 'react';
 import { motion } from 'motion/react';
 import {
-  Phone,
-  MessageSquare,
   MoreHorizontal,
   X,
   User,
@@ -26,6 +25,7 @@ interface DriverPopoverProps {
   showActions: boolean;
   setShowActions: React.Dispatch<React.SetStateAction<boolean>>;
   onActionNotification: (msg: string) => void;
+  onMessage?: () => void;
   onOpenFullProfile?: () => void;
   position?: { x: number; y: number };
 }
@@ -37,6 +37,7 @@ export const DriverPopover: React.FC<DriverPopoverProps> = ({
   showActions,
   setShowActions,
   onActionNotification,
+  onMessage,
   onOpenFullProfile,
   position
 }) => {
@@ -140,23 +141,7 @@ export const DriverPopover: React.FC<DriverPopoverProps> = ({
 
         {/* Bottom Actions Row */}
         <div className="pt-2 flex items-center gap-2">
-          <button
-            onClick={() => live ? driver.phone && window.open(`tel:${driver.phone}`, '_self') : onActionNotification(`Calling ${driver.name} (${driver.phone || '604-555-0188'})...`)}
-            disabled={live && !driver.phone}
-            className="app-action app-secondary flex-1 hover:text-slate-900"
-          >
-            <Phone className="w-3.5 h-3.5 text-slate-600" />
-            <span>Call</span>
-          </button>
-
-          <button
-            onClick={() => live ? driver.phone && window.open(`sms:${driver.phone}`, '_self') : onActionNotification(`Opening message dispatch channel for ${driver.name}`)}
-            disabled={live && !driver.phone}
-            className="app-action app-secondary flex-1 hover:text-slate-900"
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-slate-600" />
-            <span>Message</span>
-          </button>
+          <PersonContactActions name={driver.name} phone={driver.phone} onMessage={onMessage} labelled />
 
           {!live && <FloatingPanel open={showActions} onOpenChange={setShowActions} label="Driver actions" align="end" size="menu" trigger={
             <button type="button" className="app-icon-button" title="Driver Actions (More Options)"><MoreHorizontal size={18} /></button>

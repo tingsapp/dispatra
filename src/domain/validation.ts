@@ -53,7 +53,8 @@ export function validateDriver(d: Driver, all: Driver[]): string[] {
   if (!d.driverNumber?.trim()) return ['Driver number could not be assigned.'];
   if (all.some(x => x.id !== d.id && (x.driverNumber ?? x.id).toLowerCase() === d.driverNumber!.trim().toLowerCase())) return ['Driver number already exists.'];
   if (d.currentVehicleId && all.some(x => x.id !== d.id && x.currentVehicleId === d.currentVehicleId)) return ['Vehicle is already linked to another driver.'];
-  if (!emailOK(d.email) || !nonnegative(d.maximumWorkMinutes)) return ['Check email and maximum work minutes.'];
+  if (!emailOK(d.email) || (d.maximumWorkMinutes != null && (!Number.isInteger(d.maximumWorkMinutes) || d.maximumWorkMinutes<1 || d.maximumWorkMinutes>1440))) return ['Maximum route work must be a whole number from 1 to 1440 minutes.'];
+  if (!!d.shiftStart !== !!d.shiftEnd) return ['Set both shift start and shift end, or clear both.'];
   return [...windowErrors(d.shiftStart, d.shiftEnd, 'Shift'), ...(d.availabilitySchedule ?? []).flatMap(a => !a.start || !a.end ? ['Availability needs a start and end.'] : windowErrors(a.start, a.end, 'Availability'))];
 }
 export function validateVehicle(v: VehicleAsset, all: VehicleAsset[]): string[] {

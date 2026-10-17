@@ -12,8 +12,12 @@ export function assignableRoute(routes: Route[], driverId: string, vehicleId: st
   if (!active) return undefined;
   if (active.driver_id !== driverId || active.vehicle_id !== vehicleId)
     throw new Error('The driver or vehicle already belongs to another active route.');
-  if (active.status !== 'PLANNED' || active.locked)
-    throw new Error('This driver already has a locked or in-progress route. Finish it before assigning another order.');
+  if (active.status === 'IN_PROGRESS') {
+    if (!active.plan?.live_updates_supported) throw new Error('This in-progress route requires driver review in an updated app before new work can be added.');
+    if (active.plan?.requires_acknowledgement) throw new Error('The driver must review the latest route before more work is added.');
+    return active;
+  }
+  if (active.locked) throw new Error('This driver has a locked planned route.');
   return active;
 }
 

@@ -33,6 +33,9 @@ test('new drivers get the next background driver number; the form has no number 
   render(React.createElement(DriverEditor,{drivers:existing,onSave:d=>saved=d,onCancel:()=>{}}));
   assert.equal(screen.queryByLabelText(/Driver number/),null); assert.equal(screen.queryByLabelText('Maximum Active Orders'),null);
   assert.equal(screen.queryByLabelText(/Service areas/),null);
+  assert.ok(screen.getByRole('button',{name:/^Shift start date:/}));
+  assert.ok(screen.getByRole('button',{name:/^Shift end date:/}));
+  assert.ok(screen.getByLabelText('Maximum route work (minutes)'));
   const dg=screen.getByRole('checkbox',{name:/Qualified to handle dangerous goods/}) as HTMLInputElement;
   assert.equal(dg.checked,false);
   const address=screen.getByRole('combobox',{name:'Address'}) as HTMLInputElement; assert.equal(address.required,true);
@@ -53,7 +56,7 @@ test('driver form has no employment, payout or earnings fields and keeps the sav
   await user.click(screen.getByRole('button',{name:'Save driver'}));
   assert.equal(saved.employmentType,'CONTRACTOR'); assert.equal('revenueSharePercent' in saved,false);
 });
-test('driver form: attached vehicle, address, contact and DG qualification; no generic work or shift fields', async()=>{
+test('driver form: attached vehicle, contact, DG qualification and dispatch availability', async()=>{
   const user=userEvent.setup({document}); let saved:any;
   const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',shiftStart:undefined,currentVehicleId:null,serviceAreaIds:['Vancouver','Burnaby'],skills:['Furniture','DG']});
   render(React.createElement(DriverEditor,{driver,drivers:[driver],onSave:d=>saved=d,onCancel:()=>{}}));

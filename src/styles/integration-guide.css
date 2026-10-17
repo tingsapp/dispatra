@@ -1,0 +1,51 @@
+.integration-guide { max-width:1040px; }
+.guide-section-links { display:flex; justify-content:center; flex-wrap:wrap; gap:12px 28px; padding-bottom:12px; color:var(--color-app-muted); font-size:14px; }
+.guide-section-links a { padding:7px 0; text-underline-offset:5px; }
+.guide-section-links a:hover { color:var(--color-app-text); text-decoration:underline; }
+.guide-section { margin-top:52px; }
+.guide-section h2,.guide-help h2 { font-size:30px; line-height:1.15; letter-spacing:-.04em; font-weight:400; scroll-margin-top:28px; }
+.guide-lead { max-width:760px; margin-top:14px; font-size:16px; line-height:1.5; color:var(--color-app-muted); }
+.guide-connectors { margin-top:26px; border-top:1px solid #e5e5e1; }
+.guide-connector { display:grid; grid-template-columns:44px minmax(0,1fr) auto; align-items:center; gap:18px; padding:22px 0; border-bottom:1px solid #e5e5e1; }
+.guide-monogram { display:flex; align-items:center; justify-content:center; width:44px; height:44px; background:#f5f5f2; border-radius:10px; font-size:12px; }
+.guide-connector h3 { font-size:18px; line-height:1.3; letter-spacing:-.02em; font-weight:450; }
+.guide-connector p { max-width:620px; margin-top:5px; color:var(--color-app-muted); font-size:14px; line-height:1.5; }
+.guide-status { border-radius:999px; padding:5px 10px; background:#f5f5f2; color:var(--color-app-muted); white-space:nowrap; font-size:12px; line-height:1.4; }
+.guide-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px; margin-top:28px; padding:0; list-style:none; }
+.guide-steps li { border-top:1px solid #e5e5e1; padding-top:22px; }
+.guide-step-number { color:var(--color-app-muted); font-size:12px; }
+.guide-steps h3 { margin-top:14px; font-size:18px; line-height:1.3; letter-spacing:-.02em; font-weight:450; }
+.guide-steps p,.guide-note p,.guide-api-steps li,.guide-developer-content p,.guide-help p { color:var(--color-app-muted); font-size:15px; line-height:1.6; }
+.guide-steps p { margin-top:9px; }
+.guide-note { display:grid; gap:12px; padding:24px; margin-top:28px; border-radius:12px; background:#f7f7f5; }
+.guide-api-steps { display:grid; gap:14px; list-style:decimal; padding-left:22px; margin-top:24px; }
+.guide-api-steps li { padding-left:5px; }
+.guide-api-steps strong,.guide-resource-list strong { font-weight:500; color:var(--color-app-text); }
+.guide-disclosure { margin-top:20px; border-top:1px solid #e5e5e1; }
+.guide-disclosure summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:20px 0; cursor:pointer; font-size:16px; list-style:none; }
+.guide-disclosure summary::-webkit-details-marker { display:none; }
+.guide-disclosure[open] summary svg { transform:rotate(180deg); }
+.guide-developer-content { display:grid; min-width:0; gap:12px; padding-bottom:20px; }
+.guide-developer-content h3 { font-size:16px; font-weight:500; margin-top:12px; }
+.integration-guide code { font-family:inherit; font-size:13px; overflow-wrap:anywhere; }
+.guide-developer-content pre { max-width:100%; overflow-x:auto; border-radius:8px; padding:20px; background:#f7f7f5; line-height:1.8; }
+.guide-developer-content pre code { white-space:pre; overflow-wrap:normal; }
+.guide-resource-list { display:grid; gap:12px; list-style:none; margin-block:6px; }
+.guide-resource-list li { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:14px; line-height:1.5; }
+.guide-resource-list span { color:var(--color-app-muted); }
+.guide-help { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-top:52px; padding:28px; background:#f7f7f5; border-radius:12px; }
+.guide-help p { margin-top:10px; }
+.guide-help a { flex-shrink:0; }
+.integration-guide a:focus-visible,.guide-disclosure summary:focus-visible,.guide-developer-content pre:focus-visible { outline:2px solid var(--public-brand); outline-offset:5px; border-radius:4px; }
+@media(max-width:767px) {
+ .guide-section { margin-top:38px; }
+ .guide-section h2,.guide-help h2 { font-size:26px; }
+ .guide-section-links { justify-content:flex-start; gap:4px 20px; }
+ .guide-connector { grid-template-columns:40px minmax(0,1fr); gap:10px 14px; padding:20px 0; align-items:start; }
+ .guide-monogram { width:40px; height:40px; }
+ .guide-status { grid-column:2; justify-self:start; }
+ .guide-steps { grid-template-columns:1fr; gap:22px; }
+ .guide-steps h3 { margin-top:8px; }
+ .guide-note { padding:20px; }
+ .guide-help { flex-direction:column; align-items:start; padding:24px; }
+}

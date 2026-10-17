@@ -30,7 +30,7 @@ function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
     case 'watch': return [ops('monitor')];
     case 'rate': return [ops('rates')];
     case 'catalog': return [ops('catalog')];
-    case 'settings': case 'organization': return [companySettingsKey(slug), ops('settings'), ops('catalog'), ops('rates')];
+    case 'settings': case 'organization': return [['account'], companySettingsKey(slug), ops('settings'), ops('catalog'), ops('rates')];
     case 'notification': return [notificationsKey(slug)];
     case 'message': return [chatKey(slug)];
     default: return [ops()];

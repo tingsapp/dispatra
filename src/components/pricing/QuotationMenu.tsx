@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Download, Mail } from 'lucide-react';
 import { Button } from '../ui/button';
 import { FloatingPanel } from '../ui/FloatingPanel';
+import { DialogCloseButton } from '../ui/Dialog';
 import { isEmail, pdfBlob, Quotation, quotationFileName, quotationMailto, quotationPdf } from '../../lib/quotation';
 import { PdfJpeg } from '../../lib/pdf';
 import { ContactInput } from '../ui/ContactInput';
@@ -62,6 +63,10 @@ export const QuotationMenu: React.FC<QuotationMenuProps> = ({ buildQuotation, on
   return <FloatingPanel open={open} onOpenChange={next => { if (next) setQuotation(buildQuotation()); setOpen(next); }} label={triggerLabel} size="rich" align="end" className="p-4"
     trigger={<Button type="button" variant={prominent ? "default" : "outline"} size={prominent ? "default" : "xs"}><Mail />{triggerLabel}</Button>}>
     {q && <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-medium">{triggerLabel}</h3>
+        <DialogCloseButton label="Close quotation" onClick={() => setOpen(false)} disabled={busy} />
+      </div>
       {allowRecipientEntry ? <div className="space-y-3">
         <div>
           <label htmlFor="quote-recipient-name" className="app-label">Shipper name</label>

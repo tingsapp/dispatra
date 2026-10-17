@@ -1,11 +1,14 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from './button';
+import { DialogCloseButton } from './Dialog';
 
 export interface ConfirmOptions {
   title: string;
   message: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
+  /** null hides the action for an informational notice. */
+  confirmLabel?: string | null;
+  /** null uses the header X as the sole dismissal control. */
+  cancelLabel?: string | null;
   /** `danger` styles the confirm button red for destructive actions. */
   tone?: 'default' | 'danger';
 }
@@ -23,16 +26,17 @@ export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
 export function ConfirmDialogHost() {
   const [request, setRequest] = useState<Request | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const id = useId();
   useEffect(() => { host = setRequest; return () => { host = null; }; }, []);
   useEffect(() => {
     if (!request) return;
     const previous = document.activeElement as HTMLElement | null;
-    cancelRef.current?.focus();
+    (cancelRef.current ?? closeRef.current)?.focus();
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); settle(false); }
       if (event.key === 'Tab') {
-        const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-confirm-dialog] button'));
+        const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-confirm-dialog] button:not([disabled])'));
         const first = buttons[0], last = buttons[buttons.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
@@ -48,12 +52,15 @@ export function ConfirmDialogHost() {
   const settle = (ok: boolean) => { request.resolve(ok); setRequest(null); };
   return <div className="app-dialog-backdrop fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-150" onMouseDown={event => { if (event.target === event.currentTarget) settle(false); }}>
     <div data-confirm-dialog role="alertdialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-message`} className="app-dialog-surface w-full max-w-md p-6 animate-in zoom-in-95 fade-in duration-150">
-      <h2 id={`${id}-title`} className="text-slate-900">{options.title}</h2>
-      <p id={`${id}-message`} className="mt-2 text-sm leading-6 text-slate-600">{options.message}</p>
-      <div className="mt-6 flex justify-end gap-2">
-        <Button ref={cancelRef} type="button" variant="outline" onClick={() => settle(false)}>{options.cancelLabel ?? 'Cancel'}</Button>
-        <Button type="button" variant={danger ? 'destructive' : 'default'} onClick={() => settle(true)}>{options.confirmLabel ?? 'Confirm'}</Button>
+      <div className="flex items-start justify-between gap-4">
+        <h2 id={`${id}-title`} className="min-w-0 text-slate-900">{options.title}</h2>
+        <DialogCloseButton ref={closeRef} onClick={() => settle(false)} />
       </div>
+      <p id={`${id}-message`} className="mt-2 text-sm leading-6 text-slate-600">{options.message}</p>
+      {(options.cancelLabel !== null || options.confirmLabel !== null) && <div className="mt-6 flex justify-end gap-2">
+        {options.cancelLabel !== null && <Button ref={cancelRef} type="button" variant="outline" onClick={() => settle(false)}>{options.cancelLabel ?? 'Cancel'}</Button>}
+        {options.confirmLabel !== null && <Button type="button" variant={danger ? 'destructive' : 'default'} onClick={() => settle(true)}>{options.confirmLabel ?? 'Confirm'}</Button>}
+      </div>}
     </div>
   </div>;
 }

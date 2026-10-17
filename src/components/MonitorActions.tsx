@@ -128,7 +128,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
           )}
         </button>
         }>
-        {slug ? isNotificationOpen && <NotificationPanel slug={slug} onOpen={row => {
+        {slug ? isNotificationOpen && <NotificationPanel slug={slug} onClose={() => setIsNotificationOpen(false)} onOpen={row => {
           const job = jobs.find(item => item.id === row.order_id);
           if (/^(intake|mailbox)\./.test(row.kind)) onOpenEmailDrafts?.();
           else if (job) onSelectJob?.(job.jobNumber);

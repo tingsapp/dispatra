@@ -6,7 +6,7 @@ ChevronUp,
 FileText,
 HelpCircle,
 Keyboard,
-PhoneCall,
+ExternalLink,
 Send
 } from 'lucide-react';
 import React,{ useState } from 'react';
@@ -125,11 +125,11 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
       {/* HEADER BAR */}
       <PageHeader title="Help & Support" description="Operational guides, troubleshooting and support." actions={<>
           <a
-            href="tel:18005553477"
+            href="/contact"
             className="app-action app-secondary"
           >
-            <PhoneCall className="w-3.5 h-3.5 text-slate-500" />
-            <span>Hotline: 1-800-555-DISP</span>
+            <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+            <span>Contact Dispatra</span>
           </a>
       </>} />
 

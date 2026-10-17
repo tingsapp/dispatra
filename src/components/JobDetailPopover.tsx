@@ -1,9 +1,11 @@
+import { PersonContactActions } from './contact/PersonContactActions';
+import type { ChatKind } from '../chat/api';
 import { DriverAvatar } from './DriverAvatar';
 import { useOverlayMotion } from './ui/useOverlayMotion';
 import { lifecycleLabel, orderAttention } from '../domain/validation';
 import { formatWhen } from './orders/OrderDossierSections';
 import type { PricingStopInput } from '../types/pricing';
-import { formatPhone } from '../lib/phone';
+import { formatPhone, phoneHref } from '../lib/phone';
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -15,8 +17,7 @@ import {
   Sparkles,
   CheckCircle2,
   UserCheck,
-  Maximize2,
-  MessageSquare
+  Maximize2
 } from 'lucide-react';
 import { Job, Driver, EligibleDriver } from '../types';
 import { ELIGIBLE_DRIVERS } from '../data/mockData';
@@ -25,19 +26,12 @@ import { useMapPopupPlacement } from './monitor/useMapPopupPlacement';
 
 const visitLabel = (status?: string) => status ? status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, ' ') : 'Not started';
 
-/** Name and contact details with call / text actions when a phone number exists. */
-function ContactCard({ label, name, phone, email }: { label: string; name: string; phone?: string; email?: string }) {
-  const action = 'p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50';
+/** The order's saved contact and its built-in conversation. */
+function ContactCard({ label, name, phone, email, onMessage }: { label: string; name: string; phone?: string; email?: string; onMessage?: () => void }) {
   return <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5 flex items-center justify-between gap-2">
-    <div className="min-w-0">
-      <div className="text-slate-500">{label}</div>
-      <div className="font-medium text-slate-900 truncate">{name}</div>
-      <div className="text-slate-500 truncate">{[formatPhone(phone), email].filter(Boolean).join(' · ') || 'No contact details'}</div>
-    </div>
-    <div className="flex items-center gap-1 shrink-0">
-      {phone && <a href={`tel:${phone}`} className={action} aria-label={`Call ${name}`} title="Call"><Phone className="w-3.5 h-3.5" /></a>}
-      {phone && <a href={`sms:${phone}`} className={action} aria-label={`Text ${name}`} title="Text"><MessageSquare className="w-3.5 h-3.5" /></a>}
-    </div>
+    <div className="min-w-0"><div className="text-slate-500">{label}</div><div className="font-medium text-slate-900 truncate">{name}</div>
+      <div className="text-slate-500 truncate">{[formatPhone(phone), email].filter(Boolean).join(' · ') || 'No contact details'}</div></div>
+    <PersonContactActions name={name} phone={phone} onMessage={onMessage} />
   </div>;
 }
 
@@ -46,6 +40,7 @@ interface JobDetailPopoverProps {
   live?: boolean;
   drivers?: Driver[];
   stopStatuses?: Record<string, string>;
+  onMessage?: (kind: ChatKind) => void;
   onAssignDriver?: (driverId: string) => void;
   onClose: () => void;
   showAssignDriver: boolean;
@@ -69,6 +64,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   live = false,
   drivers = [],
   stopStatuses = {},
+  onMessage,
   onAssignDriver,
   onClose,
   showAssignDriver,
@@ -215,9 +211,9 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                 <dt className="text-slate-500">Pickup</dt><dd className="min-w-0" title={pickup?.label ?? job.pickupAddress}><div className="text-slate-800">{when(pickup?.windowStart ?? job.pricingInput?.scheduledAt ?? job.scheduledTime)}</div><div className="text-slate-500 truncate">{street(pickup?.label ?? job.pickupAddress)}</div></dd>
                 <dt className="text-slate-500">Deliver by</dt><dd className="min-w-0" title={drop?.label ?? job.dropoffAddress}>{drop?.windowEnd && <div className="text-slate-800">{when(drop.windowEnd)}</div>}<div className="text-slate-500 truncate">{street(drop?.label ?? job.dropoffAddress)}{dropCount > 1 ? ` +${dropCount - 1}` : ''}</div></dd>
               </dl>
-              <ContactCard label="Shipper" name={job.customerName} phone={job.customerPhone} email={job.customerEmail} />
+              <ContactCard label="Shipper" name={job.customerName} phone={job.customerPhone} email={job.customerEmail} onMessage={onMessage && (() => onMessage('DISPATCH_SHIPPER'))} />
               {driver
-                ? <ContactCard label="Driver" name={`${driver.name}${driver.driverNumber ? ` · ${driver.driverNumber}` : ''}`} phone={driver.phone} email={driver.email} />
+                ? <ContactCard label="Driver" name={`${driver.name}${driver.driverNumber ? ` · ${driver.driverNumber}` : ''}`} phone={driver.phone} email={driver.email} onMessage={onMessage && (() => onMessage('DISPATCH_DRIVER'))} />
                 : <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5"><div className="text-slate-500">Driver</div><div className="font-medium text-amber-700">Unassigned</div>{job.pricingInput?.requiredDriverId ? <div className="text-slate-500 mt-0.5">Assigned shipper driver: {job.pricingInput.requiredDriverName ?? drivers.find(d => d.id === job.pricingInput?.requiredDriverId)?.name ?? 'Unavailable'}</div> : requested && <div className="text-slate-500 mt-0.5">Shipper requested {requested.name}</div>}</div>}
               {attention.map(item => <p key={item.flag} className="flex items-start gap-1.5 text-amber-800"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />{item.detail}</p>)}
 
@@ -242,7 +238,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                 {(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd) && <div className="text-slate-500">{stop.type === 'PICKUP' ? 'Ready at' : 'Deliver by'} {when(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd)}</div>}
                 {(stop.contactName || stop.contactPhone) && <div className="flex items-center justify-between gap-2 text-slate-600">
                   <span className="truncate">{[stop.contactName, formatPhone(stop.contactPhone)].filter(Boolean).join(' · ')}</span>
-                  {stop.contactPhone && <a href={`tel:${stop.contactPhone}`} className="p-1 rounded-md text-slate-500 hover:bg-white hover:text-slate-900" aria-label={`Call ${stop.contactName || 'stop contact'}`} title="Call"><Phone className="w-3.5 h-3.5" /></a>}
+                  {phoneHref(stop.contactPhone) && <a href={phoneHref(stop.contactPhone)} className="p-1 rounded-md text-slate-500 hover:bg-white hover:text-slate-900" aria-label={`Call ${stop.contactName || 'stop contact'}`} title="Call"><Phone className="w-3.5 h-3.5" /></a>}
                 </div>}
               </li>)}
             </ol>

@@ -14,6 +14,7 @@ const { default: userEvent } = await import('@testing-library/user-event');
 const { JobsPage } = await import('../src/pages/JobsPage');
 const { DriversPage } = await import('../src/pages/DriversPage');
 const { CustomersPage } = await import('../src/pages/CustomersPage');
+const { phoneHref } = await import('../src/lib/phone');
 const { VehiclesPage } = await import('../src/pages/VehiclesPage');
 const { INITIAL_DRIVERS, INITIAL_JOBS } = await import('../src/data/mockData');
 const { loadVehicles } = await import('../src/lib/vehicleStorage');
@@ -186,7 +187,7 @@ test('shipper details retains contact links, linked orders, notes and navigation
   await user.click(screen.getByText(shipper.name));
   const dialog = screen.getByRole('dialog', { name: shipper.name });
   assert.equal(within(dialog).getByRole('link', { name: shipper.email }).getAttribute('href'), `mailto:${shipper.email}`);
-  assert.ok(dialog.querySelector(`a[href="tel:${shipper.phone}"]`));
+  assert.ok(dialog.querySelector(`a[href="${phoneHref(shipper.phone)}"]`));
   assert.ok(within(dialog).getByText(shipper.address));
   assert.ok(within(dialog).getByText(shipper.notes!));
   const summary = within(dialog).getByLabelText('Shipper order summary');

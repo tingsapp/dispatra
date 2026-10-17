@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
 import { useChatInbox, type ChatInboxItem } from '../../chat/api';
 import { notificationAge } from '../../portal/Notifications';
-import { OrderChat } from './OrderChat';
+import { ChatDialog } from './OrderChat';
 
 function InboxRow({ item, current, onSelect }: { item: ChatInboxItem; current: boolean; onSelect: () => void }) {
   const preview = item.last_message ? `${item.last_message.mine ? 'You: ' : ''}${item.last_message.body}` : '';
@@ -22,27 +21,17 @@ function InboxRow({ item, current, onSelect }: { item: ChatInboxItem; current: b
   </button></li>;
 }
 
-/** The Shipper's or driver's order chats, newest first, beside the selected chat. */
+/** Shipper and driver inboxes use the same conversation popup as order contacts. */
 export function MessagesInbox({ slug }: { slug: string }) {
   const inbox = useChatInbox(slug);
   const [selected, setSelected] = useState<ChatInboxItem | null>(null);
   const rows = inbox.data ?? [];
   const current = selected && (inbox.data ?? []).find(item => item.conversation_id === selected.conversation_id) || selected;
-  return <div className="grid min-h-0 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
-    <div className={`min-w-0 space-y-3 ${current ? 'max-lg:hidden' : ''}`}>
-      {inbox.isPending ? <p role="status" className="py-10 text-center text-sm text-slate-500">Loading messages…</p>
-        : inbox.error ? <p role="alert" className="py-10 text-center text-sm text-red-700">Messages could not be loaded.</p>
-        : rows.length === 0 ? <p className="py-10 text-center text-sm text-slate-500">No messages yet. Chats start from an order’s details.</p>
-        : <ul className="space-y-0.5">{rows.map(item => <InboxRow key={item.conversation_id} item={item} current={item.conversation_id === current?.conversation_id} onSelect={() => setSelected(item)} />)}</ul>}
-    </div>
-    <div className={`min-w-0 ${current ? '' : 'max-lg:hidden'}`}>
-      {current ? <section aria-label={`Chat for order ${current.order_number}`} className="space-y-3">
-        <div className="flex items-center gap-2">
-          <button type="button" className="app-icon-button lg:hidden" aria-label="Back to all messages" onClick={() => setSelected(null)}><ArrowLeft className="h-4 w-4" /></button>
-          <h2 className="text-base font-medium text-slate-900">Order {current.order_number}</h2>
-        </div>
-        <OrderChat key={current.conversation_id} slug={slug} orderId={current.order_id} initialConversation={current.conversation_id} />
-      </section> : <p className="py-10 text-center text-sm text-slate-500 max-lg:hidden">Select a chat to read it.</p>}
-    </div>
+  return <div className="min-w-0 space-y-3">
+    {inbox.isPending ? <p role="status" className="py-10 text-center text-sm text-slate-500">Loading messages…</p>
+      : inbox.error ? <p role="alert" className="py-10 text-center text-sm text-red-700">Messages could not be loaded.</p>
+      : rows.length === 0 ? <p className="py-10 text-center text-sm text-slate-500">No messages yet. Chats start from an order’s details.</p>
+      : <ul className="mx-auto max-w-2xl space-y-0.5">{rows.map(item => <InboxRow key={item.conversation_id} item={item} current={item.conversation_id === current?.conversation_id} onSelect={() => setSelected(item)} />)}</ul>}
+    {current && <ChatDialog slug={slug} orderId={current.order_id} orderNumber={current.order_number} initialConversation={current.conversation_id} onClose={() => setSelected(null)} />}
   </div>;
 }

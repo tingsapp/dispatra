@@ -25,7 +25,7 @@ test('changes invalidate only the reads each role uses, once per key', () => {
   assert.deepEqual(keys('SHIPPER', [change('vehicle', 'vehicle.updated')]), []);
   assert.deepEqual(keys('DISPATCHER', [change('dispatch', 'dispatch.no_candidate', 'o1')]), ['["operations","acme","monitor"]', '["operations","acme","activity","latest"]']);
   assert.deepEqual(keys('DISPATCHER', [change('watch', 'watch.driver_replied', 'o1')]), ['["operations","acme","monitor"]', '["operations","acme","activity","latest"]']);
-  assert.deepEqual(keys('DISPATCHER', [change('settings', 'settings.updated')]), ['["company-settings","acme"]', '["operations","acme","settings"]', '["operations","acme","catalog"]', '["operations","acme","rates"]']);
+  assert.deepEqual(keys('DISPATCHER', [change('settings', 'settings.updated')]), ['["account"]', '["company-settings","acme"]', '["operations","acme","settings"]', '["operations","acme","catalog"]', '["operations","acme","rates"]']);
   assert.deepEqual(keys('DISPATCHER', [change('future', 'future.thing')]), ['["operations","acme"]']);
   // Order chat messages refresh only chat reads, for every role.
   for (const role of ['DISPATCHER', 'SHIPPER', 'DRIVER'] as const) assert.deepEqual(keys(role, [change('message', 'message.created', 'o1')]), ['["chat","acme"]']);

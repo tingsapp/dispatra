@@ -40,7 +40,7 @@ export function IntegrationsPage({ rates = [] }: { rates?: RateCard[] }) {
   const slug = companySlugForCurrentPath() ?? 'example';
   const importedRateCard = rates.find(card => card.active && card.data.method === 'IMPORTED')?.data.name;
   return <div className="integration-workspace app-page h-full min-w-0 flex flex-col" data-mode={nativeTms ? 'dispatra' : 'external'} data-transition={phase}>
-    <PageHeader title="Integrations" description="Choose where you manage operations and connect the tools in your workspace." />
+    <PageHeader title="Integrations" description="Choose where you manage operations and connect the tools in your workspace." actions={<a href="/docs/integrations" aria-label="Integrations & API guide (opens in a new tab)" target="_blank" rel="noopener noreferrer" className="rounded text-sm text-app-muted underline underline-offset-4 hover:text-app-text focus-visible:outline-2 focus-visible:outline-app-accent focus-visible:outline-offset-4">Integrations &amp; API guide<span className="sr-only"> (opens in a new tab)</span></a>} />
     <div className="page-content py-6"><div className="app-sections">
       <Tabs label="Integration sections" hideTabList={nativeTms} items={[
         { id: 'connectors', label: 'Connectors', pageWidth: 'reading', content: <ConnectorsTab slug={slug} nativeTms={nativeTms} /> },

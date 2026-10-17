@@ -4,22 +4,25 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, RefreshCw, Plus } from 'lucide-react';
 import { connectors, type Connector } from '../../../integrations/connectors';
 import { confirmDialog } from '../../ui/ConfirmDialog';
+import { DialogCloseButton } from '../../ui/Dialog';
 import { ConnectorDialog } from './ConnectorDialog';
 import { WorkspaceModeLayout } from './WorkspaceModeLayout';
 import { useWorkspaceAccount } from '../../../portal/WorkspaceAccount';
 
 const LABELS: Record<Connector['status'], string> = {
-  ACTIVATION_REQUIRED: 'Activation required', NOT_CONNECTED: 'Not connected', CONNECTING: 'Connecting…', CONNECTED: 'Connected',
+  ACTIVATION_REQUIRED: 'Configuration required', NOT_CONNECTED: 'Not connected', CONNECTING: 'Connecting…', CONNECTED: 'Connected',
   SYNCING: 'Syncing…', RECONNECT_REQUIRED: 'Reconnect required', SYNC_FAILED: 'Sync failed', DISCONNECTED: 'Disconnected',
+  PAUSED: 'Paused',
 };
 
 const ICON_COLORS: Record<string, string> = {
   'rose-rocket': 'bg-rose-500 text-white', cartoncloud: 'bg-app-accent text-white',
   truckmate: 'bg-app-accent text-white', mcleod: 'bg-red-700 text-white',
   aljex: 'bg-app-accent text-white', turvo: 'bg-teal-600 text-white',
+  truckbase: 'bg-slate-800 text-white', tailwind: 'bg-sky-700 text-white', ascendtms: 'bg-indigo-600 text-white',
 };
 
-export function ConnectorsTab({ slug, nativeTms: presentedMode }: { slug: string; nativeTms?: boolean }) {
+export function ConnectorsTab({ slug, nativeTms: presentedMode, navigate = (url: string) => window.location.assign(url) }: { slug: string; nativeTms?: boolean; navigate?: (url: string) => void }) {
   const workspace = useWorkspaceAccount();
   const nativeTms = presentedMode ?? (workspace ? !workspace.settings.data.tms_workspace : false);
   const cache = useQueryClient(); const queryKey = ['operations', slug, 'connectors'];
@@ -41,17 +44,47 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode }: { slug: string
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not update this connection.'); }
     finally { setPending(null); }
   };
+  const connect = async (row: Connector) => {
+    if (!row.ready || row.paused) return;
+    if (row.auth !== 'oauth') { setSelected(row); setError(''); return; }
+    if (pending) return;
+    const operation = `connect:${slug}:${row.id}:${row.version}`;
+    const key = retries.current.get(operation) ?? crypto.randomUUID(); retries.current.set(operation, key);
+    setPending(row.id); setError('');
+    try {
+      const result = await connectors.connect(slug, row.id, { version: row.version, credentials: {} }, key);
+      if (!result.authorization_url) throw new Error('The TMS sign-in page is unavailable. Try connecting again.');
+      navigate(result.authorization_url);
+      retries.current.delete(operation);
+    } catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not connect. Try again.'); }
+    finally { setPending(null); }
+  };
+  const visible = query.data ?? [];
   return <section aria-label={nativeTms ? undefined : 'Connectors'} className="space-y-5">
     <WorkspaceModeLayout nativeTms={nativeTms}>
     {query.isPending && <p role="status" className="text-sm text-app-muted">Loading connectors…</p>}
     {query.error && <div role="alert" className="space-y-2 text-sm"><p>Connectors could not be loaded.</p><Button type="button" variant="outline" onClick={() => void query.refetch()}>Try again</Button></div>}
     {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
+    {!query.isPending && !query.error && !visible.length && <p className="text-sm text-app-muted">No TMS connectors are available right now.</p>}
     <div className="grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-2">
-      {(query.data ?? []).map(row => {
+      {visible.map(row => {
+        const needsSetup = !row.ready;
         const busy = ['CONNECTING', 'SYNCING'].includes(row.status); const connected = row.status === 'CONNECTED';
         const hasConnection = row.version != null && row.status !== 'DISCONNECTED';
-        const actionLabel = connected || row.status === 'SYNC_FAILED' ? `Sync ${row.name}`
-          : row.status === 'RECONNECT_REQUIRED' ? `Reconnect ${row.name}` : busy ? `${LABELS[row.status]} ${row.name}` : `Connect ${row.name}`;
+        const actionLabel = row.paused ? `${row.name} synchronization paused` : needsSetup ? `Connect ${row.name}` : connected || row.status === 'SYNC_FAILED' ? `Sync ${row.name}`
+          : row.status === 'RECONNECT_REQUIRED' ? `Reconnect ${row.name}` : busy ? `${needsSetup && !row.paused ? 'Configuration required' : LABELS[row.status]} ${row.name}` : `Connect ${row.name}`;
+        const textAction = needsSetup || (!connected && row.status !== 'SYNC_FAILED' && !busy);
+        const action = <Button type="button" variant="ghost" size={textAction ? 'default' : 'icon-lg'} aria-label={actionLabel} title={needsSetup ? `${row.name} requires configuration.` : actionLabel} aria-busy={pending === row.id}
+              disabled={needsSetup || row.paused || busy || pending !== null}
+              className="shrink-0 text-app-muted"
+              onClick={() => {
+                if (!needsSetup && (connected || row.status === 'SYNC_FAILED')) void act(row);
+                else void connect(row);
+              }}>
+              {pending === row.id && row.auth === 'oauth' && textAction ? 'Connecting…' : row.paused ? 'Paused' : needsSetup ? 'Connect' : connected || row.status === 'SYNC_FAILED' || busy
+                ? <RefreshCw className={`size-5 ${busy ? 'motion-safe:animate-spin' : ''}`} aria-hidden="true" />
+                : <><Plus className="size-4" aria-hidden="true" />{row.status === 'RECONNECT_REQUIRED' ? 'Reconnect' : 'Connect'}</>}
+            </Button>;
         return <article key={row.id} aria-label={row.name} className="min-w-0 rounded-xl bg-white px-3 py-4 transition-colors hover:bg-app-hover">
           <div className="flex items-center gap-3.5">
             <div aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${ICON_COLORS[row.id] ?? 'bg-app-hover text-app-text'}`}>{row.initials}</div>
@@ -59,25 +92,16 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode }: { slug: string
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h3 className="text-base font-medium text-app-text">{row.name}</h3>
                 <p role="status" className={`flex items-center gap-1 text-xs ${connected ? 'text-emerald-700' : 'text-app-muted'}`}>
-                  {connected && <Check className="h-3 w-3" aria-hidden="true" />}{LABELS[row.status]}
+                  {connected && <Check className="h-3 w-3" aria-hidden="true" />}{needsSetup && !row.paused ? 'Configuration required' : LABELS[row.status]}
                 </p>
               </div>
-              <p className="mt-1 text-xs text-app-muted">{row.description}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-app-muted">{row.description}</p>
               {row.account && <p className="mt-1 break-words text-xs text-app-muted">{row.account}</p>}
               {row.last_sync_at && <p className="mt-1 text-xs text-app-muted">Last synced {new Date(row.last_sync_at).toLocaleString()}</p>}
             </div>
-            <Button type="button" variant="ghost" size="icon-lg" aria-label={actionLabel} title={actionLabel}
-              disabled={busy || pending === row.id}
-              className="text-app-muted"
-              onClick={() => {
-                if (connected || row.status === 'SYNC_FAILED') void act(row);
-                else { setSelected(row); setError(''); }
-              }}>
-              {connected || row.status === 'SYNC_FAILED' || busy
-                ? <RefreshCw className={`size-5 ${busy ? 'motion-safe:animate-spin' : ''}`} aria-hidden="true" />
-                : <Plus className="size-5" aria-hidden="true" />}
-            </Button>
+            {!textAction && action}
           </div>
+          {textAction && <div className="mt-2 pl-[54px]">{action}</div>}
           {(hasConnection || row.review_count > 0) && <div className="mt-2 flex flex-wrap items-center gap-2 pl-[54px]">
             {hasConnection && <Button type="button" variant="ghost" disabled={pending === row.id} onClick={() => void act(row, true)}>Disconnect</Button>}
             {row.review_count > 0 && <Button type="button" variant="ghost" onClick={async () => {
@@ -85,12 +109,12 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode }: { slug: string
               catch { setError('Could not load the records needing review.'); }
             }}>Review {row.review_count}</Button>}
           </div>}
-          {row.message && row.ready && <p className="mt-2 pl-[54px] text-xs text-app-muted">{row.message}</p>}
+          {row.message && (row.ready || row.paused) && <p className="mt-2 pl-[54px] text-xs text-app-muted">{row.message}</p>}
         </article>;
       })}
     </div>
     {!nativeTms && review && <section aria-label={`${review.provider} records needing review`} className="space-y-3 rounded-xl border border-app-border p-4">
-      <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium">{review.provider}: records needing review</h3><Button type="button" variant="ghost" onClick={() => setReview(null)}>Close review</Button></div>
+      <div className="flex items-start justify-between gap-3"><h3 className="min-w-0 text-sm font-medium">{review.provider}: records needing review</h3><DialogCloseButton label="Close review" onClick={() => setReview(null)} /></div>
       {!review.rows.length && <p className="text-sm text-app-muted">No orders need review.</p>}
       {review.rows.map(item => <div key={item.id} className="text-sm"><p className="font-medium">{item.reference}</p><ul className="list-disc pl-5 text-xs text-app-muted">{item.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul></div>)}
     </section>}

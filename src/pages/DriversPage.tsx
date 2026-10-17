@@ -1,3 +1,4 @@
+import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
 import { DriverAvatar } from '../components/DriverAvatar';
 import { ListSummary } from '../components/layout/ListSummary';
 import { DirectoryPasswordForm } from '../components/entities/DirectoryPasswordForm';
@@ -54,6 +55,7 @@ export function DriversPage({
   openDriverId,
   onOpenHandled
 }: DriversPageProps) {
+  const timeZone = useWorkspaceAccount()?.settings.data.time_zone ?? 'America/Vancouver';
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const driverQuery = useQuery({ queryKey: ['operations', slug, 'drivers'], queryFn: () => allOperations.drivers(slug!), enabled: !!slug });
@@ -100,7 +102,7 @@ export function DriversPage({
     if (slug) {
       try {
         const previous = driverQuery.data?.find(row => row.id === form.id);
-        const saved = previous ? await operations.updateDriver(slug, previous, driverFromUi(form, previous, form.addressCoordinates), form.dutyStatus) : await operations.createDriver(slug, driverFromUi(form, undefined, form.addressCoordinates));
+        const saved = previous ? await operations.updateDriver(slug, previous, driverFromUi(form, previous, form.addressCoordinates, timeZone), form.dutyStatus) : await operations.createDriver(slug, driverFromUi(form, undefined, form.addressCoordinates, timeZone));
         await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'drivers'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]);
         setActiveDriverDrawer(null); setShowAddModal(false);
         if (saved.initial_password) setInitialCredential({ name: saved.name, email: saved.email, password: saved.initial_password });
@@ -345,7 +347,7 @@ export function DriversPage({
         </Dialog>
       )}
 
-      {initialCredential && <Dialog size="md" onClose={() => setInitialCredential(null)}><DialogHeader title="Driver account created" onClose={() => setInitialCredential(null)} /><DialogBody className="space-y-3 text-sm"><p>Give these login details to {initialCredential.name}. The password is shown only once.</p><p><strong>Email:</strong> {initialCredential.email}</p><p><strong>Initial password:</strong> <code>{initialCredential.password}</code></p></DialogBody><DialogFooter><Button type="button" onClick={() => setInitialCredential(null)}>Done</Button></DialogFooter></Dialog>}
+      {initialCredential && <Dialog size="md" onClose={() => setInitialCredential(null)}><DialogHeader title="Driver account created" onClose={() => setInitialCredential(null)} /><DialogBody className="space-y-3 text-sm"><p>Give these login details to {initialCredential.name}. The password is shown only once.</p><p><strong>Email:</strong> {initialCredential.email}</p><p><strong>Initial password:</strong> <code>{initialCredential.password}</code></p></DialogBody></Dialog>}
 
       {/* ADD DRIVER MODAL */}
       {showAddModal && (

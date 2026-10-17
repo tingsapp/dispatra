@@ -1,29 +1,32 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { MessageSquare, ArrowUpRight } from 'lucide-react';
+import { Button } from '../ui/button';
+import { ChatPopup } from './ChatPopup';
 import { useOrderChannels, type ChatChannel, type ChatKind } from '../../chat/api';
-import { Dialog, DialogBody, DialogHeader } from '../ui/Dialog';
-import { useEntityDialog } from '../entities/useEntityDialog';
 import { ChatThread } from './ChatThread';
 
 const channelKey = (channel: ChatChannel) => `${channel.kind}:${channel.driver_id ?? ''}`;
 
 /** An Order's chats for the signed-in account: one tab per counterpart (the API decides which exist and which are read-only). */
-export function OrderChat({ slug, orderId, initialKind, initialConversation }: { slug: string; orderId: string; initialKind?: ChatKind; initialConversation?: string }) {
+export function OrderChat({ slug, orderId, initialKind, initialConversation, expectedDriverId }: { slug: string; orderId: string; initialKind?: ChatKind; initialConversation?: string; expectedDriverId?: string }) {
   const channels = useOrderChannels(slug, orderId);
   const [selected, setSelected] = useState<string | null>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const rows = channels.data ?? [];
-  const current = rows.find(row => channelKey(row) === selected) ?? rows.find(row => initialConversation && row.conversation_id === initialConversation)
-    ?? rows.find(row => row.kind === initialKind) ?? rows[0];
+  const requested = rows.find(row => initialConversation ? row.conversation_id === initialConversation
+    : row.kind === initialKind && (!expectedDriverId || row.driver_id === expectedDriverId));
+  const current = rows.find(row => channelKey(row) === selected) ?? requested
+    ?? (initialKind || initialConversation ? undefined : rows[0]);
   if (channels.isPending) return <p role="status" className="py-6 text-center text-xs text-slate-500">Loading chats…</p>;
-  if (channels.error) return <p role="alert" className="py-6 text-center text-xs text-red-700">Chats could not be loaded.</p>;
-  if (!current) return <p className="py-6 text-center text-xs text-slate-500">No chats are available for this order.</p>;
+  if (channels.error) return <div className="py-6 text-center"><p role="alert" className="text-sm text-red-700">Chats could not be loaded.</p><Button variant="outline" className="mt-3" onClick={() => void channels.refetch()}>Try again</Button></div>;
+  if (!current) return <p className="py-6 text-center text-xs text-slate-500">This conversation is unavailable. Reopen the order to view its current chats.</p>;
   const select = (index: number) => { setSelected(channelKey(rows[index])); tabs.current[index]?.focus(); };
   return <div className="space-y-3">
-    {rows.length > 1 && <div role="tablist" aria-label="Chats" className="flex flex-wrap gap-1">
+    {rows.length > 1 && <div role="tablist" aria-label="Chats" className="flex gap-1 overflow-x-auto py-1" style={{scrollbarWidth:'none'}}>
       {rows.map((row, index) => {
         const active = channelKey(row) === channelKey(current);
         return <button key={channelKey(row)} ref={node => { tabs.current[index] = node; }} type="button" role="tab" aria-selected={active} tabIndex={active ? 0 : -1}
-          className="app-tab inline-flex items-center gap-1.5" onClick={() => setSelected(channelKey(row))}
+          className="app-tab inline-flex shrink-0 items-center gap-1.5" onClick={() => setSelected(channelKey(row))}
           aria-label={`${row.title}${row.unread ? `, ${row.unread} unread` : ''}${row.can_send ? '' : ', read-only'}`}
           onKeyDown={event => {
             const next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: rows.length - 1 }[event.key];
@@ -39,19 +42,25 @@ export function OrderChat({ slug, orderId, initialKind, initialConversation }: {
   </div>;
 }
 
-/** Order details section; chat history stays with the order. */
+/** Every order details view launches the same conversation popup. */
 export function OrderChatSection({ slug, orderId }: { slug: string; orderId: string }) {
-  return <section aria-label="Messages" className="rounded-xl border border-slate-200 p-5 space-y-3">
-    <h4 className="app-section-title">Messages</h4>
-    <OrderChat slug={slug} orderId={orderId} />
+  const [open, setOpen] = useState(false);
+  return <section aria-label="Messages" className="rounded-xl border border-slate-200 p-4">
+    <button type="button" onClick={() => setOpen(true)} className="flex w-full items-center gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-app-accent" aria-label="Open order messages">
+      <MessageSquare className="size-5 shrink-0 text-slate-500" aria-hidden="true" />
+      <span className="min-w-0 flex-1"><span className="block text-sm font-medium">Messages</span><span className="mt-0.5 block text-xs text-slate-500">Talk with the people on this order.</span></span>
+      <ArrowUpRight className="size-4 text-slate-400" aria-hidden="true" />
+    </button>
+    {open && <ChatDialog slug={slug} orderId={orderId} onClose={() => setOpen(false)} />}
   </section>;
 }
 
-/** Stand-alone chat for one order, opened from tracking or the Messages inbox. */
-export function ChatDialog({ slug, orderId, orderNumber, initialKind, onClose }: { slug: string; orderId: string; orderNumber?: string; initialKind?: ChatKind; onClose: () => void }) {
-  useEntityDialog(true, onClose);
-  return <Dialog size="md" onClose={onClose}>
-    <DialogHeader onClose={onClose} title={orderNumber ? `Messages · ${orderNumber}` : 'Messages'} description="Chats stay with this order and become read-only once it is completed." />
-    <DialogBody><OrderChat slug={slug} orderId={orderId} initialKind={initialKind} /></DialogBody>
-  </Dialog>;
+/** One shared popup for order contacts, tracking, profiles and the inbox. */
+export function ChatDialog({ slug, orderId, orderNumber, initialKind, initialConversation, expectedDriverId, orderPicker, onClose }: {
+  slug: string; orderId: string; orderNumber?: string; initialKind?: ChatKind; initialConversation?: string; expectedDriverId?: string; orderPicker?: ReactNode; onClose: () => void;
+}) {
+  return <ChatPopup orderNumber={orderNumber} onClose={onClose}>
+    {orderPicker}
+    <OrderChat key={`${orderId}:${initialKind ?? initialConversation ?? ''}:${expectedDriverId ?? ''}`} slug={slug} orderId={orderId} initialKind={initialKind} initialConversation={initialConversation} expectedDriverId={expectedDriverId} />
+  </ChatPopup>;
 }

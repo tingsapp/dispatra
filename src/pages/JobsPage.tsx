@@ -1,3 +1,4 @@
+import { FleetPlan } from '../components/monitor/FleetPlan';
 import { clockText } from '../lib/dateTimeFormat';
 import { DriverAvatar } from '../components/DriverAvatar';
 import { ListSummary } from '../components/layout/ListSummary';
@@ -373,6 +374,7 @@ export function JobsPage({
     <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
       {/* HEADER BAR */}
       <PageHeader title="Orders" description="Order details, shipper pricing, time windows and assignments." actions={<>
+          {slug && <FleetPlan slug={slug} orders={orderQuery.data ?? []} />}
           <Button type="button" variant="outline" onClick={() => openCreateModal('quote')} className="app-action app-secondary"><Plus className="w-3.5 h-3.5" />New Quote</Button>
           <Button
             type="button"

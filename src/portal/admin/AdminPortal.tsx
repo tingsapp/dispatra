@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, Building2, CreditCard, CircleDollarSign, Plus, Wrench } from 'lucide-react';
+import { Activity, Building2, CreditCard, CircleDollarSign, Plus, Wrench, Plug } from 'lucide-react';
 import { api, type Account } from '../api';
 import { PortalShell } from '../PortalShell';
 import { Button, Notice } from '../ui';
@@ -16,6 +16,7 @@ import { AgentMonitorPage } from './AgentMonitorPage';
 import type { MonitorFocus } from './AgentDetailsDialog';
 import { AdminNotificationBell } from './AdminNotificationBell';
 import { StatusBadge } from './QueryState';
+import { AdminIntegrationsPage } from './AdminIntegrationsPage';
 
 /** Platform owner workspace. Every page is also enforced by ADMIN checks in the API. */
 export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { account: Account; onLogout: () => void; loggingOut: boolean; logoutError: unknown }) {
@@ -37,8 +38,8 @@ export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { ac
   const companyId = route?.page === 'company' ? route.id : '';
   // Shares the detail page's cache entry so the header shows the company name.
   const company = useQuery({ queryKey: companyKey(companyId), queryFn: () => api.company(companyId), enabled: Boolean(companyId) }).data;
-  const title = !route ? 'Page not found' : route.page === 'revenue' ? 'Revenue' : route.page === 'billing' ? 'Subscription' : route.page === 'monitor' ? 'One connected machine.' : route.page === 'profile' ? 'Profile' : route.page === 'company' ? company?.name ?? 'Company' : 'Companies';
-  const description = !route ? 'This administration page does not exist.' : route.page === 'revenue' ? 'Expected recurring revenue.' : route.page === 'billing' ? 'Monthly pricing for both Dispatra plans.' : route.page === 'monitor' ? 'Live engines, agents and data flow.' : route.page === 'profile' ? 'Your owner account and password.' : route.page === 'company' ? 'Company details, subscription and dispatcher account.' : 'Dispatch companies on this Dispatra installation.';
+  const title = !route ? 'Page not found' : route.page === 'integrations' ? 'Integrations' : route.page === 'revenue' ? 'Revenue' : route.page === 'billing' ? 'Subscription' : route.page === 'monitor' ? 'One connected machine.' : route.page === 'profile' ? 'Profile' : route.page === 'company' ? company?.name ?? 'Company' : 'Companies';
+  const description = !route ? 'This administration page does not exist.' : route.page === 'integrations' ? 'Connected dispatchers by TMS.' : route.page === 'revenue' ? 'Expected recurring revenue.' : route.page === 'billing' ? 'Monthly pricing for both Dispatra plans.' : route.page === 'monitor' ? 'Live engines, agents and data flow.' : route.page === 'profile' ? 'Your owner account and password.' : route.page === 'company' ? 'Company details, subscription and dispatcher account.' : 'Dispatch companies on this Dispatra installation.';
   useEffect(() => { document.title = `${title} · Dispatra administration`; }, [title]);
   return <PortalShell canvas={route?.page === 'monitor'} company="Platform administration" login={account.login_id} primary={title} icon={Building2} settings={false} description={description}
     titleBadge={route?.page === 'company' && company ? <StatusBadge active={company.active} inactiveLabel={company.workspace_enabled && company.payment_required ? "Payment required" : "Suspended"} /> : undefined}
@@ -46,6 +47,7 @@ export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { ac
     navigation={[{ label: 'Monitor', href: '/admin/monitor', icon: Activity, current: route?.page === 'monitor', badge: monitor.data?.needs_attention ?? 0,
       badgeLabel: monitor.data?.needs_attention === 1 ? 'report needs attention' : 'reports need attention' },
       { label: 'Companies', href: '/admin/companies', icon: Building2, current: route?.page === 'companies' || route?.page === 'company' },
+      { label: 'Integrations', href: '/admin/integrations', icon: Plug, current: route?.page === 'integrations' },
       { label: 'Subscription', href: '/admin/billing', icon: CreditCard, current: route?.page === 'billing' },
       { label: 'Revenue', href: '/admin/revenue', icon: CircleDollarSign, current: route?.page === 'revenue' }]}
     onNavigate={href => go(adminRoute(href) ?? { page: 'companies' })} onHome={() => go({ page: 'companies' })} onSettings={() => go({ page: 'profile' })}
@@ -61,6 +63,7 @@ export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { ac
     {route?.page === 'companies' && <CompaniesPage creating={creating} onCreatingChange={setCreating} onOpen={id => go({ page: 'company', id })} />}
     {route?.page === 'company' && <CompanyDetailPage key={`${route.id}:${route.tab ?? 'overview'}`} id={route.id} initialTab={route.tab} onBack={() => go({ page: 'companies' })} />}
     {route?.page === 'profile' && <OwnerProfilePage account={account} />}
+    {route?.page === 'integrations' && <AdminIntegrationsPage />}
     {route?.page === 'billing' && <SubscriptionBillingPage />}
     {route?.page === 'revenue' && <PlatformRevenuePage onOpenCompany={id => go({ page: 'company', id, tab: 'subscription' })} />}
     {route?.page === 'monitor' && <AgentMonitorPage demo={machineDemo} query={monitor} accountId={account.id} focus={monitorFocus} onFocusChange={setMonitorFocus} checkError={platformCheck.error} checkRequested={platformCheck.isSuccess} />}
