@@ -70,6 +70,7 @@
   --app-radius-action: 999px;
   --app-radius-menu-item: .625rem;
   --app-focus-color: #8f8f8f;
+  --app-input-focus-color: #000000;
   --app-backdrop: #00000066;
   --app-action-height: 2.5rem;
 }

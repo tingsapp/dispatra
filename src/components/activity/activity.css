@@ -39,7 +39,7 @@
 }
 .assistant-toggle-icon g { transition: stroke 200ms ease; }
 .assistant-search-composer { padding: 8px 12px; }
-.assistant-search-composer:focus-within { outline: 1px solid #8f8f8f; outline-offset: 2px; }
+.assistant-search-composer:focus-within { outline: 1px solid var(--app-input-focus-color); outline-offset: 2px; }
 .assistant-search-composer textarea { padding: 0 40px 0 0; font-size: 13px; line-height: 24px; }
 .company-activity-panel .company-activity-row { background: transparent; }
 .company-activity-panel button[aria-label="Close Dispatra"]:hover { background: var(--color-app-hover); color: #0d0d0d; }
