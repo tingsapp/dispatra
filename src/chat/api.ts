@@ -12,6 +12,7 @@ export type ChatInboxItem = components['schemas']['InboxItem'];
 /** Every chat query lives under ['chat', slug] so one `message` sync change refreshes them all. */
 export const chatKeys = {
   all: (slug: string) => ['chat', slug] as const,
+  company: (slug: string, driverId: string) => ['chat', slug, 'company', driverId] as const,
   inbox: (slug: string) => ['chat', slug, 'inbox'] as const,
   order: (slug: string, orderId: string) => ['chat', slug, 'order', orderId] as const,
   thread: (slug: string, conversationId: string) => ['chat', slug, 'thread', conversationId] as const,
@@ -22,6 +23,8 @@ export const THREAD_POLL_MS = 4_000;
 export const PAGE_SIZE = 50;
 
 export const chat = {
+  companyChannel: async (slug: string, driverId: string) => unwrap(await client.GET('/api/v1/companies/{slug}/drivers/{driver_id}/chat', { params: { path: { slug, driver_id: driverId } } })),
+  sendCompany: async (slug: string, driverId: string, body: string, key: string) => unwrap(await client.POST('/api/v1/companies/{slug}/drivers/{driver_id}/chat/messages', { body: { body }, params: { path: { slug, driver_id: driverId }, header: { 'Idempotency-Key': key } } })),
   inbox: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/chats', { params: { path: { slug } } })),
   channels: async (slug: string, orderId: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{order_id}/chats', { params: { path: { slug, order_id: orderId } } })),
   messages: async (slug: string, conversationId: string, limit = PAGE_SIZE) => unwrap(await client.GET('/api/v1/companies/{slug}/chats/{conversation_id}/messages', { params: { path: { slug, conversation_id: conversationId }, query: { limit } } })),
@@ -37,6 +40,10 @@ export function useUnreadMessages(slug: string | null | undefined) {
 
 export function useOrderChannels(slug: string, orderId: string) {
   return useQuery({ queryKey: chatKeys.order(slug, orderId), queryFn: () => chat.channels(slug, orderId) });
+}
+
+export function useCompanyChannel(slug: string, driverId: string) {
+  return useQuery({ queryKey: chatKeys.company(slug, driverId), queryFn: () => chat.companyChannel(slug, driverId) });
 }
 
 export function useChatInbox(slug: string) {
@@ -69,12 +76,12 @@ export function useMarkRead(slug: string, conversationId: string | null, message
   }, [slug, conversationId, latest, active, cache]);
 }
 
-export function useSendMessage(slug: string, orderId: string, kind: ChatKind) {
+export function useSendMessage(slug: string, orderId: string | undefined, kind: ChatKind, driverId?: string) {
   const cache = useQueryClient();
   return useMutation({
     // The key is fixed per attempt so a retried send never duplicates the message.
-    mutationFn: ({ body, key }: { body: string; key: string }) => chat.send(slug, orderId, kind, body, key),
+    mutationFn: ({ body, key }: { body: string; key: string }) => orderId ? chat.send(slug, orderId, kind, body, key) : driverId ? chat.sendCompany(slug, driverId, body, key) : Promise.reject(new Error('Conversation unavailable.')),
     onSuccess: message => Promise.all([cache.invalidateQueries({ queryKey: chatKeys.thread(slug, message.conversation_id) }),
-      cache.invalidateQueries({ queryKey: chatKeys.order(slug, orderId) }), cache.invalidateQueries({ queryKey: chatKeys.inbox(slug) })]),
+      cache.invalidateQueries({ queryKey: chatKeys.all(slug) }), cache.invalidateQueries({ queryKey: chatKeys.inbox(slug) })]),
   });
 }

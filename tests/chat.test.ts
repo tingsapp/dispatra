@@ -105,3 +105,35 @@ test('a missing or reassigned requested counterpart never falls back to another 
   assert.ok(await screen.findByText('This conversation is unavailable. Reopen the order to view its current chats.'));
   assert.equal(screen.queryByRole('textbox'),null);
 });
+
+
+test('driver contact opens one ongoing company conversation without choosing an order', async () => {
+  const { DriverChatDialog } = await import('../src/components/chat/DriverChatDialog');
+  const user = userEvent.setup({ document });
+  const sends: unknown[][] = [];
+  Object.assign(chat, {
+    companyChannel: async (_slug: string, driverId: string) => { assert.equal(driverId, 'driver-1'); return channel('DISPATCH_DRIVER', 'Dana Driver', null, { driver_id: 'driver-1' }); },
+    channels: async () => { throw new Error('Company chat must not request order channels'); },
+    sendCompany: async (...args: unknown[]) => { sends.push(args); return message(1, 'Hello driver', true); },
+  });
+  mount(React.createElement(DriverChatDialog, { slug: 'acme', driver: { id: 'driver-1', name: 'Dana Driver' } as never, onClose: () => {} }));
+  const box = await screen.findByRole('textbox', { name: 'Message Dana Driver' });
+  assert.equal(screen.queryByRole('tablist'), null);
+  assert.equal(screen.queryByText(/Choose an order/), null);
+  await user.type(box, 'Hello driver');
+  await user.click(screen.getByRole('button', { name: 'Send message' }));
+  await waitFor(() => assert.equal(sends.length, 1));
+  assert.deepEqual(sends[0].slice(0,3), ['acme','driver-1','Hello driver']);
+});
+
+test('company inbox opens its driver conversation without a fabricated order', async () => {
+  const user = userEvent.setup({ document });
+  Object.assign(chat, {
+    inbox: async () => [{ conversation_id: 'company-1', order_id: null, order_number: null, order_status: null, driver_id: 'driver-1', kind: 'DISPATCH_DRIVER', title: 'Dana Driver', can_send: true, unread: 0, last_message: null, last_message_at: null }],
+    companyChannel: async () => channel('DISPATCH_DRIVER', 'Dana Driver', null, { driver_id: 'driver-1' }),
+  });
+  mount(React.createElement(MessagesInbox, { slug: 'acme' }));
+  await user.click(await screen.findByRole('button', { name: /Dana Driver, company conversation/ }));
+  assert.ok(await screen.findByRole('textbox', { name: 'Message Dana Driver' }));
+  assert.equal(screen.queryByRole('tablist'), null);
+});

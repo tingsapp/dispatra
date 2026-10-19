@@ -302,3 +302,8 @@ Driver create/edit exposes optional Shift start/end in the company timezone and 
 ## Admin Integrations (2026-10-17)
 
 `/admin/integrations` is one read-only page of connector cards. Each card contains the TMS name/monogram and Connected dispatchers count. There are no tabs, provider settings, company connection lists, setup-request queue or management actions. Counts come from active dispatcher accounts in active company workspaces with a verified connected or previously synchronized connection, credentials, an available provider and no pause. Show loading/error/retry/empty states. No account identities, secrets, maps or vendor payloads are exposed. Company detail returns to its existing Overview, Subscription & billing and History tabs.
+
+
+## Ongoing company/driver conversation (2026-10-19)
+
+The driver's contact chat action opens one persistent Company/Driver conversation without choosing an Order. The inbox can show those conversations with no Order reference and opens the same company popup; dispatcher replies use the new driver-chat endpoint. Order conversations retain their original history, read-only rules and recipient tabs. Changing driver contact resets the composer and never carries drafts across recipients. Shippers cannot access Company/Driver conversations.

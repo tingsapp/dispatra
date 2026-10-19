@@ -14,11 +14,11 @@ function Bubble({ message }: { message: ChatMessage }) {
 }
 
 /** One conversation: its messages (newest at the bottom) and, when the caller may send, a composer. */
-export function ChatThread({ slug, orderId, channel }: { slug: string; orderId: string; channel: ChatChannel }) {
+export function ChatThread({ slug, orderId, driverId, channel }: { slug: string; orderId?: string; driverId?: string; channel: ChatChannel }) {
   const thread = useThread(slug, channel.conversation_id);
   const messages = thread.data?.messages;
   useMarkRead(slug, channel.conversation_id, messages, true);
-  const send = useSendMessage(slug, orderId, channel.kind);
+  const send = useSendMessage(slug, orderId, channel.kind, driverId);
   const [draft, setDraft] = useState('');
   // One idempotency key per attempt: retrying the same text never posts it twice.
   const attempt = useRef(crypto.randomUUID());
@@ -38,7 +38,7 @@ export function ChatThread({ slug, orderId, channel }: { slug: string; orderId: 
     send.mutate({ body, key: attempt.current }, { onSuccess: () => { setDraft(''); attempt.current = crypto.randomUUID(); } });
   };
   return <div className="flex min-h-0 flex-col gap-3">
-    <div className="flex items-center gap-2.5 px-1"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-medium text-slate-600" aria-hidden="true">{channel.title.slice(0,1).toUpperCase()}</span><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-900">{channel.title}</p><p className="text-[11px] text-slate-500">{channel.can_send ? 'Order conversation' : 'Read-only conversation'}</p></div></div>
+    <div className="flex items-center gap-2.5 px-1"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-medium text-slate-600" aria-hidden="true">{channel.title.slice(0,1).toUpperCase()}</span><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-900">{channel.title}</p><p className="text-[11px] text-slate-500">{channel.can_send ? orderId ? 'Order conversation' : 'Company conversation' : 'Read-only conversation'}</p></div></div>
     <ol ref={list} role="log" aria-live="polite" aria-label={`Messages with ${channel.title}`} className="h-[min(42vh,360px)] min-h-40 space-y-4 overflow-y-auto overscroll-contain rounded-xl bg-slate-50/80 p-3 sm:p-4">
       {thread.canShowEarlier && <li className="text-center"><button type="button" className="text-xs font-medium text-slate-600 hover:text-slate-900" onClick={thread.showEarlier}>Show earlier messages</button></li>}
       {!channel.conversation_id ? <li className="py-10 text-center text-xs text-slate-500">{channel.can_send ? `No messages yet. Write to ${channel.title} below.` : 'No messages.'}</li>

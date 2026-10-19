@@ -808,7 +808,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         onEdit={job => { setDossierJob(null); setEditJobId(job.id); setActiveTab('jobs'); }} onUpdateJob={handleUpdateJob} onNotification={showToast} />}
 
       {slug && contactChat && <ChatDialog slug={slug} orderId={contactChat.order.id} orderNumber={contactChat.order.jobNumber} initialKind={contactChat.kind} expectedDriverId={contactChat.driverId} onClose={() => setContactChat(null)} />}
-      {slug && driverChat && <DriverChatDialog slug={slug} driver={driverChat} jobs={jobs} onClose={() => setDriverChat(null)} />}
+      {slug && driverChat && <DriverChatDialog slug={slug} driver={driverChat} onClose={() => setDriverChat(null)} />}
 
       {/* FULL CLOSABLE DETAIL MODAL DIALOG (Z-[100] PORTAL OVERLAY) */}
       <DetailModalDialog

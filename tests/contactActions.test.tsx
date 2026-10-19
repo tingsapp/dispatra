@@ -2,7 +2,7 @@ import {JSDOM} from 'jsdom';
 import assert from 'node:assert/strict';
 import {afterEach,test} from 'node:test';
 import React from 'react';
-import type {Driver,Job} from '../src/types';
+import type {Driver} from '../src/types';
 const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:'http://localhost/acme/',pretendToBeVisual:true});
 for(const name of ['window','document','navigator','HTMLElement','HTMLInputElement','Element','Node','Event','CustomEvent','MutationObserver','getComputedStyle','localStorage'])Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
 const {render,screen,cleanup,fireEvent,waitFor,within}=await import('@testing-library/react');
@@ -15,7 +15,6 @@ const original={...chat};let cache:InstanceType<typeof QueryClient>|undefined;
 afterEach(()=>{cleanup();cache?.clear();Object.assign(chat,original);});
 function mount(node:React.ReactElement){cache=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false,gcTime:0}}});return render(<QueryClientProvider client={cache}>{node}</QueryClientProvider>);}
 const driver={id:'d1',name:'Dana'} as Driver;
-const order=(id:string):Job=>({id,jobNumber:`ORD-${id}`,customerName:'Example Shipper',assignedDriverId:'d1',lifecycleStatus:'ASSIGNED'} as Job);
 const channel={kind:'DISPATCH_DRIVER',title:'Dana',conversation_id:null,driver_id:'d1',can_send:true,closed_reason:null,unread:0,last_message_at:null} as Awaited<ReturnType<typeof chat.channels>>[number];
 
 test('message is independent of phone and missing phone never launches a call',()=>{
@@ -28,17 +27,15 @@ test('call links dial the saved contact while unavailable chat is explicit',()=>
  assert.equal(screen.getByRole('link',{name:'Call Dana'}).getAttribute('href'),'tel:+16045550102');
  assert.equal((screen.getByRole('button',{name:'Message Dana'}) as HTMLButtonElement).disabled,true);
 });
-test('driver profile chooses an order and opens its driver chat, excluding unrelated drivers',async()=>{
- const requested:string[]=[];chat.channels=async(_slug,id)=>{requested.push(id);return [channel];};
- mount(<DriverChatDialog slug="acme" driver={driver} jobs={[order('one'),order('two'),{...order('other'),assignedDriverId:'d2'}]} onClose={()=>{}}/>);
- assert.equal(screen.queryByText('ORD-other'),null);assert.equal(screen.queryByRole('textbox'),null);
- fireEvent.click(screen.getByRole('button',{name:'Order ORD-two, Example Shipper'}));
- assert.ok(await screen.findByRole('textbox',{name:'Message Dana'}));assert.deepEqual(requested,['two']);
- assert.ok(screen.getByRole('dialog',{name:'Messages · ORD-two'}));
+test('driver profile opens the ongoing company thread without selecting an order',async()=>{
+ const requested:string[]=[];chat.companyChannel=async(_slug,id)=>{requested.push(id);return channel;};
+ mount(<DriverChatDialog slug="acme" driver={driver} onClose={()=>{}}/>);
+ assert.ok(await screen.findByRole('textbox',{name:'Message Dana'}));assert.deepEqual(requested,['d1']);
+ assert.equal(screen.queryByText(/Choose an order/),null);assert.ok(screen.getByRole('dialog',{name:'Messages'}));
 });
-test('no assigned driver order explains availability without opening the API or SMS',()=>{
- let reads=0;chat.channels=async()=>{reads++;return [];};mount(<DriverChatDialog slug="acme" driver={driver} jobs={[]} onClose={()=>{}}/>);
- assert.ok(screen.getByText(/No order conversations are available for Dana/));assert.equal(reads,0);assert.equal(screen.queryByRole('textbox'),null);
+test('unavailable company chat explains the failure without launching SMS',async()=>{
+ chat.companyChannel=async()=>{throw new Error('Network down');};mount(<DriverChatDialog slug="acme" driver={driver} onClose={()=>{}}/>);
+ assert.ok(await screen.findByRole('alert'));assert.equal(screen.queryByRole('textbox'),null);assert.equal(document.querySelector('a[href^="sms:"]'),null);
 });
 test('order detail entry opens the reusable portalled popup and closes by Escape',async()=>{
  chat.channels=async()=>[channel];mount(<OrderChatSection slug="acme" orderId="one"/>);
@@ -56,9 +53,10 @@ test('the requested shipper or driver conversation gets the built-in send action
 });
 
 
-test('a driver reassignment cannot silently switch an open profile chat to another order',async()=>{
- chat.channels=async()=>[channel];const view=mount(<DriverChatDialog slug="acme" driver={driver} jobs={[order('one')]} onClose={()=>{}}/>);
- assert.ok(await screen.findByRole('textbox',{name:'Message Dana'}));
- view.rerender(<QueryClientProvider client={cache!}><DriverChatDialog slug="acme" driver={driver} jobs={[order('two')]} onClose={()=>{}}/></QueryClientProvider>);
- assert.equal(screen.queryByRole('textbox'),null);assert.ok(screen.getByRole('button',{name:'Order ORD-two, Example Shipper'}));
+test('switching driver contact resets the composer and cannot retain another recipient draft',async()=>{
+ chat.companyChannel=async(_slug,id)=>({...channel,driver_id:id,title:id==='d1'?'Dana':'Sam'});
+ const view=mount(<DriverChatDialog slug="acme" driver={driver} onClose={()=>{}}/>);
+ const first=await screen.findByRole('textbox',{name:'Message Dana'});fireEvent.change(first,{target:{value:'Private draft'}});
+ view.rerender(<QueryClientProvider client={cache!}><DriverChatDialog slug="acme" driver={{...driver,id:'d2',name:'Sam'}} onClose={()=>{}}/></QueryClientProvider>);
+ const next=await screen.findByRole('textbox',{name:'Message Sam'});assert.equal((next as HTMLTextAreaElement).value,'');assert.equal(screen.queryByRole('textbox',{name:'Message Dana'}),null);
 });
