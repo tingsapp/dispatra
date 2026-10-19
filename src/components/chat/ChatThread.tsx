@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Send } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useMarkRead, useSendMessage, useThread, type ChatChannel, type ChatMessage } from '../../chat/api';
 
@@ -37,9 +37,8 @@ export function ChatThread({ slug, orderId, driverId, channel }: { slug: string;
     if (!body || send.isPending || !channel.can_send) return;
     send.mutate({ body, key: attempt.current }, { onSuccess: () => { setDraft(''); attempt.current = crypto.randomUUID(); } });
   };
-  return <div className="flex min-h-0 flex-col gap-3">
-    <div className="flex items-center gap-2.5 px-1"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-medium text-slate-600" aria-hidden="true">{channel.title.slice(0,1).toUpperCase()}</span><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-900">{channel.title}</p><p className="text-[11px] text-slate-500">{channel.can_send ? orderId ? 'Order conversation' : 'Company conversation' : 'Read-only conversation'}</p></div></div>
-    <ol ref={list} role="log" aria-live="polite" aria-label={`Messages with ${channel.title}`} className="h-[min(42vh,360px)] min-h-40 space-y-4 overflow-y-auto overscroll-contain rounded-xl bg-slate-50/80 p-3 sm:p-4">
+  return <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <ol ref={list} role="log" tabIndex={0} aria-live="polite" aria-label={`Messages with ${channel.title}`} className="chat-message-list h-[min(42vh,360px)] min-h-0 space-y-4 overflow-y-auto overscroll-contain px-1 py-2">
       {thread.canShowEarlier && <li className="text-center"><button type="button" className="text-xs font-medium text-slate-600 hover:text-slate-900" onClick={thread.showEarlier}>Show earlier messages</button></li>}
       {!channel.conversation_id ? <li className="py-10 text-center text-xs text-slate-500">{channel.can_send ? `No messages yet. Write to ${channel.title} below.` : 'No messages.'}</li>
         : thread.isPending ? <li role="status" className="py-10 text-center text-xs text-slate-500">Loading messages…</li>
@@ -47,14 +46,14 @@ export function ChatThread({ slug, orderId, driverId, channel }: { slug: string;
         : messages?.length ? messages.map(message => <Bubble key={message.id} message={message} />)
         : <li className="py-10 text-center text-xs text-slate-500">No messages.</li>}
     </ol>
-    {channel.can_send ? <form className="relative" onSubmit={event => { event.preventDefault(); submit(); }}>
+    {channel.can_send ? <form className="relative shrink-0" onSubmit={event => { event.preventDefault(); submit(); }}>
       <label className="sr-only" htmlFor={`chat-${orderId}-${channel.kind}`}>Message {channel.title}</label>
       <textarea ref={composer} style={{minHeight:52,maxHeight:112}} id={`chat-${orderId}-${channel.kind}`} rows={1} disabled={send.isPending} maxLength={MAX_LENGTH} value={draft} placeholder="Write a message…" className="app-input block min-h-0 w-full resize-none! rounded-xl bg-white py-3 pl-3.5 pr-12 text-sm"
         onChange={event => { setDraft(event.target.value); attempt.current = crypto.randomUUID(); }}
         onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
       {/* Icon-only send inside the field's bottom-right corner. */}
       <Button type="submit" size="icon-sm" className="absolute right-2 bottom-2 rounded-full" disabled={!body || send.isPending} aria-busy={send.isPending}
-        aria-label={send.isPending ? 'Sending message' : 'Send message'} title="Send (Enter)"><Send aria-hidden="true" /></Button>
+        aria-label={send.isPending ? 'Sending message' : 'Send message'} title="Send (Enter)"><ArrowUp className="size-5" strokeWidth={2.5} aria-hidden="true" /></Button>
     </form> : <p className="text-xs text-slate-500">{channel.closed_reason}</p>}
     {send.error && <p role="alert" className="text-xs text-red-700">{send.error.message || 'Message not sent. Try again.'}</p>}
   </div>;

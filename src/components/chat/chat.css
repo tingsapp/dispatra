@@ -1,0 +1,24 @@
+.app-chat-popup .app-chat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.chat-message-list,
+.app-chat-popup [role="tablist"],
+.app-chat-popup textarea {
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+}
+
+.chat-message-list::-webkit-scrollbar,
+.app-chat-popup [role="tablist"]::-webkit-scrollbar,
+.app-chat-popup textarea::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-message-list:focus-visible {
+  outline: 1px solid black;
+  outline-offset: 2px;
+}

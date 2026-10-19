@@ -307,3 +307,8 @@ Driver create/edit exposes optional Shift start/end in the company timezone and 
 ## Ongoing company/driver conversation (2026-10-19)
 
 The driver's contact chat action opens one persistent Company/Driver conversation without choosing an Order. The inbox can show those conversations with no Order reference and opens the same company popup; dispatcher replies use the new driver-chat endpoint. Order conversations retain their original history, read-only rules and recipient tabs. Changing driver contact resets the composer and never carries drafts across recipients. Shippers cannot access Company/Driver conversations.
+
+
+## Web chat popup presentation (2026-10-19)
+
+All human conversation popups in dispatcher, Shipper and web Driver portals use the current recipient's name as their single header, with an initial avatar and Driver/Shipper role beneath it. For dispatch/company recipients, show the authenticated workspace's company name beneath the API-provided recipient title. The dispatcher oversight conversation identifies Driver · Shipper and retains its read-only reason. Keep any Order number beside the recipient role and update the header/accessibility label when switching tabs. Remove the generic Messages heading, explanatory subtitle and duplicate recipient row. Render the transcript directly on the white popup with no gray card. Hide transcript, tab and composer scrollbars without reserving gutters; retain wheel, touch, keyboard and earlier-message access. Bound the popup to the viewport with one shrinking transcript and a visible composer. Send uses a white upward arrow in the existing circular black button; Enter/Shift+Enter, pending/disabled states and retry-safe submission remain unchanged.

@@ -31,7 +31,7 @@ test('driver profile opens the ongoing company thread without selecting an order
  const requested:string[]=[];chat.companyChannel=async(_slug,id)=>{requested.push(id);return channel;};
  mount(<DriverChatDialog slug="acme" driver={driver} onClose={()=>{}}/>);
  assert.ok(await screen.findByRole('textbox',{name:'Message Dana'}));assert.deepEqual(requested,['d1']);
- assert.equal(screen.queryByText(/Choose an order/),null);assert.ok(screen.getByRole('dialog',{name:'Messages'}));
+ assert.equal(screen.queryByText(/Choose an order/),null);assert.ok(screen.getByRole('dialog',{name:'Chat with Dana'}));
 });
 test('unavailable company chat explains the failure without launching SMS',async()=>{
  chat.companyChannel=async()=>{throw new Error('Network down');};mount(<DriverChatDialog slug="acme" driver={driver} onClose={()=>{}}/>);
@@ -40,7 +40,7 @@ test('unavailable company chat explains the failure without launching SMS',async
 test('order detail entry opens the reusable portalled popup and closes by Escape',async()=>{
  chat.channels=async()=>[channel];mount(<OrderChatSection slug="acme" orderId="one"/>);
  fireEvent.click(screen.getByRole('button',{name:'Open order messages'}));
- assert.ok(await screen.findByRole('textbox',{name:'Message Dana'}));const popup=screen.getByRole('dialog',{name:'Messages'});
+ assert.ok(await screen.findByRole('textbox',{name:'Message Dana'}));const popup=screen.getByRole('dialog',{name:'Chat with Dana'});
  assert.equal(popup.parentElement,document.body);assert.equal(document.body.style.overflow,'hidden');
  fireEvent.keyDown(document,{key:'Escape'});await waitFor(()=>assert.equal(screen.queryByRole('dialog'),null));assert.equal(document.body.style.overflow,'');
 });

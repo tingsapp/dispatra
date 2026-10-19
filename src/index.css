@@ -8,6 +8,7 @@
 @import "./components/home/whyDispatra.css";
 @import "./components/home/homepage.css";
 @import "./components/activity/activity.css";
+@import "./components/chat/chat.css";
 @import "./components/integrations/connectors/workspace-mode.css";
 @import "./portal/admin/agent-report-log.css";
 @import "./portal/admin/machine-monitor.css";

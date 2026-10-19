@@ -8,7 +8,9 @@ import { ChatThread } from './ChatThread';
 const channelKey = (channel: ChatChannel) => `${channel.kind}:${channel.driver_id ?? ''}`;
 
 /** An Order's chats for the signed-in account: one tab per counterpart (the API decides which exist and which are read-only). */
-export function OrderChat({ slug, orderId, initialKind, initialConversation, expectedDriverId }: { slug: string; orderId: string; initialKind?: ChatKind; initialConversation?: string; expectedDriverId?: string }) {
+export function OrderChat({ slug, orderId, initialKind, initialConversation, expectedDriverId, orderNumber, orderPicker, onClose }: {
+  slug: string; orderId: string; initialKind?: ChatKind; initialConversation?: string; expectedDriverId?: string; orderNumber?: string; orderPicker?: ReactNode; onClose?: () => void;
+}) {
   const channels = useOrderChannels(slug, orderId);
   const [selected, setSelected] = useState<string | null>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -17,12 +19,12 @@ export function OrderChat({ slug, orderId, initialKind, initialConversation, exp
     : row.kind === initialKind && (!expectedDriverId || row.driver_id === expectedDriverId));
   const current = rows.find(row => channelKey(row) === selected) ?? requested
     ?? (initialKind || initialConversation ? undefined : rows[0]);
-  if (channels.isPending) return <p role="status" className="py-6 text-center text-xs text-slate-500">Loading chats…</p>;
-  if (channels.error) return <div className="py-6 text-center"><p role="alert" className="text-sm text-red-700">Chats could not be loaded.</p><Button variant="outline" className="mt-3" onClick={() => void channels.refetch()}>Try again</Button></div>;
-  if (!current) return <p className="py-6 text-center text-xs text-slate-500">This conversation is unavailable. Reopen the order to view its current chats.</p>;
   const select = (index: number) => { setSelected(channelKey(rows[index])); tabs.current[index]?.focus(); };
-  return <div className="space-y-3">
-    {rows.length > 1 && <div role="tablist" aria-label="Chats" className="flex gap-1 overflow-x-auto py-1" style={{scrollbarWidth:'none'}}>
+  const content = channels.isPending ? <p role="status" className="py-6 text-center text-xs text-slate-500">Loading chats…</p>
+    : channels.error ? <div className="py-6 text-center"><p role="alert" className="text-sm text-red-700">Chats could not be loaded.</p><Button variant="outline" className="mt-3" onClick={() => void channels.refetch()}>Try again</Button></div>
+    : !current ? <p className="py-6 text-center text-xs text-slate-500">This conversation is unavailable. Reopen the order to view its current chats.</p>
+    : <div className="flex min-h-0 flex-1 flex-col gap-3">
+    {rows.length > 1 && <div role="tablist" aria-label="Chats" className="flex shrink-0 gap-1 overflow-x-auto py-1" style={{scrollbarWidth:'none'}}>
       {rows.map((row, index) => {
         const active = channelKey(row) === channelKey(current);
         return <button key={channelKey(row)} ref={node => { tabs.current[index] = node; }} type="button" role="tab" aria-selected={active} tabIndex={active ? 0 : -1}
@@ -38,8 +40,9 @@ export function OrderChat({ slug, orderId, initialKind, initialConversation, exp
         </button>;
       })}
     </div>}
-    <div role={rows.length > 1 ? 'tabpanel' : undefined}><ChatThread key={channelKey(current)} slug={slug} orderId={orderId} channel={current} /></div>
+    <div className="flex min-h-0 flex-1 flex-col" role={rows.length > 1 ? 'tabpanel' : undefined}><ChatThread key={channelKey(current)} slug={slug} orderId={orderId} channel={current} /></div>
   </div>;
+  return onClose ? <ChatPopup slug={slug} channel={!channels.isPending && !channels.error ? current : undefined} orderNumber={orderNumber} onClose={onClose}>{orderPicker}{content}</ChatPopup> : content;
 }
 
 /** Every order details view launches the same conversation popup. */
@@ -59,8 +62,5 @@ export function OrderChatSection({ slug, orderId }: { slug: string; orderId: str
 export function ChatDialog({ slug, orderId, orderNumber, initialKind, initialConversation, expectedDriverId, orderPicker, onClose }: {
   slug: string; orderId: string; orderNumber?: string; initialKind?: ChatKind; initialConversation?: string; expectedDriverId?: string; orderPicker?: ReactNode; onClose: () => void;
 }) {
-  return <ChatPopup orderNumber={orderNumber} onClose={onClose}>
-    {orderPicker}
-    <OrderChat key={`${orderId}:${initialKind ?? initialConversation ?? ''}:${expectedDriverId ?? ''}`} slug={slug} orderId={orderId} initialKind={initialKind} initialConversation={initialConversation} expectedDriverId={expectedDriverId} />
-  </ChatPopup>;
+  return <OrderChat key={`${orderId}:${initialKind ?? initialConversation ?? ''}:${expectedDriverId ?? ''}`} slug={slug} orderId={orderId} initialKind={initialKind} initialConversation={initialConversation} expectedDriverId={expectedDriverId} orderNumber={orderNumber} orderPicker={orderPicker} onClose={onClose} />;
 }

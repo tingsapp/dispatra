@@ -10,9 +10,11 @@ const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { chat } = await import('../src/chat/api');
 const { syncKey } = await import('../src/portal/sync');
-const { OrderChat } = await import('../src/components/chat/OrderChat');
+const { OrderChat, ChatDialog } = await import('../src/components/chat/OrderChat');
 const { MessagesInbox } = await import('../src/components/chat/MessagesInbox');
-afterEach(() => cleanup());
+const original = { ...chat };
+let activeCache: InstanceType<typeof QueryClient>;
+afterEach(() => { cleanup(); activeCache?.clear(); Object.assign(chat, original); });
 
 type Channel = Awaited<ReturnType<typeof chat.channels>>[number];
 type Message = Awaited<ReturnType<typeof chat.send>>;
@@ -23,6 +25,8 @@ const message = (seq: number, body: string, mine: boolean, conversation_id = 'c1
 
 function mount(node: React.ReactElement) {
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } } });
+  activeCache = cache;
+  cache.setQueryData(['account'], { role: 'DISPATCHER', organization: { slug: 'acme', name: 'Acme Transport' } });
   cache.setQueryData(syncKey('acme'), { unread: 0, unread_messages: 2 });
   render(React.createElement(QueryClientProvider, { client: cache }, node));
   return cache;
@@ -94,7 +98,7 @@ test('messages inbox lists chats newest first and opens the selected order chat'
   assert.ok(await screen.findByRole('button', { name: /^1 unread\. Fresh Test, order ORD-1/ }));
   assert.ok(screen.getByText('Read-only'));
   await user.click(screen.getByRole('button', { name: /Dana Driver, order ORD-2/ }));
-  assert.ok(await screen.findByRole('dialog', { name: 'Messages · ORD-2' }));
+  assert.ok(await screen.findByRole('dialog', { name: 'Chat with Dana Driver · ORD-2' }));
   assert.ok(await screen.findByRole('textbox', { name: 'Message Dana Driver' }));
 });
 
@@ -136,4 +140,42 @@ test('company inbox opens its driver conversation without a fabricated order', a
   await user.click(await screen.findByRole('button', { name: /Dana Driver, company conversation/ }));
   assert.ok(await screen.findByRole('textbox', { name: 'Message Dana Driver' }));
   assert.equal(screen.queryByRole('tablist'), null);
+});
+
+
+test('popup header follows the selected recipient and preserves order context and read-only controls', async () => {
+  const user = userEvent.setup({ document });
+  chat.channels = async () => [channel('DISPATCH_DRIVER', 'John', null), channel('DISPATCH_SHIPPER', 'Fresh Foods', null),
+    channel('DRIVER_SHIPPER', 'John ↔ Fresh Foods', null, { can_send: false, closed_reason: 'Dispatch can read this chat but not reply.' })];
+  mount(React.createElement(ChatDialog, { slug: 'acme', orderId: 'o1', orderNumber: 'ORD-1', onClose() {} }));
+  assert.ok(await screen.findByRole('heading', { name: 'John' }));
+  assert.ok(screen.getByText('Driver · ORD-1'));
+  assert.equal(screen.queryByText('Company conversation'), null);
+  assert.equal(screen.queryByText(/A private conversation/), null);
+  assert.equal(screen.queryByRole('heading', { name: /Messages/ }), null);
+  assert.equal(screen.getByRole('log').tabIndex, 0, 'the transcript remains keyboard accessible');
+  assert.ok(screen.getByRole('button', { name: 'Send message' }).querySelector('.lucide-arrow-up'));
+  await user.click(screen.getByRole('tab', { name: 'Fresh Foods' }));
+  assert.ok(screen.getByRole('heading', { name: 'Fresh Foods' }));
+  assert.ok(screen.getByText('Shipper · ORD-1'));
+  assert.ok(screen.getByRole('dialog', { name: 'Chat with Fresh Foods · ORD-1' }));
+  await user.click(screen.getByRole('tab', { name: 'John ↔ Fresh Foods, read-only' }));
+  assert.ok(screen.getByRole('heading', { name: 'John ↔ Fresh Foods' }));
+  assert.ok(screen.getByText('Driver · Shipper · ORD-1'));
+  assert.ok(screen.getByText('Dispatch can read this chat but not reply.'));
+  assert.equal(screen.queryByRole('textbox'), null);
+});
+
+for (const [role, kind, title, expected] of [
+  ['SHIPPER', 'DISPATCH_SHIPPER', 'Dispatch', 'Acme Transport'],
+  ['SHIPPER', 'DRIVER_SHIPPER', 'John', 'Driver'],
+  ['DRIVER', 'DISPATCH_DRIVER', 'Company', 'Acme Transport'],
+  ['DRIVER', 'DRIVER_SHIPPER', 'Fresh Foods', 'Shipper'],
+] as const) test(`${role} popup identifies ${title} as ${expected}`, async () => {
+  chat.channels = async () => [channel(kind, title, null)];
+  const cache = mount(React.createElement(ChatDialog, { slug: 'acme', orderId: 'o1', onClose() {} }));
+  cache.setQueryData(['account'], { role, organization: { slug: 'acme', name: 'Acme Transport' } });
+  assert.ok(await screen.findByRole('heading', { name: title }));
+  assert.ok(await screen.findByText(expected));
+  assert.ok(screen.getByRole('textbox', { name: `Message ${title}` }));
 });
