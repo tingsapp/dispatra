@@ -22,7 +22,7 @@ try {
   });
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
-  const paths = ['/', '/plans', '/about', '/how-it-works', '/help', '/contact', '/terms', '/privacy'];
+  const paths = ['/', '/plans', '/about', '/how-it-works', '/help', '/ask-dispatra', '/terms', '/privacy'];
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
     for (const path of paths) {
@@ -45,7 +45,7 @@ try {
       assert.equal(await header.evaluate(el => el.getBoundingClientRect().height), 96);
       if (width >= 768) {
         const nav = header.getByRole('navigation', { name: 'Website navigation', exact: true });
-        for (const [label, href] of [['How it works', '/how-it-works'], ['Plans', '/plans'], ['Let’s talk', '/contact']]) {
+        for (const [label, href] of [['How it works', '/how-it-works'], ['Plans', '/plans'], ['Ask dispatra', '/ask-dispatra']]) {
           assert.equal(await nav.getByRole('link', { name: label, exact: true }).getAttribute('href'), href);
           if (href === path) assert.equal(await nav.getByRole('link', { name: label, exact: true }).getAttribute('aria-current'), 'page');
         }

@@ -91,10 +91,10 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   const canAssign = !live || job.lifecycleStatus === 'NEW' || job.lifecycleStatus === 'ASSIGNED';
   const eligibleDrivers: (EligibleDriver & { unavailableReason?: string })[] = live ? drivers.map(driver => ({
     id: driver.id, code: driver.driverNumber ?? driver.id.slice(0, 8), name: driver.name,
-    avatar: driver.avatar, distance: driver.distance || '—', eta: driver.eta,
+    avatar: driver.avatar, distance: driver.distance || '-', eta: driver.eta,
     status: driver.status === 'on_route' ? 'on_route' as const : 'available' as const,
     unavailableReason: job.pricingInput?.requiredDriverId && driver.id !== job.pricingInput.requiredDriverId ? 'Requires shipper’s assigned driver' : driver.accountStatus === 'INACTIVE' ? 'Inactive account'
-      : [driver.dutyStatus !== 'ON_DUTY' ? 'Off duty' : '', !driver.currentVehicleId ? 'No vehicle attached' : '', driver.status === 'on_route' ? 'On route' : ''].filter(Boolean).join(' ') || undefined,
+      : [driver.dutyStatus !== 'ON_DUTY' ? 'Off duty' : '', !driver.currentVehicleId ? 'No vehicle attached' : ''].filter(Boolean).join(' ') || undefined,
   })) : ELIGIBLE_DRIVERS;
 
   const { ref, placement } = useMapPopupPlacement(position);
@@ -234,7 +234,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                   <span className="font-medium text-slate-900">{index + 1}. {stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
                   <span className="text-slate-500">{visitLabel(stopStatuses[stop.id])}</span>
                 </div>
-                <div className="text-slate-700">{stop.label || '—'}</div>
+                <div className="text-slate-700">{stop.label || '-'}</div>
                 {(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd) && <div className="text-slate-500">{stop.type === 'PICKUP' ? 'Ready at' : 'Deliver by'} {when(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd)}</div>}
                 {(stop.contactName || stop.contactPhone) && <div className="flex items-center justify-between gap-2 text-slate-600">
                   <span className="truncate">{[stop.contactName, formatPhone(stop.contactPhone)].filter(Boolean).join(' · ')}</span>

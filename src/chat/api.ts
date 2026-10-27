@@ -25,6 +25,8 @@ export const PAGE_SIZE = 50;
 export const chat = {
   companyChannel: async (slug: string, driverId: string) => unwrap(await client.GET('/api/v1/companies/{slug}/drivers/{driver_id}/chat', { params: { path: { slug, driver_id: driverId } } })),
   sendCompany: async (slug: string, driverId: string, body: string, key: string) => unwrap(await client.POST('/api/v1/companies/{slug}/drivers/{driver_id}/chat/messages', { body: { body }, params: { path: { slug, driver_id: driverId }, header: { 'Idempotency-Key': key } } })),
+  shipperCompanyChannel: async (slug: string, shipperId: string) => unwrap(await client.GET('/api/v1/companies/{slug}/shippers/{shipper_id}/chat', { params: { path: { slug, shipper_id: shipperId } } })),
+  sendShipperCompany: async (slug: string, shipperId: string, body: string, key: string) => unwrap(await client.POST('/api/v1/companies/{slug}/shippers/{shipper_id}/chat/messages', { body: { body }, params: { path: { slug, shipper_id: shipperId }, header: { 'Idempotency-Key': key } } })),
   inbox: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/chats', { params: { path: { slug } } })),
   channels: async (slug: string, orderId: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{order_id}/chats', { params: { path: { slug, order_id: orderId } } })),
   messages: async (slug: string, conversationId: string, limit = PAGE_SIZE) => unwrap(await client.GET('/api/v1/companies/{slug}/chats/{conversation_id}/messages', { params: { path: { slug, conversation_id: conversationId }, query: { limit } } })),
@@ -42,12 +44,13 @@ export function useOrderChannels(slug: string, orderId: string) {
   return useQuery({ queryKey: chatKeys.order(slug, orderId), queryFn: () => chat.channels(slug, orderId) });
 }
 
-export function useCompanyChannel(slug: string, driverId: string) {
-  return useQuery({ queryKey: chatKeys.company(slug, driverId), queryFn: () => chat.companyChannel(slug, driverId) });
+export function useCompanyChannel(slug: string, driverId?: string, shipperId?: string) {
+  return useQuery({ queryKey: shipperId ? ['chat', slug, 'company', 'shipper', shipperId] : chatKeys.company(slug, driverId ?? ''),
+    queryFn: () => shipperId ? chat.shipperCompanyChannel(slug, shipperId) : chat.companyChannel(slug, driverId!), enabled: !!(driverId || shipperId) });
 }
 
-export function useChatInbox(slug: string) {
-  return useQuery({ queryKey: chatKeys.inbox(slug), queryFn: () => chat.inbox(slug) });
+export function useChatInbox(slug: string, enabled = true) {
+  return useQuery({ queryKey: chatKeys.inbox(slug), queryFn: () => chat.inbox(slug), enabled });
 }
 
 /** Newest messages of one conversation; `limit` grows when earlier messages are requested. */
@@ -71,16 +74,17 @@ export function useMarkRead(slug: string, conversationId: string | null, message
       cache.setQueryData<SyncSummary>(syncKey(slug), current => ({ unread: current?.unread ?? 0, unread_messages: view.unread }));
       void cache.invalidateQueries({ queryKey: chatKeys.inbox(slug) });
       void cache.invalidateQueries({ queryKey: ['chat', slug, 'order'] });
+      void cache.invalidateQueries({ queryKey: ['chat', slug, 'company'] });
     }).catch(() => undefined);
     return () => { cancelled = true; };
   }, [slug, conversationId, latest, active, cache]);
 }
 
-export function useSendMessage(slug: string, orderId: string | undefined, kind: ChatKind, driverId?: string) {
+export function useSendMessage(slug: string, orderId: string | undefined, kind: ChatKind, driverId?: string, shipperId?: string) {
   const cache = useQueryClient();
   return useMutation({
     // The key is fixed per attempt so a retried send never duplicates the message.
-    mutationFn: ({ body, key }: { body: string; key: string }) => orderId ? chat.send(slug, orderId, kind, body, key) : driverId ? chat.sendCompany(slug, driverId, body, key) : Promise.reject(new Error('Conversation unavailable.')),
+    mutationFn: ({ body, key }: { body: string; key: string }) => orderId ? chat.send(slug, orderId, kind, body, key) : shipperId ? chat.sendShipperCompany(slug, shipperId, body, key) : driverId ? chat.sendCompany(slug, driverId, body, key) : Promise.reject(new Error('Conversation unavailable.')),
     onSuccess: message => Promise.all([cache.invalidateQueries({ queryKey: chatKeys.thread(slug, message.conversation_id) }),
       cache.invalidateQueries({ queryKey: chatKeys.all(slug) }), cache.invalidateQueries({ queryKey: chatKeys.inbox(slug) })]),
   });

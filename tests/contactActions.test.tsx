@@ -60,3 +60,18 @@ test('switching driver contact resets the composer and cannot retain another rec
  view.rerender(<QueryClientProvider client={cache!}><DriverChatDialog slug="acme" driver={{...driver,id:'d2',name:'Sam'}} onClose={()=>{}}/></QueryClientProvider>);
  const next=await screen.findByRole('textbox',{name:'Message Sam'});assert.equal((next as HTMLTextAreaElement).value,'');assert.equal(screen.queryByRole('textbox',{name:'Message Dana'}),null);
 });
+
+
+for (const kind of ['DISPATCH_DRIVER','DISPATCH_SHIPPER'] as const) test(`order contact ${kind} opens and sends only to that person without tabs`,async()=>{
+ const sent:unknown[]=[];
+ chat.channels=async()=>[channel,{...channel,kind:'DISPATCH_SHIPPER',driver_id:null,title:'Shipper'},{...channel,kind:'DRIVER_SHIPPER',title:'Dana ↔ Shipper',can_send:false}];
+ chat.send=async(_slug,_id,selected,body)=>{sent.push(selected);return {id:'m1',seq:1,conversation_id:'c1',mine:true,body,sender_name:'Dispatcher',sender_role:'DISPATCHER',created_at:'2026-10-20T12:00:00Z'};};
+ mount(<ChatDialog slug="acme" orderId="one" orderNumber="ORD-1" initialKind={kind} expectedDriverId={kind==='DISPATCH_DRIVER'?'d1':undefined} onClose={()=>{}}/>);
+ const name=kind==='DISPATCH_DRIVER'?'Dana':'Shipper';
+ const box=await screen.findByRole('textbox',{name:`Message ${name}`});
+ assert.ok(screen.getByRole('dialog',{name:`Chat with ${name} · ORD-1`}));
+ assert.equal(screen.queryByRole('tablist'),null);assert.equal(screen.queryByRole('tab'),null);assert.equal(screen.queryByRole('tabpanel'),null);
+ assert.equal(screen.queryByText('Dana ↔ Shipper'),null);
+ fireEvent.change(box,{target:{value:'Contact-specific message'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(()=>assert.deepEqual(sent,[kind]));
+});

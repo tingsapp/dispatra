@@ -57,7 +57,7 @@ test('quotation mirrors the priced snapshot in company units and renders text an
   assert.equal(idDetail.lines[0].detail, 'Stop 1 -> Stop 2; 10 lb', 'raw stop ids never reach the customer');
   const text = quotationText(q, 'Hi Sam');
   assert.ok(text.startsWith('Hi Sam\n\nQUOTATION Q-260921-'));
-  assert.match(text, /2 × Crate — 100 lb each, 20 × 10 × 10 in/);
+  assert.match(text, /2 × Crate, 100 lb each, 20 × 10 × 10 in/);
   assert.match(text, new RegExp(`TOTAL\\s+\\$${snapshot.total.toFixed(2)} CAD`));
   assert.match(text, /1\. Pickup: 100 Main St, Vancouver \(Pat\)/);
   const href = quotationMailto(q, ' billing@example.com ', 'Hi Sam');
@@ -136,7 +136,7 @@ test('Email saves the PDF and hands the message to the mail client; Download sav
   assert.equal(saved[0].file.type, 'application/pdf');
   assert.ok(href.startsWith('mailto:billing%40example.com?subject='));
   assert.match(decodeURIComponent(href), new RegExp(`Hello Sam Lee,[\\s\\S]*attached \\(Quotation-${q.quoteNumber}\\.pdf\\)`));
-  assert.match(notices.at(-1)!, /saved — attach it to the email that just opened for billing@example.com/);
+  assert.match(notices.at(-1)!, /saved, attach it to the email that just opened for billing@example.com/);
   assert.equal(document.querySelector('[role=dialog][aria-label="Send as quote"][data-state="open"]'), null, 'menu closes after sending');
   await user.click(screen.getByRole('button', { name: /Send as quote/ }));
   await user.click(screen.getByRole('button', { name: /Download/ }));

@@ -1,13 +1,15 @@
+import type { ReactNode } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useMutation } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Mic, SquarePen } from 'lucide-react';
+import { ArrowDown, ArrowUp, Mic, MicOff, PhoneOff, SquarePen } from 'lucide-react';
 import { api } from '../../portal/api';
 import { Button } from '../ui/button';
 import { usePublicChatScroll } from './usePublicChatScroll';
 import { usePublicChatTyping } from './usePublicChatTyping';
+import { usePublicVoice } from './usePublicVoice';
 
 type Turn = { role: 'user' | 'assistant'; content: string };
-type Props = { onStartVoice?: () => void };
+type Props = { contactCard?: ReactNode };
 function boundedHistory(turns: Turn[]) {
   const result = turns.slice(-10);
   while (result.reduce((total, turn) => total + turn.content.length, 0) > 12000) result.shift();
@@ -19,10 +21,23 @@ export function PublicChatAssistant(props: Props) {
   return <QueryClientProvider client={cache}><ChatContent {...props} /></QueryClientProvider>;
 }
 
-function ChatContent({ onStartVoice }: Props) {
+function ChatContent({ contactCard }: Props) {
+  const voice = usePublicVoice();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
-  const started = turns.length > 0;
+  const started = turns.length > 0 || voice.active;
+  const contact = useRef<HTMLDivElement>(null);
+  const shell = useRef<HTMLElement>(null);
+  const [contactOverflow, setContactOverflow] = useState(0);
+  useLayoutEffect(() => {
+    if (started || !contactCard) { setContactOverflow(0); return; }
+    const measure = () => setContactOverflow(Math.max(0, (contact.current?.getBoundingClientRect().bottom ?? 0) - (shell.current?.getBoundingClientRect().bottom ?? 0)));
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+    if (contact.current) observer?.observe(contact.current);
+    window.addEventListener('resize', measure);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
+  }, [started, contactCard]);
   const controller = useRef<AbortController | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => () => controller.current?.abort(), []);
@@ -45,7 +60,7 @@ function ChatContent({ onStartVoice }: Props) {
   const scrolling = usePublicChatScroll(started, turns, ask.status, typing.text.length);
   function send() {
     const message = draft.trim();
-    if (!message || busy || ask.isError) return;
+    if (!message || busy || ask.isError || voice.active) return;
     scrolling.followLatest();
     input.current?.focus({ preventScroll: true });
     const history = boundedHistory(turns);
@@ -53,15 +68,15 @@ function ChatContent({ onStartVoice }: Props) {
     setDraft('');
     ask.mutate({ message, history });
   }
-  function clear() { scrolling.followLatest(); setTurns([]); setDraft(''); ask.reset(); input.current?.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
-  return <section aria-labelledby="dispatra-chat-title" className={`public-chat-shell ${started ? 'public-chat-shell--started' : ''}`}>
+  function clear() { voice.stop(); scrolling.followLatest(); setTurns([]); setDraft(''); ask.reset(); input.current?.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
+  return <section ref={shell} style={{ marginBottom: contactOverflow }} aria-labelledby="dispatra-chat-title" className={`public-chat-shell ${started ? 'public-chat-shell--started' : ''} ${contactCard ? 'public-chat-shell--contact' : ''}`}>
     <div className="mx-auto flex h-12 w-full max-w-4xl shrink-0 items-center justify-end gap-4 px-5 sm:px-8">
-      <h2 id="dispatra-chat-title" className="sr-only">Dispatra Chat</h2>
+      <h2 id="dispatra-chat-title" className="sr-only">Dispatra</h2>
       {started && <button type="button" onClick={clear} disabled={ask.isPending} aria-label="New chat" title="New chat" className="flex size-10 items-center justify-center rounded-full text-app-muted hover:bg-slate-100 hover:text-app-text disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-app-accent"><SquarePen className="size-4" aria-hidden="true" /></button>}
     </div>
     <div className={`public-chat-body ${started ? 'public-chat-body--started' : ''}`}>
       <h1 className={started ? 'sr-only' : 'mb-8 text-center text-[30px] font-medium leading-tight tracking-tight sm:mb-9 sm:text-4xl'}>How can I help you?</h1>
-      {started && <div role="log" aria-label="Dispatra Chat conversation" aria-live="polite" aria-busy={busy} aria-relevant="additions text" className="public-chat-transcript space-y-8">
+      {started && <div role="log" aria-label="Dispatra conversation" aria-live="polite" aria-busy={busy} aria-relevant="additions text" className="public-chat-transcript space-y-8">
         {turns.map((turn, index) => <div key={index} className={turn.role === 'user' ? 'ml-auto w-fit max-w-[85%] rounded-3xl bg-[#f4f4f4] px-5 py-3' : 'max-w-full py-1'}>
           <span className="sr-only">{turn.role === 'user' ? 'You' : 'Dispatra'}: </span><p className="whitespace-pre-wrap break-words text-[15px] leading-7 sm:text-base">{turn === latest && turn.role === 'assistant' ? typing.text : turn.content}{turn === latest && typing.isTyping && <span className="public-chat-typing-cursor" aria-hidden="true" />}</p>
         </div>)}
@@ -76,16 +91,24 @@ function ChatContent({ onStartVoice }: Props) {
         <button type="button" className="mt-2 rounded font-medium text-app-text underline underline-offset-4" onClick={() => ask.variables && ask.mutate(ask.variables)}>Try again</button>
         <span className="px-2" aria-hidden="true">·</span><a href="mailto:dispatra@tingsapp.com" className="rounded underline underline-offset-4">Email our team instead</a>
       </div>}
+      {(voice.error || voice.notice) && <p role={voice.error ? 'alert' : 'status'} className="mb-3 px-2 text-sm leading-6 text-app-muted">{voice.error || voice.notice}</p>}
+      {voice.active && <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl bg-[#f4f4f4] p-4">
+        <div className="min-w-0 w-full sm:w-auto sm:flex-1"><p role="status" className="text-sm font-medium">{voice.status === 'connecting' ? 'Connecting…' : voice.muted ? 'Microphone muted' : voice.status === 'speaking' ? 'Dispatra is speaking…' : voice.status === 'thinking' ? 'Thinking…' : 'Listening…'}</p><p className="mt-1 text-xs text-app-muted">AI voice · Up to 5 minutes · Voice conversations are separate from text chat</p></div>
+        <Button type="button" size="icon" variant="ghost" onClick={voice.toggleMute} disabled={voice.status === 'connecting'} aria-label={voice.muted ? 'Unmute microphone' : 'Mute microphone'}>{voice.muted ? <MicOff className="size-5" /> : <Mic className="size-5" />}</Button>
+        <Button type="button" variant="outline" onClick={voice.stop} className="gap-2"><PhoneOff className="size-4" />End voice</Button>
+      </div>}
       <form onSubmit={event => { event.preventDefault(); send(); }} className="public-chat-composer">
         <label htmlFor="public-chat-question" className="sr-only">Ask Dispatra a question</label>
-        <textarea ref={input} id="public-chat-question" rows={1} maxLength={2000} value={draft} disabled={ask.isError} onChange={event => setDraft(event.target.value)}
+        <textarea ref={input} id="public-chat-question" rows={1} maxLength={2000} value={draft} disabled={ask.isError || voice.active} onChange={event => setDraft(event.target.value)}
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(); } }}
-          placeholder="Ask Dispatra" className="public-chat-input" />
-        <Button type="button" size="icon" variant="ghost" aria-label="Start voice chat" title={onStartVoice ? 'Start voice chat' : 'Voice agent not connected yet'} onClick={onStartVoice} disabled={!onStartVoice || busy} className="public-chat-mic"><Mic className="size-5" strokeWidth={1.75} aria-hidden="true" /></Button>
-        <Button type="submit" size="icon" aria-label="Send question" disabled={!draft.trim() || busy || ask.isError} className="public-chat-send"><ArrowUp className="size-[18px]" aria-hidden="true" /></Button>
+          placeholder="Ask dispatra..." className="public-chat-input" />
+        <Button type="button" size="icon" variant="ghost" aria-label="Start voice chat" title="Start voice chat" onClick={() => { void voice.start(); }} disabled={voice.active || busy} className="public-chat-mic"><Mic className="size-5" strokeWidth={1.75} aria-hidden="true" /></Button>
+        <Button type="submit" size="icon" aria-label="Send question" disabled={!draft.trim() || busy || ask.isError || voice.active} className="public-chat-send"><ArrowUp className="size-[18px]" aria-hidden="true" /></Button>
       </form>
+      {!started && contactCard && <div ref={contact} className="public-chat-initial-contact">{contactCard}</div>}
       </div>
       </div>
     </div>
+    {started && contactCard}
   </section>;
 }

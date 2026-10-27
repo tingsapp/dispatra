@@ -47,7 +47,7 @@ export function CompanyPaymentMethod({ target }: { target: PaymentTarget }) {
   }, [payment?.required, cache]);
   const configured = payment?.monthly_price != null;
   const canEnroll = target.kind === 'company' && payment?.status === 'SAVED' && !payment.recurring_authorized && ['NOT_SUBSCRIBED', 'ACTIVE'].includes(payment.subscription_status);
-  const money = (value: string | number | null | undefined) => `${payment?.currency} ${value ?? '—'}`;
+  const money = (value: string | number | null | undefined) => `${payment?.currency} ${value ?? '-'}`;
   return <section aria-label="Payment method" className="space-y-5">
     <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" aria-hidden="true" /><h2 className="app-section-title">Payment method</h2></div>
     {query.isPending && <p role="status" className="text-sm text-app-muted">Loading payment method…</p>}

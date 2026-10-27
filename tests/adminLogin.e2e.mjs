@@ -22,7 +22,7 @@ try {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(origin + path, { waitUntil: 'domcontentloaded' });
-    await page.getByLabel('Login ID', { exact: true }).fill(process.env.E2E_OWNER_LOGIN || 'browser-owner');
+    await page.getByLabel('Email', { exact: true }).fill(process.env.E2E_OWNER_LOGIN || 'browser-owner');
     await page.getByLabel('Password', { exact: true }).fill(process.env.E2E_OWNER_PASSWORD);
     const reloads = [];
     page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) reloads.push(request.url()); });

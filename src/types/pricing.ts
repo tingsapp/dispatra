@@ -55,7 +55,7 @@ export interface RateCard {
   serviceId: string | null;
   /** Restrict to one vehicle type. `null` = any vehicle. */
   vehicleId: string | null;
-  /** Tie-breaker within a level — higher wins. Equal priority = conflict. */
+  /** Tie-breaker within a level, higher wins. Equal priority = conflict. */
   priority: number;
   effectiveFrom: string; // ISO date
   effectiveTo: string | null;
@@ -235,9 +235,9 @@ export interface PricingOrderInput {
   hourlyBillableMinutes?: number | null;
   packages: PricingPackageInput[];
   accessorials: PricingAccessorialInput[];
-  /** ISO datetime the service window starts — drives after-hours / weekend rules. */
+  /** ISO datetime the service window starts, drives after-hours / weekend rules. */
   scheduledAt: string | null;
-  /** Order source — customer portal bookings can carry a channel discount later. */
+  /** Order source, customer portal bookings can carry a channel discount later. */
   source: 'DISPATCHER' | 'SHIPPER_PORTAL' | 'EMAIL' | 'IMPORT';
   importedPrice: number | null;
   importedTaxTreatment?: 'INCLUDED' | 'EXEMPT' | 'SUPPLIED';
@@ -322,7 +322,7 @@ export interface ResolvedRateCard {
   pricingMethod: PricingMethod;
 }
 
-/** One entry per card considered during resolution — shown under "View calculation". */
+/** One entry per card considered during resolution, shown under "View calculation". */
 export interface RateCardCandidate {
   id: string;
   name: string;

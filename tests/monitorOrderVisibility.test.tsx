@@ -104,7 +104,7 @@ test('an explicitly empty prototype map does not resurrect seed markers or route
 });
 
 test('Drivers popup filters/searches real records and selects a driver with the keyboard', async () => {
-  const driverRows = INITIAL_DRIVERS.slice(0,3).map((driver,index)=>({...driver,avatar:'',driverNumber:`DDD-${index+1}`,status:index===2?'available' as const:'offline' as const,statusLabel:index===2?'Available':index===1?'Off duty':'Vehicle unavailable',nextStop:'Not set',eta:'—'}));
+  const driverRows = INITIAL_DRIVERS.slice(0,3).map((driver,index)=>({...driver,avatar:'',driverNumber:`DDD-${index+1}`,status:index===2?'available' as const:'offline' as const,statusLabel:index===2?'Available':index===1?'Off duty':'Vehicle unavailable',nextStop:'Not set',eta:'-'}));
   const selected:string[]=[];let closes=0;const user=userEvent.setup({document});
   render(<DetailModalDialog isOpen type="all_drivers" drivers={driverRows} onClose={()=>{closes++;}} onSelectDriver={id=>selected.push(id)} onActionNotification={()=>{}} />);
   const dialog=within(screen.getByRole('dialog',{name:'Drivers'}));assert.ok(dialog.getByRole('heading',{name:'Drivers'}));assert.equal(dialog.queryByText(/Metro Vancouver|Next: Not set/),null);
@@ -184,4 +184,25 @@ test('bounds follow located drivers even when no orders are displayed', async ()
   view.rerender(<QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><MonitorMapContent {...props} drivers={[moved]}/></APIProviderContext.Provider></QueryClientProvider>);
   await waitFor(()=>assert.deepEqual((pans.at(-1) as FakeLatLng).toJSON(),{lat:50,lng:-122}));
   assert.ok(screen.getByRole('button',{name:/^Driver /}));
+});
+
+test('unassigned previews draw road geometry and assignment refresh replaces them with TomTom attribution', async () => {
+  operations.orderRoadPath = async () => ({ points:[[49.2,-123.1],[49.3,-123.2]],provider:'GOOGLE',preview:true,truck_profile_applied:false,attribution:'' });
+  const props={demo:false,jobs:[orders[0]],drivers:[],onSelectJob:()=>{},onSelectDriver:()=>{},layerConfig:{mode:'map' as const,traffic:false,labels:true}};
+  const view=render(tree(<MonitorMapContent {...props}/>));
+  await waitFor(()=>assert.equal(lines.size,1));
+  assert.ok(screen.getByText('Road preview · no vehicle assigned'));
+  operations.orderRoadPath = async () => ({ points:[[49.2,-123.1],[49.25,-123.18],[49.3,-123.2]],provider:'TOMTOM',preview:false,truck_profile_applied:true,attribution:'© TomTom' });
+  view.rerender(<QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><MonitorMapContent {...props} jobs={[{...orders[0],version:2,assignedDriverId:'assigned'}]}/></APIProviderContext.Provider></QueryClientProvider>);
+  await waitFor(()=>assert.ok(screen.getByLabelText('Route data attribution').textContent?.includes('TomTom')));
+  assert.equal(screen.queryByText('Road preview · no vehicle assigned'),null);
+  await waitFor(()=>assert.equal([...lines][0].path.length,3));
+});
+
+test('failed route requests keep stops visible and explain the missing route', async () => {
+  operations.orderRoadPath=async()=>{throw new Error('Truck profile required');};
+  render(tree(<MonitorMapContent demo={false} jobs={[orders[0]]} drivers={[]} onSelectJob={()=>{}} onSelectDriver={()=>{}} layerConfig={{mode:'map',traffic:false,labels:true}}/>));
+  await waitFor(()=>assert.ok(screen.getByRole('status').textContent?.includes('Route unavailable for 1 order')));
+  assert.equal(lines.size,0);
+  assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length,2);
 });

@@ -72,7 +72,7 @@
   --app-focus-color: #8f8f8f;
   --app-input-focus-color: #000000;
   --app-backdrop: #00000066;
-  --app-action-height: 2.5rem;
+  --app-action-height: 2.75rem;
 }
 
 @layer base {

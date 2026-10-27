@@ -99,7 +99,7 @@ try {
   await page.goto(origin + '/admin');
   await page.getByRole('heading', { name: 'Platform administration', exact: true }).waitFor();
   assert.equal(await page.getByRole('radio').count(), 0);
-  assert.ok(await page.getByLabel('Login ID', { exact: true }).isVisible());
+  assert.ok(await page.getByLabel('Email', { exact: true }).isVisible());
   assert.equal(errors.length, 0, errors.join('\n'));
   console.log('PASS: shared role/email/password login, keyboard and mobile layouts, retry, company discovery redirects, legacy links and separate owner login.');
 } finally { await browser.close(); }

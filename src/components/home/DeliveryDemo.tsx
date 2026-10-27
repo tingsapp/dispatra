@@ -43,7 +43,7 @@ export function DeliveryDemo() {
     return () => { observer?.disconnect(); window.removeEventListener('resize', resize); };
   }, [stage, reducedMotion, x, y, width, height]);
   return <section id="how-it-works" aria-labelledby="workflow-title" className="home-section home-demo">
-    <div className="home-section-heading"><div><p className="home-eyebrow">From the first request to the final stop</p><h2 id="workflow-title">See a delivery day come together.</h2></div><p>Select a step to explore the workflow.<br />One order. One connected team.</p></div>
+    <div className="home-section-heading"><div><p className="home-eyebrow">From the first request to the final stop</p><h2 id="workflow-title">See a delivery day come together</h2></div><p>Select a step to explore the workflow.<br />One order. One connected team</p></div>
     <div className="home-demo-layout">
       <ol ref={steps} className="home-demo-steps" aria-label="Explore the sample order workflow">{deliveryPreviewEvents.map(({ label, description, icon: Icon }, index) => <li key={label}>
         {index === 0 && <motion.span aria-hidden="true" className="home-demo-highlight" style={{ x, y, width, height }} />}

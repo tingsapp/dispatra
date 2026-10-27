@@ -18,7 +18,7 @@ if (shots) await mkdir(shots, { recursive: true });
 const close = () => page.getByRole('button', { name: 'Close agent details', exact: true }).click();
 try {
   await page.goto(`${origin}/admin/monitor`);
-  await page.getByLabel('Login ID', { exact: true }).fill(process.env.E2E_OWNER_LOGIN || 'owner');
+  await page.getByLabel('Email', { exact: true }).fill(process.env.E2E_OWNER_LOGIN || 'owner');
   await page.getByLabel('Password', { exact: true }).fill(process.env.E2E_OWNER_PASSWORD);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('region', { name: 'Agent activity', exact: true }).waitFor();
@@ -99,11 +99,10 @@ with monitor_run('ORDER') as progress:
     for index in range(80): progress.step(f'Checking saved task {index} through normal validation. ' + 'Progress detail for the administrator. ' * 4)
 `);
   await page.getByRole('region', { name: 'Order agent', exact: true }).getByRole('button').click();
-  await page.getByRole('button', { name: 'Details: Recorded activity', exact: true }).click();
-  const activityEntries = page.getByRole('list', { name: 'Activity entries', exact: true });
-  await activityEntries.locator('li').nth(79).waitFor();
-  assert.equal(await page.getByRole('button', { name: 'Load more activity', exact: true }).count(), 0);
-  if (shots) await page.screenshot({ path: `${shots}/monitor-agent-activity-desktop.png`, fullPage: true });
+  await page.getByRole('region', { name: 'Agent log', exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Details: Recorded activity', exact: true }).count(), 0);
+  assert.equal(await page.getByText(/Checking saved task/).count(), 0);
+  if (shots) await page.screenshot({ path: `${shots}/monitor-agent-issues-only-desktop.png`, fullPage: true });
   await close();
   // A fresh Technical report gives mobile acceptance its own unresolved issue card after dismissal above.
   run(`from uuid import UUID; from app.main import app; from app.agents import diagnostics; diagnostics.record('API', 'HTTP_5XX', UUID('${org.id}'))`);
@@ -160,11 +159,10 @@ with monitor_run('ORDER') as progress:
     assert.equal(await page.locator('.app-dialog-body').evaluate(node => node.scrollWidth > node.clientWidth), false, `Expanded issue clips horizontally at ${width}px`);
     await mobileIssue.getByRole('button', { name: /^Details:/ }).click();
     assert.equal(await page.getByRole('combobox').count(), 0);
-    const activity = page.getByRole('button', { name: 'Details: Recorded activity', exact: true });
-    if (await activity.count()) {
-      await activity.click();
-      await page.getByRole('list', { name: 'Activity entries', exact: true }).waitFor();
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `Expanded activity overflow at ${width}px`);
+    const report = page.getByRole('dialog').getByRole('button', { name: /^Details:/ }).first();
+    if (await report.count()) {
+      await report.click();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `Expanded report overflow at ${width}px`);
     }
     await page.keyboard.press('Escape');
     assert.equal(await page.getByRole('dialog').count(), 0);
@@ -177,5 +175,5 @@ with monitor_run('ORDER') as progress:
   }
   await page.unroute(monitorPattern);
   assert.deepEqual(errors, []);
-  console.log('PASS: summary and agent cards, full-card mouse/keyboard scoped reports, approval Escape/cancellation/requeue, resolved-report removal, dismissal, checks, complete activity, recorded progress, desktop and 390/320px layout.');
+  console.log('PASS: summary and agent cards, full-card mouse/keyboard scoped reports, approval Escape/cancellation/requeue, resolved-report removal, dismissal, checks, routine activity filtering, recorded progress, desktop and 390/320px layout.');
 } finally { await browser.close(); }

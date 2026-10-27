@@ -16,7 +16,11 @@ export interface DriverOperations extends AuditFields {
   preferredStartLocation?: string; availabilitySchedule?: AvailabilityPeriod[]; appLastSeenAt?: string | null; locationCapturedAt?: string | null;
   locationPermissionStatus?: 'GRANTED' | 'DENIED' | 'UNKNOWN'; notes?: string;
 }
+export interface TruckRoutingMeasurements {
+  lengthM: number; widthM: number; heightM: number; grossWeightKg: number; axleWeightKg?: number;
+}
 export interface VehicleOperations extends AuditFields {
+  truckRouting?: TruckRoutingMeasurements;
   recordStatus?: 'ACTIVE' | 'INACTIVE'; availability?: 'AVAILABLE' | 'IN_USE' | 'UNAVAILABLE'; vehicleTypeId?: string;
   plateProvince?: string; maxStops?: number; cargoLengthCm?: number; cargoWidthCm?: number; cargoHeightCm?: number; cargoVolumeM3?: number;
   equipment?: string[]; serviceAreaIds?: string[]; homeDepotId?: string; unavailableFrom?: string; unavailableUntil?: string;

@@ -45,7 +45,7 @@ export interface PricingContext {
   catalogue: SimplePricingConfig;
   pricing: PricingConfig;
   customers: Customer[];
-  /** Pricing date — defaults to now. Drives effective-date filtering. */
+  /** Pricing date, defaults to now. Drives effective-date filtering. */
   asOf?: Date;
   /** Frozen company or historical destination decision; key retained for saved snapshots. */
   destinationTax?: DestinationTaxDecision;
@@ -461,7 +461,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
 
     case 'FIXED': {
       freight = round2(card.fixedAmount);
-      lines.push(line({ key: 'fixed', group: 'FREIGHT', label: 'Contract Fixed Price', detail: `Per delivery — ${card.name}`, amount: freight, fuelEligible: true }));
+      lines.push(line({ key: 'fixed', group: 'FREIGHT', label: 'Contract Fixed Price', detail: `Per delivery, ${card.name}`, amount: freight, fuelEligible: true }));
       serviceFreight = card.applyServiceMultiplier ? round2(freight * multiplier) : freight;
       multiplierApplied = card.applyServiceMultiplier;
       break;
@@ -544,7 +544,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
       }
       if (unmatched) {
         if (card.zoneNoMatchFallback === 'BASE_PLUS_DISTANCE') {
-          warnings.push('No zone rate for this origin → destination — priced by base + distance instead.');
+          warnings.push('No zone rate for this origin → destination, priced by base + distance instead.');
           effectiveMethod = 'BASE_PLUS_DISTANCE';
           computeCalculated();
         } else {
@@ -741,11 +741,11 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
 
       if (!(acc.autoRule === 'WAITING_RECORDED' && acc.appliesAt === 'PER_STOP') && minimumCharge != null && amount > 0 && amount < minimumCharge) {
         amount = minimumCharge;
-        detail += ` — min ${money(minimumCharge)}`;
+        detail += `, min ${money(minimumCharge)}`;
       }
       if (!(acc.autoRule === 'WAITING_RECORDED' && acc.appliesAt === 'PER_STOP') && maximumCharge != null && amount > maximumCharge) {
         amount = maximumCharge;
-        detail += ` — capped at ${money(maximumCharge)}`;
+        detail += `, capped at ${money(maximumCharge)}`;
       }
       amount = round2(amount);
       if (amount <= 0 && override === undefined) continue;

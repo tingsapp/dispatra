@@ -125,7 +125,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
       {/* HEADER BAR */}
       <PageHeader title="Help & Support" description="Operational guides, troubleshooting and support." actions={<>
           <a
-            href="/contact"
+            href="/ask-dispatra"
             className="app-action app-secondary"
           >
             <ExternalLink className="w-3.5 h-3.5 text-slate-500" />

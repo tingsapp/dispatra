@@ -55,7 +55,7 @@ try {
   await page.getByText('Changes saved.', { exact: true }).waitFor();
   await page.getByRole('tab', { name: 'Preferences', exact: true }).click();
   await page.getByRole('combobox', { name: 'Weight unit', exact: true }).click();
-  await page.getByRole('option', { name: 'kg — Kilograms', exact: true }).click();
+  await page.getByRole('option', { name: 'kg, Kilograms', exact: true }).click();
   await page.getByRole('button', { name: 'Save Preferences', exact: true }).click();
   await page.getByRole('tabpanel', { name: 'Preferences' }).getByText('Changes saved.', { exact: true }).waitFor();
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });

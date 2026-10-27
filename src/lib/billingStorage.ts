@@ -30,7 +30,7 @@ export const INITIAL_TAXES: TaxRate[] = [
     ratePercent: 7,
     appliesTo: ['accessorials'],
     active: false,
-    note: 'BC provincial tax. Freight transportation is generally exempt — enable only if you sell taxable goods or equipment rental.'
+    note: 'BC provincial tax. Freight transportation is generally exempt, enable only if you sell taxable goods or equipment rental.'
   }
 ];
 
@@ -179,7 +179,7 @@ export const saveBillingConfig = (config: BillingConfig): void => {
     localStorage.setItem(scopedStorageKey(BILLING_STORAGE_KEY), JSON.stringify({ ...config, fuelDefaultVersion: FUEL_DEFAULT_VERSION, unitsDefaultVersion: UNITS_DEFAULT_VERSION, fuelSurcharge: normalizeFuelSurcharge(config.fuelSurcharge) }));
     window.dispatchEvent(new Event(BILLING_CONFIG_UPDATED_EVENT));
   } catch {
-    // Storage unavailable (private mode / quota) — settings stay in memory.
+    // Storage unavailable (private mode / quota), settings stay in memory.
   }
 };
 

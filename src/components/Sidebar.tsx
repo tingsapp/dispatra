@@ -2,7 +2,6 @@ import {
   BarChart2,
   Building2,
   ClipboardList,
-  Settings,
   HelpCircle,
   Truck,
   User,
@@ -107,7 +106,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'vehicles', label: 'Vehicles', icon: Truck },
     { id: 'customers', label: 'Shippers', icon: Building2 },
     { id: 'reports', label: 'Analytics', icon: BarChart2 },
-    { id: 'rate-cards', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -128,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Top brand */}
         <div>
-          <SidebarHeader collapsed={collapsed} mobile={mobile} label="Dispatra — Monitor" current={activeTab === 'monitor'} onToggle={onToggle} onHome={() => {
+          <SidebarHeader collapsed={collapsed} mobile={mobile} label="Dispatra, Monitor" current={activeTab === 'monitor'} onToggle={onToggle} onHome={() => {
               setShowAccountPopover(false);
               setActiveTab('monitor');
               if (mobile) onToggle();

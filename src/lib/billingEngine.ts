@@ -1,5 +1,5 @@
 // Shared billing helpers used by the pricing engine (`pricingEngine.ts`).
-// No quote formula lives here — see calculatePricing().
+// No quote formula lives here, see calculatePricing().
 
 import { BillingConfig, FuelSurchargeSettings } from '../types/billing';
 

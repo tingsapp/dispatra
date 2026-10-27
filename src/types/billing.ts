@@ -104,7 +104,7 @@ export interface QuoteSettings {
   quoteValidityDays: number;
 }
 
-/** Assignment policy. Never read by the pricing engine — it does not change shipper price. */
+/** Assignment policy. Never read by the pricing engine, it does not change shipper price. */
 export interface DispatchSettings {
   maxActiveOrdersPerDriver: number;
   /** Retired UI field; retained only for compatibility with older saved settings. */

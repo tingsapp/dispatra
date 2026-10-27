@@ -14,11 +14,11 @@ function Bubble({ message }: { message: ChatMessage }) {
 }
 
 /** One conversation: its messages (newest at the bottom) and, when the caller may send, a composer. */
-export function ChatThread({ slug, orderId, driverId, channel }: { slug: string; orderId?: string; driverId?: string; channel: ChatChannel }) {
+export function ChatThread({ slug, orderId, driverId, shipperId, channel }: { slug: string; orderId?: string; driverId?: string; shipperId?: string; channel: ChatChannel }) {
   const thread = useThread(slug, channel.conversation_id);
   const messages = thread.data?.messages;
   useMarkRead(slug, channel.conversation_id, messages, true);
-  const send = useSendMessage(slug, orderId, channel.kind, driverId);
+  const send = useSendMessage(slug, orderId, channel.kind, driverId, shipperId);
   const [draft, setDraft] = useState('');
   // One idempotency key per attempt: retrying the same text never posts it twice.
   const attempt = useRef(crypto.randomUUID());

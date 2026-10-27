@@ -643,21 +643,21 @@ test('sidebar brand replaces Monitor navigation and supports logo, wordmark and 
     onActionNotification: noop, dispatchMode: 'AUTO' as const, onDispatchModeChange: noop };
   const view = render(React.createElement(Sidebar, props));
   const navigation = within(screen.getByRole('navigation'));
-  assert.deepEqual(navigation.getAllByRole('button').map(button => button.textContent), ['Orders', 'Drivers', 'Vehicles', 'Shippers', 'Analytics', 'Settings']);
+  assert.deepEqual(navigation.getAllByRole('button').map(button => button.textContent), ['Orders', 'Drivers', 'Vehicles', 'Shippers', 'Analytics']);
   await user.click(navigation.getByRole('button', { name: 'Shippers' }));
   await user.click(navigation.getByRole('button', { name: 'Analytics' }));
   assert.deepEqual(visited.splice(0), ['customers', 'reports']);
-  const brand = screen.getByRole('button', { name: 'Dispatra — Monitor' });
+  const brand = screen.getByRole('button', { name: 'Dispatra, Monitor' });
   assert.equal(brand.getAttribute('aria-current'), null);
   await user.click(brand.querySelector('img')!);
-  await user.click(within(brand).getAllByRole('img', { name: 'Dispatra' }).find(image => image.getAttribute('src') === '/dispatra-icon.png')!);
+  await user.click(within(brand).getAllByRole('img', { name: 'Dispatra' }).find(image => image.getAttribute('src')?.split('?')[0] === '/dispatra-icon.png')!);
   brand.focus(); await user.keyboard('{Enter}'); await user.keyboard(' ');
   assert.deepEqual(visited, ['monitor', 'monitor', 'monitor', 'monitor']);
   assert.equal(hidden, 0);
   await user.click(screen.getByRole('button', { name: 'Collapse menu' }));
   assert.equal(hidden, 1); assert.equal(visited.length, 4);
   view.rerender(React.createElement(Sidebar, { ...props, activeTab: 'monitor' }));
-  assert.equal(screen.getByRole('button', { name: 'Dispatra — Monitor' }).getAttribute('aria-current'), 'page');
+  assert.equal(screen.getByRole('button', { name: 'Dispatra, Monitor' }).getAttribute('aria-current'), 'page');
   view.rerender(React.createElement(Sidebar, { ...props, isOpen: false }));
   assert.equal(screen.getByRole('complementary', { name: 'Main navigation' }).getAttribute('data-collapsed'), 'true');
   const collapsedLogo = screen.getByRole('button', { name: 'Expand menu' });
@@ -717,6 +717,7 @@ test('Vehicle Types tab adds, edits and deletes types with payload, pallets and 
   await user.click(dialog.getByRole('button', { name: 'Add Vehicle Type' }));
   assert.match(dialog.getByRole('alert').textContent!, /length, width and height/);
   for (const [label, value] of [['Box length (in)', '144'], ['Box width (in)', '70'], ['Box height (in)', '72']]) await user.type(dialog.getByLabelText(label), value);
+  for (const [label,value] of [['Length (in)','240'],['Width (in)','90'],['Height (in)','110'],['Loaded gross weight','10000']]) await user.type(dialog.getByLabelText(label),value);
   await user.clear(dialog.getByLabelText('Surcharge ($)')); await user.type(dialog.getByLabelText('Surcharge ($)'), '15');
   await user.click(dialog.getByRole('button', { name: 'Add Vehicle Type' }));
   let saved = loadSimplePricingConfig().vehicles.find(type => type.name === 'Reefer Van')!;
@@ -801,7 +802,7 @@ test('vehicle type columns follow company units and preserve zero and default co
   view.rerender(React.createElement(VehicleTable, props)); assert.equal(screen.getAllByText('$0.00').length, 2);
   delete billing.operatingCost.costPerKmByVehicleId[type.id]; saveBillingConfig(billing);
   view.rerender(React.createElement(VehicleTable, props)); assert.ok(screen.getByText('default'));
-  view.rerender(React.createElement(VehicleTable, { ...props, vehicleTypes: [] })); assert.equal(screen.getAllByText('—').length, 3);
+  view.rerender(React.createElement(VehicleTable, { ...props, vehicleTypes: [] })); assert.equal(screen.getAllByText('-').length, 3);
 });
 
 
@@ -1492,7 +1493,7 @@ test('company weight setting controls matrix entry and reload without changing s
   seedCard({ pricingMethod: 'ZONE', zoneRates: [] });
   const config = loadPricingConfig(); config.zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['001'] }]; savePricingConfig(config);
   let company = render(React.createElement(PreferencesPage, {}));
-  await select(user, 'Weight unit', 'lb — Pounds');
+  await select(user, 'Weight unit', 'lb, Pounds');
   await user.click(screen.getByRole('button', { name: 'Save Preferences' }));
   assert.equal(loadBillingConfig().general.weightUnit, 'lb');
   company.unmount();
@@ -1511,10 +1512,10 @@ test('company weight setting controls matrix entry and reload without changing s
   assert.equal((screen.getByLabelText('Weight to (lb)') as HTMLInputElement).value, '100');
   page.unmount();
   company = render(React.createElement(PreferencesPage, {}));
-  await select(user, 'Weight unit', 'kg — Kilograms');
+  await select(user, 'Weight unit', 'kg, Kilograms');
   await user.click(screen.getByRole('button', { name: 'Save Preferences' })); company.unmount();
   render(React.createElement(RateCardsPage, {}));
-  assert.equal((screen.getByLabelText('Weight to (kg)') as HTMLInputElement).value, '45.359237');
+  assert.equal((screen.getByLabelText('Weight to (kg)') as HTMLInputElement).value, '45.36');
   assert.equal((screen.getByLabelText('Central price') as HTMLInputElement).value, '0');
   assert.deepEqual(loadPricingConfig(), saved);
 });

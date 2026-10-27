@@ -1,6 +1,3 @@
-import type { ReactNode } from 'react';
-import { clockTime } from '../../lib/dateTimeFormat';
-import { AGENTS } from './agentPresentation';
 import { Button } from '../ui';
 import { formatWhen } from './format';
 import type { AgentFeedEntry } from './agentFeed';
@@ -8,15 +5,10 @@ import type { useAgentReportActions } from './useAgentReportActions';
 
 const evidenceValue = (value: string) => /^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(Date.parse(value)) ? formatWhen(value) : value;
 
-export function AgentReportDetails({ entry, actions, activityControls }: { entry: AgentFeedEntry; actions: ReturnType<typeof useAgentReportActions>; activityControls?: ReactNode }) {
-  if (entry.kind === 'activity') return <div className="space-y-3">
-    <ol aria-label="Activity entries" className="space-y-3">{entry.entries.map(row => <li key={row.id} className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)] gap-3 text-xs leading-5">
-      <time dateTime={row.created_at} title={formatWhen(row.created_at)} className="text-[11px] tabular-nums text-app-muted">{clockTime(row.created_at)}</time>
-      <div className="min-w-0"><p className="break-words text-app-text">{row.message}</p>
-        <p className="break-words text-[11px] text-app-muted"><span className="text-app-accent">Activity</span> · {row.company_name ?? 'Platform'} · {AGENTS[row.agent].name}</p>
-      </div>
-    </li>)}</ol>
-    {activityControls && <div className="flex justify-end">{activityControls}</div>}
+export function AgentReportDetails({ entry, actions }: { entry: AgentFeedEntry; actions: ReturnType<typeof useAgentReportActions> }) {
+  if (entry.kind === 'event') return <div className="space-y-2 text-xs leading-5 text-app-muted">
+    <p>Last recorded {formatWhen(entry.row.created_at)}{entry.count > 1 ? ` · Seen ${entry.count} times in the recent sample` : ''}.</p>
+    <p>This is a recent log event. Open reports above show whether an issue still needs attention.</p>
   </div>;
   if (entry.kind === 'technical') {
     const row = entry.row;

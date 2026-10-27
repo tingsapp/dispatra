@@ -16,6 +16,8 @@
   max-width: 100%;
   height: 2rem;
 }
+.public-header .app-brand-logo { width: 11.25rem; height: 3rem; }
+.public-footer .app-brand-logo { width: 10rem; height: 2.5rem; }
 .app-brand-wordmark { width: 100%; height: 100%; object-fit: contain; object-position: left center; }
 .app-brand-fallback { display: none; width: 1.75rem; height: 1.75rem; object-fit: contain; }
 @container app-brand (width < 8rem) {
@@ -151,8 +153,7 @@ svg.lucide { stroke-width: 1.75; }
 .app-combobox:focus, .app-combobox[aria-expanded="true"],
 .app-field-trigger:focus, .app-field-trigger[aria-expanded="true"] {
   border-color: var(--app-input-focus-color);
-  outline: 1px solid var(--app-input-focus-color);
-  outline-offset: -1px;
+  outline: none;
   box-shadow: none;
 }
 
@@ -360,7 +361,7 @@ svg.lucide { stroke-width: 1.75; }
 .app-package-table .package-remove button { padding: .25rem; }
 .app-table-input { min-height: 2rem; border: 1px solid transparent; border-radius: .5rem; background: transparent; padding: .25rem .5rem; color: var(--color-app-text); font-size: var(--text-sm); }
 .app-table-input:hover { background: var(--color-app-hover); }
-.app-table-input:focus { background: var(--color-app-surface); border-color: var(--app-input-focus-color); outline: 1px solid var(--app-input-focus-color); outline-offset: -1px; }
+.app-table-input:focus { background: var(--color-app-surface); border-color: var(--app-input-focus-color); outline: none; }
 .app-zone-matrix-scroll { max-width: 100%; max-height: 70vh; overflow: auto; }
 .app-zone-matrix { --app-zone-input-min-width: 70px; width: 100%; table-layout: auto; }
 .app-zone-matrix :is(th, td) { min-width: 7rem; }
@@ -449,7 +450,7 @@ svg.lucide { stroke-width: 1.75; }
 .app-danger:hover:not(:disabled) { background: var(--color-rose-700); }
 .app-action:disabled, .app-button:disabled { cursor: not-allowed; }
 .app-input:hover:not(:disabled):not(:focus):not(:focus-within):not(:has(input:disabled)) { border-color: var(--color-slate-300); }
-.app-input:focus, .app-input-group:focus-within { border-color: var(--app-input-focus-color); outline: 1px solid var(--app-input-focus-color); outline-offset: -1px; box-shadow: none; }
+.app-input:focus, .app-input-group:focus-within { border-color: var(--app-input-focus-color); outline: none; box-shadow: none; }
 .app-input[aria-invalid="true"], .app-input[aria-invalid="true"]:focus { border-color: var(--color-rose-600); outline-color: var(--color-rose-600); }
 .app-input-group { display: flex; align-items: center; height: var(--app-control-height); padding-block: 0; overflow: hidden; }
 .app-input-prefix { flex-shrink: 0; color: var(--color-slate-400); }
@@ -472,7 +473,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-dialog-surface { background: var(--color-app-surface); border: 0; border-radius: var(--app-radius-dialog); box-shadow: var(--app-menu-shadow); }
 .app-dialog-surface :where(h2) { font-size: 1.125rem; line-height: 1.5rem; font-weight: 500; }
 @media (forced-colors: active) {
-  .app-input:focus, .app-input-group:focus-within, .app-combobox:focus, .app-field-trigger:focus, .app-button:focus-visible, .app-choice-row:focus-visible { outline: 2px solid Highlight; }
+  .app-input:focus, .app-table-input:focus, .app-input-group:focus-within, .app-combobox:focus, .app-field-trigger:focus, .app-button:focus-visible, .app-choice-row:focus-visible { outline: 2px solid Highlight; }
   .app-choice-row[aria-pressed="true"] { outline: 1px solid Highlight; }
   .app-menu-surface, .app-dialog-surface { border: 1px solid CanvasText; }
 }
@@ -528,4 +529,21 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Standard text actions share the homepage trial button proportions.
+   Explicit compact/icon sizes and field triggers retain their own geometry. */
+.app-button[data-size="default"]:not(.app-field-trigger):not(.app-company-logo),
+.app-button[data-size="lg"]:not(.app-field-trigger):not(.app-company-logo),
+.app-action:not([data-size]):not(.app-icon-button):not(.app-field-trigger) {
+  min-height: 44px;
+  height: auto;
+  padding: 10px 24px;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: -.02em;
 }

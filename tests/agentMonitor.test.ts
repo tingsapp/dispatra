@@ -55,10 +55,8 @@ test('Monitor routes show real progress and keep the notification in the workspa
   assert.ok(within(screen.getByRole('banner', { name: 'Workspace header' })).getByRole('button', { name: 'Notifications' }));
   await userEvent.setup({ document }).click(screen.getByRole('button', { name: 'Order agent: 1 open issue' }));
   await screen.findByRole('dialog', { name: 'Order agent log' });
-  await screen.findByText('Recorded activity');
+  await screen.findByText('No open issues or recent errors or warnings.');
   assert.equal(within(screen.getByRole('dialog', { name: 'Order agent log' })).queryByText('Validating booking facts.'), null);
-  await userEvent.setup({ document }).click(screen.getByRole('button', { name: 'Details: Recorded activity' }));
-  await within(screen.getByRole('dialog', { name: 'Order agent log' })).findByText('Validating booking facts.');
   assert.equal(screen.queryByRole('button', { name: 'Activity' }), null);
 });
 
@@ -105,7 +103,7 @@ test('repairs require explicit confirmation and submit only the server report ve
   await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Cancel' })); assert.deepEqual(calls, []);
   await user.click(screen.getByRole('button', { name: 'Review repair' }));
   await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Approve repair' }));
-  await screen.findByText('No unresolved issues or recorded activity.'); assert.deepEqual(calls, [{ id: 'repair-1', version: 1, approve: true, key: true }]);
+  await screen.findByText('No open issues or recent errors or warnings.'); assert.deepEqual(calls, [{ id: 'repair-1', version: 1, approve: true, key: true }]);
 });
 
 test('manual investigations have no approval control and stale errors remain visible', async () => {
@@ -117,28 +115,26 @@ test('manual investigations have no approval control and stale errors remain vis
   await screen.findByText('This report changed. Reload before continuing.');
 });
 
-test('one Activity row expands and automatically loads all activity without hiding issues', async () => {
+test('agent details request only recent errors and warnings and never drain log history', async () => {
   const user = userEvent.setup({ document }); const calls: unknown[] = [];
   api.technicalReports = async () => ({ items: [issue()], next_before: null });
-  api.agentLogs = async (agent, level, before, limit) => { if (limit === 5) return { items: [], next_before: null }; calls.push([agent, level, before]); return { items: [{ ...entry(before ? 'older' : 'newest'), message: before ? 'Earlier saved activity.' : 'Latest saved activity.' }], next_before: before ? null : 'newest' }; };
+  api.agentLogs = async (agent, level, before, limit) => {
+    if (limit === 5) return { items: [], next_before: null };
+    calls.push([agent, level, before, limit]);
+    return { items: [{ ...entry(level!), level: level!, message: level === 'ERROR' ? 'Provider request failed.' : 'Provider response delayed.' }, entry('routine')], next_before: 'older' };
+  };
   mount(); await user.click(await screen.findByRole('button', { name: 'Order agent details' }));
   const viewport = await screen.findByRole('region', { name: 'Report entries' });
-  await within(viewport).findByText('Recorded activity');
-  assert.equal(within(viewport).queryByText('Latest saved activity.'), null);
-  await user.click(within(viewport).getByRole('button', { name: 'Details: Recorded activity' }));
-  await within(viewport).findByText('Latest saved activity.');
-  assert.deepEqual(calls[0], ['ORDER', 'INFO', undefined]);
+  await within(viewport).findByText('Provider request failed.');
+  await within(viewport).findByText('Provider response delayed.');
+  assert.equal(within(viewport).queryByText('Validating booking facts.'), null);
+  assert.equal(within(viewport).queryByText('Recorded activity'), null);
   assert.ok(within(viewport).getByRole('article', { name: 'Order agent processing failed · Acme' }));
-  assert.equal(screen.queryByRole('button', { name: 'Activity' }), null);
-  assert.equal(screen.queryByRole('button', { name: 'Show history' }), null);
-  assert.equal(screen.queryByRole('combobox'), null);
-  await within(viewport).findByText('Earlier saved activity.');
-  assert.ok(within(viewport).getByText('Latest saved activity.'));
-  assert.equal(within(viewport).getAllByRole('article', { name: 'Recorded activity' }).length, 1);
-  assert.equal(within(viewport).getByRole('list', { name: 'Activity entries' }).querySelectorAll('li').length, 2);
-  assert.ok(within(viewport).getByRole('article', { name: 'Order agent processing failed · Acme' }));
-  assert.deepEqual(calls.at(-1), ['ORDER', 'INFO', 'newest']);
-  assert.equal(screen.queryByRole('button', { name: 'Load more activity' }), null);
+  assert.deepEqual(calls, [['ORDER', 'ERROR', undefined, 25], ['ORDER', 'WARNING', undefined, 25]]);
+  assert.equal(within(viewport).getAllByRole('article').length, 3);
+  await user.click(within(viewport).getByRole('button', { name: 'Details: Provider request failed.' }));
+  assert.ok(within(viewport).getByText(/Open reports above show whether an issue still needs attention/));
+  assert.equal(calls.length, 2);
 });
 
 test('all unresolved report pages load automatically, deduplicate and exclude closed reports', async () => {
@@ -158,7 +154,7 @@ test('all unresolved report pages load automatically, deduplicate and exclude cl
   assert.equal(screen.queryByRole('button', { name: 'Show history' }), null);
   assert.equal(screen.queryByRole('button', { name: 'Earlier reports' }), null);
   assert.deepEqual(calls, [['OPEN', undefined, 12, 'ORDER'], ['OPEN', 'older', 12, 'ORDER']]);
-  assert.equal(within(viewport).getAllByRole('article')[0].getAttribute('aria-label'), 'FAILED · Acme');
+  assert.equal(within(viewport).getAllByRole('article')[0].getAttribute('aria-label'), 'Order agent processing failed · Acme');
 });
 
 test('compact issue log rows reveal complete details and actions for one report at a time', async () => {
@@ -250,7 +246,7 @@ test('operational log rows keep warning evidence and acknowledgement available',
 });
 
 
-test('platform notifications combine all agents, all open operational pages and activity in one chronological feed', async () => {
+test('platform notifications show all open issues before bounded recent problems', async () => {
   const user = userEvent.setup({ document }); const calls: unknown[] = [];
   api.platformNotifications = async () => ({ unread: 1, items: [{ id: 'note-1', version: 1, created_at: time, kind: 'technical.approval_required', severity: 'CRITICAL', title: 'Technical repair needs approval', body: 'Review it in Monitor.', read_at: null, organization_id: 'company-1', company_name: 'Acme', target: 'monitor' }] });
   api.readPlatformNotification = async row => ({ ...row, read_at: time, version: 2 });
@@ -265,20 +261,18 @@ test('platform notifications combine all agents, all open operational pages and 
   await within(viewport).findByText('ACO-1234 · Acknowledged open warning');
   assert.ok(within(viewport).getByText('Order agent processing failed'));
   assert.ok(within(viewport).getByText('ACO-1234 · Arrival commitment at risk'));
-  assert.ok(within(viewport).getByText('Recorded activity'));
+  assert.equal(within(viewport).queryByText('Recorded activity'), null);
   assert.equal(within(viewport).queryByText('Validating booking facts.'), null);
-  await user.click(within(viewport).getByRole('button', { name: 'Details: Recorded activity' }));
-  assert.ok(within(viewport).getByRole('list', { name: 'Activity entries' }));
-  assert.ok(within(viewport).getByText('Validating booking facts.'));
   assert.equal(within(viewport).getAllByRole('article').length, 4);
   assert.equal(within(dialog).queryByText('Resolved warning'), null);
-  assert.equal(within(dialog).queryByText('Historical error without resolution state'), null);
+  assert.ok(within(dialog).getByText('Historical error without resolution state'));
+  assert.equal(within(viewport).getAllByRole('article')[0].getAttribute('aria-label'), 'ACO-1234 · Acknowledged open warning · Acme');
   assert.ok(calls.some(call => JSON.stringify(call) === JSON.stringify(['technical', 'OPEN', undefined, undefined])));
   assert.ok(calls.some(call => JSON.stringify(call) === JSON.stringify(['operational', 'OPEN', incident.id])));
-  assert.ok(calls.some(call => JSON.stringify(call) === JSON.stringify(['activity', undefined, 'INFO'])));
+  for (const level of ['ERROR', 'WARNING']) assert.ok(calls.some(call => JSON.stringify(call) === JSON.stringify(['activity', undefined, level])));
 });
 
-test('refresh removes fixed reports from every loaded page while retaining activity', { timeout: 15_000 }, async () => {
+test('refresh removes fixed reports from every loaded page without retaining routine activity', { timeout: 15_000 }, async () => {
   let fixed = false;
   api.technicalReports = async (_status, before) => ({ items: fixed ? [] : [{ ...issue(), id: before ? 'older' : 'newest', title: before ? 'Older unresolved report' : 'Newest unresolved report' }], next_before: !fixed && !before ? 'older' : null });
   api.agentLogs = async () => ({ items: [entry('activity')], next_before: null });
@@ -289,7 +283,7 @@ test('refresh removes fixed reports from every loaded page while retaining activ
   fixed = true; await act(async () => { await cache.invalidateQueries({ queryKey: ['platform', 'agents', 'reports'] }); });
   await waitFor(() => assert.equal(screen.queryByText('Older unresolved report'), null));
   assert.equal(screen.queryByText('Newest unresolved report'), null);
-  assert.ok(screen.getByText('Recorded activity'));
+  assert.ok(screen.getByText('No open issues or recent errors or warnings.'));
 });
 
 
@@ -302,7 +296,7 @@ test('Chat agent card shows real failed-run state and exposes its recorded error
   assert.ok(within(card).getByText('Run failed'));
   await user.click(within(card).getByRole('button', { name: 'Chat agent: latest run failed' }));
   const dialog = await screen.findByRole('dialog', { name: 'Chat agent log' });
-  await user.click(await within(dialog).findByRole('button', { name: 'Details: Recorded activity' }));
+  await within(dialog).findByRole('button', { name: 'Details: AI answers unavailable; company search results returned.' });
   await within(dialog).findByText('AI answers unavailable; company search results returned.');
   assert.equal(within(dialog).queryByRole('button', { name: 'Review repair' }), null);
 });
@@ -414,4 +408,46 @@ test('initial history never animates; only newly observed committed handoffs car
   await waitFor(() => assert.ok(document.querySelector('[data-transfer-id="EVENT:new"]')));
   assert.equal(document.querySelector('[data-transfer-id="EVENT:old"]'), null);
   assert.ok(within(screen.getByRole('region', { name: 'Processing stream' })).getByText('· DAO-8901'));
+});
+
+test('routine review logs disappear while open reports survive the recent-event limit', async () => {
+  const { agentFeed } = await import('../src/portal/admin/agentFeed');
+  const logs = Array.from({ length: 1025 }, (_, i) => ({ ...entry(`routine-${i}`), message: i % 2 ? 'Run completed' : 'Reviewing recorded order progress and operational reports.' }));
+  assert.deepEqual(agentFeed([], [], logs), []);
+  const old = new Date(Date.now() - 48 * 3600000).toISOString();
+  const problems = Array.from({ length: 30 }, (_, i) => ({ ...entry(`error-${i}`), level: 'ERROR' as const, message: `Real error ${i}`, created_at: new Date(Date.now() - i * 1000).toISOString() }));
+  const rows = agentFeed([{ ...issue(), created_at: old }], [{ ...incident, created_at: old }], [...logs, ...problems]);
+  assert.equal(rows.length, 22);
+  assert.deepEqual(rows.slice(0, 2).map(row => row.kind).sort(), ['operational', 'technical']);
+  assert.equal(rows.at(-1)?.row.id, 'error-19');
+});
+
+test('recent problems combine repetitions without merging companies, agents or severity', async () => {
+  const { agentFeed } = await import('../src/portal/admin/agentFeed');
+  const problem = { ...entry('new'), level: 'ERROR' as const, message: 'Provider request failed.' };
+  const rows = agentFeed([], [], [problem, problem, { ...problem, id: 'older', created_at: new Date(Date.now() - 60000).toISOString() },
+    { ...problem, id: 'other-company', organization_id: 'company-2' }, { ...problem, id: 'other-agent', agent: 'DISPATCH' }, { ...problem, id: 'warning', level: 'WARNING' },
+    { ...problem, id: 'stale', created_at: new Date(Date.now() - 25 * 3600000).toISOString() }]);
+  assert.equal(rows.length, 4);
+  const repeated = rows.find(row => row.row.id === 'new');
+  assert.ok(repeated?.kind === 'event'); assert.equal(repeated.count, 2);
+});
+
+test('specific errors replace duplicate failed-run summaries but standalone failures remain visible', async () => {
+  const { agentFeed } = await import('../src/portal/admin/agentFeed');
+  const summary = { ...entry('summary'), level: 'ERROR' as const, message: 'Run completed with errors' };
+  const detail = { ...summary, id: 'detail', message: 'AI answers unavailable; company search results returned.' };
+  assert.deepEqual(agentFeed([], [], [summary, detail]).map(row => row.row.id), ['detail']);
+  assert.deepEqual(agentFeed([], [], [summary]).map(row => row.row.id), ['summary']);
+});
+
+test('log read failures offer retry without hiding saved unresolved reports', async () => {
+  api.technicalReports = async () => ({ items: [issue()], next_before: null });
+  api.agentLogs = async () => { throw new ApiError(503, 'Recent problems unavailable.'); };
+  cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  render(React.createElement(QueryClientProvider, { client: cache }, React.createElement(AgentLogFeed, { accountId: 'owner', agent: 'ORDER' })));
+  await screen.findByText('Order agent processing failed');
+  await screen.findAllByText('Recent problems unavailable.');
+  assert.ok(screen.getAllByRole('button', { name: 'Try again' }).length);
+  assert.equal(screen.queryByText('No open issues or recent errors or warnings.'), null);
 });

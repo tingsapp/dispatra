@@ -29,9 +29,9 @@ export default function Root() {
     return <PageLoading>Opening plans…</PageLoading>;
   }
   if (publicPath === '/plans') return <Suspense key={publicKey} fallback={<PageLoading>Loading plans…</PageLoading>}><Signup /></Suspense>;
-  if (publicPath === '/about' || publicPath === '/how-it-works' || publicPath === '/help') return <Suspense key={publicKey} fallback={<PageLoading>Loading Dispatra…</PageLoading>}><Information page={publicPath} /></Suspense>;
+  if (publicPath === '/about' || publicPath === '/help') return <Suspense key={publicKey} fallback={<PageLoading>Loading Dispatra…</PageLoading>}><Information page={publicPath} /></Suspense>;
   if (publicPath === '/docs/integrations') return <Suspense key={publicKey} fallback={<PageLoading>Loading integration guide…</PageLoading>}><IntegrationGuide /></Suspense>;
-  if (publicPath === '/contact') return <Suspense key={publicKey} fallback={<PageLoading>Loading contact…</PageLoading>}><Contact /></Suspense>;
+  if (publicPath === '/ask-dispatra') return <Suspense key={publicKey} fallback={<PageLoading>Loading Ask dispatra…</PageLoading>}><Contact /></Suspense>;
   if (publicPath === '/') return <PublicHome />;
   if (!isPrototypePath(location.pathname)) return <Suspense fallback={<PageLoading>Loading Dispatra…</PageLoading>}><Portal /></Suspense>;
   if (location.pathname !== PROTOTYPE_LOGIN_PATH && pageForPath(location.pathname) === undefined) return <PublicHome />;

@@ -52,7 +52,7 @@ export function TrialPlansPage() {
                 : <p className="text-xl font-medium">Contact us for pricing</p>}
             </div>
             <ul className="my-7 space-y-4 text-sm">{option.features.map(feature => <li key={feature} className="flex items-start gap-3"><Check className="mt-0.5 size-4 shrink-0 text-app-accent" aria-hidden="true" /><span>{feature}</span></li>)}</ul>
-            <div className="mt-auto pt-3"><LinkButton asChild className="w-full"><a href={`/contact?plan=${option.id}`}>Contact now<ArrowRight className="size-4" aria-hidden="true" /></a></LinkButton></div>
+            <div className="mt-auto pt-3"><LinkButton asChild className="w-full"><a href={`/ask-dispatra?plan=${option.id}`}>Contact now<ArrowRight className="size-4" aria-hidden="true" /></a></LinkButton></div>
           </article>; })}
         </section>
         {plan.data && plan.data.trial_enabled !== false && <section aria-labelledby="trial-title" className="public-trial-panel">

@@ -15,7 +15,7 @@ const shot = async (page, name) => { if (shots) await page.screenshot({ path: `$
 const open = async () => { const context = await browser.newContext({ viewport: { width: 1365, height: 900 } }); const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message)); return page; };
 const signIn = async (page, path, id, password) => {
   await page.goto(origin + path);
-  await page.getByLabel(path.startsWith('/admin') ? 'Login ID' : 'Email', { exact: true }).fill(id);
+  await page.getByLabel('Email', { exact: true }).fill(id);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 };

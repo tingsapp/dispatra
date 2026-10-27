@@ -87,7 +87,7 @@ test('successful owner login immediately opens the admin panel without reloading
   history.replaceState(null, '', '/admin/login');
   render(React.createElement(PortalApp));
   await screen.findByRole('heading', { name: 'Platform administration' });
-  await user.type(screen.getByLabelText('Login ID'), 'owner');
+  await user.type(screen.getByLabelText('Email'), 'owner');
   await user.type(screen.getByLabelText('Password'), 'Example-Password-99');
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
   await screen.findByRole('heading', { level: 1, name: 'Companies' });

@@ -14,11 +14,10 @@ export function PublicFooter({ workspaceHref }: { workspaceHref?: string }) {
         </div>
         <nav aria-label="Product" className="flex flex-col items-start gap-3">
           <h3 className="mb-1 text-sm font-medium">Product</h3>
-          <a href="/how-it-works" className={linkClass}>How it works</a>
           <a href="/plans" className={linkClass}>Plans &amp; free trial</a>
           <a href="/docs/integrations" className={linkClass}>Integrations &amp; API</a>
           <a href="/help" className={linkClass}>FAQs</a>
-          <a href="/contact#dispatra-chat-title" className={linkClass}>Talk to Dispatra</a>
+          <a href="/ask-dispatra#dispatra-chat-title" className={linkClass}>Ask dispatra</a>
         </nav>
         <nav aria-label="Company" className="flex flex-col items-start gap-3">
           <h3 className="mb-1 text-sm font-medium">Company</h3>

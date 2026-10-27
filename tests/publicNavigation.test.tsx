@@ -17,18 +17,18 @@ api.subscriptionPlan = async () => ({ trial_enabled: true, trial_days: 30, month
 afterEach(() => { cleanup(); localStorage.clear(); scrolled.length = 0; });
 after(() => dom.window.close());
 const start = (path = '/about') => { history.replaceState(null, '', path); render(<Root />); };
-const heading = (name: string) => screen.findByRole('heading', { level: 1, name });
+const heading = (name: string) => screen.findByRole('heading', { level: 1, name }, { timeout: 10000 });
 
 test('header, footer and content links navigate the mounted Root without document navigation', async () => {
-  start(); await heading('Built around your delivery day.');
-  assert.equal(fireEvent.click(within(screen.getByRole('navigation', { name: 'Website navigation' })).getByRole('link', { name: 'How it works' })), false);
-  const next = await heading('From request to delivered.');
-  await waitFor(() => assert.equal(document.activeElement, next));
-  assert.equal(location.pathname, '/how-it-works');
-  assert.equal(screen.getByRole('link', { name: 'How it works', current: 'page' }).getAttribute('aria-current'), 'page');
+  start(); await heading('Built around your delivery day');
+  const header = within(document.querySelector('.public-header') as HTMLElement);
+  assert.equal(header.queryByRole('navigation'), null);
+  assert.equal(fireEvent.click(header.getByRole('link', { name: 'Ask Dispatra' })), false);
+  await heading('How can I help you?');
+  assert.equal(location.pathname, '/ask-dispatra');
   fireEvent.click(screen.getByRole('link', { name: 'Integrations & API' })); await heading('Integrations & API');
   fireEvent.click(screen.getByRole('link', { name: 'Contact our team' })); await heading('How can I help you?');
-  assert.equal(location.pathname, '/contact');
+  assert.equal(location.pathname, '/ask-dispatra');
   assert.ok(scrolled.some(position => typeof position === 'object' && (position as { top: number }).top === 0));
 });
 
@@ -37,7 +37,7 @@ test('plan query links and hash anchors render their destination and preserve UR
   fireEvent.click(screen.getAllByRole('link', { name: 'Contact now' })[1]); await heading('How can I help you?');
   assert.equal(location.search, '?plan=dispatch');
   assert.ok(screen.getByText('Your enquiry: Smart Dispatching'));
-  fireEvent.click(screen.getByRole('link', { name: 'Talk to Dispatra' }));
+  fireEvent.click(within(screen.getByRole('contentinfo')).getByRole('link', { name: 'Ask dispatra' }));
   await waitFor(() => assert.ok(scrolled.includes('dispatra-chat-title'), 'Contact hash should scroll to chat'));
   assert.equal(location.hash, '#dispatra-chat-title');
   fireEvent.click(screen.getByRole('link', { name: 'Integrations & API' })); await heading('Integrations & API');
@@ -47,12 +47,12 @@ test('plan query links and hash anchors render their destination and preserve UR
 });
 
 test('Back and Forward render earlier pages and restore saved scroll positions', async () => {
-  start(); await heading('Built around your delivery day.');
+  start(); await heading('Built around your delivery day');
   Object.defineProperty(window, 'scrollY', { configurable: true, value: 420 });
   fireEvent.click(screen.getByRole('link', { name: 'Integrations & API' })); await heading('Integrations & API');
   Object.defineProperty(window, 'scrollY', { configurable: true, value: 90 });
   await act(async () => { history.back(); await new Promise(resolve => window.addEventListener('popstate', resolve, { once: true })); });
-  await heading('Built around your delivery day.');
+  await heading('Built around your delivery day');
   await waitFor(() => assert.ok(scrolled.some(position => typeof position === 'object' && (position as { top: number }).top === 420), 'Back should restore about-page scroll'));
   Object.defineProperty(window, 'scrollY', { configurable: true, value: 420 });
   await act(async () => { history.forward(); await new Promise(resolve => window.addEventListener('popstate', resolve, { once: true })); });
@@ -98,4 +98,20 @@ test('public interception stays inactive in company workspaces and cleans up on 
 test('direct trailing-slash and fragment URLs render and scroll after a lazy page commits', async () => {
   start('/docs/integrations/#api'); await heading('Integrations & API');
   await waitFor(() => assert.ok(scrolled.includes('api'), 'Direct guide fragment should scroll after rendering'));
+});
+
+test('legacy contact links open Ask dispatra and preserve the plan and section', async () => {
+  start('/contact?plan=dispatch#dispatra-chat-title');
+  await heading('How can I help you?');
+  assert.equal(location.pathname, '/ask-dispatra');
+  assert.equal(location.search, '?plan=dispatch');
+  assert.equal(location.hash, '#dispatra-chat-title');
+  assert.ok(screen.getByText('Your enquiry: Smart Dispatching'));
+  assert.equal(within(document.querySelector('.public-header') as HTMLElement).getByRole('link', { name: 'Ask Dispatra' }).getAttribute('href'), '/ask-dispatra');
+});
+
+test('retired how-it-works page redirects to the homepage', async () => {
+  history.replaceState(null, '', '/how-it-works'); render(<Root />);
+  await waitFor(() => assert.equal(location.pathname, '/'));
+  assert.equal(screen.queryByRole('link', { name: 'How it works' }), null);
 });

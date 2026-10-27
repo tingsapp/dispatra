@@ -36,7 +36,7 @@ try {
   assert.equal(await workflow.getByRole('button', { name: 'Step 1: Receive' }).getAttribute('aria-current'), 'step');
   await feed.getByRole('button', { name: 'Pause preview animation' }).click();
   console.log('Workflow selection and playback passed.');
-  const team = page.getByRole('region', { name: 'One connected team.', exact: true });
+  const team = page.getByRole('region', { name: 'One connected team', exact: true });
   for (const role of ['Driver', 'Shipper', 'Dispatcher']) {
     const tab = team.getByRole('tab', { name: role, exact: true }); await tab.click();
     assert.equal(await tab.getAttribute('aria-selected'), 'true');

@@ -317,7 +317,7 @@ test('TMS workspace uses the account menu for Integration, Subscription and guar
   await user.click(screen.getByRole('button', { name: 'Dispatcher Account' }));
   assert.deepEqual(screen.getAllByRole('menuitem').map(item => item.textContent), ['Profile', 'Subscription', 'Integration', 'Help', 'Logout']);
   await user.click(screen.getByRole('menuitem', { name: 'Integration' }));
-  await user.click(screen.getByRole('button',{name:'Dispatra — Monitor'}));
+  await user.click(screen.getByRole('button',{name:'Dispatra, Monitor'}));
   assert.deepEqual(visited, ['profile', 'help', 'integrations', 'monitor']);
   let proceed = () => {};
   const guard = (event: Event) => { event.preventDefault(); proceed = (event as CustomEvent).detail.proceed; };

@@ -18,7 +18,7 @@ export function CompanySubscriptionPage({ company }: { company: CompanyDetail })
       {subscription && <dl className="grid gap-5 text-sm sm:grid-cols-2">
         {[
           ['Status', subscriptionLabels[subscription.status]],
-          ['Start date', subscription.starts_on ?? '—'],
+          ['Start date', subscription.starts_on ?? '-'],
           ['Price per vehicle per month', subscriptionMoney(subscription.monthly_price, subscription.currency)],
           ['Currency', subscription.currency],
           ...(billing.data ? [['Recurring billing', billing.data.recurring_authorized ? billing.data.subscription_status === 'PENDING' ? 'Starting subscription' : billing.data.subscription_status.replaceAll('_', ' ') : 'Authorization required from the company dispatcher']] : []),

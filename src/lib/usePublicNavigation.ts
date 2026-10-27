@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react';
 
-const PUBLIC_PATHS = new Set(['/', '/plans', '/about', '/how-it-works', '/help', '/contact', '/terms', '/privacy', '/docs/integrations']);
+const PUBLIC_PATHS = new Set(['/', '/plans', '/about', '/how-it-works', '/help', '/contact', '/ask-dispatra', '/terms', '/privacy', '/docs/integrations']);
 const ENTRY_KEY = 'dispatraPublicEntry';
 type Position = { left: number; top: number };
 type PublicLocation = { pathname: string; search: string; hash: string; position?: Position; focus: boolean; visit: number };
 const publicPath = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
-const readLocation = (): PublicLocation => ({ pathname: publicPath(window.location.pathname), search: window.location.search, hash: window.location.hash, focus: false, visit: 0 });
+const readLocation = (): PublicLocation => {
+  if (publicPath(window.location.pathname) === '/how-it-works') {
+    history.replaceState(history.state, '', '/');
+  }
+  if (publicPath(window.location.pathname) === '/contact') {
+    history.replaceState(history.state, '', `/ask-dispatra${window.location.search}${window.location.hash}`);
+  }
+  return { pathname: publicPath(window.location.pathname), search: window.location.search, hash: window.location.hash, focus: false, visit: 0 };
+};
 
 /** Keep real anchors; intercept only ordinary clicks between public website pages. */
 export function usePublicNavigation() {

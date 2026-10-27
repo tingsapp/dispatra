@@ -6,13 +6,14 @@ import { fromDisplayDimension, toDisplayDimension, type Units } from '../../lib/
 import { VehicleType } from '../../types/simplePricing';
 import { useEntityDialog } from '../entities/useEntityDialog';
 import { WeightInput } from './WeightInput';
+import { TruckRoutingFields, truckRoutingError } from '../entities/TruckRoutingFields';
 
 const DIMENSIONS = [['cargoLengthCm', 'Box length'], ['cargoWidthCm', 'Box width'], ['cargoHeightCm', 'Box height']] as const;
 
 function DimensionInput({ label, value, onChange, units }: { label: string; value?: number; onChange: (cm?: number) => void; units: Units }) {
   return <label className="block"><span className="app-label">{label} ({units.dimensionUnit})</span>
     <input className="app-input w-full" type="number" min="0.000001" step="any" required aria-label={`${label} (${units.dimensionUnit})`}
-      value={value == null ? '' : Number(toDisplayDimension(value, units).toFixed(6))}
+      value={value == null ? '' : Number(toDisplayDimension(value, units).toFixed(2))}
       onChange={event => onChange(event.target.value === '' ? undefined : fromDisplayDimension(Number(event.target.value), units))} /></label>;
 }
 
@@ -20,7 +21,7 @@ function DimensionInput({ label, value, onChange, units }: { label: string; valu
 export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialVehicle: VehicleType | null; onSave: (vehicle: VehicleType) => void; onClose: () => void }) {
   const [units] = useState(() => loadBillingConfig().general);
   useEntityDialog(true, onClose);
-  const [draft, setDraft] = useState<Partial<VehicleType>>(() => initialVehicle ?? {});
+  const [draft, setDraft] = useState<Partial<VehicleType>>(() => ({ ...initialVehicle, truckRouting: initialVehicle?.truckRouting ?? { lengthM: 0, widthM: 0, heightM: 0, grossWeightKg: 0 } }));
   const [error, setError] = useState('');
   const patch = (change: Partial<VehicleType>) => { setDraft(current => ({ ...current, ...change })); setError(''); };
   const submit = (event: React.FormEvent) => {
@@ -31,15 +32,18 @@ export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialV
     if (pallets == null || !Number.isInteger(pallets) || pallets < 0) return setError('Enter a whole number of pallets (0 or more).');
     if ([l, w, h].some(value => value == null || !(value > 0))) return setError('Enter box length, width and height greater than 0.');
     if (!(Number(draft.baseSurcharge ?? 0) >= 0)) return setError('Enter a surcharge of $0 or more.');
+    const routingError = truckRoutingError(draft.truckRouting);
+    if (routingError) return setError(routingError);
+    if (draft.truckRouting && draft.truckRouting.grossWeightKg < payload) return setError('Loaded gross weight must cover the max payload.');
     onSave({
       fuelEligible: true, hasLiftgate: false, requiresCommercialLicense: false, active: true,
-      ...initialVehicle, id: initialVehicle?.id ?? `veh_${crypto.randomUUID()}`, name: name.trim(),
+      ...initialVehicle, truckRouting: draft.truckRouting, id: initialVehicle?.id ?? `veh_${crypto.randomUUID()}`, name: name.trim(),
       baseSurcharge: Math.round(Number(draft.baseSurcharge ?? 0) * 100) / 100, payloadCapacityKg: payload, palletCapacity: pallets, cargoLengthCm: l, cargoWidthCm: w, cargoHeightCm: h,
       cargoBedFeet: l! / 30.48, cargoVolumeCbm: l! * w! * h! / 1e6,
     });
   };
   return <Dialog size="form" onClose={onClose}>
-    <DialogHeader onClose={onClose} closeLabel="Close vehicle type form" title={initialVehicle ? 'Edit Vehicle Type' : 'Add Vehicle Type'} description="Capacity and inside box dimensions used when registering vehicles." />
+    <DialogHeader onClose={onClose} closeLabel="Close vehicle type form" title={initialVehicle ? 'Edit Vehicle Type' : 'Add Vehicle Type'} description="Capacity, cargo size and outside dimensions." />
     <form onSubmit={submit} noValidate className="app-dialog-body space-y-4">
       <label className="block"><span className="app-label">Name</span><input className="app-input w-full" aria-label="Name" required value={draft.name ?? ''} onChange={event => patch({ name: event.target.value })} placeholder="e.g. 16ft Cube Truck" /></label>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -49,6 +53,7 @@ export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialV
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {DIMENSIONS.map(([key, label]) => <DimensionInput key={key} label={label} units={units} value={draft[key]} onChange={cm => patch({ [key]: cm })} />)}
       </div>
+      <TruckRoutingFields value={draft.truckRouting!} onChange={truckRouting => patch({ truckRouting })} units={units} />
       <label className="block sm:max-w-xs"><span className="app-label">Surcharge ($)</span><input className="app-input w-full" aria-label="Surcharge ($)" type="number" min="0" step="0.01" value={draft.baseSurcharge ?? 0} onChange={event => patch({ baseSurcharge: event.target.value === '' ? 0 : Number(event.target.value) })} /><span className="mt-1 block text-xs text-slate-500">Added to the quote when an order requires this vehicle type and its rate card applies vehicle surcharges.</span></label>
       {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
       <div className="flex items-center justify-end gap-2 pt-2"><Button type="submit">{initialVehicle ? 'Save Changes' : 'Add Vehicle Type'}</Button></div>

@@ -48,7 +48,7 @@ test('portal shell preserves form drafts while toggling navigation and exposes t
   assert.ok(screen.getByRole('navigation', { name: 'Portal navigation' }));
   assert.equal(screen.getByRole('complementary', { name: 'Workspace sidebar' }).getAttribute('data-collapsed'), 'true');
   const logo = screen.getByRole('button', { name: 'Expand menu' });
-  assert.equal(logo.querySelector('img')?.getAttribute('src'), '/dispatra-icon.png');
+  assert.equal(logo.querySelector('img')?.getAttribute('src')?.split('?')[0], '/dispatra-icon.png');
   assert.equal(logo.querySelector('img')?.getAttribute('width'), '18');
   assert.equal(logo.querySelector('img')?.getAttribute('height'), '18');
   assert.equal(logo.querySelector('svg'), null);
@@ -57,7 +57,7 @@ test('portal shell preserves form drafts while toggling navigation and exposes t
   await user.click(screen.getByRole('button', { name: 'Account settings' }));
   logo.focus(); await user.keyboard('{Enter}');
   assert.equal(home, 0, 'The collapsed logo expands without navigating home');
-  await user.click(screen.getByRole('button', { name: 'Dispatra — Shippers' }));
+  await user.click(screen.getByRole('button', { name: 'Dispatra, Shippers' }));
   await user.click(screen.getByRole('button', { name: 'Sign out' }));
   assert.deepEqual([home, settings, logout], [1, 1, 1]);
   assert.equal((screen.getByLabelText('Customer name') as HTMLInputElement).value, 'Unsaved customer');
@@ -88,7 +88,7 @@ test('mobile workspace sidebar traps focus, dismisses with Escape and closes aft
   const open = screen.getByRole('button', { name: 'Open menu' });
   await user.click(open);
   const dialog = screen.getByRole('dialog', { name: 'Workspace sidebar' });
-  const brand = within(dialog).getByRole('button', { name: 'Dispatra — Shippers' });
+  const brand = within(dialog).getByRole('button', { name: 'Dispatra, Shippers' });
   assert.equal(document.activeElement, brand);
   await user.keyboard('{Shift>}{Tab}{/Shift}');
   assert.equal(document.activeElement, within(dialog).getByRole('button', { name: 'Sign out' }));

@@ -15,20 +15,22 @@ function useAllOpenPages(query: { hasNextPage: boolean; isFetching: boolean; isE
   }, [enabled, hasNextPage, isFetching, isError, fetchNextPage]);
 }
 
-export function useAgentFeed(accountId: string, agent?: AgentName, activityExpanded = false) {
+export function useAgentFeed(accountId: string, agent?: AgentName) {
   const technicalEnabled = agent !== 'OPERATIONAL' && agent !== 'CHAT';
   const operationalEnabled = !agent || agent === 'OPERATIONAL';
   const technical = useInfiniteQuery({ ...polling, queryKey: [...agentKeys, 'reports', accountId, 'OPEN', agent],
     queryFn: ({ pageParam }) => api.technicalReports('OPEN', pageParam, 12, agent), getNextPageParam: (page, _pages, _last, cursors) => nextPage(page.next_before, cursors), enabled: technicalEnabled });
   const operational = useInfiniteQuery({ ...polling, queryKey: [...agentKeys, 'operational', accountId, 'OPEN'],
     queryFn: ({ pageParam }) => api.operationalIssues('OPEN', pageParam), getNextPageParam: (page, _pages, _last, cursors) => nextPage(page.next_before, cursors), enabled: operationalEnabled });
-  const activity = useInfiniteQuery({ ...polling, queryKey: [...agentKeys, 'logs', accountId, agent, agent === 'CHAT' ? 'ALL' : 'INFO'],
-    queryFn: ({ pageParam }) => api.agentLogs(agent, agent === 'CHAT' ? undefined : 'INFO', pageParam), getNextPageParam: (page, _pages, _last, cursors) => nextPage(page.next_before, cursors) });
+  // Server-side severity filters prevent routine heartbeats from crowding out real errors.
+  const errors = useInfiniteQuery({ ...polling, queryKey: [...agentKeys, 'logs', accountId, agent, 'ERROR', 'recent'],
+    queryFn: () => api.agentLogs(agent, 'ERROR', undefined, 25), getNextPageParam: () => undefined });
+  const warnings = useInfiniteQuery({ ...polling, queryKey: [...agentKeys, 'logs', accountId, agent, 'WARNING', 'recent'],
+    queryFn: () => api.agentLogs(agent, 'WARNING', undefined, 25), getNextPageParam: () => undefined });
   useAllOpenPages(technical, technicalEnabled);
   useAllOpenPages(operational, operationalEnabled);
-  useAllOpenPages(activity, activityExpanded);
   const rows = agentFeed(technicalEnabled ? technical.data?.pages.flatMap(page => page.items) ?? [] : [],
-    operationalEnabled ? operational.data?.pages.flatMap(page => page.items) ?? [] : [], activity.data?.pages.flatMap(page => page.items) ?? [], agent === 'CHAT');
-  const queries = [activity, ...(technicalEnabled ? [technical] : []), ...(operationalEnabled ? [operational] : [])];
-  return { rows, queries, activity, loadingReports: (technicalEnabled && technical.hasNextPage) || (operationalEnabled && operational.hasNextPage) };
+    operationalEnabled ? operational.data?.pages.flatMap(page => page.items) ?? [] : [], [...(errors.data?.pages.flatMap(page => page.items) ?? []), ...(warnings.data?.pages.flatMap(page => page.items) ?? [])]);
+  const queries = [errors, warnings, ...(technicalEnabled ? [technical] : []), ...(operationalEnabled ? [operational] : [])];
+  return { rows, queries, loadingReports: (technicalEnabled && technical.hasNextPage) || (operationalEnabled && operational.hasNextPage) };
 }

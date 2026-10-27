@@ -336,7 +336,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                         <p className="mt-1 truncate text-xs text-slate-500" title={`${driver.driverNumber ?? driver.id} · ${driver.vehicle}`}>
                           {driver.driverNumber ?? driver.id} · {driver.vehicle}
                         </p>
-                        {driver.distance && driver.distance !== '—' && <p className="mt-0.5 text-xs text-slate-400">{driver.distance}</p>}
+                        {driver.distance && driver.distance !== '-' && <p className="mt-0.5 text-xs text-slate-400">{driver.distance}</p>}
                       </div>
                       <ChevronRight className="size-3.5 shrink-0 text-slate-400 group-hover:text-slate-700" />
                     </div>
@@ -407,7 +407,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                           <span className="font-medium text-slate-900 text-xs whitespace-nowrap">{item.jobNumber}</span>
                           <MonitorBadge tone={item.badgeColor === 'red' ? 'danger' : 'warning'}>{item.statusLabel}</MonitorBadge>
                         </div>
-                        <p className="text-xs text-slate-700">{item.subtitle}</p>
+                        <p className="text-xs text-slate-700 whitespace-pre-line [overflow-wrap:anywhere]">{item.subtitle}</p>
                         {item.pickupAddress && <p className="text-xs text-slate-500 truncate">Pickup · {item.pickupAddress.split(',')[0]}</p>}
                       </div>
                       <ChevronRight className="w-4 h-4 mt-0.5 text-slate-400 group-hover:text-slate-700 transition-colors shrink-0" />

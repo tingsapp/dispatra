@@ -75,7 +75,7 @@ const customerFacing = (detail: string, input: PricingOrderInput): string =>
   input.stops.reduce((text, stop, i) => text.split(stop.id).join(stop.label?.trim() || `Stop ${i + 1}`), detail);
 
 const money = (n: number, currency: string) => `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)} ${currency}`;
-const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '-';
 const when = (iso: string | null) => dateTime(iso) || 'To be confirmed';
 
 export const quotationSubject = (q: Quotation): string => `Quotation ${q.quoteNumber} from ${q.company.name}`.trim();
@@ -86,10 +86,10 @@ export const quotationText = (q: Quotation, message = ''): string => {
   const out: string[] = [];
   if (message.trim()) out.push(message.trim(), '');
   out.push(`QUOTATION ${q.quoteNumber}`, q.company.name, ...[q.company.address, q.company.phone, q.company.email].filter(Boolean), '');
-  out.push(`Prepared for: ${[q.customer.name, q.customer.contactName].filter(Boolean).join(' — ') || '—'}`, `Date: ${day(q.issuedAt)}`, `Valid until: ${day(q.expiresAt)}`, '');
-  out.push(`Service: ${q.service || '—'}${q.vehicle ? ` · ${q.vehicle}` : ''}`, `Scheduled: ${when(q.scheduledAt)}`, ...(q.distance ? [`Distance: ${q.distance}`] : []), '');
+  out.push(`Prepared for: ${[q.customer.name, q.customer.contactName].filter(Boolean).join(', ') || '-'}`, `Date: ${day(q.issuedAt)}`, `Valid until: ${day(q.expiresAt)}`, '');
+  out.push(`Service: ${q.service || '-'}${q.vehicle ? ` · ${q.vehicle}` : ''}`, `Scheduled: ${when(q.scheduledAt)}`, ...(q.distance ? [`Distance: ${q.distance}`] : []), '');
   out.push('Stops:', ...q.stops.map((s, i) => `  ${i + 1}. ${s.type === 'PICKUP' ? 'Pickup' : 'Delivery'}: ${s.address || 'Address to be confirmed'}${s.contactName ? ` (${s.contactName}${s.contactPhone ? `, ${s.contactPhone}` : ''})` : ''}`), '');
-  out.push('Items:', ...q.items.map(p => `  ${p.quantity} × ${p.description} — ${p.weight} each, ${p.dimensions}`), '');
+  out.push('Items:', ...q.items.map(p => `  ${p.quantity} × ${p.description}, ${p.weight} each, ${p.dimensions}`), '');
   out.push('Charges:', ...q.lines.map(l => `  ${pad(l.label, l.amount)}`), `  ${pad('Subtotal (before tax)', q.subtotal)}`, ...q.taxLines.map(l => `  ${pad(l.label, l.amount)}`), `  ${pad('TOTAL', q.total)}`, '');
   out.push(q.notes);
   return out.join('\n');

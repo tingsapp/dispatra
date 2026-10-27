@@ -47,6 +47,6 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
       </div>
       </section>
     </div>
-    {chatOrder && <ChatDialog slug={slug} orderId={chatOrder.id} orderNumber={chatOrder.number} initialKind="DRIVER_SHIPPER" onClose={() => setChatOrder(null)} />}
+    {chatOrder && <ChatDialog slug={slug} orderId={chatOrder.id} orderNumber={chatOrder.number} initialKind="DRIVER_SHIPPER" driverOnly onClose={() => setChatOrder(null)} />}
   </>;
 }

@@ -220,17 +220,21 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     const destination = drops[drops.length - 1];
     return destination?.latitude != null && destination.longitude != null;
   }).map(job => ({ job, stops: orderStops(job) }));
-  // Road geometry from the API (one Google Routes call per order version, cached); no line is drawn until it arrives.
+  // Provider road geometry is an overlay; the Google map and GPS markers stay in place.
   const slug = props.demo === false ? companySlugForCurrentPath() : null;
   const pathQueries = useQueries({ queries: visibleJobs.map(({ job, stops }) => ({
     queryKey: ['operations', slug, 'road-path', job.id, job.version, stops.map(stop => `${stop.lat},${stop.lng}`).join('|')],
     queryFn: () => operations.orderRoadPath(slug!, job.id),
-    enabled: !!slug && stops.length > 1, staleTime: Infinity, gcTime: 30 * 60_000, retry: false,
+    enabled: !!slug && stops.length > 1 && props.active !== false, staleTime: 120_000, gcTime: 180_000,
+    retry: false,
   })) });
   const roadPaths: Record<string, google.maps.LatLngLiteral[]> = Object.fromEntries(visibleJobs.flatMap(({ job }, index) => {
     const points = pathQueries[index]?.data?.points;
     return points ? [[job.id, points.map(([lat, lng]) => ({ lat, lng }))]] : [];
   }));
+  const routeAttribution = [...new Set(pathQueries.flatMap(query => query.data?.points.length && query.data.attribution ? [query.data.attribution] : []))].join(' · ');
+  const hasPreview = pathQueries.some(query => query.data?.preview && query.data.points.length > 1);
+  const failedPaths = pathQueries.filter(query => query.isError).length;
   const locatedDrivers = (props.demo === false ? props.drivers ?? [] : [])
     .filter(driver => Number.isFinite(driver.lat) && Number.isFinite(driver.lng));
   const allPoints: [number, number][] = [
@@ -245,6 +249,12 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
 
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />
+    {(routeAttribution || hasPreview || failedPaths > 0) &&
+      <div className="absolute bottom-8 right-16 z-10 max-w-[calc(100%-5rem)] rounded bg-white/95 px-2 py-1 text-[10px] text-slate-600" aria-label="Route information">
+        {hasPreview && <div>Road preview · no vehicle assigned</div>}
+        {routeAttribution && <div aria-label="Route data attribution">Routes {routeAttribution}</div>}
+        {failedPaths > 0 && <div role="status">Route unavailable for {failedPaths} {failedPaths === 1 ? 'order' : 'orders'}</div>}
+      </div>}
     {props.demo !== false && <>
     {visibleJobs.some(({ job }) => job.assignedDriverId === 'D14') && <><Polyline path={BLUE_PATH} strokeColor={APP_ACCENT} strokeOpacity={0.8} strokeWeight={7} clickable={false} />
     <Polyline path={BLUE_PATH} strokeColor={APP_ACCENT} strokeWeight={4} clickable={false} /></>}

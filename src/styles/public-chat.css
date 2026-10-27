@@ -133,3 +133,13 @@
   background: currentColor;
   vertical-align: .15em;
 }
+
+/* Keep email contact in the initial chat view without changing the conversation dock. */
+.public-chat-contact { flex-shrink: 0; }
+.public-chat-initial-contact { position: absolute; top: 100%; left: 0; right: 0; }
+
+.public-chat-shell--contact .public-chat-body:not(.public-chat-body--started) { position: relative; display: block; padding-bottom: 0; }
+.public-chat-shell--contact .public-chat-body:not(.public-chat-body--started) > h1 { position: absolute; top: calc(50svh - 9rem - 132px); width: 100%; margin: 0; }
+.public-chat-shell--contact .public-chat-body:not(.public-chat-body--started) > .public-chat-dock { position: absolute; top: calc(50svh - 9rem); bottom: auto; width: 100%; padding: 0; transform: translateY(-50%); }
+.public-chat-contact .public-contact-panel { padding: 18px 20px; }
+.public-chat-contact .public-contact-title { font-size: 15px; line-height: 1.5; letter-spacing: 0; font-weight: 500; }

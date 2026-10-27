@@ -28,9 +28,9 @@ export function CompanySubscriptionsTable({ onOpen }: { onOpen: (id: string) => 
         <td><div className="font-medium">{row.company_name}</div><div className="text-xs text-app-muted">{row.company_slug}</div></td>
         <td className="whitespace-nowrap">{row.status === 'ACTIVE' && !row.contributing ? 'Scheduled' : subscriptionLabels[row.status]}</td>
         <td className="whitespace-nowrap">{subscriptionMoney(row.monthly_price, row.currency)}</td>
-        <td className="whitespace-nowrap text-app-muted">{row.starts_on ?? '—'}</td>
+        <td className="whitespace-nowrap text-app-muted">{row.starts_on ?? '-'}</td>
         <td className="whitespace-nowrap">{!row.trial_ends_at ? 'No trial' : row.trial_activated_at ? 'Activated' : new Date(row.trial_ends_at).getTime() <= Date.now() ? 'Trial ended' : 'Free trial'}</td>
-        <td className="whitespace-nowrap text-app-muted">{formatWhen(row.trial_ends_at, '—')}</td>
+        <td className="whitespace-nowrap text-app-muted">{formatWhen(row.trial_ends_at, '-')}</td>
         <td><StatusBadge active={row.workspace_active} inactiveLabel="Suspended" /></td>
         <td><a href={`/admin/companies/${row.organization_id}/subscription`} aria-label={`View ${row.company_name} subscription`} className="text-app-text underline-offset-4 hover:underline" onClick={event => {
           if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

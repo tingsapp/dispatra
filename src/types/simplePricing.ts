@@ -1,7 +1,8 @@
+import type { TruckRoutingMeasurements } from '../domain/operations';
 // Organization catalogue: Services, Vehicle Types, and Accessorials.
 //
 // These entities hold *defaults* only. Commercial rates (base fee, km rate,
-// minimums, negotiated overrides) live on Rate Cards — see `pricing.ts`.
+// minimums, negotiated overrides) live on Rate Cards, see `pricing.ts`.
 
 export interface DeliveryService {
   id: string;
@@ -68,6 +69,8 @@ export interface AccessorialItem {
 }
 
 export interface VehicleType {
+  /** Shared outside measurements for this precise vehicle configuration. */
+  truckRouting?: TruckRoutingMeasurements;
   id: string;
   name: string;
   payloadCapacityKg: number; // e.g. 1000 for 1 Tonne, 2000 for 2 Tonne, etc.

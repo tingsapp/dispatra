@@ -51,7 +51,7 @@ test('vehicle list first column displays public ID with only year underneath', (
   assert.equal(table.querySelector('th')?.textContent, 'ID');
   const cells = table.querySelectorAll('tbody tr td:first-child');
   assert.deepEqual(Array.from(cells[0].children).map(child => child.textContent), ['DDV-V12', '2022']);
-  assert.deepEqual(Array.from(cells[1].children).map(child => child.textContent), ['DDV-V14', '—']);
+  assert.deepEqual(Array.from(cells[1].children).map(child => child.textContent), ['DDV-V14', '-']);
 });
 const scenarios = [
   { name: 'Orders', view: () => React.createElement(JobsPage, { jobs: INITIAL_JOBS, drivers: INITIAL_DRIVERS, onSelectJob: noop, onUpdateJob: noop, onCreateJob: noop, onNotification: noop }), total: () => INITIAL_JOBS.length },

@@ -350,8 +350,8 @@ export function JobsPage({
     closeCreateModal();
     onNotification(
       snapshot.status === 'PRICED'
-        ? `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber} — quoted $${snapshot.total.toFixed(2)} ${snapshot.currency}`
-        : `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber} — pricing needs attention`
+        ? `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber}, quoted $${snapshot.total.toFixed(2)} ${snapshot.currency}`
+        : `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber}, pricing needs attention`
     );
   };
 
@@ -487,7 +487,7 @@ export function JobsPage({
                   <tr key={draft.id} className="hover:bg-slate-50/80 transition-colors cursor-pointer" onClick={() => setReviewingEmailId(draft.id)}>
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-400">—</span>
+                        <span className="font-medium text-slate-400">-</span>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">Draft</span>
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" /> From email</div>
@@ -595,7 +595,7 @@ export function JobsPage({
                             onOpenChange={open => setReassigningJobId(open ? job.id : null)}
                             onSelect={driverId => handleReassignDriver(job, driverId)} />
                         ) : (
-                          <span className="text-slate-500">{job.routeId ? 'Assigned driver unavailable' : '—'}</span>
+                          <span className="text-slate-500">{job.routeId ? 'Assigned driver unavailable' : '-'}</span>
                         )}
                       </td>
 
@@ -697,7 +697,7 @@ export function JobsPage({
                           setNewDriverId(driverId);
                         }}
                         options={[
-                          { value: 'unassigned', label: '— Leave Unassigned (Staged for Dispatch) —' },
+                          { value: 'unassigned', label: 'Leave unassigned (staged for dispatch)' },
                           ...drivers.map((d) => ({ value: d.id, label: `${d.name} (${d.driverNumber ?? d.id}) · ${d.statusLabel}` }))
                         ]}
                       />

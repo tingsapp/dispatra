@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { RouteConstellation } from './RouteConstellation';
 
 const benefits = [
-  { icon: MailCheck, title: 'Less entry. More momentum.', description: 'Turn incoming order emails into prepared orders. Give your team more time to keep deliveries moving.' },
-  { icon: Route, title: 'A smarter way to dispatch.', description: 'Match ready orders with eligible drivers in Auto mode, then let route optimization connect the stops.' },
-  { icon: Radar, title: 'One view of the whole day.', description: 'Keep orders, drivers, and delivery progress together. See what is moving and what needs your attention.' },
-  { icon: ScanLine, title: 'Clarity through completion.', description: 'Connect your dispatchers, shippers, and drivers from the first request to captured proof of delivery.' },
+  { icon: MailCheck, title: 'Less entry, more momentum', description: 'Turn incoming order emails into prepared orders. Give your team more time to keep deliveries moving.' },
+  { icon: Route, title: 'A smarter way to dispatch', description: 'Match ready orders with eligible drivers in Auto mode, then let route optimization connect the stops.' },
+  { icon: Radar, title: 'One view of the whole day', description: 'Keep orders, drivers, and delivery progress together. See what is moving and what needs your attention.' },
+  { icon: ScanLine, title: 'Clarity through completion', description: 'Connect your dispatchers, shippers, and drivers from the first request to captured proof of delivery.' },
 ];
 
 export function WhyDispatra() {
@@ -34,7 +34,7 @@ export function WhyDispatra() {
     <div className="mx-auto max-w-7xl px-6 lg:px-10">
       <div className="why-dispatra-heading">
         <p className="home-eyebrow">Why Dispatra</p>
-        <h2 id="why-dispatra-title">Every moving part.<br className="sm:hidden" /> One smooth operation.</h2>
+        <h2 id="why-dispatra-title">Every moving part in<br className="sm:hidden" /> one smooth operation</h2>
         <p className="why-dispatra-intro">Less busywork between the order and the doorstep.</p>
       </div>
       <div className="why-dispatra-body">

@@ -5,14 +5,14 @@ interface SearchInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  /** Extra classes for the wrapper — use to control width (defaults to flex-1). */
+  /** Extra classes for the wrapper, use to control width (defaults to flex-1). */
   className?: string;
   'aria-label'?: string;
   inputProps?: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'onChange' | 'placeholder' | 'className'>;
 }
 
 /**
- * SearchInput — the shared search field. The icon and clear button are centred
+ * SearchInput, the shared search field. The icon and clear button are centred
  * against the control's own height so they stay aligned at any text size.
  */
 export const SearchInput: React.FC<SearchInputProps> = ({

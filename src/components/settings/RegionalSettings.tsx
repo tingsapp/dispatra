@@ -19,8 +19,8 @@ export function RegionalSettings({ editor }: { editor: Pick<BillingEditor, 'conf
           value={config.quoteSettings.currency}
           onValueChange={() => { }}
           options={[
-            { value: 'CAD', label: 'CAD — Canadian Dollar' },
-            { value: 'USD', label: 'USD — US Dollar' }
+            { value: 'CAD', label: 'CAD, Canadian Dollar' },
+            { value: 'USD', label: 'USD, US Dollar' }
           ]}
         />
         <p className="text-xs text-slate-500 mt-1">Currency is fixed for existing rates.</p>
@@ -39,8 +39,8 @@ export function RegionalSettings({ editor }: { editor: Pick<BillingEditor, 'conf
           value={config.general.distanceUnit}
           onValueChange={(v) => patch('general', { distanceUnit: v as 'km' | 'mi' })}
           options={[
-            { value: 'km', label: 'km — Kilometres' },
-            { value: 'mi', label: 'mi — Miles' }
+            { value: 'km', label: 'km, Kilometres' },
+            { value: 'mi', label: 'mi, Miles' }
           ]}
         />
       </div>
@@ -52,8 +52,8 @@ export function RegionalSettings({ editor }: { editor: Pick<BillingEditor, 'conf
           value={config.general.weightUnit}
           onValueChange={(v) => patch('general', { weightUnit: v as 'kg' | 'lb' })}
           options={[
-            { value: 'kg', label: 'kg — Kilograms' },
-            { value: 'lb', label: 'lb — Pounds' }
+            { value: 'kg', label: 'kg, Kilograms' },
+            { value: 'lb', label: 'lb, Pounds' }
           ]}
         />
       </div>
@@ -65,8 +65,8 @@ export function RegionalSettings({ editor }: { editor: Pick<BillingEditor, 'conf
           value={config.general.dimensionUnit}
           onValueChange={(v) => patch('general', { dimensionUnit: v as 'cm' | 'in' })}
           options={[
-            { value: 'cm', label: 'cm — Centimetres' },
-            { value: 'in', label: 'in — Inches' }
+            { value: 'cm', label: 'cm, Centimetres' },
+            { value: 'in', label: 'in, Inches' }
           ]}
         />
       </div>

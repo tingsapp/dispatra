@@ -5,24 +5,34 @@
   flex-direction: column;
   box-sizing: border-box;
   width: min(26rem, calc(100vw - 112px));
-  height: 66px;
+  height: 78px;
   max-width: calc(100vw - 48px);
   max-height: calc(100dvh - 48px);
   padding: 12px;
   overflow: hidden;
   border: 1px solid #e5e7eb;
-  border-radius: 20px;
+  border-radius: 28px;
   background: white;
   color: #0d0d0d;
   box-shadow: 0 2px 8px #0000000a;
-  transition: height 280ms cubic-bezier(.22, 1, .36, 1), width 280ms cubic-bezier(.22, 1, .36, 1), background-color 200ms ease, box-shadow 200ms ease;
+  transition: height 280ms cubic-bezier(.22, 1, .36, 1), width 280ms cubic-bezier(.22, 1, .36, 1), padding 280ms cubic-bezier(.22, 1, .36, 1), border-width 280ms ease, background-color 280ms ease, box-shadow 280ms ease;
+}
+/* The idle composer floats on its own; the conversation gains a panel on open. */
+.company-activity-panel[data-expanded="false"] {
+  height: var(--assistant-composer-height, 54px);
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .company-activity-panel[data-expanded="true"] {
   width: min(26rem, calc(100vw - 48px));
   height: min(40rem, calc(100dvh - 100px));
   box-shadow: 0 8px 28px rgb(16 24 20 / 16%);
 }
-.assistant-panel-content { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+@keyframes assistant-panel-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.assistant-panel-content { animation: assistant-panel-enter 220ms ease both; display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
 .assistant-view-layer {
   opacity: 0;
   transform: translateY(4px);
@@ -38,13 +48,12 @@
   transition-delay: 0s;
 }
 .assistant-toggle-icon g { transition: stroke 200ms ease; }
-.assistant-search-composer { padding: 8px 12px; }
-.assistant-search-composer:focus-within { outline: 1px solid var(--app-input-focus-color); outline-offset: 2px; }
-.assistant-search-composer textarea { padding: 0 40px 0 0; font-size: 13px; line-height: 24px; }
+.company-activity-panel .public-chat-input { font-size: 14px; }
 .company-activity-panel .company-activity-row { background: transparent; }
 .company-activity-panel button[aria-label="Close Dispatra"]:hover { background: var(--color-app-hover); color: #0d0d0d; }
 @media (prefers-reduced-motion: reduce) {
   .company-activity-panel, .company-activity-row, .company-activity-icon { transition: none; }
+  .assistant-panel-content { animation: none; }
   .assistant-view-layer, .assistant-toggle-icon g { transition: none; }
   .assistant-view-layer { transform: none; }
 }
@@ -52,3 +61,5 @@
 .company-activity-panel .assistant-view-scroll::-webkit-scrollbar { display: none; }
 .company-activity-panel .assistant-message { overflow-wrap: anywhere; }
 .company-activity-panel .assistant-reference { overflow-wrap: anywhere; }
+
+.company-activity-panel .public-chat-composer:focus-within { border-color: #9ca3af; }

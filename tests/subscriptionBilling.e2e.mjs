@@ -14,7 +14,7 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(origin + '/admin/billing', { waitUntil: 'domcontentloaded' });
-  await page.getByLabel('Login ID', { exact: true }).fill(process.env.E2E_OWNER_LOGIN || 'browser-owner');
+  await page.getByLabel('Email', { exact: true }).fill(process.env.E2E_OWNER_LOGIN || 'browser-owner');
   await page.getByLabel('Password', { exact: true }).fill(process.env.E2E_OWNER_PASSWORD);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('heading', { name: 'Subscription', exact: true }).waitFor();

@@ -18,7 +18,7 @@ afterEach(() => { cleanup(); history.replaceState(null, '', '/acme/driver/orders
 
 const address = (text: string) => ({ text, city: 'Vancouver', province: 'BC', postal_code: 'V6B 1A1', country: 'CA', latitude: 49.28, longitude: -123.1 });
 const duty = { id: 'duty-1', version: 1, created_at: '2026-10-02T08:00:00Z', driver_id: 'd1', started_at: '2026-10-02T08:00:00Z', ended_at: null };
-const profile = (online: boolean) => ({ id: 'd1', version: 3, number: 'DCO-0001', name: 'Dana Driver', email: 'dana@example.com', phone: '6045550102', address: address('1 Driver St, Vancouver'), service_city: 'Vancouver', vehicle_id: 'v1', vehicle_name: 'Test Van · TEST123', duty: online ? duty : null, location_permission: 'GRANTED' });
+const profile = (online: boolean) => ({ time_zone: 'America/Vancouver', id: 'd1', version: 3, number: 'DCO-0001', name: 'Dana Driver', email: 'dana@example.com', phone: '6045550102', address: address('1 Driver St, Vancouver'), service_city: 'Vancouver', vehicle_id: 'v1', vehicle_name: 'Test Van · TEST123', duty: online ? duty : null, location_permission: 'GRANTED' });
 const order = { id: 'o1', number: 'DCO-1001', status: 'ASSIGNED', scheduled_at: '2026-10-02T16:00:00Z', completed_at: null, route_id: 'r1', route_status: 'PLANNED', service_name: 'Same day',
   stops: [{ id: 's1', kind: 'PICKUP', address: address('100 Main St, Vancouver'), contact_name: 'Dock', phone: '6045550000', instructions: '', window_start: null, window_end: null, unattended_allowed: false, photo_required: false },
     { id: 's2', kind: 'DROPOFF', address: address('200 King St, Vancouver'), contact_name: 'Pat', phone: '', instructions: 'Ring bell', window_start: null, window_end: null, unattended_allowed: false, photo_required: false }],
@@ -33,7 +33,7 @@ let online = false;
 const stub = (name: string, value: unknown) => Object.assign(operations, { [name]: async (...args: unknown[]) => { calls.push(name); return typeof value === 'function' ? (value as (...a: unknown[]) => unknown)(...args) : value; } });
 stub('driverProfile', () => profile(online));
 // Order details include the order chat; an empty channel list keeps these tests about stop execution.
-Object.assign(chat, { channels: async () => [], inbox: async () => [] });
+Object.assign(chat, { channels: async () => [], inbox: async () => [], companyChannel: async () => ({kind:'DISPATCH_DRIVER',title:'Company',conversation_id:null,driver_id:'d1',unread:0,can_send:true,closed_reason:null,last_message_at:null}) });
 stub('driverOrders', [order]);
 stub('sync', { cursor: '1-0', changes: [], unread: 0, reset: false, next_poll_ms: 60_000 });
 stub('driverRoutes', [route]);
@@ -43,11 +43,37 @@ stub('updateDriverProfile', (_slug: unknown, version: unknown, phone: unknown) =
 const mount = () => render(React.createElement(QueryClientProvider, { client: client() },
   React.createElement(DriverPortal, { slug: 'acme', company: 'Acme Logistics', login: 'dana@example.com', onLogout: () => calls.push('logout'), loggingOut: false, logoutError: null })));
 
-test('driver sidebar lists Profile, Orders and Messages and ends with a Logout card above the duty switch', async () => {
+test('company timezone controls driver list and stop dates when the browser is in Pakistan', async () => {
+  const user = userEvent.setup({ document });
+  const scheduled = { ...order, scheduled_at: '2026-10-20T19:30:00Z', stops: order.stops.map((stop, i) => ({ ...stop, window_start: i === 0 ? '2026-10-20T19:30:00Z' : null, window_end: i === 1 ? '2026-10-21T01:00:00Z' : null })) };
+  stub('driverOrders', [scheduled]);
+  try {
+    mount();
+    const row = (await screen.findByText(order.number)).closest('tr')!;
+    assert.match(row.textContent!, /Oct 20, 2026, 12:30/);
+    assert.match(row.textContent!, /Deliver by Oct 20, 2026, 18:00/);
+    assert.doesNotMatch(row.textContent!, /Oct 21/);
+    await user.click(row);
+    const dialog = await screen.findByRole('dialog');
+    assert.match(dialog.textContent!, /Ready from Oct 20, 2026, 12:30/);
+    assert.match(dialog.textContent!, /Deliver\s+by Oct 20, 2026, 18:00/);
+  } finally { stub('driverOrders', [order]); }
+});
+
+test('missing company timezone waits for the profile instead of displaying browser times', async () => {
+  stub('driverProfile', () => ({ ...profile(false), time_zone: undefined }));
+  try {
+    mount();
+    assert.ok(await screen.findByText('Loading company time zone…'));
+    assert.equal(screen.queryByRole('table', { name: 'Orders' }), null);
+  } finally { stub('driverProfile', () => profile(online)); }
+});
+
+test('driver sidebar lists Profile, Orders and Chat and ends with a Logout card above the duty switch', async () => {
   const user = userEvent.setup({ document }); online = true; calls.length = 0;
   mount();
   const nav = screen.getByRole('navigation', { name: 'Portal navigation' });
-  assert.deepEqual(within(nav).getAllByRole('link').map(link => link.getAttribute('aria-label')), ['Profile', 'Orders', 'Messages']);
+  assert.deepEqual(within(nav).getAllByRole('link').map(link => link.getAttribute('aria-label')), ['Profile', 'Orders', 'Chat']);
   assert.equal(screen.queryByText('My routes'), null);
   assert.equal(screen.queryByRole('button', { name: /Driver account/ }), null);
   const toggle = await screen.findByRole('switch', { name: 'Duty status' });

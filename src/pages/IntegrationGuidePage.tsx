@@ -77,7 +77,7 @@ export default function IntegrationGuidePage() {
 
       <section aria-labelledby="integration-help" className="guide-help">
         <div><h2 id="integration-help">Talk through your connection.</h2><p>Tell our team which TMS you use or what you’d like to build.</p></div>
-        <a href="/contact" className="home-text-link">Contact our team<ArrowRight size={14} aria-hidden="true" /></a>
+        <a href="/ask-dispatra" className="home-text-link">Contact our team<ArrowRight size={14} aria-hidden="true" /></a>
       </section>
     </main>
     <PublicFooter />

@@ -49,7 +49,7 @@ export function VehicleTypesSection({ onNotification, onChanged }: { onNotificat
       onNotification?.(`${type.name} deleted.`);
     } catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not delete ${type.name}.`); }
   };
-  const dimension = (cm?: number) => cm == null ? '—' : Number(toDisplayDimension(cm, units).toFixed(1)).toString();
+  const dimension = (cm?: number) => cm == null ? '-' : Number(toDisplayDimension(cm, units).toFixed(1)).toString();
   return <section aria-label="Vehicle types" className="space-y-4">
     {slug && catalogQuery.isPending && <p role="status" className="text-sm text-slate-500">Loading vehicle types…</p>}
     {slug && catalogQuery.error && <p role="alert" className="text-sm text-rose-700">{catalogQuery.error.message}</p>}

@@ -11,6 +11,7 @@ import { companySlugForCurrentPath } from './lib/pageRoutes';
 import { allOperations, operations, type AssistantReference } from './operations/api';
 import { changeAssignment } from './operations/assignment';
 import { driverToUi } from './operations/adapters';
+import { monitorTiming } from './operations/monitorTiming';
 import { api } from './portal/api';
 import { companySettingsKey, useWorkspaceAccount } from './portal/WorkspaceAccount';
 import { useWorkspaceTransition } from './components/layout/WorkspaceTransition';
@@ -25,6 +26,7 @@ import { ConfirmDialogHost, confirmDialog } from './components/ui/ConfirmDialog'
 import { DispatchRecommendation } from './components/monitor/DispatchRecommendation';
 import { Sidebar } from './components/Sidebar';
 import { TopMetrics } from './components/TopMetrics';
+import { TodaysPlan } from './components/monitor/TodaysPlan';
 import { GoogleMonitorMap, type MapController, VANCOUVER_CENTER_LNG_LAT } from './components/GoogleMonitorMap';
 import { companyMapCenter } from './components/monitor/mapScene';
 import { isActiveMonitorOrder } from './components/monitor/orderVisibility';
@@ -91,11 +93,15 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     const vehicle = vehicleQuery.data?.find(item => item.id === row.vehicle_id);
     const driver = driverToUi(row, vehicle, monitorQuery.data?.drivers.find(item => item.id === row.id));
     const onRoute = driver.dutyStatus === 'ON_DUTY' && current?.status === 'IN_PROGRESS';
+    const nextVisit = current?.stops.find(stop => stop.status !== 'COMPLETED');
+    const timing = monitorTiming(onRoute && !nextVisit?.arrived_at && !monitorQuery.isError
+      ? monitorQuery.data?.routes.find(route => route.id === current?.id)?.estimate : null,
+      nextVisit?.stop_id, loadPricingContext().billing.general, settingsQuery.data?.data.time_zone);
     const vehicleUnavailable = vehicleQuery.isSuccess && driver.dutyStatus === 'ON_DUTY' && (!vehicle || !vehicle.active || vehicle.data.availability === 'UNAVAILABLE');
     return { ...driver, status: onRoute ? 'on_route' as const : vehicleUnavailable ? 'offline' as const : driver.status,
       statusLabel: onRoute ? 'On route' : vehicleUnavailable ? 'Vehicle unavailable' : driver.statusLabel,
       currentJob: orderQuery.data?.find(order => order.route_id === current?.id)?.number,
-      nextStop: current?.stops.find(stop => stop.status !== 'COMPLETED')?.stop.address.text ?? 'Not set', routeId: current?.id,
+      nextStop: nextVisit?.stop.address.text ?? 'Not set', routeId: current?.id, ...timing,
       lastUpdate: row.last_seen_at ? dateTime(row.last_seen_at) : 'Not set' };
   }) : localDrivers;
   useEffect(() => { if (!slug) try { saveDrivers(localDrivers); } catch { showToast('Driver changes could not be saved in this browser.'); } }, [localDrivers, slug]);
@@ -673,6 +679,12 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
             />
 
             {activeTab === 'monitor' && <>
+            <TodaysPlan jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
+              attentionIds={new Set(jobs.filter(job => needsAttentionItems.some(item => item.jobNumber === job.jobNumber)).map(job => job.id))}
+              loading={!!slug && (orderQuery.isPending || settingsQuery.isPending || monitorQuery.isPending)}
+              error={!!slug && (orderQuery.isError || settingsQuery.isError || monitorQuery.isError)}
+              onRetry={() => { void orderQuery.refetch(); void settingsQuery.refetch(); void monitorQuery.refetch(); }}
+              onSelectOrder={handleOpenJobDossier} />
             {/* DRIVER MARKER FLOW (D14 + Driver Actions Child) */}
             <AnimatePresence>
               {showDriverPopover && (

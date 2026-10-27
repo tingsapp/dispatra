@@ -1,3 +1,4 @@
+import { useChatInbox } from '../chat/api';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ChevronRight, CircleCheck, Clock, MapPin, Package, Pencil, Truck } from 'lucide-react';
@@ -56,6 +57,8 @@ export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: strin
   const [search, setSearch] = useState('');
   const [lifecycle, setLifecycle] = useState('all');
   const [dateFilter, setDateFilter] = useState<OrderDateSelection>({ kind: 'all' });
+  const chats = useChatInbox(slug);
+  const driverUnread = (identity: string) => chats.data?.find(row => row.order_id === identity && row.kind === 'DRIVER_SHIPPER')?.unread ?? 0;
   const [detailId, setDetailId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Order | null>(null);
   const [message, setMessage] = useState('');
@@ -117,7 +120,7 @@ export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: strin
             const deliverBy = drops.map(s => s.windowEnd).filter(Boolean).sort().pop();
             return <tr key={job.id} className="hover:bg-slate-50/80 transition-colors cursor-pointer" onClick={() => setDetailId(job.id)}>
               <td className="py-3.5 px-4 whitespace-nowrap">
-                <div className="flex items-center gap-2"><span className="font-medium text-slate-900">{job.jobNumber}</span><span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>{orderAttention(job).map(a => <span key={a.flag} className="text-xs text-amber-700" title={a.detail}>{a.label}</span>)}</div>
+                <div className="flex items-center gap-2"><span className="font-medium text-slate-900">{job.jobNumber}</span>{driverUnread(job.id) > 0 && <span className="rounded-full bg-rose-100 px-1.5 text-xs text-rose-700" aria-label={`${driverUnread(job.id)} unread driver messages`}>{driverUnread(job.id)} new messages</span>}<span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{lifecycleLabel(job)}</span>{orderAttention(job).map(a => <span key={a.flag} className="text-xs text-amber-700" title={a.detail}>{a.label}</span>)}</div>
                 {job.riskText && <div className="text-xs text-slate-500 mt-0.5 font-normal">{job.riskText}</div>}
               </td>
               <td className="py-3.5 px-4 max-w-xs">
@@ -156,7 +159,7 @@ export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: strin
           <p>Status: <span className="font-medium">{lifecycleLabel(detail)}</span>{detail.lifecycleStatus === 'NEW' && <span className="text-slate-500"> · awaiting dispatch</span>}</p>
         </section>} />
         {proofAvailable(detail.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={detail.id} timeZone={timeZone} />}
-        <OrderChatSection slug={slug} orderId={detail.id} />
+        <OrderChatSection slug={slug} orderId={detail.id} driverOnly />
       </DialogBody>
       <DialogFooter note={shipperEditable(detail) ? undefined : 'Orders can be edited until they are assigned to a driver.'}>
         <Button variant="outline" asChild><a href={`/${slug}/shipper/tracking?order=${encodeURIComponent(detail.id)}`} onClick={event => {

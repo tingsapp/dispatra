@@ -817,7 +817,7 @@ export interface paths {
         };
         /**
          * Order Road Path
-         * @description Map geometry through the Order's own stops from one Google Routes request per call; clients cache it per Order version.
+         * @description Own-Order road preview before assignment; assigned truck geometry requires its explicit road profile.
          */
         get: operations["order_road_path_api_v1_companies__slug__orders__identity__road_path_get"];
         put?: never;
@@ -2265,6 +2265,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/shippers/{shipper_id}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shipper Company Chat */
+        get: operations["shipper_company_chat_api_v1_companies__slug__shippers__shipper_id__chat_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{slug}/shippers/{shipper_id}/chat/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Shipper Company Message */
+        post: operations["shipper_company_message_api_v1_companies__slug__shippers__shipper_id__chat_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/driver/push-device": {
         parameters: {
             query?: never;
@@ -2949,6 +2983,40 @@ export interface paths {
         put?: never;
         /** Public Message */
         post: operations["public_message_api_v1_public_assistant_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/assistant/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Voice */
+        post: operations["public_voice_api_v1_public_assistant_voice_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/assistant/voice/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End Public Voice */
+        post: operations["end_public_voice_api_v1_public_assistant_voice_end_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3790,6 +3858,8 @@ export interface components {
              * @default false
              */
             exclusive_vehicle: boolean;
+            /** @description Required when creating or saving a Vehicle Type. Nullable only for legacy reads and other catalogue kinds. */
+            road_profile?: components["schemas"]["TruckRoutingProfile-Input"] | null;
             /** Payload Kg */
             payload_kg?: number | string | null;
             /** Volume M3 */
@@ -3844,6 +3914,8 @@ export interface components {
              * @default false
              */
             exclusive_vehicle: boolean;
+            /** @description Required when creating or saving a Vehicle Type. Nullable only for legacy reads and other catalogue kinds. */
+            road_profile?: components["schemas"]["TruckRoutingProfile-Output"] | null;
             /** Payload Kg */
             payload_kg?: string | null;
             /** Volume M3 */
@@ -3897,11 +3969,10 @@ export interface components {
             active: boolean;
             data: components["schemas"]["CatalogData-Output"];
         };
-        /**
-         * ChannelView
-         * @description One chat the caller can open on an Order. `conversation_id` is null until the first message.
-         */
+        /** ChannelView */
         ChannelView: {
+            /** Shipper Id */
+            shipper_id?: string | null;
             /**
              * Kind
              * @enum {string}
@@ -4958,6 +5029,8 @@ export interface components {
         };
         /** DriverProfileView */
         DriverProfileView: {
+            /** Time Zone */
+            time_zone: string;
             /**
              * Id
              * Format: uuid
@@ -5215,6 +5288,8 @@ export interface components {
         };
         /** InboxItem */
         InboxItem: {
+            /** Shipper Id */
+            shipper_id?: string | null;
             /**
              * Conversation Id
              * Format: uuid
@@ -5948,6 +6023,7 @@ export interface components {
             plan: {
                 [key: string]: unknown;
             };
+            estimate?: components["schemas"]["TrafficEstimateView"] | null;
         };
         /** MonitorView */
         MonitorView: {
@@ -6734,6 +6810,28 @@ export interface components {
                 number,
                 number
             ][];
+            /**
+             * Preview
+             * @description Unassigned map preview only; not truck feasibility or dispatch evidence.
+             * @default false
+             */
+            preview: boolean;
+            /**
+             * Provider
+             * @default GOOGLE
+             * @enum {string}
+             */
+            provider: "GOOGLE" | "TOMTOM";
+            /**
+             * Truck Profile Applied
+             * @default false
+             */
+            truck_profile_applied: boolean;
+            /**
+             * Attribution
+             * @default
+             */
+            attribution: string;
         };
         /** RouteCommand */
         RouteCommand: {
@@ -7788,6 +7886,45 @@ export interface components {
              */
             updated_at: string;
         };
+        /** TrafficEstimateView */
+        TrafficEstimateView: {
+            /** Source */
+            source: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /**
+             * Truck Profile Applied
+             * @default false
+             */
+            truck_profile_applied: boolean;
+            /** Stops */
+            stops: components["schemas"]["TrafficStopEstimate"][];
+        };
+        /** TrafficStopEstimate */
+        TrafficStopEstimate: {
+            /**
+             * Stop Id
+             * Format: uuid
+             */
+            stop_id: string;
+            /**
+             * Eta
+             * Format: date-time
+             */
+            eta: string;
+            /** Traffic Added Seconds */
+            traffic_added_seconds: number;
+            /** Road Distance Metres */
+            road_distance_metres: number;
+        };
         /** TrialSignup */
         TrialSignup: {
             /** Slug */
@@ -7818,6 +7955,38 @@ export interface components {
             tms_workspace: boolean;
             /** Password */
             password: string;
+        };
+        /**
+         * TruckRoutingProfile
+         * @description Exterior envelope and conservative loaded weight, separate from cargo capacity.
+         */
+        "TruckRoutingProfile-Input": {
+            /** Length M */
+            length_m: number | string;
+            /** Width M */
+            width_m: number | string;
+            /** Height M */
+            height_m: number | string;
+            /** Gross Weight Kg */
+            gross_weight_kg: number;
+            /** Axle Weight Kg */
+            axle_weight_kg?: number | null;
+        };
+        /**
+         * TruckRoutingProfile
+         * @description Exterior envelope and conservative loaded weight, separate from cargo capacity.
+         */
+        "TruckRoutingProfile-Output": {
+            /** Length M */
+            length_m: string;
+            /** Width M */
+            width_m: string;
+            /** Height M */
+            height_m: string;
+            /** Gross Weight Kg */
+            gross_weight_kg: number;
+            /** Axle Weight Kg */
+            axle_weight_kg?: number | null;
         };
         /** VehicleData */
         "VehicleData-Input": {
@@ -7874,6 +8043,7 @@ export interface components {
             width_cm: number | string;
             /** Height Cm */
             height_cm: number | string;
+            road_profile?: components["schemas"]["TruckRoutingProfile-Input"] | null;
             /**
              * Pallet Capacity
              * @default 0
@@ -7949,6 +8119,7 @@ export interface components {
             width_cm: string;
             /** Height Cm */
             height_cm: string;
+            road_profile?: components["schemas"]["TruckRoutingProfile-Output"] | null;
             /**
              * Pallet Capacity
              * @default 0
@@ -8046,6 +8217,25 @@ export interface components {
         VersionCommand: {
             /** Version */
             version: number;
+        };
+        /** VoiceEnd */
+        VoiceEnd: {
+            /** End Token */
+            end_token: string;
+        };
+        /** VoiceOffer */
+        VoiceOffer: {
+            /** Sdp */
+            sdp: string;
+        };
+        /** VoiceSession */
+        VoiceSession: {
+            /** Sdp */
+            sdp: string;
+            /** Max Seconds */
+            max_seconds: number;
+            /** End Token */
+            end_token: string;
         };
         /** WebhookReceipt */
         WebhookReceipt: {
@@ -23158,6 +23348,202 @@ export interface operations {
             };
         };
     };
+    shipper_company_chat_api_v1_companies__slug__shippers__shipper_id__chat_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                shipper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    shipper_company_message_api_v1_companies__slug__shippers__shipper_id__chat_messages_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+                shipper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     register_api_v1_companies__slug__driver_push_device_put: {
         parameters: {
             query?: never;
@@ -27143,6 +27529,196 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PublicAssistantReply"];
                 };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    public_voice_api_v1_public_assistant_voice_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceOffer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSession"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    end_public_voice_api_v1_public_assistant_voice_end_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceEnd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request */
             400: {

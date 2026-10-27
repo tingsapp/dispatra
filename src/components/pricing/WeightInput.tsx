@@ -22,6 +22,6 @@ export function WeightInput({ value, onChange, units, label, labelWithUnit = fal
   const canonical = rate ? fromDisplayWeightRate : fromDisplayWeight;
   return <input type="number" min={display(min, units)} step="any" required={required} className={className} placeholder={placeholder}
       aria-label={labelWithUnit ? `${label} (${units.weightUnit})` : label} aria-invalid={invalid} aria-describedby={describedBy}
-      value={value == null ? '' : Number(display(value, units).toFixed(6))}
+      value={value == null ? '' : Number(display(value, units).toFixed(2))}
       onChange={event => onChange(event.target.value === '' ? null : canonical(Number(event.target.value), units))} />;
 }

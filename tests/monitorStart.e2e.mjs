@@ -37,7 +37,7 @@ try {
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Orders', exact: true }).click();
   await page.waitForURL(origin + '/orders');
-  await page.getByRole('button', { name: 'Dispatra — Monitor', exact: true }).click();
+  await page.getByRole('button', { name: 'Dispatra, Monitor', exact: true }).click();
   await page.waitForURL(origin + '/');
   assert.equal(await monitor(), mode);
   await page.reload();

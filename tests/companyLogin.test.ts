@@ -74,7 +74,7 @@ test('administration retains its separate owner login without company role choic
   assert.ok(screen.getByRole('heading', { name: 'Platform administration' }));
   assert.equal(screen.queryByRole('radio'), null);
   assert.equal(screen.queryByLabelText('Workspace'), null);
-  fireEvent.change(screen.getByLabelText('Login ID'), { target: { value: 'owner' } });
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Example-Password-99' } });
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
   await waitFor(() => assert.equal(request?.portal, 'platform'));

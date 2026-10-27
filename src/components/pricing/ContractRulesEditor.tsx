@@ -12,7 +12,7 @@ export const ContractRulesEditor = ({ card, patch }: Props) => {
         `Billable clock starts: ${card.hourlyClockStart}`,
         `Billable clock stops: ${card.hourlyClockStop}`,
         'Includes loading and unloading',
-        'Includes waiting — no separate waiting charges',
+        'Includes waiting, no separate waiting charges',
         'Settled on actual minutes at completion'
       ].map(term => <label key={term} className="flex items-center gap-2 text-slate-700"><input type="checkbox" checked readOnly disabled className="accent-slate-900" />{term}</label>)}
     </div>}

@@ -27,7 +27,7 @@ export function CreateCompanyDialog({ onClose, onCreated }: { onClose: () => voi
             <Field label="Email" type="email" required maxLength={254} autoComplete="username" value={form.admin_login} onChange={set('admin_login')} />
             <Field label="Phone number" type="tel" maxLength={50} autoComplete="tel" value={form.phone ?? ''} onChange={set('phone')} />
             <div><Field label="Company identifier" required minLength={2} maxLength={63} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="acme" value={form.slug} onChange={set('slug')} />
-              <p className="mt-1.5 text-xs text-app-muted">Workspace address: /{form.slug || 'company'}/ — this cannot be changed later.</p></div>
+              <p className="mt-1.5 text-xs text-app-muted">Workspace address: /{form.slug || 'company'}/, this cannot be changed later.</p></div>
             <div className="grid min-w-0 gap-1.5 text-sm text-slate-700"><label htmlFor={addressId}>Address</label>
               <AddressAutocomplete id={addressId} maxLength={500} placeholder="Search company address" value={form.address ?? ''}
                 onSelectionStateChange={state => setAddressResolving(state === 'resolving')}

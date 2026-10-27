@@ -1,4 +1,3 @@
-import { bookingInstant } from '../../operations/time';
 import React, { useEffect, useState } from 'react';
 import { Driver } from '../../types';
 import { loadVehicles, type VehicleAsset } from '../../lib/vehicleStorage';
@@ -7,14 +6,11 @@ import { validateDriver } from '../../domain/validation';
 import { Button } from '../ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/DropdownMenu';
 import { ChevronDown, Plus } from 'lucide-react';
-import { useWorkspaceAccount } from '../../portal/WorkspaceAccount';
-import { Choice, TextField, FormSection, DateField, NumberField } from './Fields';
+import { Choice, TextField, FormSection } from './Fields';
 import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehicle, createdVehicle, formId, hideActions = false, vehicleOptions, onAddressBlockedChange }: { driver?: Driver; drivers: Driver[]; onSave: (d: Driver) => void; onCancel: () => void; onRegisterVehicle?: () => void; createdVehicle?: VehicleAsset | null; formId?: string; hideActions?: boolean; vehicleOptions?: VehicleAsset[]; onAddressBlockedChange?: (blocked: boolean) => void }) {
-  const workspace = useWorkspaceAccount();
-  const timeZone = workspace?.settings.data.time_zone ?? 'America/Vancouver';
   const isEditing = !!driver;
-  const [draft, setDraft] = useState<Driver>(() => normalizeDriver(driver ?? { id: crypto.randomUUID(), name: '', avatar: '', status: 'offline', statusLabel: 'Off duty', vehicle: 'Unassigned', nextStop: '', eta: '', distance: '', lastUpdate: 'No GPS sample', lat: 49.2827, lng: -123.1207, driverNumber: '', phone: '', accountStatus: 'ACTIVE', dutyStatus: 'OFF_DUTY', createdAt: new Date().toISOString() }));
+  const [draft, setDraft] = useState<Driver>(() => normalizeDriver(driver ?? { id: crypto.randomUUID(), name: '', avatar: '', status: 'offline', statusLabel: 'Off duty', vehicle: 'Unassigned', nextStop: '', eta: '', distance: '', lastUpdate: 'No GPS sample', lat: 49.2827, lng: -123.1207, driverNumber: '', phone: '', maximumWorkMinutes: 480, accountStatus: 'ACTIVE', dutyStatus: 'OFF_DUTY', createdAt: new Date().toISOString() }));
   const [addressState, setAddressState] = useState<'idle' | 'resolving' | 'failed'>('idle');
   const [errors, setErrors] = useState<string[]>([]);
   const [localVehicles, setVehicles] = useState(loadVehicles);
@@ -30,10 +26,6 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
   }, [createdVehicle]);
   useEffect(() => () => onAddressBlockedChange?.(false), [onAddressBlockedChange]);
   const patch = (p: Partial<Driver>) => setDraft(current => ({ ...current, ...p }));
-  const updateShift = (field: 'shiftStart' | 'shiftEnd', value: string) => {
-    try { patch({[field]: value ? bookingInstant(value,timeZone) : ''}); setErrors([]); }
-    catch(error) { setErrors([error instanceof Error ? error.message : 'Choose a valid shift time.']); }
-  };
   const selectedVehicle = vehicles.find(vehicle => vehicle.id === draft.currentVehicleId);
   const dgQualified = draft.skills?.includes('DG') ?? false;
   return <form id={formId} className="space-y-6" onSubmit={e => { e.preventDefault(); if (addressState !== 'idle') { setErrors([addressState === 'resolving' ? 'Wait for the selected address details to load.' : 'Edit the address and select a suggestion again.']); return; } if (isEditing && (!draft.accountStatus || !draft.dutyStatus)) { setErrors(['Account and duty are required when editing a driver.']); return; } const number = isEditing ? draft.driverNumber : nextDriverNumber(drivers); const next = syncDriver({ ...draft, id: isEditing ? draft.id : number!, driverNumber: number }); const problems = validateDriver(next, drivers); setErrors(problems); if (!problems.length) { try { onSave(next); } catch (error) { setErrors([error instanceof Error ? error.message : 'Driver could not be saved.']); } } }}>
@@ -74,12 +66,6 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
         <span><span className="font-medium">Qualified to handle dangerous goods (DG)</span>
           <span className="block text-xs text-slate-500 mt-0.5">Check only after confirming the driver’s qualification. DG orders require this before assignment.</span></span>
       </label>
-    </FormSection>
-    <FormSection title="Dispatch availability">
-      <DateField label="Shift start" timeZone={timeZone} value={draft.shiftStart} onChange={value => updateShift('shiftStart',value)} />
-      <DateField label="Shift end" timeZone={timeZone} value={draft.shiftEnd} onChange={value => updateShift('shiftEnd',value)} />
-      <NumberField label="Maximum route work (minutes)" step="1" value={draft.maximumWorkMinutes ?? 480} onChange={maximumWorkMinutes => patch({maximumWorkMinutes})} />
-      <p className="text-xs text-slate-500">Optional shifts support morning planning. Drivers must still confirm On Duty before assignment.</p>
     </FormSection>
     {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
     {!hideActions && <div className="flex justify-end gap-2"><Button type="submit" disabled={addressState !== 'idle'}>Save driver</Button></div>}

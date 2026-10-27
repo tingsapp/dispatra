@@ -43,7 +43,7 @@ test('Company settings shows the new defaults and keeps a saved metric preferenc
   assert.match(screen.getByRole('combobox', { name: 'Weight unit' }).textContent!, /Pounds/);
   assert.match(screen.getByRole('combobox', { name: 'Dimension unit' }).textContent!, /Inches/);
   assert.match(screen.getByRole('combobox', { name: 'Distance unit' }).textContent!, /Kilometres/);
-  for (const [name, option] of [['Weight unit', 'kg — Kilograms'], ['Dimension unit', 'cm — Centimetres']]) {
+  for (const [name, option] of [['Weight unit', 'kg, Kilograms'], ['Dimension unit', 'cm, Centimetres']]) {
     await user.click(screen.getByRole('combobox', { name })); await user.click(screen.getByRole('option', { name: option }));
   }
   await user.click(screen.getByRole('button', { name: 'Save Preferences' }));

@@ -36,7 +36,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
         <div>
           <label className="app-label">Assigned driver</label>
           <Select aria-label="Reassign driver" className="w-full" value={job.assignedDriverId || 'unassigned'} onValueChange={(v) => onReassign(job, v)}
-            options={[{ value: 'unassigned', label: '— Unassigned (Needs Dispatch) —' },
+            options={[{ value: 'unassigned', label: 'Unassigned (needs dispatch)' },
               ...drivers.map((d) => ({ value: d.id, disabled: !!required && d.id !== required, label: `${d.name} (${d.driverNumber ?? d.id}) · ${d.statusLabel} (${d.vehicle.split(' ')[0]})${d.id === requested ? ' · Requested' : ''}` }))]} />
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">

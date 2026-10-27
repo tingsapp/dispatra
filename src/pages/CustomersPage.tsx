@@ -1,3 +1,5 @@
+import { useChatInbox } from '../chat/api';
+import { CompanyChatDialog } from '../components/chat/CompanyChatDialog';
 import { ListSummary } from '../components/layout/ListSummary';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
@@ -11,7 +13,8 @@ Building2,
 Edit2,
 ExternalLink,
 Plus,
-Trash2
+Trash2,
+MessageSquare
 } from 'lucide-react';
 import React,{ useEffect,useMemo,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,7 +29,6 @@ import { Select } from '../components/ui/Select';
 import { validateCustomer } from '../domain/validation';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { Customer,EMPTY_PRICING_RELATIONSHIP,loadCustomers,normalizeCustomer,saveCustomers } from '../lib/customerStorage';
-import { Switch } from '../components/ui/Switch';
 import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
 import { ContactInput } from '../components/ui/ContactInput';
@@ -62,8 +64,11 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [localCustomers, setCustomers] = useState<Customer[]>(() => slug ? [] : loadCustomers());
   const customers = slug ? (shipperQuery.data ?? []).map(shipperToCustomer) : localCustomers;
   const [warehouseCoordinates, setWarehouseCoordinates] = useState<SelectedAddress | undefined>();
+  const companyChats = useChatInbox(slug ?? '', !!slug);
+  const [chatShipperId, setChatShipperId] = useState<string | null>(null);
+  const companyUnread = (identity: string) => companyChats.data?.find(row => row.kind === 'DISPATCH_SHIPPER' && row.shipper_id === identity)?.unread ?? 0;
   const [initialCredential, setInitialCredential] = useState<{ name: string; email: string; password: string } | null>(null);
-  // Pricing lookups for the relationship section — read-only here, edited under Organization Settings.
+  // Pricing lookups for the relationship section, read-only here, edited under Organization Settings.
   const [pricing] = useState(() => loadPricingConfig());
   const customerCards = slug ? (ratesQuery.data ?? []).filter(c => c.active).map(c => ({ id: c.id, name: c.data.name })) : pricing.rateCards.filter(c => c.status === 'ACTIVE');
   // Imported cards price only orders that carry an external price, so they cannot be attached to a shipper yet.
@@ -372,7 +377,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
                       {/* Active Orders */}
                       <td className="text-center tabular-nums">
-                        {activeOrderCount(customer.id) > 0 ? activeOrderCount(customer.id) : <span className="text-slate-400">—</span>}
+                        {activeOrderCount(customer.id) > 0 ? activeOrderCount(customer.id) : <span className="text-slate-400">-</span>}
                       </td>
 
                       {/* Status */}
@@ -395,6 +400,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       {/* Actions */}
                       <td className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          {slug && <button type="button" className="app-icon-button relative" onClick={() => setChatShipperId(customer.id)} title="Chat with shipper" aria-label={`Chat with ${customer.name}${companyUnread(customer.id) ? `, ${companyUnread(customer.id)} unread` : ''}`}>
+                            <MessageSquare className="w-3.5 h-3.5" />{companyUnread(customer.id) > 0 && <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-rose-600 px-1 text-[9px] text-white">{companyUnread(customer.id)}</span>}
+                          </button>}
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(customer)}
@@ -423,6 +431,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           </div>
         </div>
       </div>
+
+      {slug && chatShipperId && <CompanyChatDialog key={chatShipperId} slug={slug} shipperId={chatShipperId} onClose={() => setChatShipperId(null)} />}
 
       {/* SHIPPER DETAILS DIALOG */}
       {selectedCustomerForView && (
@@ -495,6 +505,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             ]} />
           </DialogBody>
           <DialogFooter>
+            {slug && <Button type="button" variant="outline" onClick={() => setChatShipperId(selectedCustomerForView.id)}><MessageSquare /> Chat with shipper</Button>}
             <Button type="button" variant="outline" onClick={() => { handleOpenEditModal(selectedCustomerForView); setSelectedCustomerForView(null); }}><Edit2 /> Edit Account</Button>
             <Button type="button" onClick={() => { onBackToMonitor(); onNotification?.(`Returning to Monitor filtered by ${selectedCustomerForView.name}`); }}><ExternalLink /> View on Map</Button>
           </DialogFooter>
@@ -515,7 +526,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 {formData.customerType !== 'INDIVIDUAL' && <label className="block sm:col-span-2"><span className="app-label">Company name</span><input type="text" required placeholder="e.g. Pacific Fresh Logistics" value={formData.legalName || ''} onChange={(e) => setFormData({ ...formData, legalName: e.target.value })} className="app-input w-full" /></label>}
                 <label className="block"><span className="app-label">Phone</span><ContactInput type="tel" placeholder="(604) 555-0100" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="app-input w-full" /></label>
                 <label className="block"><span className="app-label">Email</span><ContactInput type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Used for portal login, quotes and delivery updates.</span></label>
-                <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2"><Switch aria-label="Email order updates" checked={formData.communicationPreferences?.email ?? true} onCheckedChange={email => setFormData({ ...formData, communicationPreferences: { sms: false, tracking: true, ...formData.communicationPreferences, email } })} /> Email order updates to this Shipper</label>
                 {editingCustomer && <div><span className="app-label">Status</span><Select aria-label="Shipper status" className="w-full" value={formData.status || 'Active'} onValueChange={(v) => setFormData({ ...formData, status: v as Customer['status'] })} options={[{ value: 'Active', label: 'Active' }, { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }]} /></div>}
               </FormSection>
 

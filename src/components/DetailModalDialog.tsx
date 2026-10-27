@@ -371,7 +371,7 @@ const AllDriversRosterView: React.FC<{
               <span className="order-3 min-w-0 text-slate-500 sm:order-2">
                 <span className="block truncate" title={driver.vehicle}>{driver.vehicle}</span>
                 {driver.nextStop && driver.nextStop !== 'Not set' && <span className="mt-1 block truncate" title={driver.nextStop}>Next: {driver.nextStop}</span>}
-                {driver.eta && driver.eta !== '—' && <span className="mt-1 block [overflow-wrap:anywhere]">{driver.eta}</span>}
+                {driver.eta && driver.eta !== '-' && <span className="mt-1 block [overflow-wrap:anywhere]">{driver.eta}</span>}
               </span>
               <span className="order-2 sm:order-3 sm:text-right">
                 <MonitorBadge tone={driver.status === 'available' ? 'success' : driver.status === 'on_route' ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
@@ -413,7 +413,7 @@ const AllExceptionsView: React.FC<{
                 <span className="font-medium text-slate-900 [overflow-wrap:anywhere]">{item.jobNumber}</span>
                 <MonitorBadge tone={item.badgeColor === 'red' ? 'danger' : 'warning'}>{item.statusLabel}</MonitorBadge>
               </div>
-              <p className="text-slate-700 [overflow-wrap:anywhere]">{item.subtitle}</p>
+              <p className="text-slate-700 whitespace-pre-line [overflow-wrap:anywhere]">{item.subtitle}</p>
               <div className="flex items-start gap-1.5 text-slate-500">
                 <MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-slate-400" />
                 <span className="min-w-0 [overflow-wrap:anywhere]">{item.pickupAddress}</span>

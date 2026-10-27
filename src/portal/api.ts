@@ -51,6 +51,8 @@ export type OperationalIncident = components['schemas']['IncidentView'];
 export type OperationalQuestion = components['schemas']['QuestionView'];
 export type OperationalReply = components['schemas']['Reply'];
 export const api = {
+  startPublicVoice: async (body: components['schemas']['VoiceOffer']) => unwrap(await client.POST('/api/v1/public/assistant/voice', { body })),
+  endPublicVoice: async (end_token: string) => unwrap(await client.POST('/api/v1/public/assistant/voice/end', { body: { end_token }, keepalive: true })),
   publicAssistant: async (body: components['schemas']['AssistantQuestion'], signal?: AbortSignal) => unwrap(await client.POST('/api/v1/public/assistant/messages', { body, signal })),
   paymentHistory: async (target: PaymentTarget, after?: string) => target.kind === 'owner'
     ? unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}/payments', { params: { path: { organization_id: target.id }, query: { after } } }))

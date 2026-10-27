@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom';
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import React from 'react';
-const dom = new JSDOM('<!doctype html><html><body></body></html>', {url:'http://localhost/contact',pretendToBeVisual:true});
+const dom = new JSDOM('<!doctype html><html><body></body></html>', {url:'http://localhost/ask-dispatra',pretendToBeVisual:true});
 for (const name of ['window','document','navigator','HTMLElement','Element','Node','location','history']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
 dom.window.scrollTo = () => {};
 const { render, screen, cleanup, fireEvent, waitFor, within, act } = await import('@testing-library/react');
@@ -43,35 +43,32 @@ test('failed chat offers retry of the same request without duplicating the visit
  assert.equal(screen.getAllByText('Hello',{exact:true}).length,1);
 });
 test('information pages and clean footer expose reachable pages and general app stores',()=>{
- for(const page of ['/about','/how-it-works','/help'] as const){
+ for(const page of ['/about','/help'] as const){
   assert.equal(companySlugForPath(page),undefined);render(<Information page={page} />);
   assert.equal(screen.getAllByRole('heading',{level:1}).length,1);
   const footer=within(screen.getByRole('contentinfo'));
   assert.equal(within(footer.getByRole('navigation',{name:'Company'})).queryByRole('link',{name:'Contact'}),null);
-  for(const [label,path] of [['About','/about'],['How it works','/how-it-works'],['FAQs','/help'],['Talk to Dispatra','/contact#dispatra-chat-title']])assert.equal(footer.getByRole('link',{name:label}).getAttribute('href'),path);
+  for(const [label,path] of [['About','/about'],['FAQs','/help'],['Ask dispatra','/ask-dispatra#dispatra-chat-title']])assert.equal(footer.getByRole('link',{name:label}).getAttribute('href'),path);
   assert.equal(footer.getByRole('link',{name:/Android/}).getAttribute('href'),'https://play.google.com/store/apps');
   assert.equal(footer.getByRole('link',{name:/iOS/}).getAttribute('href'),'https://www.apple.com/app-store/');
   assert.equal(footer.queryByText('YOUR NEXT DELIVERY DAY'),null);cleanup();
  }
 });
 
-test('voice entry stays visible and only starts a connected voice agent',()=>{
+test('voice entry is available without sending a text question',async()=>{
  let requests=0;api.publicAssistant=async()=>{requests++;return {message:'Text reply'};};
  render(<PublicChatAssistant />);
- const inactive=screen.getByRole('button',{name:'Start voice chat'});
- assert.equal(inactive.hasAttribute('disabled'),true);
- assert.equal(inactive.getAttribute('title'),'Voice agent not connected yet');
- fireEvent.click(inactive);assert.equal(requests,0);cleanup();
- let calls=0;render(<PublicChatAssistant onStartVoice={()=>{calls++;}} />);
- const connected=screen.getByRole('button',{name:'Start voice chat'});
- assert.equal(connected.hasAttribute('disabled'),false);
- fireEvent.click(connected);assert.equal(calls,1);assert.equal(requests,0);
+ const button=screen.getByRole('button',{name:'Start voice chat'});
+ assert.equal(button.hasAttribute('disabled'),false);
+ fireEvent.click(button);
+ assert.match((await screen.findByRole('alert')).textContent!,/microphone support/);
+ assert.equal(requests,0);
 });
 
 test('chat screen keeps the composer available while awaiting an answer and prevents duplicate requests',async()=>{
  let finish!: (value:{message:string})=>void;let count=0;
  api.publicAssistant=()=>{count++;return new Promise(resolve=>{finish=resolve;});};
- render(<PublicChatAssistant onStartVoice={()=>{throw new Error('Cannot start voice during a text request');}} />);
+ render(<PublicChatAssistant />);
  const field=screen.getByRole('textbox');
  assert.equal(field.getAttribute('rows'),'1');
  assert.ok(screen.getByRole('heading',{level:1,name:'How can I help you?'}));

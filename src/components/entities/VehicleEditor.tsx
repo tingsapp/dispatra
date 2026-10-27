@@ -19,7 +19,7 @@ const categoryByTypeId: Record<string, VehicleAsset['category']> = { veh_1_ton: 
 function CargoDimension({ label, value, onChange, unit }: { label: string; value?: number; onChange: (value?: number) => void; unit: 'cm' | 'in' }) {
   const units = { distanceUnit: 'km' as const, weightUnit: 'kg' as const, dimensionUnit: unit };
   return <label className="block"><span className="app-label">{label} ({unit})</span><input className="app-input w-full" type="number" min="0.000001" step="any" required
-    value={value == null ? '' : Number(toDisplayDimension(value, units).toFixed(6))}
+    value={value == null ? '' : Number(toDisplayDimension(value, units).toFixed(2))}
     onChange={event => onChange(event.target.value === '' ? undefined : fromDisplayDimension(Number(event.target.value), units))} /></label>;
 }
 

@@ -36,7 +36,7 @@ test('plans precede signup and the popup preserves the company identifier, dismi
   await screen.findByRole('heading', {name:'TMS + Smart Dispatching'});
   assert.equal(screen.getAllByText('Contact us for pricing').length, 2);
   assert.ok(screen.getByRole('heading', {name:'Smart Dispatching'}));
-  assert.deepEqual(screen.getAllByRole('link', {name:'Contact now'}).map(link => link.getAttribute('href')), ['/contact?plan=full', '/contact?plan=dispatch']);
+  assert.deepEqual(screen.getAllByRole('link', {name:'Contact now'}).map(link => link.getAttribute('href')), ['/ask-dispatra?plan=full', '/ask-dispatra?plan=dispatch']);
   assert.ok(await screen.findByRole('heading', {name:'One month free trial'}));
   assert.equal(screen.getByRole('link', {name:'Sign in'}).getAttribute('href'), '/login');
   assert.equal(screen.queryByLabelText('Email'), null);

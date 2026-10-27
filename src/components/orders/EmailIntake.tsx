@@ -31,7 +31,7 @@ export const EMAIL_ERRORS: Record<string, string> = {
 /** Emails the agent understood as order requests but could not book yet; anything else never becomes a draft. */
 export const EMAIL_DRAFT_STATUSES: EmailIntakeStatus[] = ['NEEDS_REVIEW', 'UNKNOWN_SENDER'];
 const OPEN: EmailIntakeStatus[] = ['NEEDS_REVIEW', 'UNKNOWN_SENDER', 'FAILED', 'NOT_AN_ORDER'];
-export const emailTime = (value?: string | null) => dateTime(value) || '—';
+export const emailTime = (value?: string | null) => dateTime(value) || '-';
 const message = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
 const when = emailTime, STATUS = EMAIL_STATUS, ERRORS = EMAIL_ERRORS;
 
@@ -194,7 +194,7 @@ function MailboxForm({ slug, mailbox, onSaved }: { slug: string; mailbox: Mailbo
       </div>}
       <label className="block"><span className="app-label">Email address / username</span><input className="app-input w-full" required autoComplete="off" value={form.username} onChange={set('username')} /></label>
       <div><label htmlFor={passwordId} className="app-label">App password</label>
-        <PasswordInput id={passwordId} label="App password" className="app-input w-full" autoComplete="new-password" required={!mailbox} placeholder={mailbox ? 'Saved — leave blank to keep it' : ''} value={form.password} onChange={set('password')} />
+        <PasswordInput id={passwordId} label="App password" className="app-input w-full" autoComplete="new-password" required={!mailbox} placeholder={mailbox ? 'Saved, leave blank to keep it' : ''} value={form.password} onChange={set('password')} />
         <span className="mt-1 block text-xs text-slate-500">{provider === 'other' ? 'Use an app password if your provider offers one.' : PROVIDERS[provider].help}</span></div>
       <label className="flex items-center gap-2 text-sm text-slate-700"><Switch checked={form.enabled} onCheckedChange={enabled => setForm(f => ({ ...f, enabled }))} /> Read new emails automatically</label>
     </fieldset>

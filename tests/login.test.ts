@@ -5,6 +5,7 @@ import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/prototype/orders', pretendToBeVisual: true });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'NodeFilter', 'Event', 'CustomEvent', 'MutationObserver', 'getComputedStyle', 'localStorage', 'location', 'history']) Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: dom.window[name as keyof Window] });
 HTMLElement.prototype.scrollIntoView = () => {};
+window.matchMedia = (() => ({ matches: false, addEventListener() {}, removeEventListener() {} })) as never;
 const { render, screen, cleanup } = await import('@testing-library/react');
 const { default: userEvent } = await import('@testing-library/user-event');
 const { LoginPage } = await import('../src/pages/LoginPage');

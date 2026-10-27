@@ -33,9 +33,10 @@ test('new drivers get the next background driver number; the form has no number 
   render(React.createElement(DriverEditor,{drivers:existing,onSave:d=>saved=d,onCancel:()=>{}}));
   assert.equal(screen.queryByLabelText(/Driver number/),null); assert.equal(screen.queryByLabelText('Maximum Active Orders'),null);
   assert.equal(screen.queryByLabelText(/Service areas/),null);
-  assert.ok(screen.getByRole('button',{name:/^Shift start date:/}));
-  assert.ok(screen.getByRole('button',{name:/^Shift end date:/}));
-  assert.ok(screen.getByLabelText('Maximum route work (minutes)'));
+  assert.equal(screen.queryByRole('button',{name:/^Shift start date:/}),null);
+  assert.equal(screen.queryByRole('button',{name:/^Shift end date:/}),null);
+  assert.equal(screen.queryByLabelText('Maximum route work (minutes)'),null);
+  assert.equal(screen.queryByText('Dispatch availability'),null);
   const dg=screen.getByRole('checkbox',{name:/Qualified to handle dangerous goods/}) as HTMLInputElement;
   assert.equal(dg.checked,false);
   const address=screen.getByRole('combobox',{name:'Address'}) as HTMLInputElement; assert.equal(address.required,true);
@@ -47,6 +48,9 @@ test('new drivers get the next background driver number; the form has no number 
   await user.click(screen.getByRole('button',{name:'Save driver'}));
   assert.ok(saved,'driver saved'); assert.equal(saved.address,'100 Main St, Vancouver, BC V6A 2S5'); assert.equal(saved.driverNumber,'D32'); assert.equal(saved.id,'D32'); assert.equal(saved.maxActiveOrders,undefined);
   assert.deepEqual(saved.skills,['DG']); assert.deepEqual(driverFromUi(saved).qualifications,['DG']);
+  const payload=driverFromUi(saved);
+  assert.equal(saved.maximumWorkMinutes,480);
+  assert.equal(payload.shift_start,null); assert.equal(payload.shift_end,null); assert.equal(payload.maximum_work_minutes,480);
 });
 test('driver form has no employment, payout or earnings fields and keeps the saved employment', async()=>{
   const user=userEvent.setup({document}); let saved:any;
@@ -56,9 +60,9 @@ test('driver form has no employment, payout or earnings fields and keeps the sav
   await user.click(screen.getByRole('button',{name:'Save driver'}));
   assert.equal(saved.employmentType,'CONTRACTOR'); assert.equal('revenueSharePercent' in saved,false);
 });
-test('driver form: attached vehicle, contact, DG qualification and dispatch availability', async()=>{
+test('driver form: contact and assignment edits preserve saved scheduling without scheduling controls', async()=>{
   const user=userEvent.setup({document}); let saved:any;
-  const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',shiftStart:undefined,currentVehicleId:null,serviceAreaIds:['Vancouver','Burnaby'],skills:['Furniture','DG']});
+  const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',shiftStart:'2026-10-20T15:00:00Z',shiftEnd:'2026-10-20T23:00:00Z',maximumWorkMinutes:420,currentVehicleId:null,serviceAreaIds:['Vancouver','Burnaby'],skills:['Furniture','DG']});
   render(React.createElement(DriverEditor,{driver,drivers:[driver],onSave:d=>saved=d,onCancel:()=>{}}));
   const dg=screen.getByRole('checkbox',{name:/Qualified to handle dangerous goods/}) as HTMLInputElement;
   assert.equal(dg.checked,true); await user.click(dg);
@@ -71,6 +75,9 @@ test('driver form: attached vehicle, contact, DG qualification and dispatch avai
   await user.click(screen.getByRole('button',{name:'Save driver'}));
   assert.equal(saved.email,'driver@example.test'); assert.equal(saved.address,'200 Broadway, Vancouver, BC V5Y 1V4'); assert.equal(saved.employmentType,'CONTRACTOR'); assert.ok(saved.currentVehicleId); assert.deepEqual(saved.serviceAreaIds,['vancouver']); assert.equal(saved.dutyStatus,driver.dutyStatus);
   assert.deepEqual(saved.skills,['Furniture']); assert.deepEqual(driverFromUi(saved).qualifications,['Furniture']);
+  assert.equal(screen.queryByText('Dispatch availability'),null);
+  const payload=driverFromUi(saved);
+  assert.equal(payload.shift_start,'2026-10-20T15:00:00.000Z'); assert.equal(payload.shift_end,'2026-10-20T23:00:00.000Z'); assert.equal(payload.maximum_work_minutes,420);
   assert.equal(normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'TEMPORARY'} as any).employmentType,'EMPLOYEE');
 });
 test('driver vehicle menu registers and selects a vehicle without losing the new driver draft', async()=>{
@@ -101,6 +108,7 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
   render(React.createElement(CustomersPage,{onBackToMonitor:()=>{}}));
   await user.click(screen.getByRole('button',{name:'New Shipper'}));
   assert.equal(screen.queryByLabelText('Service Area'),null);
+  assert.equal(screen.queryByRole('switch',{name:'Email order updates'}),null);
   assert.equal(screen.queryByText('Credit card'),null); assert.equal(screen.queryByRole('button',{name:'Add credit card'}),null);
   assert.equal(screen.queryByLabelText(/Card number|Expiry|CVC/i),null);
   const address=screen.getByLabelText('Warehouse Address') as HTMLInputElement;
@@ -119,10 +127,14 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
   assert.equal(shipper.address,'100 Main St, Vancouver, BC V6A 2S5');
   assert.equal(shipper.legalName,'Warehouse Logistics Ltd');
   assert.equal(shipper.contactName,'Warehouse Shipper');
+  assert.equal(shipper.communicationPreferences?.email,true);
+  const {customerToShipper}=await import('../src/operations/adapters');
+  assert.equal(customerToShipper(shipper).email_updates,true);
   assert.equal(shipper.city,'');
   assert.equal(shipper.assignedDriverId,INITIAL_DRIVERS[0].id);
   await user.click(within(screen.getByRole('row',{name:/Warehouse Shipper/})).getByTitle('Edit shipper account'));
   assert.match(screen.getByRole('combobox',{name:'Assigned driver'}).textContent!,new RegExp(INITIAL_DRIVERS[0].name));
+  assert.equal(screen.queryByRole('switch',{name:'Email order updates'}),null);
   await user.click(screen.getByRole('button',{name:'Save Changes'}));
   assert.equal(loadCustomers().find(c=>c.id===shipper.id)?.assignedDriverId,INITIAL_DRIVERS[0].id);
   await user.click(within(screen.getByRole('row',{name:/Warehouse Shipper/})).getByTitle('Edit shipper account'));
@@ -154,6 +166,8 @@ test('vehicle form combines type pricing, required dimensions and equipment chec
   const user=userEvent.setup({document}); let saved:any; let profile:any;
   const chosen=loadSimplePricingConfig().vehicles.find(type=>type.name==='Cube Van')!; const types=[chosen,chosen];
   render(React.createElement(VehicleEditor,{vehicles:[],onSave:(vehicle,details)=>{saved=vehicle;profile=details;},onCancel:()=>{}}));
+  assert.equal(screen.queryByRole('heading',{name:'Outside dimensions & weight'}),null);
+  assert.equal(screen.queryByRole('checkbox',{name:'Set truck routing measurements'}),null);
   await user.type(screen.getByLabelText('Unit number'),'V99'); await user.type(screen.getByLabelText('Licence plate'),'TEST-99');
   assert.equal(screen.queryByRole('combobox',{name:'Record status'}),null); assert.equal(screen.queryByRole('combobox',{name:'Availability'}),null);
   await user.click(screen.getByRole('combobox',{name:'Vehicle type'})); await user.click(screen.getByRole('option',{name:types[1].name}));
@@ -513,6 +527,25 @@ test('Monitor assignment shows off-duty movers with a reason and only assigns an
   assert.equal(assign.disabled, false);
   await user.click(assign);
   assert.equal(assigned, 'ready');
+});
+test('Monitor allows an on-route driver to be selected for server-validated live insertion while preserving standing shipper restrictions', async()=>{
+  const { JobDetailPopover } = await import('../src/components/JobDetailPopover');
+  const { INITIAL_JOBS } = await import('../src/data/mockData');
+  const alex = normalizeDriver({ ...INITIAL_DRIVERS[0], id: 'alex', driverNumber: 'DZD-2009', name: 'Alex', dutyStatus: 'ON_DUTY', status: 'on_route', accountStatus: 'ACTIVE', currentVehicleId: 'alex-van' });
+  const jordan = normalizeDriver({ ...INITIAL_DRIVERS[1], id: 'jordan', driverNumber: 'DZD-9480', name: 'Jordan', dutyStatus: 'ON_DUTY', status: 'available', accountStatus: 'ACTIVE', currentVehicleId: 'jordan-van' });
+  const job = { ...INITIAL_JOBS[0], lifecycleStatus: 'NEW' as const, assignedDriverId: undefined, pricingInput: { ...createDefaultOrderInput(loadPricingContext()), requiredDriverId: 'alex', requiredDriverName: 'Alex' } };
+  let selected = '';
+  render(React.createElement(JobDetailPopover, { job, live: true, drivers: [alex, jordan], showAssignDriver: true, showAiRecommendation: false, setShowAssignDriver: ()=>{}, setShowAiRecommendation: ()=>{}, onClose: ()=>{}, onApproveRecommendation: ()=>{}, onKeepCurrent: ()=>{}, onActionNotification: ()=>{}, onAssignDriver: id=>{ selected=id; } }));
+  const user = userEvent.setup({ document });
+  const alexButton = screen.getByRole('button', { name: /DZD-2009/ }) as HTMLButtonElement;
+  const jordanButton = screen.getByRole('button', { name: /DZD-9480/ }) as HTMLButtonElement;
+  assert.equal(alexButton.disabled, false);
+  assert.match(alexButton.textContent!, /On route/);
+  assert.equal(jordanButton.disabled, true);
+  assert.match(jordanButton.textContent!, /Requires shipper/);
+  await user.click(alexButton);
+  await user.click(screen.getByRole('button', { name: 'Assign selected driver' }));
+  assert.equal(selected, 'alex');
 });
 test('dispatcher completes an assigned order from order details after confirming', async()=>{
   const {MonitorOrderDetails}=await import('../src/components/orders/MonitorOrderDetails');

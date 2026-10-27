@@ -58,7 +58,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
       </div>
 
       <div className="mt-3 flex items-baseline gap-2">
-        <span className={`text-3xl font-medium tracking-tight ${dark ? '' : 'text-slate-900'}`}>{priced ? `$${snapshot.total.toFixed(2)}` : '—'}</span>
+        <span className={`text-3xl font-medium tracking-tight ${dark ? '' : 'text-slate-900'}`}>{priced ? `$${snapshot.total.toFixed(2)}` : '-'}</span>
         <span className={`text-xs font-medium ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{snapshot.currency || 'CAD'}</span>
         <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded flex items-center gap-1 ${statusStyle}`}>
           {snapshot.stage === 'FINAL' && priced && <Lock className="w-3 h-3" />}
@@ -70,7 +70,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
         <div className="flex justify-between gap-2">
           <span className={dark ? 'text-slate-400' : 'text-slate-400'}>Rate Card</span>
           <span className={`font-medium text-right truncate ${dark ? 'text-white' : 'text-slate-900'}`}>
-            {snapshot.rateCard ? `${snapshot.rateCard.name}${showPricingDetail && snapshot.rateCard.version ? ` · v${snapshot.rateCard.version}` : ''}` : '—'}
+            {snapshot.rateCard ? `${snapshot.rateCard.name}${showPricingDetail && snapshot.rateCard.version ? ` · v${snapshot.rateCard.version}` : ''}` : '-'}
           </span>
         </div>
         {rateRows.map(row => <div key={row.label} className="flex justify-between gap-2">
@@ -80,11 +80,11 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
         {showPricingDetail && <>
         <div className="flex justify-between gap-2">
           <span className="text-slate-400">Resolved via</span>
-          <span className={`font-medium ${dark ? 'text-white' : 'text-slate-900'}`}>{snapshot.rateCard ? lower(snapshot.rateCard.source) : '—'}</span>
+          <span className={`font-medium ${dark ? 'text-white' : 'text-slate-900'}`}>{snapshot.rateCard ? lower(snapshot.rateCard.source) : '-'}</span>
         </div>
         <div className="flex justify-between gap-2">
           <span className="text-slate-400">Method</span>
-          <span className={`font-medium ${dark ? 'text-white' : 'text-slate-900'}`}>{snapshot.method ? lower(snapshot.method) : '—'}</span>
+          <span className={`font-medium ${dark ? 'text-white' : 'text-slate-900'}`}>{snapshot.method ? lower(snapshot.method) : '-'}</span>
         </div>
         </>}
       </div>
@@ -153,11 +153,11 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
       <div className="pt-4 flex items-center justify-between">
         <span className="text-sm font-medium text-slate-900">Total</span>
         <span className="text-base font-medium text-slate-900">
-          {priced ? `$${snapshot.total.toFixed(2)}` : '—'} {snapshot.currency || 'CAD'}
+          {priced ? `$${snapshot.total.toFixed(2)}` : '-'} {snapshot.currency || 'CAD'}
         </span>
       </div>
 
-      {showMargin && snapshot.cost?.complete === false && priced && <p className="p-3 bg-amber-50 text-amber-900 rounded-lg text-xs">Incomplete cost estimate — missing {snapshot.cost.missingInputs?.join(', ')}. Profit and margin are unavailable.</p>}
+      {showMargin && snapshot.cost?.complete === false && priced && <p className="p-3 bg-amber-50 text-amber-900 rounded-lg text-xs">Incomplete cost estimate, missing {snapshot.cost.missingInputs?.join(', ')}. Profit and margin are unavailable.</p>}
       {showMargin && snapshot.cost && snapshot.cost.complete !== false && priced && (
         <div className="p-3 rounded-lg bg-slate-50 text-xs space-y-1.5">
           <div className="flex items-center justify-between font-medium text-slate-700">
@@ -194,7 +194,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
             {snapshot.stage === 'FINAL' && priced ? 'LOCKED' : snapshot.status.replace('_', ' ')}
           </span>
         </div>
-        <p className="mt-1 text-xs text-slate-500">Rate card: {snapshot.rateCard?.name ?? '—'}</p>
+        <p className="mt-1 text-xs text-slate-500">Rate card: {snapshot.rateCard?.name ?? '-'}</p>
         {snapshot.taxDecision && <p className="mt-1 text-xs text-slate-500">{snapshot.taxDecision.description}</p>}
         {snapshot.errors.map((e) => <p key={e.code} className="mt-2 flex items-start gap-1.5 text-xs text-amber-800"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />{e.message}</p>)}
         {snapshot.warnings.map((w) => <p key={w} className="mt-2 text-xs text-amber-700">{w}</p>)}

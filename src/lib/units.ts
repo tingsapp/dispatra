@@ -37,7 +37,7 @@ export const formatWeight = (kg: number, u: Units): string =>
 export const formatDimension = (cm: number, u: Units): string =>
   `${trim(toDisplayDimension(cm, u))} ${u.dimensionUnit}`;
 
-/** "$1.50/km" or "$2.41/mi" — rate per canonical unit shown per display unit. */
+/** "$1.50/km" or "$2.41/mi", rate per canonical unit shown per display unit. */
 export const formatDistanceRate = (perKm: number, u: Units): string =>
   `$${(u.distanceUnit === 'mi' ? perKm * KM_PER_MI : perKm).toFixed(2)}/${u.distanceUnit}`;
 export const formatWeightRate = (perKg: number, u: Units): string =>

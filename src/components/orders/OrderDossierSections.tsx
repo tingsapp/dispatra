@@ -17,7 +17,7 @@ const dossierStops = (job: Job): PricingStopInput[] => job.pricingInput?.stops ?
 const dossierAccessorials = (job: Job, ctx: PricingContext) => (job.pricingInput?.accessorials ?? []).flatMap(a => { const item = ctx.catalogue.accessorials.find(c => c.id === a.accessorialId); return item ? [item] : []; });
 /** Read-only field styled like the form's label + value pairs. */
 export function Detail({ label, value, hint, className = '' }: { label: string; value?: string | null; hint?: string | null; className?: string }) {
-  return <div className={className}><dt className="text-xs text-slate-500">{label}</dt><dd className="text-sm text-slate-900 break-words">{value?.trim() ? value : '—'}{hint && <span className="block text-xs text-slate-500">{hint}</span>}</dd></div>;
+  return <div className={className}><dt className="text-xs text-slate-500">{label}</dt><dd className="text-sm text-slate-900 break-words">{value?.trim() ? value : '-'}{hint && <span className="block text-xs text-slate-500">{hint}</span>}</dd></div>;
 }
 
 /** Order details laid out like the order form: one bordered section per form section. `dispatch` renders before the price. */
@@ -46,7 +46,7 @@ export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, s
           </div>
           <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
             <Detail label={stop.type === 'PICKUP' ? 'Pickup address' : 'Delivery address'} value={stop.label} className={stop.zoneId ? 'sm:col-span-2' : 'sm:col-span-3'} />
-            {stop.zoneId && <Detail label="Zone" value={ctx.pricing.zones.find(z => z.id === stop.zoneId)?.name ?? '—'} />}
+            {stop.zoneId && <Detail label="Zone" value={ctx.pricing.zones.find(z => z.id === stop.zoneId)?.name ?? '-'} />}
             <Detail label="Contact name" value={stop.contactName} />
             <Detail label="Phone" value={stop.contactPhone} />
             <Detail label={stop.type === 'PICKUP' ? 'Ready at' : 'Deliver by'} value={formatWhen(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd, units.timeZone)} />
@@ -59,7 +59,7 @@ export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, s
       <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Package className="w-3.5 h-3.5 text-slate-700" /><span>Packages</span></h4>
       {job.pricingInput?.packages.length ? <div className="rounded-lg bg-slate-50 p-4 overflow-x-auto"><table aria-label="Order packages" className="app-table app-table-plain w-full">
         <thead><tr><th scope="col" className="text-left">Qty</th><th scope="col" className="text-left">Weight ({units.weightUnit})</th><th scope="col" className="text-left">L × W × H ({units.dimensionUnit})</th><th scope="col" className="text-left">Fragile</th><th scope="col" className="text-left">DG</th></tr></thead>
-        <tbody>{job.pricingInput.packages.map(p => <tr key={p.id}><td>{p.quantity}</td><td>{trimUnit(formatWeight(p.weightKg, units))}</td><td>{[p.lengthCm, p.widthCm, p.heightCm].map(cm => trimUnit(formatDimension(cm, units))).join(' × ')}</td><td>{p.fragile ? 'Yes' : '—'}</td><td>{p.handlingTags?.includes('DANGEROUS_GOODS') ? 'Yes' : '—'}</td></tr>)}</tbody>
+        <tbody>{job.pricingInput.packages.map(p => <tr key={p.id}><td>{p.quantity}</td><td>{trimUnit(formatWeight(p.weightKg, units))}</td><td>{[p.lengthCm, p.widthCm, p.heightCm].map(cm => trimUnit(formatDimension(cm, units))).join(' × ')}</td><td>{p.fragile ? 'Yes' : '-'}</td><td>{p.handlingTags?.includes('DANGEROUS_GOODS') ? 'Yes' : '-'}</td></tr>)}</tbody>
       </table></div> : <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">{job.cargoWeight ? `Cargo ${job.cargoWeight}` : 'No package details recorded.'}</p>}
     </section>
 

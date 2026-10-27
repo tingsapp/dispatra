@@ -13,8 +13,8 @@ import { Switch } from '../components/ui/Switch';
 import { Dialog, DialogBody, DialogHeader } from '../components/ui/Dialog';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { OrderChatSection } from '../components/chat/OrderChat';
-import { MessagesInbox } from '../components/chat/MessagesInbox';
-import { useUnreadMessages } from '../chat/api';
+import { CompanyChatPage } from '../components/chat/CompanyChatDialog';
+import { useCompanyChannel, useChatInbox } from '../chat/api';
 import { PortalShell } from './PortalShell';
 import { DriverQuestions } from './DriverQuestions';
 import { NotificationBell } from './Notifications';
@@ -29,8 +29,7 @@ type Route = components['schemas']['RouteView'];
 type Visit = components['schemas']['RouteVisitView'];
 type DriverOrder = components['schemas']['DriverOrderView'];
 type Profile = components['schemas']['DriverProfileView'];
-const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-const dateIn = (iso: string | null | undefined) => iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone }) : '';
+const dateIn = (iso: string | null | undefined, timeZone: string) => iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone }) : '';
 const statusLabel = (status: string) => ORDER_LIFECYCLE_LABELS[status as OrderLifecycle] ?? status;
 const position = () => new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 }));
 const contentBase64 = (file: File) => new Promise<string>((resolve, reject) => {
@@ -42,7 +41,7 @@ const contentBase64 = (file: File) => new Promise<string>((resolve, reject) => {
 export const driverPages = [
   { path: 'profile', label: 'Profile', icon: UserRound },
   { path: 'orders', label: 'Orders', icon: ClipboardList },
-  { path: 'messages', label: 'Messages', icon: MessageSquare },
+  { path: 'messages', label: 'Chat', icon: MessageSquare },
 ];
 
 /** Driver workspace: Profile and Orders, with the On duty/Off duty switch in the sidebar. */
@@ -56,9 +55,12 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
   const base = `/${slug}/driver`;
   const suffix = pathname.replace(/\/+$/, '').split('/')[3];
   const page = driverPages.find(item => item.path === suffix) ?? driverPages[1];
-  const unreadMessages = useUnreadMessages(slug);
   useSync(slug, 'DRIVER');
   const profile = useQuery({ queryKey: ['driver-profile', slug], queryFn: () => operations.driverProfile(slug) });
+  const orderChats = useChatInbox(slug);
+  const orderUnread = orderChats.data?.filter(row => row.kind === 'DRIVER_SHIPPER').reduce((sum,row) => sum + row.unread,0) ?? 0;
+  const companyChat = useCompanyChannel(slug, profile.data?.id);
+  const unreadMessages = companyChat.data?.unread ?? 0;
   const online = !!profile.data?.duty;
   const tracking = useRef<string | null>(null);
   const trackingIntent = useRef(0);
@@ -109,7 +111,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
   useEffect(() => () => { trackingIntent.current++; tracking.current = null; }, [slug]);
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false} reading={page.path === 'profile'}
     description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'messages' ? 'Chats with dispatch and shippers about your assigned orders.' : online ? 'Your assigned orders. Open an order to work its stops.' : 'Your assigned orders. Go On Duty to receive and start a route.'}
-    navigation={driverPages.map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path, badge: item.path === 'messages' ? unreadMessages : 0 }))}
+    navigation={driverPages.map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path, badge: item.path === 'messages' ? unreadMessages : item.path === 'orders' ? orderUnread : 0 }))}
     footer={collapsed => <div className={`mt-1 flex items-center py-3 ${collapsed ? 'justify-center' : 'justify-between px-3'}`} title={collapsed ? (online ? 'On duty' : 'Off duty') : undefined}>
       <span className={collapsed ? 'sr-only' : `text-sm font-normal ${online ? 'text-app-text' : 'text-slate-700'}`}>{duty.isPending ? (duty.variables ? 'Going on duty…' : 'Going off duty…') : online ? 'On duty' : 'Off duty'}</span>
       <Switch checked={online} aria-label="Duty status" disabled={!profile.data || duty.isPending} onCheckedChange={next => duty.mutate(next)} />
@@ -118,7 +120,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     <Notice error={logoutError || dutyError} />
     {page.path === 'orders' && profile.data && <DriverQuestions slug={slug} driverId={profile.data.id} />}
-    {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? <MessagesInbox slug={slug} /> : <DriverOrders slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
+    {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => void profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} driverId={profile.data?.id} company={company} />) : <DriverOrders timeZone={profile.data?.time_zone} slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
   </PortalShell>;
 }
 
@@ -155,7 +157,7 @@ function DriverProfileForm({ slug, profile }: { slug: string; profile: Profile }
   </form></Card>;
 }
 
-function DriverOrders({ slug, online, onStartRoute, onFinishRoute }: { slug: string; online: boolean; onStartRoute: (route: Route) => Promise<void>; onFinishRoute: (route: Route) => Promise<void> }) {
+function DriverOrders({ timeZone, slug, online, onStartRoute, onFinishRoute }: { timeZone?: string; slug: string; online: boolean; onStartRoute: (route: Route) => Promise<void>; onFinishRoute: (route: Route) => Promise<void> }) {
   const orders = useQuery({ queryKey: ['driver-orders', slug], queryFn: () => operations.driverOrders(slug) });
   const routes = useQuery({ queryKey: ['driver-routes', slug], queryFn: () => allOperations.driverRoutes(slug) });
   const [search, setSearch] = useState('');
@@ -167,17 +169,18 @@ function DriverOrders({ slug, online, onStartRoute, onFinishRoute }: { slug: str
   const filtered = rows.filter(order => {
     const q = search.toLowerCase().trim();
     const text = [order.number, order.service_name, ...order.stops.map(stop => [stop.address.text, stop.contact_name, stop.phone].join(' '))].join(' ').toLowerCase();
-    const date = dateIn(order.scheduled_at);
+    const date = dateIn(order.scheduled_at, timeZone ?? 'UTC');
     const inDate = dateFilter.kind === 'all' || (dateFilter.kind === 'day' ? date === dateFilter.date : date >= dateFilter.from && date <= dateFilter.to);
     return (!q || text.includes(q)) && inDate && (lifecycle === 'all' || order.status === lifecycle);
   });
   const active = rows.filter(order => ['ASSIGNED', 'IN_PROGRESS'].includes(order.status)).length;
   const delivered = rows.filter(order => ['COMPLETED'].includes(order.status)).length;
-  const today = rows.filter(order => dateIn(order.scheduled_at) === dateIn(new Date().toISOString())).length;
+  const today = rows.filter(order => dateIn(order.scheduled_at, timeZone ?? 'UTC') === dateIn(new Date().toISOString(), timeZone ?? 'UTC')).length;
   return <div className="space-y-6">
     <Notice error={orders.error || routes.error} />
     {orders.isPending && <p role="status" className="text-sm text-slate-500">Loading orders…</p>}
-    {orders.data && <>
+    {!timeZone && <p role="status">Loading company time zone…</p>}
+    {orders.data && timeZone && <>
       <ListSummary label="Orders summary" items={[
         { label: 'Total', value: rows.length, icon: Package },
         { label: 'Active', value: active, icon: Truck },
@@ -187,7 +190,7 @@ function DriverOrders({ slug, online, onStartRoute, onFinishRoute }: { slug: str
       <div className="app-list-toolbar">
         <SearchInput className="app-list-search" value={search} onChange={setSearch} placeholder="Search orders, contacts or addresses..." />
         <div className="app-list-filters">
-          <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={dateIn(new Date().toISOString())} />
+          <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={dateIn(new Date().toISOString(), timeZone ?? 'UTC')} />
           <Select aria-label="Filter by order status" value={lifecycle} onValueChange={setLifecycle} align="end" options={[{ value: 'all', label: 'All order statuses' }, ...ORDER_LIFECYCLES.filter(value => value !== 'NEW').map(value => ({ value, label: ORDER_LIFECYCLE_LABELS[value] }))]} />
         </div>
       </div>
@@ -225,12 +228,12 @@ function DriverOrders({ slug, online, onStartRoute, onFinishRoute }: { slug: str
         </table></div>}
       </div>
     </>}
-    {detail && <DriverOrderDialog slug={slug} order={detail} orders={rows} route={routes.data?.find(route => route.id === detail.route_id)} online={online} onStartRoute={onStartRoute} onFinishRoute={onFinishRoute} onOpen={setDetailId} onClose={() => setDetailId(null)} />}
+    {detail && timeZone && <DriverOrderDialog timeZone={timeZone} slug={slug} order={detail} orders={rows} route={routes.data?.find(route => route.id === detail.route_id)} online={online} onStartRoute={onStartRoute} onFinishRoute={onFinishRoute} onOpen={setDetailId} onClose={() => setDetailId(null)} />}
   </div>;
 }
 
-function DriverOrderDialog({ slug, order, orders, route, online, onStartRoute, onFinishRoute, onOpen, onClose }: {
-  slug: string; order: DriverOrder; orders: DriverOrder[]; route?: Route; online: boolean; onStartRoute: (route: Route) => Promise<void>; onFinishRoute: (route: Route) => Promise<void>; onOpen: (id: string) => void; onClose: () => void;
+function DriverOrderDialog({ timeZone, slug, order, orders, route, online, onStartRoute, onFinishRoute, onOpen, onClose }: {
+  timeZone: string; slug: string; order: DriverOrder; orders: DriverOrder[]; route?: Route; online: boolean; onStartRoute: (route: Route) => Promise<void>; onFinishRoute: (route: Route) => Promise<void>; onOpen: (id: string) => void; onClose: () => void;
 }) {
   useEntityDialog(true, onClose);
   const cache = useQueryClient();

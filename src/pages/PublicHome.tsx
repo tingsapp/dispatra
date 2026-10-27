@@ -23,11 +23,9 @@ function HomeContent() {
     <main>
       <PublicHero labelledBy="home-title" centered>
         <div>
-          <p className="home-eyebrow">AI for delivery teams</p>
-          <h1 id="home-title">From order to delivery.<br /><span>One clear workflow.</span></h1>
-          <p className="home-hero-description">Bring orders, dispatch, routes, and proof of delivery together. Run your operation in Dispatra, or connect Smart Dispatching to your existing TMS.</p>
+          <h1 id="home-title">Your AI dispatcher<br />Your deliveries<br />Your control</h1>
+          <p className="home-hero-description">Plan, assign, and track deliveries in one connected workspace, with AI helping you stay in control.</p>
           <HeroWorkspaceEntry />
-          <div className="home-hero-paths"><a href="#home-plan-full">The full TMS workspace <span aria-hidden="true">↗</span></a><span aria-hidden="true" /><a href="#home-plan-dispatch">Smart Dispatching for your TMS <span aria-hidden="true">↗</span></a></div>
         </div>
       </PublicHero>
       <DeliveryDemo />
