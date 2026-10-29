@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom';
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import React from 'react';
-const dom = new JSDOM('<!doctype html><html><body></body></html>', {url:'http://localhost/ask-dispatra',pretendToBeVisual:true});
+const dom = new JSDOM('<!doctype html><html><body></body></html>', {url:'http://localhost/contact',pretendToBeVisual:true});
 for (const name of ['window','document','navigator','HTMLElement','Element','Node','location','history']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
 dom.window.scrollTo = () => {};
 const { render, screen, cleanup, fireEvent, waitFor, within, act } = await import('@testing-library/react');
@@ -47,8 +47,16 @@ test('information pages and clean footer expose reachable pages and general app 
   assert.equal(companySlugForPath(page),undefined);render(<Information page={page} />);
   assert.equal(screen.getAllByRole('heading',{level:1}).length,1);
   const footer=within(screen.getByRole('contentinfo'));
+  assert.ok(footer.getByRole('navigation',{name:'Resources'}));
+  assert.equal(footer.queryByRole('navigation',{name:'Product'}),null);
+  if(page==='/about'){
+   const main=screen.getByRole('main');
+   assert.doesNotMatch(main.textContent!,/tingsapp/i);
+   assert.match(main.textContent!,/AI and delivery operations/);
+   assert.match(main.textContent!,/In Manual mode/);
+  }
   assert.equal(within(footer.getByRole('navigation',{name:'Company'})).queryByRole('link',{name:'Contact'}),null);
-  for(const [label,path] of [['About','/about'],['FAQs','/help'],['Ask dispatra','/ask-dispatra#dispatra-chat-title']])assert.equal(footer.getByRole('link',{name:label}).getAttribute('href'),path);
+  for(const [label,path] of [['About','/about'],['FAQs','/help'],['Let’s talk','/contact#dispatra-chat-title']])assert.equal(footer.getByRole('link',{name:label}).getAttribute('href'),path);
   assert.equal(footer.getByRole('link',{name:/Android/}).getAttribute('href'),'https://play.google.com/store/apps');
   assert.equal(footer.getByRole('link',{name:/iOS/}).getAttribute('href'),'https://www.apple.com/app-store/');
   assert.equal(footer.queryByText('YOUR NEXT DELIVERY DAY'),null);cleanup();

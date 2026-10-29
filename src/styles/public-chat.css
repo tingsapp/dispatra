@@ -143,3 +143,44 @@
 .public-chat-shell--contact .public-chat-body:not(.public-chat-body--started) > .public-chat-dock { position: absolute; top: calc(50svh - 9rem); bottom: auto; width: 100%; padding: 0; transform: translateY(-50%); }
 .public-chat-contact .public-contact-panel { padding: 18px 20px; }
 .public-chat-contact .public-contact-title { font-size: 15px; line-height: 1.5; letter-spacing: 0; font-weight: 500; }
+
+/* A focused voice conversation with familiar waveform entry and simple controls. */
+.public-chat-composer .public-chat-mic { background:#0d0d0d; color:white; }
+.public-chat-composer .public-chat-mic:hover:not(:disabled) { background:#2f2f2f; }
+.public-chat-composer .public-chat-mic:disabled { background:#e9e9e9; color:#929292; }
+.public-chat-shell--voice .public-chat-body { justify-content:center; min-height:calc(100svh - 9rem); padding-block:24px; }
+.public-chat-shell--voice .public-chat-dock { position:static; padding:0; background:none; }
+.public-voice-session { display:flex; flex-direction:column; align-items:center; width:100%; padding:20px 16px 32px; text-align:center; }
+.public-voice-orb { position:relative; isolation:isolate; width:176px; height:176px; overflow:hidden; border-radius:50%; background:radial-gradient(circle at 34% 24%,#fff 9%,#edf7ff 30%,#afd6fb 65%,#598dd8 100%); box-shadow:inset 0 0 28px #ffffffb3,0 18px 65px -30px #4d8bd04d; }
+.public-voice-orb::after { position:absolute; inset:0; border-radius:50%; content:""; background:radial-gradient(circle at 28% 25%,#ffffffad,transparent 50%); box-shadow:inset -9px -12px 25px #5b8bc22b; }
+.public-voice-orb > span { position:absolute; inset:-20%; border-radius:44% 56% 59% 41% / 51% 43% 57% 49%; background:radial-gradient(ellipse at 38% 28%,#ffffffd9 12%,#d8edff8c 42%,#7bbbf76b 68%,transparent 73%); animation:voice-orb-drift 9s ease-in-out infinite alternate; }
+.public-voice-orb > span:nth-child(2) { inset:8% -20% -28%; opacity:.7; background:radial-gradient(ellipse at 50% 60%,#63a1e6c7 3%,#bce3ff80 46%,transparent 70%); animation-delay:-3s; animation-duration:7s; }
+.public-voice-orb > span:nth-child(3) { inset:-25% 5% 12%; background:radial-gradient(ellipse at 50% 30%,#fff 12%,#ffffff7a 48%,transparent 72%); animation-delay:-5s; animation-duration:11s; }
+.public-voice-session[data-state="connecting"] .public-voice-orb { opacity:.75; }
+.public-voice-session[data-state="speaking"] .public-voice-orb { animation:voice-orb-breathe 1.8s ease-in-out infinite; }
+.public-voice-session[data-muted="true"] .public-voice-orb { filter:saturate(.35); }
+.public-voice-session[data-muted="true"] .public-voice-orb > span { animation-play-state:paused; }
+.public-voice-name { margin-top:32px; font-size:20px; font-weight:500; line-height:1.3; letter-spacing:-.025em; }
+.public-voice-status { min-height:24px; margin-top:8px; font-size:15px; line-height:24px; color:#777773; }
+.public-voice-controls { display:flex; justify-content:center; gap:18px; margin-top:36px; }
+.public-voice-control { display:grid; place-items:center; width:52px; height:52px; padding:0; border:1px solid #e7e7e4; border-radius:50%; color:#292927; background:#f5f5f3; transition:background .2s,transform .2s; }
+.public-voice-control:hover:not(:disabled) { background:#eaeae7; }
+.public-voice-control:active:not(:disabled) { transform:scale(.96); }
+.public-voice-control:focus-visible { outline:2px solid #1447e6; outline-offset:4px; }
+.public-voice-control:disabled { color:#aaa; cursor:default; }
+.public-voice-control[aria-pressed="true"] { background:#292927; border-color:#292927; color:white; }
+.public-voice-end { background:#242423; color:white; border-color:#242423; }
+.public-voice-end:hover:not(:disabled) { background:#41413e; }
+.public-voice-note { margin-top:24px; max-width:330px; font-size:11px; line-height:1.6; color:#999994; }
+@keyframes voice-orb-drift { from { transform:translate(-3%,-4%) rotate(-12deg) scale(.94); } to { transform:translate(7%,8%) rotate(27deg) scale(1.08); } }
+@keyframes voice-orb-breathe { 0%,100% { transform:scale(1); } 50% { transform:scale(1.035); } }
+@media(max-width:639px) {
+ .public-chat-shell--voice .public-chat-body { padding-block:12px; }
+ .public-voice-orb { width:150px; height:150px; }
+ .public-voice-name { margin-top:28px; }
+ .public-voice-controls { margin-top:28px; }
+ .public-voice-note { max-width:250px; }
+}
+@media(prefers-reduced-motion:reduce) { .public-voice-orb,.public-voice-orb > span { animation:none !important; } .public-voice-control { transition:none; } }
+
+.public-voice-note > span:last-child { white-space:nowrap; }

@@ -8,7 +8,7 @@ Weight and vehicle-dimension form fields display at most two decimal places afte
 
 ## 1. Scope and authority
 
-The homepage hero omits the eyebrow, trial/member helper line and the two TMS path links; retain its title, description and existing action buttons. The homepage uses the centered hero and selectable animated delivery workflow that preceded the October 26 redesign. The headline reads “Your AI dispatcher / Your deliveries / Your control” The description reads “Plan, assign, and track deliveries in one connected workspace, with AI helping you stay in control.” The How it works page uses “From request to delivered” with its original DeliveryDemo and three workflow explanation cards. The October 26 hero, feature strip and supplied 3D animation are superseded by this restoration.
+The homepage hero omits the eyebrow, trial/member helper line and the two TMS path links; retain its title, description and existing action buttons. The homepage uses the centered hero and selectable animated delivery workflow that preceded the October 26 redesign. The headline reads “AI that runs your dispatch while keeping you in control” The description reads “Dispatra’s got dispatch covered. From the first order to the final doorstep, your AI dispatcher handles the coordination and keeps you in the loop, so you can enjoy your coffee while deliveries keep moving.” The How it works page uses “From request to delivered” with its original DeliveryDemo and three workflow explanation cards. The October 26 hero, feature strip and supplied 3D animation are superseded by this restoration.
 
 Public website links between `/`, `/plans`, `/about`, `/how-it-works`, `/help`, `/ask-dispatra`, `/terms`, `/privacy` and `/docs/integrations` use client-side navigation without reloading the document. Retain real anchor URLs, plan query strings, section fragments, Back/Forward scroll restoration and accessible destination focus. Modified clicks, new-tab links, downloads, external links and account/workspace entry links retain native browser navigation. Public routing must remain independent of authenticated workspace navigation and its unsaved-settings guard.
 
@@ -377,3 +377,93 @@ The Monitor shows a compact, always-visible Today’s plan card at the top left.
 ## Public voice chat (2026-10-27)
 
 `/ask-dispatra` offers live speech-to-speech using `gpt-realtime-mini` and the same server-owned public product guidance as text chat. Voice sessions are separate from text history, with no company records or operational tools. The provider key remains server-only; the browser receives an SDP answer and a short-lived signed end-call capability. Voice offers reject model/instruction overrides. Existing origin/header checks apply; persistent rate buckets allow 3 starts per visitor and 60 globally per 15 minutes. The UI provides connecting/listening/thinking/speaking, mute/unmute and End, releases microphone/audio on exit/failure/cancellation, and keeps text available afterward. Five-minute browser and backend timers end calls; graceful service shutdown closes tracked calls. Abrupt process termination or provider failure can prevent the backend timer/hangup, so this is not a guaranteed account spending cap. Use provider account budget controls as well. No application audio/transcript storage or input-transcription model is enabled. Provider data handling still applies.
+
+
+## Public AI dispatch positioning — 2026-10-28
+
+Dispatra leads as an AI-powered automated dispatcher across the homepage, About, FAQs, plan cards, contact plan context and metadata. Public offerings are “AI Dispatch + Workspace” and “AI Dispatch”; existing full/dispatch IDs, prices, signup TMS flag and compatibility limits remain unchanged. Auto assigns eligible Ready Orders; both modes optimize after assignment. Email intake prepares requests for review; drivers perform deliveries and submit proof. Do not imply autonomous delivery execution or ready-made external connectors. The homepage team section initially selects Dispatcher.
+
+Use Pallet homepage reference typography with local Inter: hero 64px desktop, 76px at 1920px+, 40px below 768px, regular 400 weight, line-height 1, tracking -0.055em; supporting copy 18px/1.3, tracking -0.025em. Hero copy padding is 82px/48px desktop and 94px/42px mobile; text-to-description and description-to-action gaps are 28px. Headings wrap naturally. Mobile section headings use 32px, line-height 1.1 and tracking -0.05em. Keep 16px phone gutters, wrapping role tabs, readable plan actions and single-column benefit cards on narrow phones.
+
+
+## Public dispatch process explanation — 2026-10-28
+
+The second homepage section explains the workflow behind the existing sample delivery playback. A connected Order agent → Dispatch agent → Route optimizer → Driver app handoff diagram highlights the current stage. Stage-specific plain-language explanations cover intake, order checks, eligible-driver assignment in Auto, post-assignment route optimization in both modes, driver progress, required proof and completion. Supporting Operational, Technical and Chat agents describe exception visibility, system issues and authorized workspace questions. Clearly label the visual illustrative; never imply live operational actions or invent agents. Drivers perform deliveries and submit proof. Incomplete orders must not be presented as automatically assigned. Keep the explanation visible on phones, with a reading-order-preserving connected two-row diagram, single-column detail, accessible headings and reduced-motion styles.
+
+
+## Compact four-agent homepage process — 2026-10-28
+
+Supersedes the expanded agent diagram and six-stage sidebar above. Use exactly one four-item sidebar: Order agent / Reads & prepares; Dispatch agent / Checks & assigns; Route optimizer / Find the best path; Driver / Delivers & confirms. Sidebar items show only a one-line title and one-line subtitle, with an icon but without numbers or chevrons. It controls one dynamic right-hand panel. Order intake shows a sample email becoming a reviewable order, Dispatch shows an illustrative eligible-driver match, and routing/delivery use the existing sample map. Show only the selected scene with one clear description and no separate panel title. Remove the duplicate handoff diagram, long task lists and support-agent block. Keep Manual/Auto rules, sample labels, keyboard switching and a two-by-two mobile selector without horizontal overflow. Manual selection is stable; do not auto-switch the selected agent.
+
+
+## Clean process scenes — 2026-10-28
+
+The four-agent sidebar controls exactly one concise visual. Order agent: Email, Shipper portal and TMS/API (configured connections only) converge into a common Dispatra order. Do not imply every portal/API booking is AI-parsed or a draft. Dispatch: compare eligible drivers on availability, vehicle suitability and pickup distance; mark one best eligible match. Route optimizer: show multiple feasible candidate routes on a map with the selected path emphasized. Driver: show Completed and an illustrative collected customer signature. Use one clear description per scene without a separate panel title; no repeated agent eyebrow or visible sample/workflow footer labels. Remove the Manual/Auto footer sentence. Preserve factual sample identification in accessible scene labels, no invented live numbers, no claims of globally optimal guaranteed routes, and reduced-motion support.
+
+
+## Process panel presentation and playback — 2026-10-28
+
+Right-hand scenes use one clear description only, without a separate title. Render the two route stop markers after every candidate/selected path in the same top SVG layer. Automatically cycle the four selected agents every seven seconds while the section is in view, the document is visible and reduced motion is off. Expose a compact pause/play control; manual selection or keyboard focus on a step pauses cycling, and Play resumes it. Preserve keyboard navigation and complete static visuals in reduced motion. This supersedes the earlier stable-manual-selection-only behavior.
+
+
+Process refinement: remove the visible pause/play button. Pause automatic cycling while the pointer or keyboard focus is inside the section, and resume once interaction leaves. Reduced-motion, offscreen and hidden-document suspension remain. Route labels share the route SVG coordinate system and sit beside the stop circles with a clear gap; they must never cover the markers. Draw label backgrounds first and the two stop circles last.
+
+
+## Stable process scene framing — 2026-10-28
+
+Each slide reserves the same description area and scene height at a given breakpoint. Desktop: 84px description + 420px scene; phone: 104px description + 520px scene. Match scene padding across all four steps (28px desktop, 22px tablet/phone, 18px narrow phone). Keep all contents, rotated signature and marker labels within the padded frame. Route artwork and labels share a bounded viewBox fitted with meet; do not slice/crop markers or paths. Change slides with a short sequential fade/vertical settle using AnimatePresence, preserving the fixed frame height and reduced-motion instant transitions.
+
+
+Order intake includes four converging sources: Email, Shipper portal, Dispatcher direct entry and configured TMS/API. Use a bot icon for the Order agent sidebar item, retaining the mail icon only on the Email input. On phones, show four sources in a two-by-two grid inside the same fixed-height frame. Fit route viewBox bounds to the actual available map aspect ratio while retaining all route candidates, markers and labels. Extend neighborhood context to fill the map without letterboxing, distorted coordinates or extra inner padding.
+
+On narrow phones below 390px, reserve 128px for the description and 648px for the full panel so four-line descriptions retain breathing room above the 520px scene.
+
+
+Route panel visual refinement: secondary candidate routes and their legend swatches are solid gray. Move pickup/delivery labels closer to their circles while preserving a clear non-overlapping gap. The map extends to the panel top and side edges with no inset; the legend alone retains padding. This intentionally overrides shared scene padding for the map while preserving the shared outer panel height.
+
+Secondary routes match the selected route’s 4px stroke, rounded caps and joins, curved bends and soft 10px/12%-opacity halo. Color alone distinguishes gray candidates from the blue selected path.
+
+
+## Why Dispatra benefits — 2026-10-28
+
+Keep the left-side continuous route constellation unchanged. Match the copy to its connected movement through orders, drivers and deliveries. The section heading is Everything moving together; the four right-side cards cover less manual coordination, better use of the available fleet, clearer handoffs and human control over routine automation. Describe business benefits, not a second intake/assignment/routing/POD walkthrough. Avoid guarantees or invented measured savings.
+
+
+Section purpose clarification: Your AI dispatcher at work explains the workflow; Why Dispatra presents the features and their value. Preserve the currently accepted titles and descriptions. Align the Why Dispatra illustration and card grid at the top, and align each card’s icon/content from the top rather than distributing text toward the bottom.
+
+
+## Homepage Plans section — 2026-10-28
+
+Use the simple section eyebrow Plans instead of One AI dispatcher. Two ways to start. Keep the two existing plan identities and destinations, with concise Built-in workspace / Your existing TMS labels and parallel feature lists. Align card headings, descriptions and actions with consistent padding. Remove the monthly per-vehicle pricing footer sentence and its View current plans and pricing link from the homepage section; authoritative current pricing remains on /plans.
+
+Homepage plan cards have one Explore AI Dispatch action each, with the full plan name retained for accessibility. Remove the Talk to us about this plan links from both cards. Contact remains available through the shared site entry points and plan page.
+
+Homepage plan card titles are Full Workspace and AI Dispatch. Keep existing full/dispatch IDs and destinations unchanged; Full Workspace denotes the option with built-in workspace capabilities.
+
+
+## Connected team copy — 2026-10-28
+
+Keep the Connected team label and AI keeps your whole team in sync heading. Explain shared work and updates with less chasing and fewer manual handoffs. Dispatcher copy leads with Less coordinating. More control.; Driver with Your next move, already clear.; Shipper with Place the order. Stay in the loop. Match their supporting bullets to automatic assignments/manual oversight, assigned stops/progress/proof, and order submission/progress/messaging respectively. Preserve role tabs, account destinations and existing workspace previews.
+
+
+Public preview cleanup: remove visible sample/workspace-preview disclaimers, including Actual Dispatra interface · Sample data, Sample workspace and Workspace preview · sample data. Use descriptive accessibility text without sample/illustrative prefixes. Keep image assets, role tabs, workflow illustrations, and internal developer comments distinguishing static demonstrations from operational data intact. Team-panel role headings align with the top of the preview; omit the For your dispatchers/drivers/shippers helper labels.
+
+The homepage workflow section uses How it works as its eyebrow and Your AI agents at work as its main heading, without trailing periods.
+
+Why Dispatra section heading: Everything flowing together, automatically. Supporting copy: Dispatra handles routine dispatch and keeps orders, drivers, and deliveries in sync, so your day flows smoothly with less manual coordination. Preserve the accepted feature-card copy and animation.
+
+The homepage How it works section main heading is Dispatra at work, replacing Your AI agents at work.
+
+Homepage FAQ heading: Get to know Dispatra. Description: Your questions about automation, plans, and getting started, answered. Keep the existing FAQ questions, answers, and links.
+
+The contact page places only a centered Email our team button with a mail icon below the chat input. Remove the surrounding email card, helper heading and visible enquiry label; preserve plan context in the mailto subject and body.
+
+
+## Public content consistency audit — 2026-10-28
+
+Current public plan names are Full Workspace and AI Dispatch across homepage cards, /plans, FAQ answers, contact enquiry subjects and public chat/voice facts; retain full/dispatch IDs and historical aliases in facts. Keep all recently approved hero, workflow, Why Dispatra, connected-team and footer wording. Homepage FAQ eyebrow is FAQs to avoid duplicating Get to know Dispatra. The page narrative is AI dispatch promise → workflow (including the human Driver) → features/value → setup choices → connected roles → FAQs → trial/contact. Keep configured-integration limits, manual oversight and human delivery/POD explicit.
+
+
+## Public voice conversation design — 2026-10-28
+
+Use a five-bar waveform icon on the dark circular voice-entry button. Active voice replaces the text composer/transcript visually with a centered blue/white animated orb, Dispatra name, current connection/listening/thinking/speaking/muted status and circular mute/end controls. Retain text state and restore the composer after ending voice. Keep existing WebRTC session, permission, cleanup, timeout, public-data and text/voice separation behavior unchanged. Show a compact separate-text/5-minute note, disable mute while connecting, allow ending a pending connection, and honor reduced motion.

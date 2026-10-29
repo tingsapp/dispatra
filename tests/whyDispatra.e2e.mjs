@@ -14,7 +14,7 @@ try {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto(origin);
   const section = page.locator('#why-dispatra');
-  const scene = page.getByRole('figure', { name: 'Illustrative route constellation' });
+  const scene = page.getByRole('figure', { name: 'Route constellation' });
   const canvas = section.locator('canvas');
   await section.scrollIntoViewIfNeeded();
   await page.waitForFunction(() => document.querySelector('.why-dispatra-figure')?.dataset.running === 'true');

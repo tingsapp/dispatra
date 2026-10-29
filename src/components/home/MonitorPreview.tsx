@@ -16,7 +16,7 @@ export function MonitorPreview({ onStageChange, requestedStage }: { onStageChang
     return () => observer.disconnect();
   }, []);
   const [completed, setCompleted] = useState(false);
-  return <div ref={container} data-preview-active={visible} aria-label="Illustrative dispatch workspace preview" className="home-monitor-preview relative mx-auto w-full">
+  return <div ref={container} data-preview-active={visible} aria-label="Dispatch workspace preview" className="home-monitor-preview relative mx-auto w-full">
     <div className="overflow-hidden rounded-2xl border border-app-border bg-app-surface shadow-xl">
       <div className="flex items-center justify-between px-4 py-3"><div className="flex items-center gap-1.5" aria-hidden="true">{[0, 1, 2].map(i => <span key={i} className="size-2 rounded-full bg-slate-200" />)}</div><span className="text-[10px] text-app-muted">Dispatra / workspace</span><MoreHorizontal className="size-4 text-slate-400" aria-hidden="true" /></div>
       <div className="home-monitor-map flex h-[340px] sm:h-[460px]">
@@ -28,6 +28,5 @@ export function MonitorPreview({ onStageChange, requestedStage }: { onStageChang
         </div>
       </div>
     </div>
-    <p className="mt-3 text-center text-[11px] text-app-muted">Workspace preview · sample data</p>
   </div>;
 }

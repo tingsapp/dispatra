@@ -1,11 +1,11 @@
-import { ArrowUpRight, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { PublicHeader } from '../components/home/PublicPageLayout';
 import { PublicFooter } from '../components/home/PublicFooter';
 import { PublicChatAssistant } from '../components/home/PublicChatAssistant';
 import { Button } from '../components/ui/button';
 import { DISPATRA_CONTACT_EMAIL as EMAIL } from '../lib/dispatraContact';
 
-const planNames = new Map([['full', 'TMS + Smart Dispatching'], ['dispatch', 'Smart Dispatching']]);
+const planNames = new Map([['full', 'Full Workspace'], ['dispatch', 'AI Dispatch']]);
 
 export default function ContactPage() {
   const selected = planNames.get(new URLSearchParams(location.search).get('plan') ?? '');
@@ -15,17 +15,8 @@ export default function ContactPage() {
   return <div className="public-site min-h-dvh bg-white font-sans text-app-text">
     <PublicHeader />
     <main>
-      <PublicChatAssistant contactCard={<div className="public-chat-contact mx-auto w-full max-w-4xl px-4 pb-8 pt-6 sm:px-6">
-        <section aria-labelledby="contact-team" className="public-contact-panel">
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#f4f4f4]"><Mail className="size-5 text-app-muted" strokeWidth={1.5} aria-hidden="true" /></span>
-            <div className="min-w-0 flex-1">
-              <h2 id="contact-team" className="public-contact-title">Prefer to reach out by email?</h2>
-              {selected && <p className="mt-1 text-xs text-app-muted">Your enquiry: {selected}</p>}
-            </div>
-            <Button asChild className="gap-2 px-4"><a href={emailHref}>Email our team<ArrowUpRight className="size-4" aria-hidden="true" /></a></Button>
-          </div>
-        </section>
+      <PublicChatAssistant contactCard={<div className="public-chat-contact mx-auto flex w-full max-w-4xl justify-center px-4 pb-8 pt-6 sm:px-6">
+        <Button asChild className="gap-2 px-5"><a href={emailHref}><Mail className="size-4" strokeWidth={1.5} aria-hidden="true" />Email our team</a></Button>
       </div>} />
     </main>
     <PublicFooter />

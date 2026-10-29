@@ -33,10 +33,10 @@ test('signup retains the homepage company identifier and explains the 30-day tri
 test('plans precede signup and the popup preserves the company identifier, dismisses and clears secrets', async () => {
   api.subscriptionPlan = async () => plan;
   page();
-  await screen.findByRole('heading', {name:'TMS + Smart Dispatching'});
+  await screen.findByRole('heading', {name:'Full Workspace'});
   assert.equal(screen.getAllByText('Contact us for pricing').length, 2);
-  assert.ok(screen.getByRole('heading', {name:'Smart Dispatching'}));
-  assert.deepEqual(screen.getAllByRole('link', {name:'Contact now'}).map(link => link.getAttribute('href')), ['/ask-dispatra?plan=full', '/ask-dispatra?plan=dispatch']);
+  assert.ok(screen.getByRole('heading', {name:'AI Dispatch'}));
+  assert.deepEqual(screen.getAllByRole('link', {name:'Contact now'}).map(link => link.getAttribute('href')), ['/contact?plan=full', '/contact?plan=dispatch']);
   assert.ok(await screen.findByRole('heading', {name:'One month free trial'}));
   assert.equal(screen.getByRole('link', {name:'Sign in'}).getAttribute('href'), '/login');
   assert.equal(screen.queryByLabelText('Email'), null);
@@ -236,7 +236,7 @@ test('public plans display distinct configured prices and currencies, including 
 
 test('disabled trial has no public signup option while both plan enquiries remain', async () => {
   api.subscriptionPlan=async()=>({...plan,trial_enabled:false,trial_days:14});
-  page();await screen.findByRole('heading',{name:'TMS + Smart Dispatching'});
+  page();await screen.findByRole('heading',{name:'Full Workspace'});
   await waitFor(()=>assert.equal(screen.getAllByRole('link',{name:'Contact now'}).length,2));
   assert.equal(screen.queryByRole('button',{name:'Start free trial'}),null);
   assert.equal(screen.queryByRole('heading',{name:/free trial/i}),null);

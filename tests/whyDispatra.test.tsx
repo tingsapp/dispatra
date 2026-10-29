@@ -18,21 +18,19 @@ Object.defineProperty(globalThis, 'IntersectionObserver', { value: class {
   constructor(callback: typeof intersection) { intersection = callback; disconnected = false; }
   observe() {} disconnect() { disconnected = true; }
 } });
-const { render, screen, cleanup, act, fireEvent } = await import('@testing-library/react');
+const { render, screen, cleanup, act } = await import('@testing-library/react');
 const { WhyDispatra } = await import('../src/components/home/WhyDispatra');
 afterEach(() => { cleanup(); reduced = false; Object.defineProperty(document, 'hidden', { configurable: true, value: false }); });
 
-function figure() { return screen.getByRole('figure', { name: 'Illustrative route constellation' }); }
+function figure() { return screen.getByRole('figure', { name: 'Route constellation' }); }
 
-test('the illustrative scene can be paused and resumed without hiding its benefits', () => {
+test('the illustrative scene runs without a caption or playback control', () => {
   Object.defineProperty(document, 'hidden', { configurable: true, value: false });
   render(<WhyDispatra />);
   assert.equal(figure().getAttribute('data-running'), 'true');
-  fireEvent.click(screen.getByRole('button', { name: 'Pause route constellation animation' }));
-  assert.equal(figure().getAttribute('data-running'), 'false');
+  assert.equal(screen.queryByRole('button'), null);
+  assert.equal(figure().querySelector('figcaption'), null);
   assert.equal(screen.getAllByRole('heading', { level: 3 }).length, 4);
-  fireEvent.click(screen.getByRole('button', { name: 'Play route constellation animation' }));
-  assert.equal(figure().getAttribute('data-running'), 'true');
 });
 
 test('reduced motion produces a static scene and updates when the preference changes', () => {
@@ -47,7 +45,7 @@ test('reduced motion produces a static scene and updates when the preference cha
   assert.equal(disconnected, true);
 });
 
-test('offscreen and hidden pages suspend the animation while preserving a manual pause', () => {
+test('offscreen and hidden pages suspend the animation and resume when visible', () => {
   render(<WhyDispatra />);
   act(() => intersection?.([{ isIntersecting: false }]));
   assert.equal(figure().getAttribute('data-running'), 'false');
@@ -55,7 +53,6 @@ test('offscreen and hidden pages suspend the animation while preserving a manual
   assert.equal(figure().getAttribute('data-running'), 'true');
   act(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
   assert.equal(figure().getAttribute('data-running'), 'false');
-  fireEvent.click(screen.getByRole('button', { name: 'Pause route constellation animation' }));
   act(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); });
-  assert.equal(figure().getAttribute('data-running'), 'false');
+  assert.equal(figure().getAttribute('data-running'), 'true');
 });

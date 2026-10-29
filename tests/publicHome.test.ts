@@ -7,6 +7,8 @@ for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInput
   Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: dom.window[name as keyof Window] });
 }
 Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', { configurable: true, value: () => null });
+// Scene motion is covered in the browser; keep these interaction checks deterministic.
+Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
 const { render, screen, cleanup, waitFor, within, fireEvent } = await import('@testing-library/react');
 const { accountWorkspace, signupDestination, dispatcherPageAvailable } = await import('../src/lib/workspaceEntry');
 const { PublicHome } = await import('../src/pages/PublicHome');
@@ -33,7 +35,7 @@ test('homepage offers a direct free-trial action without a workspace input', asy
   api.me = anonymous;
   render(React.createElement(PublicHome));
   const trial = await screen.findByRole('link', { name: 'Start Free Trial' }, {timeout:5000});
-  const hero = screen.getByRole('heading', { level: 1, name: /Your AI dispatcher/ }).closest('section');
+  const hero = screen.getByRole('heading', { level: 1, name: /AI that runs your dispatch while keeping you in control/ }).closest('section');
   assert.ok(hero?.contains(trial));
   assert.equal(within(hero!).queryByRole('link', { name: 'See how it works' }), null);
   assert.equal(trial.getAttribute('href'), '/plans');
@@ -52,7 +54,7 @@ test('homepage offers a direct free-trial action without a workspace input', asy
   assert.equal(footer.getByRole('link', { name: 'Plans & free trial' }).getAttribute('href'), '/plans');
   assert.equal(footer.queryByRole('link', { name: 'How it works' }), null);
   const header = within(screen.getByRole('banner'));
-  assert.equal(header.getByRole('link', { name: 'Ask Dispatra' }).getAttribute('href'), '/ask-dispatra');
+  assert.equal(header.getByRole('link', { name: 'Let’s talk' }).getAttribute('href'), '/contact');
   assert.equal(header.queryByRole('navigation'), null);
   assert.equal(header.queryByRole('button', { name: 'Open website menu' }), null);
   assert.deepEqual(['Dispatchers', 'Shippers', 'Drivers'].map(name => footer.getByRole('link', { name }).getAttribute('href')), ['/dispatch', '/shipper', '/driver']);
@@ -84,7 +86,8 @@ test('homepage role views support selection and arrow-key navigation with matchi
   api.me = anonymous;
   render(React.createElement(PublicHome));
   const driver = screen.getByRole('tab', { name: 'Driver' });
-  assert.equal(driver.getAttribute('aria-selected'), 'true');
+  assert.equal(screen.getByRole('tab', { name: 'Dispatcher' }).getAttribute('aria-selected'), 'true');
+  fireEvent.click(driver);
   assert.equal(screen.getByRole('link', { name: 'Sign in as a driver' }).getAttribute('href'), '/driver');
   fireEvent.click(screen.getByRole('tab', { name: 'Shipper' }));
   assert.equal(screen.getByRole('link', { name: 'Sign in as a shipper' }).getAttribute('href'), '/shipper');
@@ -94,27 +97,42 @@ test('homepage role views support selection and arrow-key navigation with matchi
   assert.equal(screen.getByRole('link', { name: 'Sign in as a dispatcher' }).getAttribute('href'), '/dispatch');
 });
 
-test('selecting a sample delivery step updates the map status and pauses playback', async () => {
+test('four agent steps show sources, driver comparison, route choices and signed completion', async () => {
   api.me = anonymous;
   render(React.createElement(PublicHome));
-  const workflow = screen.getByRole('list', { name: 'Explore the sample order workflow' });
-  fireEvent.click(within(workflow).getByRole('button', { name: /Step 6: Complete/ }));
-  await waitFor(() => assert.ok(screen.getByText('Completed', { exact: true })));
-  assert.ok(screen.getByRole('button', { name: 'Play preview animation' }));
-  const complete = within(workflow).getByRole('button', { name: /Step 6: Complete/ });
-  assert.equal(complete.getAttribute('aria-current'), 'step');
-  fireEvent.click(within(workflow).getByRole('button', { name: /Step 1: Receive/ }));
-  await waitFor(() => assert.ok(screen.getByText('New', { exact: true })));
-  assert.equal(complete.getAttribute('aria-current'), null);
+  const workflow = screen.getByRole('list', { name: 'Explore the dispatch process' });
+  assert.equal(within(workflow).getAllByRole('button').length, 4);
+  const panel = () => screen.getByRole('region', { name: /demonstration$/ });
+  assert.ok(within(panel()).getByText('Email'));
+  assert.ok(within(panel()).getByText('Shipper portal'));
+  assert.ok(within(panel()).getByText('TMS / API'));
+  assert.ok(within(panel()).getByText('Dispatcher'));
+  assert.ok(within(panel()).getByText('Dispatra order'));
+  fireEvent.click(within(workflow).getByRole('button', { name: 'Dispatch agent' }));
+  await waitFor(() => assert.equal(panel().querySelectorAll('.process-driver').length, 3));
+  assert.equal(panel().querySelectorAll('.process-driver[data-selected="true"]').length, 1);
+  assert.ok(within(panel()).getByText('Alex selected'));
+  fireEvent.click(within(workflow).getByRole('button', { name: 'Route optimizer' }));
+  await waitFor(() => assert.equal(panel().querySelectorAll('.process-route-option').length, 2));
+  assert.equal(panel().querySelectorAll('.process-route-selected').length, 1);
+  assert.ok(within(panel()).getByText('Best path selected'));
+  fireEvent.keyDown(workflow, { key: 'ArrowDown' });
+  assert.equal(document.activeElement, within(workflow).getByRole('button', { name: 'Driver' }));
+  await waitFor(() => assert.ok(within(panel()).getByText('Completed')));
+  assert.ok(within(panel()).getByText('Signature collected'));
+  fireEvent.keyDown(workflow, { key: 'Home' });
+  await waitFor(() => assert.ok(within(panel()).getByText('Dispatra order')));
+  assert.equal(screen.queryByText('Illustrative workflow · Sample data'), null);
+  assert.equal(screen.queryByText('Choose Auto or Manual assignment. Routes are optimized after assignment in both modes.'), null);
 });
 
 test('plan paths and FAQ answers reuse the established public destinations and content', () => {
   api.me = anonymous;
   render(React.createElement(PublicHome));
-  assert.equal(screen.getByRole('link', { name: 'Explore the full workspace' }).getAttribute('href'), '/plans#plan-full');
-  assert.equal(screen.getByRole('link', { name: 'Explore Smart Dispatching' }).getAttribute('href'), '/plans#plan-dispatch');
-  assert.deepEqual(screen.getAllByRole('link', { name: 'Talk to us about this plan' }).map(link => link.getAttribute('href')), ['/ask-dispatra?plan=full', '/ask-dispatra?plan=dispatch']);
-  const questions = screen.getByRole('region', { name: /Good questions/ });
+  assert.equal(screen.getByRole('link', { name: 'Explore Full Workspace' }).getAttribute('href'), '/plans#plan-full');
+  assert.equal(screen.getByRole('link', { name: 'Explore AI Dispatch' }).getAttribute('href'), '/plans#plan-dispatch');
+  assert.equal(screen.queryByRole('link', { name: 'Talk to us about this plan' }), null);
+  const questions = screen.getByRole('region', { name: /Get to know Dispatra/ });
   assert.equal(questions.querySelectorAll('details').length, 6);
   assert.ok(questions.textContent?.includes('Both modes optimize routes after assignment'));
 });

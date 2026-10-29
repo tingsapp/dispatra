@@ -7,7 +7,7 @@ import { Button } from '../ui/button';
 export function PublicHeader({ navigation = true }: { navigation?: boolean } = {}) {
   return <header className="public-header">
     <a href="/" aria-label="Dispatra home" className="inline-flex min-w-0 items-center"><BrandLogo /></a>
-    {navigation && <div className="public-header-actions"><Button asChild className="app-primary public-ask-button"><a href="/ask-dispatra">Ask Dispatra</a></Button></div>}
+    {navigation && <div className="public-header-actions"><Button asChild variant="secondary" className="public-ask-button"><a href="/contact">Let’s talk</a></Button></div>}
   </header>;
 }
 
@@ -16,7 +16,7 @@ export function PublicPageIntro({ eyebrow, title, description }: { eyebrow: stri
 }
 
 export function PublicPageCta({ help = false }: { help?: boolean }) {
-  return <section aria-labelledby="public-next-step" className="public-page-cta"><p className="home-eyebrow">Your next step</p><h2 id="public-next-step">{help ? 'Let’s talk about your delivery day' : 'A workspace that fits your team'}</h2><p>{help ? 'Have another question? Ask Dispatra or contact our team.' : 'Explore both plans and find the right way to bring your operation together.'}</p><div><Button asChild><a href={help ? '/ask-dispatra' : '/plans'}>{help ? 'Ask Dispatra' : 'Explore plans'}<ArrowRight size={15} aria-hidden="true" /></a></Button><a href={help ? '/plans' : '/ask-dispatra'} className="home-text-link">{help ? 'View plans' : 'Contact our team'}<ArrowRight size={14} aria-hidden="true" /></a></div></section>;
+  return <section aria-labelledby="public-next-step" className="public-page-cta"><p className="home-eyebrow">Your next step</p><h2 id="public-next-step">{help ? 'Let’s talk about your dispatch' : 'Put AI to work on your dispatch'}</h2><p>{help ? 'Have another question? Let’s talk or contact our team.' : 'Explore automated dispatch with Dispatra’s workspace or alongside your existing TMS.'}</p><div><Button asChild><a href={help ? '/contact' : '/plans'}>{help ? 'Let’s talk' : 'Explore plans'}<ArrowRight size={15} aria-hidden="true" /></a></Button><a href={help ? '/plans' : '/contact'} className="home-text-link">{help ? 'View plans' : 'Contact our team'}<ArrowRight size={14} aria-hidden="true" /></a></div></section>;
 }
 
 export function PublicHero({ labelledBy, children, centered = false }: { labelledBy: string; children: ReactNode; centered?: boolean }) {

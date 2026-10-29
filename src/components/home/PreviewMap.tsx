@@ -8,25 +8,27 @@ const streets = [65, 145, 225, 305, 385, 465, 545, 625];
 const avenues = [65, 135, 205, 265, 325, 385];
 
 /** Code-native sample map, independent of real locations or routing providers. */
-export function PreviewMap({ completed = false }: { completed?: boolean }) {
-  return <svg viewBox="0 0 700 500" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 size-full" aria-hidden="true">
-    <rect width="700" height="500" fill="#f0f2ef" />
+export function PreviewMap({ completed = false, viewBox = '0 0 700 500', fit = 'slice' }: { completed?: boolean; viewBox?: string; fit?: 'slice' | 'meet' }) {
+  const mapStreets = fit === 'meet' ? [-95, -15, ...streets, 705, 785] : streets;
+  const mapAvenues = fit === 'meet' ? [-75, -5, ...avenues, 445, 505, 565] : avenues;
+  return <svg viewBox={viewBox} preserveAspectRatio={`xMidYMid ${fit}`} className="absolute inset-0 size-full" aria-hidden="true">
+    <rect x="-2000" y="-2000" width="4000" height="4000" fill="#f0f2ef" />
     <path d="M-20 431C95 397 177 446 262 431S414 419 500 442 635 424 720 445V520H-20Z" fill="#d8e7ef" />
     <path d="M580-20H720V190C660 183 610 97 580-20Z" fill="#d8e7ef" />
     <g fill="#e6e9e2">
-      {streets.slice(0, -1).flatMap((x, column) => avenues.slice(0, -1).map((y, row) => <g key={`${column}-${row}`}>
+      {mapStreets.slice(0, -1).flatMap((x, column) => mapAvenues.slice(0, -1).map((y, row) => <g key={`${column}-${row}`}>
         <rect x={x + 12} y={y + 12} width="24" height={row === 0 ? 38 : 26} rx="2" />
         <rect x={x + 43} y={y + 12} width="24" height={row === 0 ? 38 : 26} rx="2" />
       </g>))}
     </g>
     <path d="M391 76h62v48h-62zM76 277h57v37H76zM317 337h56v36h-56z" fill="#dae6d6" />
     <g fill="none" stroke="#dfe2db" strokeWidth="9">
-      {streets.map(x => <path key={x} d={`M${x} -20V435`} />)}
-      {avenues.map(y => <path key={y} d={`M-20 ${y}H720`} />)}
+      {mapStreets.map(x => <path key={x} d={`M${x} -2000V2000`} />)}
+      {mapAvenues.map(y => <path key={y} d={`M-2000 ${y}H2000`} />)}
     </g>
     <g fill="none" stroke="white" strokeWidth="7">
-      {streets.map(x => <path key={x} d={`M${x} -20V435`} />)}
-      {avenues.map(y => <path key={y} d={`M-20 ${y}H720`} />)}
+      {mapStreets.map(x => <path key={x} d={`M${x} -2000V2000`} />)}
+      {mapAvenues.map(y => <path key={y} d={`M-2000 ${y}H2000`} />)}
     </g>
     <path d="M-20 205H720M-20 265H720M225-20V435M465-20V435" fill="none" stroke="#d8dcd3" strokeWidth="17" />
     <path d="M-20 205H720M-20 265H720M225-20V435M465-20V435" fill="none" stroke="white" strokeWidth="14" />

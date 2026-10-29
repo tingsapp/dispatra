@@ -18,8 +18,8 @@ export default function SignupPage() {
 }
 
 const PLANS = [
-  { id: 'full', title: 'TMS + Smart Dispatching', label: 'THE COMPLETE WORKSPACE', description: 'Manage your delivery operation in one place, from the first order to proof of delivery.', features: ['Full Dispatra transportation management system', 'Smart automatic and manual dispatching', 'Orders, fleet and customer management', 'Driver and shipper portals', 'Delivery tracking and proof of delivery'] },
-  { id: 'dispatch', title: 'Smart Dispatching', label: 'CONNECT YOUR EXISTING TMS', description: 'Keep your existing TMS and add Dispatra’s smart dispatching system to your workflow.', features: ['Smart automatic and manual dispatching', 'Connect your external TMS', 'Route optimization', 'Driver delivery workflow', 'Delivery tracking and proof of delivery'] },
+  { id: 'full', title: 'Full Workspace', label: 'AI DISPATCH + BUILT-IN WORKSPACE', description: 'Automate driver assignment and route planning, with your orders and team managed in Dispatra.', features: ['Built-in order, driver, and vehicle workspace', 'AI-powered automatic dispatch with manual control', 'Orders, fleet and customer management', 'Driver and shipper portals', 'Delivery tracking and proof of delivery'] },
+  { id: 'dispatch', title: 'AI Dispatch', label: 'CONNECT YOUR EXISTING TMS', description: 'Explore adding Dispatra’s AI dispatcher to your existing TMS. Our team can confirm compatibility and connection options.', features: ['AI-powered automatic dispatch with manual control', 'External TMS connection options', 'Route optimization', 'Driver delivery workflow', 'Delivery tracking and proof of delivery'] },
 ] as const;
 
 export function TrialPlansPage() {
@@ -36,7 +36,7 @@ export function TrialPlansPage() {
     <div inert={signingUp ? true : undefined}>
       <PublicHeader />
       <main className="public-page-main public-plans-main">
-        <PublicPageIntro eyebrow="Plans for your delivery team" title="Choose how you use Dispatra." description="Get the full TMS and smart dispatching system, or connect smart dispatching to the TMS you already use." />
+        <PublicPageIntro eyebrow="Plans for automated dispatch" title="Put AI to work on your dispatch." description="Start with AI dispatch and a built-in workspace, or explore connecting Dispatra to your existing TMS." />
         <div><QueryState query={plan} loading="Loading plans…" /></div>
         <section aria-label="Subscription plans" className="public-plan-grid">
           {PLANS.map(option => {
@@ -52,14 +52,14 @@ export function TrialPlansPage() {
                 : <p className="text-xl font-medium">Contact us for pricing</p>}
             </div>
             <ul className="my-7 space-y-4 text-sm">{option.features.map(feature => <li key={feature} className="flex items-start gap-3"><Check className="mt-0.5 size-4 shrink-0 text-app-accent" aria-hidden="true" /><span>{feature}</span></li>)}</ul>
-            <div className="mt-auto pt-3"><LinkButton asChild className="w-full"><a href={`/ask-dispatra?plan=${option.id}`}>Contact now<ArrowRight className="size-4" aria-hidden="true" /></a></LinkButton></div>
+            <div className="mt-auto pt-3"><LinkButton asChild className="w-full"><a href={`/contact?plan=${option.id}`}>Contact now<ArrowRight className="size-4" aria-hidden="true" /></a></LinkButton></div>
           </article>; })}
         </section>
         {plan.data && plan.data.trial_enabled !== false && <section aria-labelledby="trial-title" className="public-trial-panel">
           <div className="max-w-xl">
             <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-app-accent"><Gift className="size-4" aria-hidden="true" />TRY DISPATRA</p>
             <h2 id="trial-title" className="mt-3 text-2xl font-medium">{plan.data.trial_days === 30 ? 'One month free trial' : `${plan.data.trial_days}-day free trial`}</h2>
-            <p className="mt-3 text-sm leading-6 text-app-muted">Try Dispatra free for {plan.data.trial_days} days. No credit card required. Choose whether to use Dispatra TMS when you create your workspace.</p>
+            <p className="mt-3 text-sm leading-6 text-app-muted">Try Dispatra free for {plan.data.trial_days} days. No credit card required. Choose whether to use the built-in Dispatra workspace when you sign up.</p>
             <p className="mt-2 text-xs leading-5 text-app-muted">The trial starts after you verify your email. After {plan.data.trial_days} days, authorize monthly per-vehicle billing to continue.</p>
           </div>
           <Button ref={trialButton} className="shrink-0" onClick={() => setSigningUp(true)}>Start free trial<ArrowRight className="size-4" aria-hidden="true" /></Button>

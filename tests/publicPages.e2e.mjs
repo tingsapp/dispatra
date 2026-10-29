@@ -22,7 +22,7 @@ try {
   });
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
-  const paths = ['/', '/plans', '/about', '/how-it-works', '/help', '/ask-dispatra', '/terms', '/privacy'];
+  const paths = ['/', '/plans', '/about', '/how-it-works', '/help', '/contact', '/terms', '/privacy'];
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
     for (const path of paths) {
@@ -45,7 +45,7 @@ try {
       assert.equal(await header.evaluate(el => el.getBoundingClientRect().height), 96);
       if (width >= 768) {
         const nav = header.getByRole('navigation', { name: 'Website navigation', exact: true });
-        for (const [label, href] of [['How it works', '/how-it-works'], ['Plans', '/plans'], ['Ask dispatra', '/ask-dispatra']]) {
+        for (const [label, href] of [['How it works', '/how-it-works'], ['Plans', '/plans'], ['Let’s talk', '/contact']]) {
           assert.equal(await nav.getByRole('link', { name: label, exact: true }).getAttribute('href'), href);
           if (href === path) assert.equal(await nav.getByRole('link', { name: label, exact: true }).getAttribute('aria-current'), 'page');
         }
@@ -81,8 +81,9 @@ try {
   await page.locator('summary').first().click();
   assert.ok(await page.locator('details').first().evaluate(el => el.open));
   await page.goto(origin + '/how-it-works');
-  await page.getByRole('button', { name: 'Step 6: Complete', exact: true }).click();
-  await page.getByRole('region', { name: 'Sample order activity' }).getByText('Order completed', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Driver', exact: true }).click();
+  await page.getByText('Signature collected', { exact: true }).waitFor();
+  await page.getByText('Completed', { exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'Play preview animation' }).count(), 0, 'reduced motion keeps the selected preview static');
   for (const path of ['/login', '/signup/verify', '/admin']) {
     await page.goto(origin + path);

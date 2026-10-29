@@ -9,8 +9,8 @@ const readLocation = (): PublicLocation => {
   if (publicPath(window.location.pathname) === '/how-it-works') {
     history.replaceState(history.state, '', '/');
   }
-  if (publicPath(window.location.pathname) === '/contact') {
-    history.replaceState(history.state, '', `/ask-dispatra${window.location.search}${window.location.hash}`);
+  if (publicPath(window.location.pathname) === '/ask-dispatra') {
+    history.replaceState(history.state, '', `/contact${window.location.search}${window.location.hash}`);
   }
   return { pathname: publicPath(window.location.pathname), search: window.location.search, hash: window.location.hash, focus: false, visit: 0 };
 };

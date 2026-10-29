@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom';
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import React from 'react';
-const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/ask-dispatra', pretendToBeVisual: true });
+const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/contact', pretendToBeVisual: true });
 for (const name of ['window','document','navigator','HTMLElement','Element','Node','location','history','DOMException']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
 window.scrollTo = () => {};
 const { render, screen, cleanup, fireEvent, waitFor, act } = await import('@testing-library/react');
@@ -44,7 +44,7 @@ test('voice connects, mutes, ends and restores text without saving a transcript'
   fireEvent.click(screen.getByRole('button', { name: 'Start voice chat' }));
   await screen.findByText('Listening…');
   assert.equal(requested, 1);
-  assert.equal(screen.getByRole('textbox').hasAttribute('disabled'), true);
+  assert.equal(screen.queryByRole('textbox'), null);
   fireEvent.click(screen.getByRole('button', { name: 'Mute microphone' }));
   assert.equal(microphone.enabled, false);
   fireEvent.click(screen.getByRole('button', { name: 'Unmute microphone' }));
@@ -55,6 +55,7 @@ test('voice connects, mutes, ends and restores text without saving a transcript'
   assert.equal(stopped, 1);
   assert.deepEqual(ended, ['signed-call']);
   assert.equal(screen.getByRole('textbox').hasAttribute('disabled'), false);
+  assert.equal(document.activeElement, screen.getByRole('textbox'));
 });
 
 test('permission denial and handshake failure clean up and keep text usable', async () => {

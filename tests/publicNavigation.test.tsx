@@ -20,24 +20,24 @@ const start = (path = '/about') => { history.replaceState(null, '', path); rende
 const heading = (name: string) => screen.findByRole('heading', { level: 1, name }, { timeout: 10000 });
 
 test('header, footer and content links navigate the mounted Root without document navigation', async () => {
-  start(); await heading('Built around your delivery day');
+  start(); await heading('AI built to do the dispatching');
   const header = within(document.querySelector('.public-header') as HTMLElement);
   assert.equal(header.queryByRole('navigation'), null);
-  assert.equal(fireEvent.click(header.getByRole('link', { name: 'Ask Dispatra' })), false);
+  assert.equal(fireEvent.click(header.getByRole('link', { name: 'Let’s talk' })), false);
   await heading('How can I help you?');
-  assert.equal(location.pathname, '/ask-dispatra');
+  assert.equal(location.pathname, '/contact');
   fireEvent.click(screen.getByRole('link', { name: 'Integrations & API' })); await heading('Integrations & API');
   fireEvent.click(screen.getByRole('link', { name: 'Contact our team' })); await heading('How can I help you?');
-  assert.equal(location.pathname, '/ask-dispatra');
+  assert.equal(location.pathname, '/contact');
   assert.ok(scrolled.some(position => typeof position === 'object' && (position as { top: number }).top === 0));
 });
 
 test('plan query links and hash anchors render their destination and preserve URL values', async () => {
-  start('/plans'); await heading('Choose how you use Dispatra.');
+  start('/plans'); await heading('Put AI to work on your dispatch.');
   fireEvent.click(screen.getAllByRole('link', { name: 'Contact now' })[1]); await heading('How can I help you?');
   assert.equal(location.search, '?plan=dispatch');
-  assert.ok(screen.getByText('Your enquiry: Smart Dispatching'));
-  fireEvent.click(within(screen.getByRole('contentinfo')).getByRole('link', { name: 'Ask dispatra' }));
+  assert.equal(new URL(screen.getByRole('link', { name: 'Email our team' }).getAttribute('href')!).searchParams.get('subject'), 'Dispatra enquiry: AI Dispatch');
+  fireEvent.click(within(screen.getByRole('contentinfo')).getByRole('link', { name: 'Let’s talk' }));
   await waitFor(() => assert.ok(scrolled.includes('dispatra-chat-title'), 'Contact hash should scroll to chat'));
   assert.equal(location.hash, '#dispatra-chat-title');
   fireEvent.click(screen.getByRole('link', { name: 'Integrations & API' })); await heading('Integrations & API');
@@ -47,12 +47,12 @@ test('plan query links and hash anchors render their destination and preserve UR
 });
 
 test('Back and Forward render earlier pages and restore saved scroll positions', async () => {
-  start(); await heading('Built around your delivery day');
+  start(); await heading('AI built to do the dispatching');
   Object.defineProperty(window, 'scrollY', { configurable: true, value: 420 });
   fireEvent.click(screen.getByRole('link', { name: 'Integrations & API' })); await heading('Integrations & API');
   Object.defineProperty(window, 'scrollY', { configurable: true, value: 90 });
   await act(async () => { history.back(); await new Promise(resolve => window.addEventListener('popstate', resolve, { once: true })); });
-  await heading('Built around your delivery day');
+  await heading('AI built to do the dispatching');
   await waitFor(() => assert.ok(scrolled.some(position => typeof position === 'object' && (position as { top: number }).top === 420), 'Back should restore about-page scroll'));
   Object.defineProperty(window, 'scrollY', { configurable: true, value: 420 });
   await act(async () => { history.forward(); await new Promise(resolve => window.addEventListener('popstate', resolve, { once: true })); });
@@ -100,14 +100,14 @@ test('direct trailing-slash and fragment URLs render and scroll after a lazy pag
   await waitFor(() => assert.ok(scrolled.includes('api'), 'Direct guide fragment should scroll after rendering'));
 });
 
-test('legacy contact links open Ask dispatra and preserve the plan and section', async () => {
-  start('/contact?plan=dispatch#dispatra-chat-title');
+test('legacy Ask Dispatra links open Let’s talk and preserve the plan and section', async () => {
+  start('/ask-dispatra?plan=dispatch#dispatra-chat-title');
   await heading('How can I help you?');
-  assert.equal(location.pathname, '/ask-dispatra');
+  assert.equal(location.pathname, '/contact');
   assert.equal(location.search, '?plan=dispatch');
   assert.equal(location.hash, '#dispatra-chat-title');
-  assert.ok(screen.getByText('Your enquiry: Smart Dispatching'));
-  assert.equal(within(document.querySelector('.public-header') as HTMLElement).getByRole('link', { name: 'Ask Dispatra' }).getAttribute('href'), '/ask-dispatra');
+  assert.equal(new URL(screen.getByRole('link', { name: 'Email our team' }).getAttribute('href')!).searchParams.get('subject'), 'Dispatra enquiry: AI Dispatch');
+  assert.equal(within(document.querySelector('.public-header') as HTMLElement).getByRole('link', { name: 'Let’s talk' }).getAttribute('href'), '/contact');
 });
 
 test('retired how-it-works page redirects to the homepage', async () => {
