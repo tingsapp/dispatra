@@ -5,7 +5,9 @@ import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/admin/monitor', pretendToBeVisual: true });
 for (const name of ['window','document','navigator','HTMLElement','HTMLInputElement','Element','Node','NodeFilter','Event','CustomEvent','PopStateEvent','MutationObserver','getComputedStyle','location','history']) Object.defineProperty(globalThis,name,{configurable:true,value:dom.window[name as keyof Window]});
 window.scrollTo = () => {}; HTMLElement.prototype.scrollIntoView = () => {};
-const { render, screen, cleanup, waitFor } = await import('@testing-library/react');
+const { render, screen, cleanup, waitFor, configure } = await import('@testing-library/react');
+// The first Monitor render includes lazy-loaded modules on slower build hosts.
+configure({ asyncUtilTimeout: 10000 });
 const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { api, ApiError } = await import('../src/portal/api');

@@ -25,7 +25,7 @@ try {
       organization: { id: 'company-1', name: 'Matched company', slug: 'matched-company', active: true } } }
       : { status: 401, json: { error: { message: 'Incorrect email or password.' } } });
   });
-  await context.route('**/api/v1/subscription/plan', route => route.fulfill({json:{name:'Monthly subscription',interval:'MONTHLY',trial_days:30,monthly_price:null,currency:'CAD'}}));
+  await context.route('**/api/v1/subscription/plan', route => route.fulfill({json:{name:'Monthly subscription',interval:'MONTHLY',trial_enabled:true,trial_days:30,monthly_price:null,currency:'CAD'}}));
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(origin);
@@ -38,7 +38,7 @@ try {
   await page.getByRole('heading', {name:'Sign in',exact:true}).waitFor();
   await page.goBack();
   await page.waitForURL(origin + '/');
-  await page.getByRole('link', { name: 'Start Free Trial', exact: true }).click();
+  await page.getByRole('link', { name: 'Get Started', exact: true }).click();
   await page.waitForURL(origin + '/plans');
   await page.getByRole('heading', { name: 'TMS + Smart Dispatching' }).waitFor();
   await page.getByRole('button', { name: 'Start free trial', exact: true }).click();

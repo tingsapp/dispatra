@@ -34,7 +34,7 @@ test('resume destinations use the authenticated role and company rather than rem
 test('homepage offers a direct free-trial action without a workspace input', async () => {
   api.me = anonymous;
   render(React.createElement(PublicHome));
-  const trial = await screen.findByRole('link', { name: 'Start Free Trial' }, {timeout:5000});
+  const trial = await screen.findByRole('link', { name: 'Get Started' }, {timeout:5000});
   const hero = screen.getByRole('heading', { level: 1, name: /AI that runs your dispatch while keeping you in control/ }).closest('section');
   assert.ok(hero?.contains(trial));
   assert.equal(within(hero!).queryByRole('link', { name: 'See how it works' }), null);
@@ -70,7 +70,7 @@ test('authenticated resume uses the session company even with a remembered compa
   api.me = async () => account('DRIVER');
   render(React.createElement(PublicHome));
   assert.equal(screen.queryByRole('textbox'), null);
-  assert.equal((await screen.findByRole('link', { name: 'Start Free Trial' }, {timeout:5000})).getAttribute('href'), '/plans');
+  assert.equal((await screen.findByRole('link', { name: 'Get Started' }, {timeout:5000})).getAttribute('href'), '/plans');
   await waitFor(() => assert.equal(screen.getByRole('link', { name: 'Open my workspace' }).getAttribute('href'), '/acme/driver'));
 });
 

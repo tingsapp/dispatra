@@ -49,8 +49,8 @@ test('portal shell preserves form drafts while toggling navigation and exposes t
   assert.equal(screen.getByRole('complementary', { name: 'Workspace sidebar' }).getAttribute('data-collapsed'), 'true');
   const logo = screen.getByRole('button', { name: 'Expand menu' });
   assert.equal(logo.querySelector('img')?.getAttribute('src')?.split('?')[0], '/dispatra-icon.png');
-  assert.equal(logo.querySelector('img')?.getAttribute('width'), '18');
-  assert.equal(logo.querySelector('img')?.getAttribute('height'), '18');
+  assert.equal(logo.querySelector('img')?.getAttribute('width'), '32');
+  assert.equal(logo.querySelector('img')?.getAttribute('height'), '32');
   assert.equal(logo.querySelector('svg'), null);
   assert.equal(screen.getByRole('button', { name: 'Shippers' }).title, 'Shippers');
   assert.equal((screen.getByLabelText('Customer name') as HTMLInputElement).value, 'Unsaved customer');

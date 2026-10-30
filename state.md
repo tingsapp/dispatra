@@ -1,3 +1,5 @@
+- 2026-10-30 release verification: All 59 web test scripts passed after aligning homepage CTA and 32px sidebar logo expectations and allowing 10 seconds for the first lazy-loaded Operational Monitor render. Public live pages returned HTTP 200 with no browser runtime errors. Existing production client build remains unchanged.
+
 - 2026-10-29 homepage description consistency: Why Dispatra now uses the shared 16px section-description size. Increased section introduction limits from 420px to 480px, plan descriptions from 440px to 480px, and FAQ introduction from 260px to 300px (400px to 460px on phones). Hero rules unchanged; container widths still constrain mobile text. Local styling update. Browser checks passed at 1440/390/320px: Why and section descriptions are 16px with 480px maximum, hero metrics unchanged, no overflow or runtime errors. Phone screenshot reviewed.
 
 - 2026-10-29 Why Dispatra description width: bounded the centered introduction to 420px, matching the other section descriptions and retaining fluid phone width. CSS-only layout adjustment.
