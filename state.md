@@ -947,3 +947,5 @@ Final focused Chrome verification passed: real WebGL scene at 1440/390/320px, or
 - 2026-10-30 final validation: 28 connector dialog checks, 16 auto-dispatch gate checks and three public integration guide checks pass. Final TypeScript and production build pass. Samsara is available locally for token-only Test then Connect; account-only access does not qualify as a connected External TMS for AUTO. Orders-list Plan dispatch UI, component and unused client call are removed.
 
 - 2026-10-30 Connected team production image fix: Corrected owner-only dispatcher preview permissions on the live server; HTTPS returns 200 with the complete 1,311,483-byte PNG. Builds now normalize all team preview permissions to 644.
+
+- 2026-10-30 Dispatcher preview optimization: Published a 1440×810 WebP (126,930 bytes, 90% smaller than the PNG) with a new image URL and homepage bundle cache key. Original PNG retained; existing crop proportions preserved.
