@@ -48,7 +48,19 @@ function Portal() {
   if (legacy) history.replaceState(null, '', legacy + location.search + location.hash);
   let route = parsePortal(location.pathname);
   const client = useQueryClient();
-  const me = useQuery({ queryKey:['account'], queryFn:api.me, retry:false, refetchInterval:30000 });
+  const me = useQuery({
+    queryKey: ['account'],
+    queryFn: async () => {
+      try { return await api.me(); }
+      catch (error) {
+        // Keep signed-out checks settled so refetches cannot unmount the form.
+        if (error instanceof ApiError && error.status === 401) return null;
+        throw error;
+      }
+    },
+    retry: false,
+    refetchInterval: query => query.state.data ? 30000 : false,
+  });
   const logout = useMutation({ mutationFn:api.logout, onSuccess: () => { client.clear(); location.assign(route?.portal === 'platform' ? '/admin' : '/login'); } });
   if (!route) return <main className="mx-auto max-w-lg px-6 py-24"><h1 className="text-3xl font-medium">Dispatra</h1><p className="mt-4 text-slate-600">Sign in to open your workspace.</p><a className="mt-6 inline-block text-slate-700 underline underline-offset-4" href="/login">Sign in →</a></main>;
   if (me.isPending) return <PageLoading>Loading your workspace…</PageLoading>;
