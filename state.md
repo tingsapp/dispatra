@@ -1,3 +1,5 @@
+- 2026-10-29 homepage description consistency: Why Dispatra now uses the shared 16px section-description size. Increased section introduction limits from 420px to 480px, plan descriptions from 440px to 480px, and FAQ introduction from 260px to 300px (400px to 460px on phones). Hero rules unchanged; container widths still constrain mobile text. Local styling update. Browser checks passed at 1440/390/320px: Why and section descriptions are 16px with 480px maximum, hero metrics unchanged, no overflow or runtime errors. Phone screenshot reviewed.
+
 - 2026-10-29 Why Dispatra description width: bounded the centered introduction to 420px, matching the other section descriptions and retaining fluid phone width. CSS-only layout adjustment.
 
 - 2026-10-28 final public content audit and voice/contact UI: Reviewed the full rendered homepage at 1440/390/320px, including every workflow scene, team role and expanded FAQ. Aligned Full Workspace / AI Dispatch names across homepage, plans, FAQ, contact mailto context and public chat facts; simplified the duplicate FAQ eyebrow. Approved hero/coffee footer, Dispatra at work, Why Dispatra, connected-team and FAQ copy remain. Removed sample-data/helper labels; top-aligned feature cards and team copy; cleaned Plans to one action per card without pricing/footer contact notes. Contact now has one centered Mail-icon email button, preserving selected-plan subjects/bodies. Voice entry uses a waveform icon; active voice uses a centered animated blue/white orb, status, mute and end controls, preserving text draft and restoring text focus after end; Escape ends voice. Existing connection/security/timeout/session cleanup logic is unchanged. TypeScript, final production build and 45 focused tests across voice/chat/contact/homepage/plans/navigation passed. Fixture-only voice checks passed connecting/listening/thinking/speaking/mute/end, Escape, draft/focus restoration, no real microphone/provider calls, and no overflow/errors at 1440/768/390/320px. Full-homepage/destination consistency checks passed; screenshots reviewed. API facts syntax and required boundaries checked statically. Footer app links still target general stores; no Dispatra-specific listing URLs were found. Evidence/backups: work/public-content-audit-20261028 and work/public-voice-design-20261028 in the ChatGPT workspace. Local only, not deployed; preview http://localhost:3048/contact.
@@ -901,3 +903,43 @@ Final focused Chrome verification passed: real WebGL scene at 1440/390/320px, or
 - 2026-10-28: Reduced public header and footer logos by approximately 10%, including a smaller narrow-phone header logo while preserving the wordmark. Local CSS-only change.
 
 - 2026-10-28 Why Dispatra: restored canvas particles and moving order signals on a fixed three-loop logo-shaped curve; removed the pasted icon, caption and pause button. Reduced-motion, offscreen and hidden-tab suspension remain. Local only.
+
+- 2026-10-30 Today’s plan: Matched the idle chat width (26rem with responsive limits), added an accessible persistent header toggle, and collapse the body while chat is open. Closing chat restores the plan unless manually hidden; reopening the plan closes chat. Existing order details, bounded scrolling, dates and loading/error states remain.
+
+- 2026-10-30 Today’s plan list styling: Adopted Active Orders search, badges, customer/destination rows, active-order map checkboxes and full-list navigation without tabs. Sorts saved creation timestamps descending with stable ID ties; retains width and chat/collapse behavior.
+
+- 2026-10-30 Today’s plan header: Removed the truck icon and placed the total order badge immediately beside the title, including zero on empty days; loading/error states omit the count.
+
+- 2026-10-30 Monitor: Removed the Active Orders toolbar menu and its obsolete state/filter/count plumbing. Today’s plan retains order search, map visibility and full-list navigation; Available Drivers, Needs Attention and Notifications remain. Map-visibility coverage now exercises Today’s plan.
+
+- 2026-10-30 Today’s plan row details: Shows order/status, company-local saved delivery deadline or labeled scheduled time, current assigned driver name (with explicit missing/unassigned states), destination and customer. Keeps newest-first ordering, search, map visibility and detail selection. No live order ETA is supplied by the current order contract.
+
+- 2026-10-30 Today’s plan compact layout: Three lines per row (order/status, delivery time/driver, destination/customer), reduced spacing and truncation with full-value titles. Today’s delivery times omit the date in the company timezone; other dates stay explicit. Newest-first order preserved.
+
+- 2026-10-30 Today’s plan cleanup: Missing-driver text appears once when already conveyed by the status badge. The date subtitle includes the unassigned count; existing newest-first ordering and assigned driver details remain.
+
+- 2026-10-30 Today’s plan height: Increased the scrollable order list maximum from min(22rem, 45dvh) to min(34rem, 60dvh), retaining bounded scrolling and responsive viewport clearance.
+
+- 2026-10-30 Connected team: Replaced the Dispatcher tab preview with the user-supplied current Monitor screenshot and updated its alternative text. Existing screenshot framing and other tabs remain.
+
+- 2026-10-30 homepage Dispatcher screenshot: Shifted the left crop from x66 to x68 to exclude the black desktop boundary in the supplied image. Updated viewport proportions to match the crop.
+
+- 2026-10-30 public footer: Updated the shared tagline to ‘AI handles the dispatch. You keep the day moving.’
+
+- 2026-10-30 public footer: Replaced the tagline with the selected slogan, ‘Intelligent dispatch that keeps your business moving and you in control.’
+
+- 2026-10-30 connector catalogue: Added Samsara as an activation-required provider. Shared API catalogue supplies dispatcher and administrator lists; live syncing remains unavailable pending adapter preparation. No schema or migration change.
+
+- 2026-10-30 connector popups: All Connect actions open provider dialogs. Configured credential adapters verify identity before storing encrypted credentials and marking CONNECTED; OAuth uses a Continue step. CartonCloud shows API URL, Tenant ID, Client ID and Client Secret fields, but no configured adapter/registered OAuth access is installed, so live testing remains blocked. No live vendor success is claimed.
+
+- 2026-10-30 connector forms: Extended catalogue field metadata to Rose Rocket (API URL, OAuth client ID/secret), Samsara (API URL/token) and pending Truckbase/Tailwind/AscendTMS (vendor-supplied API URL/token setup fields). These forms do not activate unconfigured adapters or certify pending vendor authentication; provider-specific backend work remains required.
+
+- 2026-10-30 public integrations: Added Samsara as Planned on the public guide; synchronized the six-provider availability statement, guide regression test and public assistant facts.
+
+- 2026-10-30 connector dialog: Keep Test connection visible but disabled for unconfigured providers, alongside the existing explanation. Ready-provider and pending-action behavior remains.
+
+- 2026-10-30 Orders list: Removed Plan dispatch, its proposal/approval popup, unused FleetPlan component and list-only API wrapper. Shared automatic dispatch and individual assignment behavior remain available. Removed the retired component test from the test command.
+
+- 2026-10-30 Samsara account connection: Implemented fixed-host GET /me verification, transient Test then server-reverified Connect, encrypted token storage, account identity/version/idempotency checks, saved-token recheck and disconnect. Direct-token connection is available without an import profile; worker imports and External TMS AUTO remain excluded. Public guide states account connection only. Validation details follow after checks.
+
+- 2026-10-30 final validation: 28 connector dialog checks, 16 auto-dispatch gate checks and three public integration guide checks pass. Final TypeScript and production build pass. Samsara is available locally for token-only Test then Connect; account-only access does not qualify as a connected External TMS for AUTO. Orders-list Plan dispatch UI, component and unused client call are removed.

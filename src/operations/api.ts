@@ -47,7 +47,6 @@ export const operations = {
   notifications: async (slug: string, before?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/notifications', { params: { path: company(slug), query: { limit: 50, before } } })),
   readNotification: async (slug: string, row: AppNotification) => unwrap(await client.POST('/api/v1/companies/{slug}/notifications/{identity}/read', { body: { version: row.version }, params: { path: entity(slug, row.id), header: mutation() } })),
   readAllNotifications: async (slug: string) => unwrap(await client.POST('/api/v1/companies/{slug}/notifications/read-all', { params: { path: company(slug), header: mutation() } })),
-  fleetPlan: async (slug: string) => unwrap(await client.POST('/api/v1/companies/{slug}/dispatch-plan', { params: { path: company(slug) } })),
   acknowledgeRoute: async (slug: string, route: components['schemas']['RouteView'], operationKey: string) => unwrap(await client.POST('/api/v1/companies/{slug}/driver/routes/{identity}/acknowledge', { body: { version: route.version, generation: route.generation }, params: { path: entity(slug, route.id), header: { 'Idempotency-Key': operationKey } } })),
   driverProfile: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/driver/profile', { params: { path: company(slug) } })),
   updateDriverProfile: async (slug: string, version: number, phone: string) => unwrap(await client.PATCH('/api/v1/companies/{slug}/driver/profile', { body: { version, phone }, params: { path: company(slug), header: mutation() } })),

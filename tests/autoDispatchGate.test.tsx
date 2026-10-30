@@ -98,3 +98,10 @@ test('pending checks ignore repeated switch clicks',async()=>{
  await user.click(screen.getByRole('button',{name:'Close dialog'}));
  await waitFor(()=>assert.equal(toggle.getAttribute('aria-disabled'),'false'));
 });
+
+test('Samsara account verification alone does not qualify as an External TMS',async()=>{
+ connectors.list=async()=>[{...row,id:'samsara'}];const user=mount();
+ await user.click(screen.getByRole('switch',{name:'Auto dispatch'}));
+ assert.ok(await screen.findByRole('alertdialog',{name:'Auto dispatch unavailable'}));
+ assert.equal(writes,0);assert.equal(screen.getByRole('switch').getAttribute('aria-checked'),'false');
+});

@@ -8,6 +8,7 @@ const connectors = [
   { name: 'CartonCloud', initials: 'CC', status: 'In preparation', description: 'Transport job imports are being prepared. Vendor access and testing are pending.' },
   { name: 'Truckbase', initials: 'TB', status: 'Planned', description: 'The supported connection method still needs confirmation from Truckbase.' },
   { name: 'Tailwind TMS', initials: 'TW', status: 'Planned', description: 'Connector development and vendor validation are planned.' },
+  { name: 'Samsara', initials: 'SA', status: 'Account connection available', description: 'Test your API token and connect your Samsara account. Fleet data imports are not enabled.' },
   { name: 'AscendTMS', initials: 'AT', status: 'Planned', description: 'Connector development and vendor validation are planned.' },
 ];
 const steps = [
@@ -29,7 +30,7 @@ export default function IntegrationGuidePage() {
 
       <section aria-labelledby="connectors" className="guide-section">
         <h2 id="connectors">TMS connectors</h2>
-        <p className="guide-lead">These five connectors are not available to connect yet. We’ll update their availability after configuration and testing are complete.</p>
+        <p className="guide-lead">Samsara account connection is available. The other five connectors are not available to connect yet; their configuration and testing are pending.</p>
         <div className="guide-connectors">{connectors.map(connector => <article key={connector.name} aria-label={connector.name} className="guide-connector">
           <span className="guide-monogram" aria-hidden="true">{connector.initials}</span>
           <div className="guide-connector-copy"><h3>{connector.name}</h3><p>{connector.description}</p></div>

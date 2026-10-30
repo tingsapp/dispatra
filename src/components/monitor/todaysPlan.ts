@@ -24,7 +24,8 @@ export function createdDay(job: Job, timeZone: string): string | undefined {
 }
 
 export function todaysPlan(jobs: Job[], today: string, timeZone: string, attentionIds: ReadonlySet<string>) {
-  const all = jobs.filter(job => orderLifecycle(job) !== 'CANCELLED' && createdDay(job, timeZone) === today);
+  const all = jobs.filter(job => orderLifecycle(job) !== 'CANCELLED' && createdDay(job, timeZone) === today)
+    .sort((a, b) => Date.parse(b.createdAt!) - Date.parse(a.createdAt!) || a.id.localeCompare(b.id));
   const groups: Record<PlanFilter, Job[]> = {
     all,
     unassigned: all.filter(job => orderLifecycle(job) === 'NEW'),

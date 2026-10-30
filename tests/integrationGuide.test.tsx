@@ -13,12 +13,12 @@ const { apiResources, ORDER_EVENTS } = await import('../src/integrations/preview
 afterEach(() => { cleanup(); localStorage.clear(); });
 after(() => dom.window.close());
 
-test('public guide shows all five unavailable connectors without offering connection or setup requests', () => {
+test('public guide shows Samsara account connection and five unavailable connectors without offering connection or setup requests', () => {
   render(<Guide />);
   assert.ok(screen.getByRole('heading', { level: 1, name: 'Integrations & API' }));
   const section = within(screen.getByRole('region', { name: 'TMS connectors' }));
-  assert.equal(section.getAllByRole('article').length, 5);
-  for (const [name, status] of [['Rose Rocket', 'In preparation'], ['CartonCloud', 'In preparation'], ['Truckbase', 'Planned'], ['Tailwind TMS', 'Planned'], ['AscendTMS', 'Planned']]) assert.ok(within(section.getByRole('article', { name })).getByText(status));
+  assert.equal(section.getAllByRole('article').length, 6);
+  for (const [name, status] of [['Rose Rocket', 'In preparation'], ['CartonCloud', 'In preparation'], ['Truckbase', 'Planned'], ['Tailwind TMS', 'Planned'], ['AscendTMS', 'Planned'], ['Samsara', 'Account connection available']]) assert.ok(within(section.getByRole('article', { name })).getByText(status));
   assert.ok(section.getByText(/not available to connect yet/));
   assert.equal(screen.queryByRole('button', { name: /Connect|Request setup/ }), null);
   const footer = within(screen.getByRole('contentinfo'));

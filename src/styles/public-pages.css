@@ -114,3 +114,12 @@
   .public-header .app-brand-logo { width: 8rem; height: 2.4rem; }
   .public-header .public-ask-button { padding-inline: 12px; font-size: 14px; }
 }
+
+.public-header-actions { gap: 8px; }
+.public-trial-button { white-space: nowrap; }
+.public-site .app-button.hero-get-started[data-size="default"] { height: 48px; padding: 4px 4px 4px 20px; padding-inline: 20px 4px; gap: 16px; border-radius: 999px; background: #1d1c18; color: white; overflow: hidden; }
+.hero-get-started-icon { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: white; color: #1d1c18; transition: transform 250ms ease; }
+.hero-get-started:hover .hero-get-started-icon { transform: rotate(45deg); }
+.public-site .hero-get-started:hover { background: #35342f; }
+@media (max-width: 400px) { .public-header-actions { gap: 6px; } .public-header .public-trial-button { padding-inline: 10px; font-size: 12px; } }
+@media (prefers-reduced-motion: reduce) { .hero-get-started-icon { transition: none; } }

@@ -7,7 +7,7 @@ import { Button } from '../ui/button';
 export function PublicHeader({ navigation = true }: { navigation?: boolean } = {}) {
   return <header className="public-header">
     <a href="/" aria-label="Dispatra home" className="inline-flex min-w-0 items-center"><BrandLogo /></a>
-    {navigation && <div className="public-header-actions"><Button asChild variant="secondary" className="public-ask-button"><a href="/contact">Let’s talk</a></Button></div>}
+    {navigation && <div className="public-header-actions"><Button asChild variant="secondary" className="public-ask-button"><a href="/contact">Let’s talk</a></Button><Button asChild className="public-trial-button"><a href="/plans">Start free trial</a></Button></div>}
   </header>;
 }
 

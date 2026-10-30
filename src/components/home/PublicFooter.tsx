@@ -9,7 +9,7 @@ export function PublicFooter({ workspaceHref }: { workspaceHref?: string }) {
       <div className="grid grid-cols-2 gap-x-6 gap-y-9 py-10 sm:py-12 lg:grid-cols-[1.5fr_1fr_1fr_1fr] lg:gap-12">
         <div className="col-span-2 lg:col-span-1">
           <a href="/" aria-label="Dispatra home" className="inline-flex min-w-0 items-center gap-2.5 text-xl font-medium tracking-tight"><BrandLogo /></a>
-          <p className="mt-4 max-w-xs text-sm leading-6 text-app-muted">Your AI agent keeps your daily dispatch flowing smoothly so you can enjoy your coffee with confidence.</p>
+          <p className="mt-4 max-w-xs text-sm leading-6 text-app-muted">Intelligent dispatch that keeps your business moving and you in control.</p>
           <a href={workspaceHref ?? '/login'} className={`${linkClass} mt-5 inline-flex items-center gap-2`}>{workspaceHref ? 'Open my workspace' : 'Sign in to your workspace'}<ArrowRight className="size-3.5" aria-hidden="true" /></a>
         </div>
         <nav aria-label="Resources" className="flex flex-col items-start gap-3">

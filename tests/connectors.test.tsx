@@ -25,7 +25,7 @@ import type {SettingsView} from '../src/portal/WorkspaceAccount';
 const originalApi={companySettings:api.companySettings,saveCompanySettings:api.saveCompanySettings};
 import type {Connector} from '../src/integrations/connectors';
 const original={...connectors};let cache:QueryClient;
-const rows=[['rose-rocket','Rose Rocket','RR','oauth'],['cartoncloud','CartonCloud','CC','oauth'],['truckbase','Truckbase','TB','request_setup'],['tailwind','Tailwind TMS','TW','request_setup'],['ascendtms','AscendTMS','AT','request_setup']].map(([id,name,initials,auth])=>({id,name,initials,auth,description:'Connect your transport workspace.',ready:false,status:'ACTIVATION_REQUIRED',credential_fields:[],version:null,account:null,last_sync_at:null,imported:0,review_count:0,message:'Activation required.'} as Connector));
+const rows=[['rose-rocket','Rose Rocket','RR','oauth'],['cartoncloud','CartonCloud','CC','oauth'],['truckbase','Truckbase','TB','request_setup'],['tailwind','Tailwind TMS','TW','request_setup'],['ascendtms','AscendTMS','AT','request_setup'],['samsara','Samsara','SA','request_setup']].map(([id,name,initials,auth])=>({id,name,initials,auth,description:'Connect your transport workspace.',ready:false,status:'ACTIVATION_REQUIRED',credential_fields:[],version:null,account:null,last_sync_at:null,imported:0,review_count:0,message:'Activation required.'} as Connector));
 function mount(node:React.ReactElement){cache=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}});render(<QueryClientProvider client={cache}><ConfirmDialogHost />{node}</QueryClientProvider>);return userEvent.setup({document});}
 afterEach(()=>{cleanup();cache?.clear();Object.assign(connectors,original);Object.assign(api,originalApi);localStorage.clear();reducedMotion=false;});after(()=>dom.window.close());
 
@@ -37,7 +37,7 @@ async function settledWorkspace(mode:string){
  },{timeout:2000});
 }
 
-test('Connectors is the first default tab with Dispatra before five TMS cards; existing tabs still open their original forms',async()=>{
+test('Connectors is the first default tab with Dispatra before six connector cards; existing tabs still open their original forms',async()=>{
  connectors.list=async()=>rows.map(row=>row.auth==='oauth'?{...row,ready:true,status:'NOT_CONNECTED'}:row);operations.tms=async()=>null;operations.apiKey=async()=>({configured:false,prefix:null,created_at:null,last_used_at:null});operations.apiWebhook=async()=>null;
  const user=mount(<IntegrationsPage />);
  assert.deepEqual(screen.getAllByRole('tab').map(t=>t.textContent),['Connectors','TMS API','Dispatra API']);
@@ -45,7 +45,7 @@ test('Connectors is the first default tab with Dispatra before five TMS cards; e
  const guide=screen.getByRole('link',{name:'Integrations & API guide (opens in a new tab)'});
  assert.equal(guide.getAttribute('href'),'/docs/integrations');assert.equal(guide.getAttribute('target'),'_blank');assert.equal(guide.getAttribute('rel'),'noopener noreferrer');
  const panel=screen.getByRole('tabpanel',{name:'Connectors'});await within(panel).findByRole('article',{name:'Rose Rocket'});
- assert.equal(within(panel).getAllByRole('article').length,6);
+ assert.equal(within(panel).getAllByRole('article').length,7);
  assert.equal(within(panel).getAllByRole('article')[0].getAttribute('aria-label'),'Dispatra');
  assert.equal(panel.parentElement?.getAttribute('data-page-width'),'reading');
  assert.equal(within(panel).queryByLabelText(/TMS field|Dispatra field|Base API URL/),null);
@@ -55,13 +55,14 @@ test('Connectors is the first default tab with Dispatra before five TMS cards; e
  assert.equal(screen.getByRole('tabpanel',{name:'Dispatra API'}).parentElement?.getAttribute('data-page-width'),'reading');
 });
 
-test('unready connectors retain one configuration status and disabled Connect',async()=>{
+test('unready connectors open an explanation without submitting credentials',async()=>{
  connectors.list=async()=>rows;let connects=0;connectors.connect=async()=>{connects++;throw Error('Must not connect');};
  const user=mount(<ConnectorsTab slug="acme"/>);await screen.findByRole('article',{name:'Rose Rocket'});
  for(const row of rows){
   const card=screen.getByRole('article',{name:row.name});assert.equal(within(card).getByRole('status').textContent,'Configuration required');
   assert.equal(within(card).queryByText('Configuration needed to connect.'),null);
-  const button=within(card).getByRole('button',{name:`Connect ${row.name}`});assert.equal((button as HTMLButtonElement).disabled,true);await user.click(button);
+  const button=within(card).getByRole('button',{name:`Connect ${row.name}`});assert.equal((button as HTMLButtonElement).disabled,false);await user.click(button);
+  assert.ok(screen.getByRole('dialog'));await user.click(screen.getByRole('button',{name:'Close dialog'}));
  }
  assert.equal(screen.queryByRole('button',{name:/Request/}),null);assert.equal(screen.queryByRole('dialog'),null);assert.equal(connects,0);
  assert.equal(screen.queryByText('External TMS workspace'),null);
@@ -70,10 +71,10 @@ test('unready connectors retain one configuration status and disabled Connect',a
 test('credential retries retain one key while secrets never enter browser storage or query cache',async()=>{
  const row={...rows[2],id:'truckmate',name:'Trimble TruckMate',auth:'bearer' as const,ready:true,status:'NOT_CONNECTED' as const,credential_fields:[{key:'api_key',label:'TruckMate API key',secret:true}]};
  const inputs:{key:string;secret:string}[]=[];let saved=0;
- connectors.connect=async(_slug,_provider,body,key)=>{inputs.push({key,secret:body.credentials!.api_key});if(inputs.length===1)throw Error('Temporary connection error.');return {connector:{...row,status:'CONNECTING'},authorization_url:null};};
+ connectors.connect=async(_slug,_provider,body,key)=>{inputs.push({key,secret:body.credentials!.api_key});if(inputs.length===1)throw Error('Temporary connection error.');return {connector:{...row,status:'CONNECTED'},authorization_url:null};};
  const user=mount(<ConnectorDialog slug="acme" connector={row} onSaved={()=>saved++} onClose={()=>{}} />);
- await user.type(screen.getByLabelText('TruckMate API key'),'private-test-key');await user.click(screen.getByRole('button',{name:'Connect'}));
- await screen.findByRole('alert');await user.click(screen.getByRole('button',{name:'Connect'}));await waitFor(()=>assert.equal(saved,1));
+ await user.type(screen.getByLabelText('TruckMate API key'),'private-test-key');await user.click(screen.getByRole('button',{name:'Test connection & connect'}));
+ await screen.findByRole('alert');await user.click(screen.getByRole('button',{name:'Test connection & connect'}));await waitFor(()=>assert.equal(saved,1));
  assert.equal(inputs[0].key,inputs[1].key);assert.equal(inputs[0].secret,'private-test-key');
  assert.equal((screen.getByLabelText('TruckMate API key') as HTMLInputElement).value,'');
  assert.equal(localStorage.length,0);assert.ok(!JSON.stringify(cache.getQueryCache().getAll()).includes('private-test-key'));
@@ -93,12 +94,12 @@ test('ready and unready providers share the catalogue with distinct Connect avai
  for(const name of ['Rose Rocket','CartonCloud'])assert.equal((screen.getByRole('button',{name:`Connect ${name}`}) as HTMLButtonElement).disabled,false);
  for(const name of ['Truckbase','Tailwind TMS','AscendTMS']){
   const card=screen.getByRole('article',{name});assert.equal(within(card).getByRole('status').textContent,'Configuration required');
-  assert.equal((within(card).getByRole('button',{name:`Connect ${name}`}) as HTMLButtonElement).disabled,true);
+  assert.equal((within(card).getByRole('button',{name:`Connect ${name}`}) as HTMLButtonElement).disabled,false);
  }
  assert.equal(screen.queryByRole('button',{name:/Request/}),null);
 });
 
-test('ready Rose Rocket and CartonCloud start authorization directly from Connect',async()=>{
+test('ready OAuth providers open a popup before starting authorization',async()=>{
  connectors.list=async()=>rows.map(row=>row.auth==='oauth'?{...row,ready:true,status:'NOT_CONNECTED'}:row);
  const destinations:string[]=[];const providers:string[]=[];
  connectors.connect=async(slug,provider,body,key)=>{assert.equal(slug,'acme');assert.deepEqual(body,{version:null,credentials:{}});assert.ok(key);providers.push(provider);return {connector:rows[0],authorization_url:`https://vendor.example/${provider}/authorize`};};
@@ -106,22 +107,22 @@ test('ready Rose Rocket and CartonCloud start authorization directly from Connec
  for(const [name,id] of [['Rose Rocket','rose-rocket'],['CartonCloud','cartoncloud']]){
   const card=await screen.findByRole('article',{name});
   const trigger=within(card).getByRole('button',{name:`Connect ${name}`});assert.equal(trigger.textContent,'Connect');
-  await user.click(trigger);await waitFor(()=>assert.ok(destinations.includes(`https://vendor.example/${id}/authorize`)));
-  assert.equal(screen.queryByRole('dialog'),null);assert.equal(screen.queryByRole('button',{name:`Continue to ${name}`}),null);
+  await user.click(trigger);assert.ok(screen.getByRole('dialog'));await user.click(screen.getByRole('button',{name:`Continue to ${name}`}));await waitFor(()=>assert.ok(destinations.includes(`https://vendor.example/${id}/authorize`)));
+  await user.click(screen.getByRole('button',{name:'Close dialog'}));
  }
  assert.deepEqual(providers,['rose-rocket','cartoncloud']);
 });
 
-test('direct authorization locks pending actions and keeps the retry identity after failure',async()=>{
+test('popup authorization locks pending actions and keeps the retry identity after failure',async()=>{
  const row={...rows[0],ready:true,status:'RECONNECT_REQUIRED' as const,version:4};connectors.list=async()=>[row];
  const keys:string[]=[];let reject:(reason:Error)=>void=()=>{};let destination='';
  connectors.connect=async(_slug,_provider,body,key)=>{keys.push(key);assert.equal(body.version,4);if(keys.length===1)return new Promise((_resolve,fail)=>{reject=fail;});return {connector:row,authorization_url:'https://vendor.example/authorize'};};
  const user=mount(<ConnectorsTab slug="acme" navigate={url=>destination=url}/>);
  const button=await screen.findByRole('button',{name:'Reconnect Rose Rocket'});assert.equal(button.textContent,'Reconnect');
- await user.click(button);assert.equal((button as HTMLButtonElement).disabled,true);assert.equal(button.textContent,'Connecting…');await user.click(button);assert.equal(keys.length,1);
+ await user.click(button);const continueButton=screen.getByRole('button',{name:'Continue to Rose Rocket'});await user.click(continueButton);assert.equal((continueButton as HTMLButtonElement).disabled,true);await user.click(continueButton);assert.equal(keys.length,1);
  await act(async()=>reject(Error('Vendor connection unavailable.')));await screen.findByRole('alert');
- await user.click(button);await waitFor(()=>assert.equal(destination,'https://vendor.example/authorize'));assert.equal(keys[0],keys[1]);
- assert.equal(screen.queryByRole('dialog'),null);
+ await user.click(screen.getByRole('button',{name:'Continue to Rose Rocket'}));await waitFor(()=>assert.equal(destination,'https://vendor.example/authorize'));assert.equal(keys[0],keys[1]);
+ assert.ok(screen.getByRole('dialog'));
 });
 
 test('a ready credential connector opens its secure credentials form instead of Request setup',async()=>{
@@ -152,12 +153,12 @@ test('connector popups use only the header X and retain the pending connection l
  await user.click(screen.getByRole('button',{name:'Continue to Rose Rocket'}));
  assert.equal((close as HTMLButtonElement).disabled,true);
  await user.click(close);await user.keyboard('{Escape}');assert.equal(closed,0);
- await act(async()=>finish({connector:row,authorization_url:null}));
+ await act(async()=>finish({connector:{...row,status:'CONNECTED'},authorization_url:null}));
  assert.equal(saved,1);assert.equal(closed,1);
 });
-test('unavailable connector has no empty footer and its X dismisses it',async()=>{
+test('unavailable connector shows a disabled test action and its X dismisses it',async()=>{
  let closed=0;const user=mount(<ConnectorDialog slug="acme" connector={rows[0]} onSaved={()=>{}} onClose={()=>closed++} />);
- assert.equal(document.querySelector('.app-dialog-footer'),null);
+ assert.equal((screen.getByRole('button',{name:'Test connection'}) as HTMLButtonElement).disabled,true);
  await user.click(screen.getByRole('button',{name:'Close dialog'}));assert.equal(closed,1);
 });
 const dispatcher={id:'dispatcher-1',role:'DISPATCHER',login_id:'dispatcher@example.com',display_name:'Dispatcher',tms_workspace:false,organization:{id:'company-1',slug:'acme',name:'Acme',active:true}} as Account;
@@ -219,7 +220,7 @@ test('Dispatra checkbox reflects saved TMS preference and saves both choices wit
  assert.equal(screen.getByRole('article',{name:'Rose Rocket'}),externalCard);
  assert.equal(externalView.hasAttribute('inert'),false);
  assert.equal(screen.queryByRole('button',{name:'Log out'}),null);assert.ok(screen.getByRole('button',{name:'Dispatcher Account'}));
- await screen.findByRole('article',{name:'Rose Rocket'});assert.equal(screen.getAllByRole('article').length,6);
+ await screen.findByRole('article',{name:'Rose Rocket'});assert.equal(screen.getAllByRole('article').length,7);
  assert.deepEqual(screen.getAllByRole('tab').map(e=>e.textContent),['Connectors','TMS API','Dispatra API']);
  assert.equal(writes[1].version,6);assert.equal(writes[1].data.dispatch_mode,'AUTO');
  assert.equal(cache.getQueryData<Account>(['account'])?.tms_workspace,true);
@@ -439,4 +440,45 @@ test('saving Profile contact name and company logo updates the mounted authentic
  await waitFor(()=>assert.equal(card.querySelector('img'),null));
  assert.ok(within(card).getByText('D',{exact:true}));
  assert.equal(saved.data.logo_url,'');
+});
+
+
+test('an unverified credential response keeps the dialog open with an error',async()=>{
+ const row={...rows[0],ready:true,auth:'bearer' as const,credential_fields:[{key:'api_key',label:'Token',secret:true}]};
+ let saved=0,closed=0;connectors.connect=async()=>({connector:{...row,status:'CONNECTING'},authorization_url:null});
+ const user=mount(<ConnectorDialog slug="acme" connector={row} onSaved={()=>saved++} onClose={()=>closed++}/>);
+ await user.type(screen.getByLabelText('Token'),'private-token');await user.click(screen.getByRole('button',{name:'Test connection & connect'}));
+ assert.ok(await screen.findByRole('alert'));assert.equal(saved,0);assert.equal(closed,0);
+});
+
+test('unconfigured CartonCloud shows its credential fields without claiming a working connection',()=>{
+ const row={...rows[1],credential_fields:[{key:'base_url',label:'CartonCloud API URL',secret:false},{key:'tenant',label:'CartonCloud Tenant ID',secret:false},{key:'client_id',label:'CartonCloud Client ID',secret:false},{key:'client_secret',label:'CartonCloud Client Secret',secret:true}]};
+ mount(<ConnectorDialog slug="acme" connector={row} onSaved={()=>{}} onClose={()=>{}}/>);
+ assert.equal((screen.getByLabelText('CartonCloud API URL') as HTMLInputElement).value,'https://api.cartoncloud.com');
+ assert.ok(screen.getByLabelText('CartonCloud Tenant ID'));assert.ok(screen.getByLabelText('CartonCloud Client ID'));assert.ok(screen.getByLabelText('CartonCloud Client Secret'));
+ assert.ok(screen.getByText(/Connection testing is unavailable/));assert.equal((screen.getByRole('button',{name:'Test connection'}) as HTMLButtonElement).disabled,true);
+});
+
+test('Samsara tests a token without saving, then connects after verification and clears secrets',async()=>{
+ const row={...rows[5],auth:'bearer' as const,ready:true,status:'NOT_CONNECTED' as const,credential_fields:[{key:'api_key',label:'Samsara API token',secret:true}]};
+ let tested=0,connected=0,saved=0,closed=0;
+ connectors.test=async(_slug,provider,body)=>{assert.equal(provider,'samsara');assert.deepEqual(body.credentials,{api_key:'private-token'});tested++;return {account_id:'fleet-1',account:'Test Fleet'};};
+ connectors.connect=async(_slug,provider,body)=>{assert.equal(provider,'samsara');assert.deepEqual(body.credentials,{api_key:'private-token'});connected++;return {connector:{...row,status:'CONNECTED',account:'Test Fleet'},authorization_url:null};};
+ const user=mount(<ConnectorDialog slug="acme" connector={row} onSaved={()=>saved++} onClose={()=>closed++}/>);
+ assert.equal(screen.queryByLabelText('Samsara API URL'),null);
+ const save=screen.getByRole('button',{name:/^Connect$/});assert.equal((save as HTMLButtonElement).disabled,true);
+ await user.type(screen.getByLabelText('Samsara API token'),'private-token');await user.click(screen.getByRole('button',{name:/^Test connection$/}));
+ await screen.findByText(/Token verified for Test Fleet/);assert.equal(tested,1);assert.equal(connected,0);assert.equal(saved,0);
+ await user.click(save);await waitFor(()=>assert.equal(saved,1));assert.equal(connected,1);assert.equal(closed,1);
+ assert.equal(localStorage.length,0);assert.ok(!JSON.stringify(cache.getQueryCache().getAll()).includes('private-token'));
+});
+
+test('editing a verified Samsara token requires a new test and rejection never enables Connect',async()=>{
+ const row={...rows[5],auth:'bearer' as const,ready:true,credential_fields:[{key:'api_key',label:'Samsara API token',secret:true}]};
+ let attempts=0;connectors.test=async()=>{attempts++;if(attempts>1)throw Error('Samsara rejected this token.');return {account_id:'fleet-1',account:'Test Fleet'};};
+ const user=mount(<ConnectorDialog slug="acme" connector={row} onSaved={()=>{throw Error('Must not save');}} onClose={()=>{}}/>);
+ await user.type(screen.getByLabelText('Samsara API token'),'token-one');await user.click(screen.getByRole('button',{name:/^Test connection$/}));await screen.findByText(/Token verified/);
+ await user.type(screen.getByLabelText('Samsara API token'),'changed');assert.equal(screen.queryByText(/Token verified/),null);
+ const save=screen.getByRole('button',{name:/^Connect$/});assert.equal((save as HTMLButtonElement).disabled,true);
+ await user.click(screen.getByRole('button',{name:/^Test connection$/}));assert.ok(await screen.findByRole('alert'));assert.equal((save as HTMLButtonElement).disabled,true);
 });

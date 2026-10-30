@@ -17,6 +17,7 @@ const { render, screen, cleanup, waitFor, within, fireEvent } = await import('@t
 const { default: userEvent } = await import('@testing-library/user-event');
 const { MonitorMapContent } = await import('../src/components/GoogleMonitorMap');
 const { TopMetrics } = await import('../src/components/TopMetrics');
+const { TodaysPlan } = await import('../src/components/monitor/TodaysPlan');
 const { DetailModalDialog } = await import('../src/components/DetailModalDialog');
 const { isActiveMonitorOrder } = await import('../src/components/monitor/orderVisibility');
 const { operations } = await import('../src/operations/api');
@@ -67,10 +68,8 @@ test('checkboxes hide complete order markers and cached road paths without selec
   const selected:string[]=[];
   function Harness({rows=orders}:{rows?:Job[]}) {
     const [hidden,setHidden]=useState<ReadonlySet<string>>(new Set());
-    const [open,setOpen]=useState(true);
-    return <><TopMetrics jobs={rows.filter(isActiveMonitorOrder)} drivers={[]} activeJobsCount={rows.length} availableDriversCount={0} needsAttentionCount={0} needsAttentionItems={[]}
-      showActiveJobsMenu={open} setShowActiveJobsMenu={setOpen} showAvailableDriversMenu={false} setShowAvailableDriversMenu={()=>{}} showNeedsAttentionPopover={false} setShowNeedsAttentionPopover={()=>{}}
-      onSelectJob={number=>selected.push(number)} onSelectDriver={()=>{}} onActionNotification={()=>{}} hiddenOrderIds={hidden} onOrderVisibilityChange={(id,visible)=>setHidden(current=>{const next=new Set(current);if(visible)next.delete(id);else next.add(id);return next;})} />
+    return <><TodaysPlan jobs={rows.map(row => ({...row, createdAt: new Date().toISOString()}))} timeZone="America/Vancouver" attentionIds={new Set()} onRetry={()=>{}}
+      onSelectOrder={order=>selected.push(order.jobNumber)} hiddenOrderIds={hidden} onOrderVisibilityChange={(id,visible)=>setHidden(current=>{const next=new Set(current);if(visible)next.delete(id);else next.add(id);return next;})} />
       <MonitorMapContent demo={false} jobs={rows.filter(row=>isActiveMonitorOrder(row)&&!hidden.has(row.id))} drivers={[INITIAL_DRIVERS[0]]} onSelectJob={()=>{}} onSelectDriver={()=>{}} layerConfig={{mode:'map',traffic:false,labels:true}} /></>;
   }
   const view=render(tree(<Harness/>));const user=userEvent.setup({document});
@@ -78,7 +77,7 @@ test('checkboxes hide complete order markers and cached road paths without selec
   const beforeToggle = fits.length;
   await user.click(screen.getByRole('checkbox',{name:'Show #100 on map'}));
   await waitFor(() => assert.ok(fits.length > beforeToggle, 'Checkbox changes automatically fit the remaining visible work'));
-  assert.equal(screen.queryByRole('button',{name:/^Order #100,/}),null);assert.equal(lines.size,1);assert.deepEqual(selected,[]);assert.ok(screen.getByRole('region',{name:'Active Orders menu'}));
+  assert.equal(screen.queryByRole('button',{name:/^Order #100,/}),null);assert.equal(lines.size,1);assert.deepEqual(selected,[]);assert.ok(screen.getByRole('region',{name:'Today’s plan'}));
   await user.type(screen.getByPlaceholderText('Search orders, shippers or addresses...'),'200');assert.equal(screen.queryByRole('checkbox',{name:'Show #100 on map'}),null);
   await user.clear(screen.getByPlaceholderText('Search orders, shippers or addresses...'));assert.equal((screen.getByRole('checkbox',{name:'Show #100 on map'}) as HTMLInputElement).checked,false);
   view.rerender(<QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><Harness rows={[{...orders[0],version:2},orders[1],job('new','#300')]} /></APIProviderContext.Provider></QueryClientProvider>);
@@ -205,4 +204,14 @@ test('failed route requests keep stops visible and explain the missing route', a
   await waitFor(()=>assert.ok(screen.getByRole('status').textContent?.includes('Route unavailable for 1 order')));
   assert.equal(lines.size,0);
   assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length,2);
+});
+
+
+test('Monitor toolbar exposes drivers and attention without an Active Orders menu', () => {
+  render(<TopMetrics drivers={[]} availableDriversCount={0} needsAttentionCount={0} needsAttentionItems={[]}
+    showAvailableDriversMenu={false} setShowAvailableDriversMenu={()=>{}} showNeedsAttentionPopover={false} setShowNeedsAttentionPopover={()=>{}}
+    onSelectJob={()=>{}} onSelectDriver={()=>{}} onActionNotification={()=>{}} />);
+  assert.equal(screen.queryByRole('button', {name:/Active Orders/}), null);
+  assert.ok(screen.getByRole('button', {name:/Available Drivers/}));
+  assert.ok(screen.getByRole('button', {name:/Needs Attention/}));
 });

@@ -17,7 +17,7 @@ const {adminRoute}=await import('../src/portal/admin/adminRoutes');
 import type {Provider} from '../src/integrations/admin';
 const original={...integrationAdmin};const originalApi={...api};let cache:QueryClient;
 const makeProviders=():Provider[]=>[
- ['rose-rocket','Rose Rocket','RR'],['cartoncloud','CartonCloud','CC'],['truckbase','Truckbase','TB'],['tailwind','Tailwind TMS','TW'],['ascendtms','AscendTMS','AT']
+ ['rose-rocket','Rose Rocket','RR'],['cartoncloud','CartonCloud','CC'],['truckbase','Truckbase','TB'],['tailwind','Tailwind TMS','TW'],['ascendtms','AscendTMS','AT'],['samsara','Samsara','SA']
 ].map(([id,name,initials],i)=>({id,name,initials,connected_dispatchers:i===0?3:0}));
 function defaults(){integrationAdmin.providers=async()=>makeProviders();api.agentMonitor=async()=>({agents:[],running:0,awaiting_approval:0,needs_attention:0,automatic_fixes_24h:0,errors_24h:0,issues:[],observed_at:'2026-10-16T00:00:00Z'} as never);api.platformNotifications=async()=>({items:[],unread:0});}
 function mount(node:React.ReactElement){cache=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false}}});render(<QueryClientProvider client={cache}><ConfirmDialogHost/>{node}</QueryClientProvider>);return userEvent.setup({document});}
@@ -32,7 +32,7 @@ test('admin Integrations is a simple page without company integration routes',()
 test('owner connector cards show counts without tabs, setup requests or management actions',async()=>{
  defaults();mount(<AdminPortal account={{id:'owner',role:'ADMIN',login_id:'owner'} as never} onLogout={()=>{}} loggingOut={false} logoutError={null}/>);
  assert.ok(screen.getByRole('link',{name:'Integrations'}));await screen.findByRole('article',{name:'Rose Rocket'});
- assert.equal(screen.getAllByRole('article').length,5);
+ assert.equal(screen.getAllByRole('article').length,6);
  const card=screen.getByRole('article',{name:'Rose Rocket'});assert.ok(within(card).getByText('Connected dispatchers'));assert.ok(within(card).getByText('3'));
  assert.equal(screen.queryByRole('tab'),null);assert.equal(within(card).queryByRole('button'),null);
  assert.equal(screen.queryByText(/setup requests|Preparation pending|Vendor access/i),null);

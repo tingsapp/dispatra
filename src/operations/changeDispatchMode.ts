@@ -12,7 +12,7 @@ export async function changeDispatchMode(slug: string, current: SettingsView, mo
     if (mode === 'AUTO') {
       if (current.data.tms_workspace) {
         const rows = await connectors.list(slug);
-        if (!rows.some(row => row.ready && (row.status === 'CONNECTED' || (row.status === 'SYNCING' && !!row.last_sync_at)))) {
+        if (!rows.some(row => row.id !== 'samsara' && row.ready && (row.status === 'CONNECTED' || (row.status === 'SYNCING' && !!row.last_sync_at)))) {
           if (await confirmDialog({ title: 'Auto dispatch unavailable', message: AUTO_DISPATCH_UNAVAILABLE, confirmLabel: 'Open Integration', cancelLabel: null })) openIntegration();
           return null;
         }

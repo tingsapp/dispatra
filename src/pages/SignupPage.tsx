@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, Gift } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Gift } from 'lucide-react';
 import { PublicHeader, PublicPageIntro } from '../components/home/PublicPageLayout';
 import { Button as LinkButton } from '../components/ui/button';
 import { PublicFooter } from '../components/home/PublicFooter';
 import { Dialog, DialogHeader } from '../components/ui/Dialog';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { api } from '../portal/api';
-import { Button } from '../portal/ui';
 import { QueryState } from '../portal/admin/QueryState';
 import { SignupForm } from './SignupForm';
 export { SignupForm } from './SignupForm';
@@ -62,7 +61,7 @@ export function TrialPlansPage() {
             <p className="mt-3 text-sm leading-6 text-app-muted">Try Dispatra free for {plan.data.trial_days} days. No credit card required. Choose whether to use the built-in Dispatra workspace when you sign up.</p>
             <p className="mt-2 text-xs leading-5 text-app-muted">The trial starts after you verify your email. After {plan.data.trial_days} days, authorize monthly per-vehicle billing to continue.</p>
           </div>
-          <Button ref={trialButton} className="shrink-0" onClick={() => setSigningUp(true)}>Start free trial<ArrowRight className="size-4" aria-hidden="true" /></Button>
+          <LinkButton ref={trialButton} className="hero-get-started shrink-0" onClick={() => setSigningUp(true)}><span>Start free trial</span><span className="hero-get-started-icon"><ArrowUpRight className="size-4" aria-hidden="true" /></span></LinkButton>
         </section>}
         <p className="mt-8 text-center text-sm text-app-muted">Already have an account? <a href="/login" className="text-app-text underline underline-offset-4">Sign in</a></p>
         <a href="/" className="mx-auto mt-5 flex w-fit items-center gap-2 text-xs text-app-muted hover:text-app-text"><ArrowLeft className="size-3.5" aria-hidden="true" />Back to home</a>

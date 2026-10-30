@@ -44,20 +44,9 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode, navigate = (url:
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not update this connection.'); }
     finally { setPending(null); }
   };
-  const connect = async (row: Connector) => {
-    if (!row.ready || row.paused) return;
-    if (row.auth !== 'oauth') { setSelected(row); setError(''); return; }
-    if (pending) return;
-    const operation = `connect:${slug}:${row.id}:${row.version}`;
-    const key = retries.current.get(operation) ?? crypto.randomUUID(); retries.current.set(operation, key);
-    setPending(row.id); setError('');
-    try {
-      const result = await connectors.connect(slug, row.id, { version: row.version, credentials: {} }, key);
-      if (!result.authorization_url) throw new Error('The TMS sign-in page is unavailable. Try connecting again.');
-      navigate(result.authorization_url);
-      retries.current.delete(operation);
-    } catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not connect. Try again.'); }
-    finally { setPending(null); }
+  const connect = (row: Connector) => {
+    if (row.paused) return;
+    setSelected(row); setError('');
   };
   const visible = query.data ?? [];
   return <section aria-label={nativeTms ? undefined : 'Connectors'} className="space-y-5">
@@ -71,11 +60,11 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode, navigate = (url:
         const needsSetup = !row.ready;
         const busy = ['CONNECTING', 'SYNCING'].includes(row.status); const connected = row.status === 'CONNECTED';
         const hasConnection = row.version != null && row.status !== 'DISCONNECTED';
-        const actionLabel = row.paused ? `${row.name} synchronization paused` : needsSetup ? `Connect ${row.name}` : connected || row.status === 'SYNC_FAILED' ? `Sync ${row.name}`
+        const actionLabel = row.paused ? `${row.name} synchronization paused` : needsSetup ? `Connect ${row.name}` : connected || row.status === 'SYNC_FAILED' ? `${row.id === 'samsara' ? 'Test' : 'Sync'} ${row.name}`
           : row.status === 'RECONNECT_REQUIRED' ? `Reconnect ${row.name}` : busy ? `${needsSetup && !row.paused ? 'Configuration required' : LABELS[row.status]} ${row.name}` : `Connect ${row.name}`;
         const textAction = needsSetup || (!connected && row.status !== 'SYNC_FAILED' && !busy);
         const action = <Button type="button" variant="ghost" size={textAction ? 'default' : 'icon-lg'} aria-label={actionLabel} title={needsSetup ? `${row.name} requires configuration.` : actionLabel} aria-busy={pending === row.id}
-              disabled={needsSetup || row.paused || busy || pending !== null}
+              disabled={row.paused || busy || pending !== null}
               className="shrink-0 text-app-muted"
               onClick={() => {
                 if (!needsSetup && (connected || row.status === 'SYNC_FAILED')) void act(row);
@@ -119,6 +108,6 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode, navigate = (url:
       {review.rows.map(item => <div key={item.id} className="text-sm"><p className="font-medium">{item.reference}</p><ul className="list-disc pl-5 text-xs text-app-muted">{item.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul></div>)}
     </section>}
     </WorkspaceModeLayout>
-    {!nativeTms && selected && <ConnectorDialog key={selected.id} slug={slug} connector={selected} onClose={() => setSelected(null)} onSaved={refresh} />}
+    {!nativeTms && selected && <ConnectorDialog key={selected.id} slug={slug} connector={selected} onClose={() => setSelected(null)} onSaved={refresh} navigate={navigate} />}
   </section>;
 }

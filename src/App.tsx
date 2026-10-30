@@ -125,8 +125,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   }) : [...pricingAttentionItems(jobs), ...operationalAttentionItems];
 
   // Active Jobs & Driver counts
-  const [localActiveJobsCount, setActiveJobsCount] = useState<number>(47);
-  const activeJobsCount = slug ? (monitorQuery.data?.orders.length ?? 0) : localActiveJobsCount;
   const [localAvailableDriversCount, setAvailableDriversCount] = useState<number>(5);
   const availableDriversCount = slug ? drivers.filter(driver => driver.status === 'available').length : localAvailableDriversCount;
   const [localDispatchMode, setDispatchMode] = useState<'AUTO' | 'MANUAL'>('MANUAL');
@@ -136,7 +134,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const [modalDialog, setModalDialog] = useState<ModalDialogState>({ isOpen: false, type: null });
 
   // Menu & Popover Visibility States (Default: false - clean map on initialize, menus only appear on click)
-  const [showActiveJobsMenu, setShowActiveJobsMenu] = useState<boolean>(false);
   const [showAvailableDriversMenu, setShowAvailableDriversMenu] = useState<boolean>(false);
   const [showNeedsAttentionPopover, setShowNeedsAttentionPopover] = useState<boolean>(false);
   const [showNotificationPopover, setShowNotificationPopover] = useState<boolean>(false);
@@ -460,7 +457,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
 
   const handleCreateJob = useCallback((newJob: Job) => {
     setJobs((prev) => [freezeCompletedOrder(undefined, newJob), ...prev]);
-    setActiveJobsCount((prev) => prev + 1);
   }, [drivers]);
 
   const handleUpdateDriver = useCallback((updatedDriver: Driver) => {
@@ -679,7 +675,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
             />
 
             {activeTab === 'monitor' && <>
-            <TodaysPlan jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
+            <TodaysPlan drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} onOpenAllOrders={handleOpenAllJobs} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
               attentionIds={new Set(jobs.filter(job => needsAttentionItems.some(item => item.jobNumber === job.jobNumber)).map(job => job.id))}
               loading={!!slug && (orderQuery.isPending || settingsQuery.isPending || monitorQuery.isPending)}
               error={!!slug && (orderQuery.isError || settingsQuery.isError || monitorQuery.isError)}
@@ -747,22 +743,15 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               active={activeTab === 'monitor'}
               metrics={activeTab === 'monitor' && <TopMetrics
                 drivers={drivers}
-                jobs={activeOrders}
-                hiddenOrderIds={hiddenOrderIds}
-                onOrderVisibilityChange={handleOrderVisibilityChange}
-                activeJobsCount={activeJobsCount}
                 availableDriversCount={availableDriversCount}
                 needsAttentionCount={needsAttentionItems.length}
                 needsAttentionItems={needsAttentionItems}
-                showActiveJobsMenu={showActiveJobsMenu}
-                setShowActiveJobsMenu={setShowActiveJobsMenu}
                 showAvailableDriversMenu={showAvailableDriversMenu}
                 setShowAvailableDriversMenu={setShowAvailableDriversMenu}
                 showNeedsAttentionPopover={showNeedsAttentionPopover}
                 setShowNeedsAttentionPopover={setShowNeedsAttentionPopover}
                 onSelectJob={(num) => {
                   handleSelectJob(num);
-                  setShowActiveJobsMenu(false);
                   setShowNeedsAttentionPopover(false);
                 }}
                 onSelectDriver={(id) => {
@@ -770,7 +759,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   setShowAvailableDriversMenu(false);
                 }}
                 onActionNotification={showToast}
-                onOpenAllJobs={handleOpenAllJobs}
                 onOpenAllDrivers={handleOpenAllDrivers}
                 onOpenAllExceptions={handleOpenAllExceptions}
               />}
