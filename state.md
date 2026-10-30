@@ -943,3 +943,5 @@ Final focused Chrome verification passed: real WebGL scene at 1440/390/320px, or
 - 2026-10-30 Samsara account connection: Implemented fixed-host GET /me verification, transient Test then server-reverified Connect, encrypted token storage, account identity/version/idempotency checks, saved-token recheck and disconnect. Direct-token connection is available without an import profile; worker imports and External TMS AUTO remain excluded. Public guide states account connection only. Validation details follow after checks.
 
 - 2026-10-30 final validation: 28 connector dialog checks, 16 auto-dispatch gate checks and three public integration guide checks pass. Final TypeScript and production build pass. Samsara is available locally for token-only Test then Connect; account-only access does not qualify as a connected External TMS for AUTO. Orders-list Plan dispatch UI, component and unused client call are removed.
+
+- 2026-10-30 Connected team production image fix: Corrected owner-only dispatcher preview permissions on the live server; HTTPS returns 200 with the complete 1,311,483-byte PNG. Builds now normalize all team preview permissions to 644.
