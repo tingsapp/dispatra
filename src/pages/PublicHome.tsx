@@ -24,7 +24,7 @@ function HomeContent() {
       <PublicHero labelledBy="home-title" centered>
         <div>
           <h1 id="home-title">AI that runs your dispatch while keeping you in control</h1>
-          <p className="home-hero-description">Dispatra’s got dispatch covered. From the first order to the final doorstep, your AI dispatcher handles the coordination and keeps you in the loop, so you can enjoy your coffee while deliveries keep moving.</p>
+          <p className="home-hero-description">Bring orders, drivers and routes together in one place. Dispatra coordinates your deliveries, tracks progress and flags what needs your attention, so you can keep the day moving.</p>
           <HeroWorkspaceEntry />
         </div>
       </PublicHero>
