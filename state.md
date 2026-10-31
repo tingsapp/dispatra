@@ -1,3 +1,5 @@
+- 2026-10-31 supplied branding: Replaced shared logo/icon assets and legacy alternate filenames with the user-supplied transparent PNGs, updated intrinsic dimensions and cache versions, and regenerated favicon/Apple touch icon. Existing shared placements and responsive containers retained. Deployment and browser verification are recorded separately; no runtime build claimed.
+
 - 2026-10-31 homepage hero description: Replaced the coffee-themed paragraph with concise copy about orders, drivers, routes, delivery progress and attention alerts. Updated the matching specification; title, styling and actions are unchanged. Remote copy-only edit; source diff reviewed. Runtime tests/build and live deployment were not run.
 
 - 2026-10-30 release verification: All 59 web test scripts passed after aligning homepage CTA and 32px sidebar logo expectations and allowing 10 seconds for the first lazy-loaded Operational Monitor render. Public live pages returned HTTP 200 with no browser runtime errors. Existing production client build remains unchanged.

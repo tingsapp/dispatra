@@ -470,3 +470,8 @@ Use a five-bar waveform icon on the dark circular voice-entry button. Active voi
 
 
 Samsara supports direct-token account verification: request only the API token, explain Read Org Information scope, require a successful Test connection before enabling Connect, and reverify server-side when saving. Editing the token clears the prior test. Show the verified organization and account-only scope; do not present fleet imports or AUTO eligibility. Connected accounts support rechecking access and Disconnect. Other providers retain their existing availability requirements.
+
+
+## Supplied branding refresh (2026-10-31)
+
+Use the supplied 2048×546 transparent logo and 2000×1912 transparent icon in shared BrandLogo/BrandMark placements throughout public pages, account entry, workspaces and previews. Preserve object-contain proportions and existing responsive containers. Browser favicon and Apple touch icon derive from the supplied icon; refresh asset versions on replacement.
