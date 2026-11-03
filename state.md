@@ -4,6 +4,76 @@
 
 - 2026-10-31 homepage hero description: Replaced the coffee-themed paragraph with concise copy about orders, drivers, routes, delivery progress and attention alerts. Updated the matching specification; title, styling and actions are unchanged. Remote copy-only edit; source diff reviewed. Runtime tests/build and live deployment were not run.
 
+2026-11-03: Production cross-browser verification passed 18 scenarios across Chrome, Firefox 153 and WebKit 26.5: desktop, tablet touch, phone touch, narrow phone, landscape and reduced motion. Checks cover exact stack positions, SVG connector movement, route drawing, live motion-preference changes, page errors and overflow. Mobile cases are browser emulation on Linux, not physical iOS/Android devices. Added npm run test:home:compat and updated test:home for the current scene structure.
+
+2026-11-03: Cross-browser audit found Firefox rejecting spline handoffs without explicit keyPoints; added the matching 0-to-1 path timing to Order and Supervisor connectors. Reduced-motion styling also disables pseudo-element animations. Cross-engine regression suite covers desktop, tablet, phones, landscape and live motion-preference changes.
+
+2026-11-03: Supervisor central icon now has no fill or shadow and retains its border. Browser compatibility work adds explicit SVG rotation origins, reduced-motion changes for SVG handoffs, and responsive stack measurement that follows actual mobile layer heights.
+
+2026-11-03: Added the shared “How it works” eyebrow label above “Dispatra at work”, matching the other homepage section labels.
+
+2026-11-03: Moved the section introduction into the layer pin, so overlap starts while “Dispatra at work” remains visible and the heading/description stay above the active layers. Hero geometry remains independent.
+
+2026-11-03: Restored original hero text sizes with 128px desktop top/bottom padding (88px mobile). Added “Dispatra at work” title and five-agent description. Removed the shared hero pin: only the layer stage now controls native sticky stacking, independently of hero geometry.
+
+2026-11-03: Restored overlapping layer scroll on desktop viewports above 700px high, removing the 1050px cutoff that disabled it on the user’s screen. Preserved 64px hero padding and existing layer geometry.
+
+2026-11-03: Increased hero top/bottom padding to 64px at user request, preserving all layer dimensions. The shared pinned layout runs from 1050px viewport height; shorter viewports retain normal scrolling so the added spacing cannot clip scenes.
+
+2026-11-03: Restored balanced responsive 24–48px top/bottom padding to the pinned hero. A wider description and 8px shared pin offset preserve full layer visibility without changing layer sizes, scene spacing or stack geometry.
+
+2026-11-02: Compacted pinned hero typography and surrounding spacing to keep each active 444px layer fully visible, including the final layer below all prior headings. Viewports below 950px high use normal scrolling rather than a clipped pinned layout.
+
+2026-11-02: Accelerated the route draw to 1.6 seconds with frame-timed constant-distance movement and rounded geographic bends, preserving offscreen pause and reduced motion. Supervisor, Order and Dispatch use reference-inspired muted sage, warm cream and sand backgrounds; maps remain black and white.
+
+2026-11-02: Removed full-width icon header strips from Route and Chat, extending both maps to every edge. Corner icons use compact white backgrounds.
+
+2026-11-02: Added lazily loaded real Google roadmaps in grayscale behind Route and Chat, including geographic street labels and coastline. Route stops use geographic coordinates and the shared Monitor glyph. Local maps remain available if map loading fails.
+
+2026-11-02: Removed the Chat Agent map’s green tint with a dedicated monochrome map asset, gray streets on an off-white base and a matching clean collapsed strip.
+
+2026-11-02: Chat Agent now uses the street map as its full scene background, with the existing chatbox anchored bottom left and a clean collapsed icon strip.
+
+2026-11-02: Route Agent now displays labeled pickup and drop-off stops on its map using the same StopMarkerCircle glyph as the dispatcher Monitor. Map endpoints remain visible at mobile widths.
+
+2026-11-02: Replaced scroll-driven hero translation with one native sticky container shared by the hero and agent scenes, preventing hero jitter and releasing both after the final swipe.
+
+2026-11-02: Kept the hero visible during the agent swipes by sharing the stack pin and release progress. The complete hero remains above the first layer; hero and stack resume page scrolling together after the final swipe. Compact row spacing is unchanged.
+
+2026-11-02: Removed viewport-sized gaps between expanded layers. Restored fixed 444px row spacing with equal 19px scene insets while preserving the centered first-layer pin threshold.
+
+2026-11-02: Centered the first layer at the scroll pin threshold and spaced incoming layers by the remaining viewport height so each enters from the bottom edge. Preserved clean collapsed headers and shared release.
+
+2026-11-02: Reserved a clean 38px colored scene strip containing only the agent icon; an opaque matching surface covers map/scene details under collapsed headings. Moved badges and scene content below the strip, with mobile fit adjustments.
+
+2026-11-02: Scroll-only fix: one native sticky viewport and batched compositor translations replace repeated per-row layout reads. Existing colors, scenes, icon placement and 19px spacing are preserved. Chrome regression passes exact layer positions at seven successive scroll offsets, shared stack release, mobile layouts and reduced motion; production build passes.
+
+2026-11-02: Reverted the pinned-viewport, collapsed-header and monochrome restyling step at user request, restoring the preceding five-layer layout and scrolling behavior. Supervisor remains first.
+
+2026-11-02: Reverted the latest distinct-background and natural-color map treatment at user request; restored monochrome scenes while preserving the steady stack and clean headers.
+
+2026-11-02: Reworked the stack into one native sticky viewport to remove scroll layout feedback. Rounded compositor translations preserve 58px clean title strips, with agent icons in the upper-left header. Scenes and sample portraits now use black, white and neutral grays.
+
+2026-11-02: Supervisor is now the first full feature layer, with a four-agent monitoring scene. All five layers use the same spacing and shared release boundary.
+
+2026-11-02: Replaced per-row CSS sticky constraints with frame-batched scroll translations sharing a single release point. All rows keep 19px fixed flow padding, and Chat cannot pass earlier headings. Scene icons moved to upper left.
+
+- 2026-11-02 closing grain intensity: increased soft-light texture opacity from 42% to 52% at user request.
+
+2026-11-02: Equalized the agent row dividers to 19px visual inset above and below. Negative flow margins absorb the invisible sticky reserve without changing the shared release boundary. Added decorative agent icons in each scene’s upper-right corner.
+
+- 2026-11-02 closing texture correction: removed discrete dark dots; continuous fine monochrome grain now blends softly into the copper gradient. Title and hero CTA retained.
+
+- 2026-11-02 closing refinement: title is “Put Dispatra to work”; replaced filtered noise with explicit high-contrast stippling for a more visible copper texture.
+
+2026-11-02: Stacking rows now share a common bottom boundary by compensating each row height for its sticky offset. The final Chat row releases together with earlier rows instead of covering their headings. Browser regression checks the stack before and after release.
+
+- 2026-11-02 closing refinement: visible tiled grain SVG overlay above copper background; closing CTA reuses hero-get-started classes, icon and hover treatment.
+
+2026-11-02: Implemented approved homepage stacking agent feature preview in a homepage-only component. The separate How it works page is unchanged. Local sample portraits and Vancouver street geometry are bundled, with no runtime map or photo requests. TypeScript, all 8 homepage tests, production build and Chrome responsive checks passed at 1440, 768, 390 and 320 px, including reduced motion and desktop sticky positioning. Desktop/mobile screenshots reviewed; order record fit tightened after review.
+
+- 2026-11-02 homepage closing: copper textured background, centered delivery-day heading and rounded Get started link to /plans. Local styling update.
+
 - 2026-10-30 release verification: All 59 web test scripts passed after aligning homepage CTA and 32px sidebar logo expectations and allowing 10 seconds for the first lazy-loaded Operational Monitor render. Public live pages returned HTTP 200 with no browser runtime errors. Existing production client build remains unchanged.
 
 - 2026-10-29 homepage description consistency: Why Dispatra now uses the shared 16px section-description size. Increased section introduction limits from 420px to 480px, plan descriptions from 440px to 480px, and FAQ introduction from 260px to 300px (400px to 460px on phones). Hero rules unchanged; container widths still constrain mobile text. Local styling update. Browser checks passed at 1440/390/320px: Why and section descriptions are 16px with 480px maximum, hero metrics unchanged, no overflow or runtime errors. Phone screenshot reviewed.
@@ -955,3 +1025,105 @@ Final focused Chrome verification passed: real WebGL scene at 1440/390/320px, or
 - 2026-10-30 Connected team production image fix: Corrected owner-only dispatcher preview permissions on the live server; HTTPS returns 200 with the complete 1,311,483-byte PNG. Builds now normalize all team preview permissions to 644.
 
 - 2026-10-30 Dispatcher preview optimization: Published a 1440×810 WebP (126,930 bytes, 90% smaller than the PNG) with a new image URL and homepage bundle cache key. Original PNG retained; existing crop proportions preserved.
+
+- 2026-11-02 homepage hero: Updated the description to describe AI agents coordinating incoming orders, automatic assignment and optimized routes.
+
+- 2026-11-02: Added a subtle, edge-fading dot pattern behind the Why Dispatra animation, scoped to the illustration. Animation and card styling preserved. Checks unavailable: npm is absent in this environment.
+
+- 2026-11-02: Increased Why Dispatra dot-pattern contrast and widened its fade after visibility feedback. CSS-only; runtime verification remains unavailable because npm is absent.
+
+- 2026-11-03: Brightened homepage How it works with emerald, sky blue, orange and violet accents and stronger text contrast; preserved stacking, animation and grayscale maps.
+
+- 2026-11-03: Replaced pastel How it works scene backgrounds with richer blue, terracotta, green, teal and violet woven color fields inspired by the supplied reference. Inset map surfaces expose the patterned surround; scene headings use white on the richer backgrounds.
+
+- 2026-11-03: Refined How it works to an original dark palette: charcoal Supervisor, slate Order, petrol Dispatch, deep blue Route and plum Chat, retaining woven patterns and white scene headings.
+
+- 2026-11-03: Increased hue separation across patterned How it works backgrounds: charcoal, cobalt blue, burnt orange, teal and purple. Scene content and motion are unchanged.
+
+- 2026-11-03: Lightened the first How it works scene from charcoal to medium graphite (#646b76), retaining the woven pattern and white text.
+
+- 2026-11-03: Homepage agent scenes use uninterrupted patterned backgrounds. Route and Chat use full-area fictional SVG neighborhood maps with no live map provider or Vancouver geography.
+
+- 2026-11-03: Chat now has a distinct fictional riverside map with diagonal streets and a waterfront park; Route retains its orthogonal neighborhood map.
+
+- 2026-11-03: Supervisor illustration shows four specific specialist updates flowing toward a central Supervisor hub, with a connected-agent count and delivery summary. Decorative report signals respect existing visibility and reduced-motion controls.
+
+- 2026-11-03: Replaced Supervisor report text with four labeled agent icons, rotating gears, connected report paths and an animated notification bell at the Supervisor hub.
+
+- 2026-11-03: Smoothed Supervisor motion: report dots travel over 10 seconds with eased timing, gears rotate over 12 seconds, and a gentler five-second bell cycle uses a red notification badge.
+
+- 2026-11-03: Reduced the Supervisor bell circle to 27px. Red badge is hidden initially and appears briefly on the staggered report-arrival cadence (first arrival at 10 seconds, then every 2.5 seconds).
+
+- 2026-11-03: Reverted notification badge hide/show to the previous always-visible gentle red pulse; retained the smaller bell circle.
+
+- 2026-11-03: Order scene now visualizes four icon-led sources converging on a rotating processing gear and a verified output order, replacing the long sample email.
+
+- 2026-11-03: Reworked Order into a document conveyor and scanning chamber with four source icons and a verified output ticket. Supervisor dots now travel over 16 seconds; request documents move slowly with continuous timing.
+
+- 2026-11-03: Simplified Order illustration into a single left-to-right flow: four request cards, processing gear with Read/Extract/Verify, and a structured new-order card. Removed the conveyor and scanning chamber.
+
+- 2026-11-03: Restored the first multi-source Order Agent illustration: four source cards, connecting signals, central gear and verified order output. Retained slower dot motion.
+
+- 2026-11-03: Aligned Order source centers and processing box to shared proportional SVG coordinates; four separate rounded paths now terminate at distinct agent ports.
+
+- 2026-11-03: Routed outer Order source lines through the inner bend lane and middle sources through the outer lane so paths stay ordered without crossings.
+
+- 2026-11-03: Dispatch illustration adds a compact robotic spider scanner that hovers down the three-driver roster, returns to Alex and confirms selection on a coordinated 16-second cycle. Reduced motion shows the selected state.
+
+- 2026-11-03: Replaced Dispatch spider with a hand selecting Alex, followed by a new-delivery notification on his phone. Selection, tap and notification share one restrained 12-second timeline.
+
+- 2026-11-03: Simplified driver notification phone to a slim frame, time, owner label and delivery alert with a bottom home indicator.
+
+- 2026-11-03: Enlarged the Dispatch notification phone to a taller 256px handset (240px on mobile), with larger clock and notification type.
+
+- 2026-11-03: Dispatch phone now spans the scene height with a realistic frame/status bar and an open illustrative driver app showing profile, new assignment, stops and bottom navigation.
+
+- 2026-11-03: Cleaned Dispatch into a pointer-hand review of all drivers, Alex selection and promotion to the top, followed by a push notification on an iPhone-style lock screen with a clean home indicator. Removed the open app mockup.
+
+- 2026-11-03: Shortened the coordinated Dispatch assignment cycle from 18 to 14 seconds and added a pale blue hover fill/border while each driver is reviewed.
+
+- 2026-11-03: Route illustration now shows six numbered stops, a dashed inefficient path fading into a drawn optimized sequence and an agent processing/completion indicator. Illustrative only; no operational optimization calculation is performed.
+
+- 2026-11-03: Simplified Route to two labeled endpoints, one smoothly drawn route and a compact status; removed multistop and before/after overlays.
+
+- 2026-11-03: Restored shared Pickup/Drop-off StopMarkerCircle markers in Route. Matched the illustrated basemap and route SVG scaling so road coordinates remain aligned at all scene sizes.
+
+- 2026-11-03: Chat now has a clean map-free background with a 20-second compose/send/typing/reply sequence about D-1042, a compact order reference and a reduced-motion static conversation.
+
+- 2026-11-03: Restored Chat’s vivid violet woven background without a map. Question remains visible; the reply types in two lines after a brief thinking indicator, then reveals its order reference.
+
+- 2026-11-03: Sped Chat reply typing to finish around 9.7 seconds, held the completed reply for roughly seven seconds, and replaced reverse text erasure with a single smooth whole-reply fade before reset.
+
+- 2026-11-03: Reordered homepage agent layers and step numbers to Order, Dispatch, Route, Chat, Supervisor. Supervisor closes the sequence with oversight of the four preceding agents; shared stacking logic follows DOM order.
+
+- 2026-11-03: Standardized layer icon insets and heading baselines, tied stack paint order explicitly to DOM order, and added a regression assertion for the new agent sequence. Live scroll verification unavailable: local socket access is restricted.
+
+- 2026-11-03: Aligned Supervisor hub and four source icon centers with shared proportional connector coordinates, evenly spaced labels and distinct noncrossing notification paths.
+
+- 2026-11-03: Reviewed five-layer alignment and coordinated motion. Added eased travel to Order/Supervisor report dots and synchronized SVG motion pauses with offscreen/hidden states. Preserved aligned icon baselines, independent connector paths, shared map scaling and completed reduced-motion states.
+
+- 2026-11-03: Harmonized Dispatch with ivory driver cards, warm neutral phone colors and bronze hover/selection/check accents to complement the terracotta background.
+
+- 2026-11-03: Distinguished Dispatch hover (light sand) from selection (stronger bronze fill and dark bronze check). Phone push now uses matching ivory/bronze surfaces, border, icon and text.
+
+- 2026-11-03: Unified all homepage agent scenes in coordinated blue shades with shared woven textures; Route keeps its full-area pale blue illustrated map. Cards, dispatch hover/selection, phone push, processing gears and chat accents now share blue tokens. Original pickup/drop-off glyphs and red Supervisor notification retained.
+
+- 2026-11-03: Switched agent scenes to charcoal and progressively lighter gray surfaces, preserving woven patterns. Neutralized cards, driver states, phone push, gears, chat and illustrated route colors; red Supervisor notification retained.
+
+- 2026-11-03: Adjusted Route map to medium graphite between Dispatch and Chat shades, with lighter streets and a bright route for contrast; original stop markers retained.
+
+- 2026-11-03: Audited and neutralized remaining colored CSS/SVG values across all five layers, including legacy animation keyframes, responsive/reduced-motion states, shadows, icons and cards. Preserved #ef4444 for the Supervisor notification dot.
+
+- 2026-11-03: Five-layer audit strengthened secondary labels and reduced-motion completion states. Measured key foreground/background contrast pairs at 4.74:1–15.13:1. Diff check passes. Live visual verification remains unavailable in this environment; focused layer test and full checks were launched. Earlier full homepage run passed the agent-scene test but had two signup-area failures.
+
+- 2026-11-03: Rounded scene review retained 16px clipping/isolation, placed icons safely inside the corners and tightened Supervisor badge/gear offsets. Five layer/icon pairs and shared stacking spacing verified statically; live browser checks remain unavailable.
+
+- 2026-11-03: On phones, agent descriptions and separate step numbers are hidden; existing semantic headings sit beside each scene icon inside the layer. Desktop layout retained. Dispatch phone clears the compact heading.
+
+- 2026-11-03: Enabled pinned scrolling stacks on phone viewports above 700px height, with compact in-scene titles, 420px visuals and shared stack spacing. Removed horizontal layer dividers. Short/reduced-motion viewports retain normal flow.
+
+- 2026-11-03: Rebalanced phone scenes to a common 360px visual height and 592px stacked viewport. Driver handset now uses a realistic fixed aspect ratio rather than stretching to scene height; compact clock/notification and chat/order sizing follow the mobile composition.
+
+- 2026-11-03: Browser audit at 320/390/430px confirmed five matching 360px scenes, active mobile stacking and no page-width overflow. Driver phone retains a 0.48 aspect ratio. Moved the Route map label away from the mobile heading. Closing section now uses the established #1447e6 brand blue with blue gradient tones and its existing grain pattern.
+
+- 2026-11-03: Full-homepage browser review at 1440/390/320px found no horizontal overflow and consistent section/card spacing. Verified team preview lazy-loads successfully. Unified dark homepage primary buttons to #171717 and shared hover #303030; retained contrasting white closing CTA. Existing small-phone benefits already switch to one column.

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { WhyDispatra } from '../components/home/WhyDispatra';
-import { DeliveryDemo } from '../components/home/DeliveryDemo';
+import { StackedAgentFeatures } from '../components/home/StackedAgentFeatures';
 import { HomePlans } from '../components/home/HomePlans';
 import { HomeTeam } from '../components/home/HomeTeam';
 import { HomeClosing, HomeQuestions } from '../components/home/HomeQuestions';
@@ -24,11 +24,11 @@ function HomeContent() {
       <PublicHero labelledBy="home-title" centered>
         <div>
           <h1 id="home-title">AI that runs your dispatch while keeping you in control</h1>
-          <p className="home-hero-description">Bring orders, drivers and routes together in one place. Dispatra coordinates your deliveries, tracks progress and flags what needs your attention, so you can keep the day moving.</p>
+          <p className="home-hero-description">From incoming orders to automatic assignment and optimized routes, Dispatra’s AI agents work together to make delivery management fast and smooth.</p>
           <HeroWorkspaceEntry />
         </div>
       </PublicHero>
-      <DeliveryDemo />
+      <StackedAgentFeatures />
       <WhyDispatra />
       <HomePlans />
       <HomeTeam />

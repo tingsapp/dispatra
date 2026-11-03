@@ -408,3 +408,26 @@
 .home-plans .home-plan ul { gap:12px; margin:24px 0 28px; line-height:1.5; }
 @media(max-width:767px) { .home-plans .home-plan { padding:26px; } .home-plans .home-plan h3 { font-size:25px; } .home-plans .home-plan-description { min-height:0; } }
 @media(max-width:389px) { .home-plans .home-plan { padding:22px; } }
+
+.home-closing { position:relative; isolation:isolate; overflow:hidden; border:0; color:white; background:radial-gradient(ellipse at 50% 115%,#234dbb,transparent 58%),radial-gradient(ellipse at 6% 100%,#061640,transparent 55%),linear-gradient(115deg,#09246b,#10359a 52%,#0a286f); }
+.home-closing::before { content:""; position:absolute; inset:0; z-index:0; pointer-events:none; opacity:.52; mix-blend-mode:soft-light; background-size:512px 512px; background-image:url("/home/closing-grain.svg"); }
+.home-closing .home-section { position:relative; z-index:1; }
+.home-closing .home-section { min-height:760px; padding-block:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.home-closing h2 { max-width:780px; margin:0; font-size:clamp(38px,4.4vw,64px); line-height:1.06; letter-spacing:-.055em; font-weight:400; }
+.home-closing p:not(.home-eyebrow) { margin-top:36px; color:white; font-size:16px; line-height:1.5; }
+.home-closing-actions { margin-top:36px; }
+.home-closing-actions .app-button:focus-visible { outline:2px solid white; outline-offset:5px; }
+@media(max-width:640px) { .home-closing .home-section { min-height:580px; padding-block:90px; } }
+
+.home-closing::before { opacity:.7; background-image:url("/home/closing-grain.svg"),repeating-linear-gradient(0deg,#ffffff10 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,#00000018 0 1px,transparent 1px 3px); background-size:512px 512px,3px 3px,3px 3px; }
+
+.public-site .home-closing-actions .app-button.hero-get-started[data-size="default"] { background:#fff; color:#10265e; border-color:#fff; }
+.public-site .home-closing-actions .app-button.hero-get-started[data-size="default"]:hover { background:#edf2ff; color:#10265e; border-color:#edf2ff; }
+.home-closing-actions .hero-get-started .hero-get-started-icon { background:#10265e; color:#fff; }
+
+/* Shared dark primary actions across the homepage's light sections. */
+.home-page .home-hero-actions .app-button.hero-get-started[data-size="default"],
+.home-page .home-plan .app-button[data-variant="default"] { background:#171717; color:#fff; }
+.home-page .home-hero-actions .app-button.hero-get-started[data-size="default"]:hover,
+.home-page .home-plan .app-button[data-variant="default"]:hover { background:#303030; }
+.home-page .home-hero-actions .hero-get-started-icon { color:#171717; }

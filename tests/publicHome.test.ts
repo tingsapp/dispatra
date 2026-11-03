@@ -97,33 +97,19 @@ test('homepage role views support selection and arrow-key navigation with matchi
   assert.equal(screen.getByRole('link', { name: 'Sign in as a dispatcher' }).getAttribute('href'), '/dispatch');
 });
 
-test('four agent steps show sources, driver comparison, route choices and signed completion', async () => {
+test('homepage stacks agent scenes with monitoring, assignment, route and contextual answer', () => {
   api.me = anonymous;
   render(React.createElement(PublicHome));
-  const workflow = screen.getByRole('list', { name: 'Explore the dispatch process' });
-  assert.equal(within(workflow).getAllByRole('button').length, 4);
-  const panel = () => screen.getByRole('region', { name: /demonstration$/ });
-  assert.ok(within(panel()).getByText('Email'));
-  assert.ok(within(panel()).getByText('Shipper portal'));
-  assert.ok(within(panel()).getByText('TMS / API'));
-  assert.ok(within(panel()).getByText('Dispatcher'));
-  assert.ok(within(panel()).getByText('Dispatra order'));
-  fireEvent.click(within(workflow).getByRole('button', { name: 'Dispatch agent' }));
-  await waitFor(() => assert.equal(panel().querySelectorAll('.process-driver').length, 3));
-  assert.equal(panel().querySelectorAll('.process-driver[data-selected="true"]').length, 1);
-  assert.ok(within(panel()).getByText('Alex selected'));
-  fireEvent.click(within(workflow).getByRole('button', { name: 'Route optimizer' }));
-  await waitFor(() => assert.equal(panel().querySelectorAll('.process-route-option').length, 2));
-  assert.equal(panel().querySelectorAll('.process-route-selected').length, 1);
-  assert.ok(within(panel()).getByText('Best path selected'));
-  fireEvent.keyDown(workflow, { key: 'ArrowDown' });
-  assert.equal(document.activeElement, within(workflow).getByRole('button', { name: 'Driver' }));
-  await waitFor(() => assert.ok(within(panel()).getByText('Completed')));
-  assert.ok(within(panel()).getByText('Signature collected'));
-  fireEvent.keyDown(workflow, { key: 'Home' });
-  await waitFor(() => assert.ok(within(panel()).getByText('Dispatra order')));
-  assert.equal(screen.queryByText('Illustrative workflow · Sample data'), null);
-  assert.equal(screen.queryByText('Choose Auto or Manual assignment. Routes are optimized after assignment in both modes.'), null);
+  const agents = screen.getByRole('region', { name: 'Dispatra agents at work' });
+  assert.deepEqual(Array.from(agents.querySelectorAll('.feature h3'), heading => heading.textContent), ['Order Agent', 'Dispatch Agent', 'Route Agent', 'Chat Agent', 'Supervisor Agent']);
+  for (const name of ['Order Agent', 'Dispatch Agent', 'Route Agent', 'Chat Agent', 'Supervisor Agent']) assert.ok(within(agents).getByRole('heading', { name }));
+  for (const source of ['Email', 'Shipper portal', 'Dispatra portal', 'External TMS']) assert.ok(within(agents).getByText(source));
+  assert.ok(within(agents).getByText('Supervisor Agent'));
+  assert.equal(agents.querySelectorAll('.driver').length, 3);
+  assert.equal(agents.querySelectorAll('.driver.a .check').length, 1);
+  assert.ok(within(agents).getByText('Expected arrival: 12:48 PM.'));
+  assert.equal(within(agents).queryByRole('textbox'), null);
+  assert.equal(agents.querySelectorAll(".agent-basemap").length, 1);
 });
 
 test('plan paths and FAQ answers reuse the established public destinations and content', () => {
