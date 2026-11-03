@@ -110,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div
-      className={`h-dvh shrink-0 transition-[width] duration-300 ease-in-out z-30 max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:z-50 ${isOpen ? 'w-sidebar' : collapsed ? 'w-sidebar-rail' : 'w-0'
+      className={`[--spacing-sidebar:220px] h-dvh shrink-0 transition-[width] duration-300 ease-in-out z-30 max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:z-50 ${isOpen ? 'w-sidebar' : collapsed ? 'w-sidebar-rail' : 'w-0'
         }`}
     >
       <aside
