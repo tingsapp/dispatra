@@ -8,6 +8,8 @@ const { render, screen, cleanup } = await import('@testing-library/react');
 const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { operations } = await import('../src/operations/api');
+const approveTransport = operations.approveDispatch;
+const { client: transport } = await import('../src/portal/api');
 const { DispatchRecommendation } = await import('../src/components/monitor/DispatchRecommendation');
 afterEach(() => cleanup());
 
@@ -30,7 +32,7 @@ test('shows the ranked driver with facts and approves through the decision', asy
   assert.ok(screen.getByText('AI ranked'));
   assert.ok(screen.getByText('About 2.1 km from the first pickup (live GPS)'));
   assert.ok(screen.getByText('1 other driver cannot take it.'));
-  await userEvent.setup({ document }).click(screen.getByRole('button', { name: 'Approve' }));
+  await userEvent.setup({ document }).click(screen.getByRole('button', { name: 'Assign to Dana Driver' }));
   assert.deepEqual(approvals, [['d1', 'a']]);
   assert.deepEqual(messages, ['Assigned ACO-1001 to Dana Driver.']);
 });
@@ -41,5 +43,33 @@ test('explains why no driver can take the order and labels the rules fallback', 
   assert.ok(await screen.findByText('No driver can take this order right now.'));
   assert.ok(screen.getByText('Rules'));
   assert.ok(screen.getByText(/Driver must be On Duty before assignment\./));
-  assert.equal(screen.queryByRole('button', { name: 'Approve' }), null);
+  assert.equal(screen.queryByRole('button', { name: 'Assign to Dana Driver' }), null);
+});
+
+
+test('failed assignment remains visible after refreshing the recommendation', async () => {
+  let refreshes = 0;
+  Object.assign(operations, { dispatchSuggestion: async () => { refreshes++; return decision(); }, approveDispatch: async () => { throw new Error('Vehicle truck routing measurements are required.'); } });
+  mount();
+  const button = await screen.findByRole('button', { name: 'Assign to Dana Driver' });
+  await userEvent.setup({ document }).click(button);
+  assert.equal((await screen.findByRole('alert')).textContent, 'Vehicle truck routing measurements are required.');
+  assert.equal(refreshes, 2);
+  assert.equal(button.hasAttribute('disabled'), false);
+});
+
+
+test('approval uses a stable retry key within the API header limit for real UUIDs', async () => {
+  const original = transport.POST;
+  const keys: string[] = [];
+  transport.POST = (async (_path: string, options: { params: { header: Record<string, string> } }) => { keys.push(options.params.header['Idempotency-Key']); return { data: {}, response: { ok: true } }; }) as never;
+  try {
+    const current = decision({ id: '99c29a92-04e3-4f25-a25f-4983b9b4ebaa' });
+    const driver = 'f75596fc-8d55-46b8-be5e-a4731b9c3bf9';
+    await approveTransport('acme', current as never, driver);
+    await approveTransport('acme', current as never, driver);
+    assert.equal(keys[0], keys[1]);
+    assert.ok(keys[0].length >= 16 && keys[0].length <= 80);
+    assert.match(keys[0], /^[a-zA-Z0-9-]+$/);
+  } finally { transport.POST = original; }
 });

@@ -23,7 +23,11 @@ export function DispatchRecommendation({ slug, order, onClose, onAssigned }: { s
   const approve = async (current: DispatchDecision, driverId: string, name: string) => {
     setBusy(driverId); setError('');
     try { await operations.approveDispatch(slug, current, driverId); onAssigned(`Assigned ${order.number} to ${name}.`); }
-    catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not assign the driver.'); await refresh(); }
+    catch (failure) {
+      const message = failure instanceof Error ? failure.message : 'Could not assign the driver.';
+      await refresh();
+      setError(message);
+    }
     finally { setBusy(null); }
   };
   const [best, ...others] = decision?.candidates ?? [];
@@ -48,7 +52,7 @@ export function DispatchRecommendation({ slug, order, onClose, onAssigned }: { s
       <div className="font-medium text-slate-900 text-sm">{best.driver_name} <span className="text-slate-500 font-normal">· {best.driver_number} · {best.vehicle_name}</span></div>
       {best.reason && <p className="mt-1 text-slate-700">{best.reason}</p>}
       <ul className="space-y-1.5 my-3 text-slate-600">{best.facts.map(fact => <li key={fact} className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-px" /><span>{fact}</span></li>)}</ul>
-      <button type="button" disabled={!!busy} onClick={() => approve(decision, best.driver_id, best.driver_name)} className="app-action app-primary w-full text-white">{busy === best.driver_id ? 'Assigning…' : 'Approve'}</button>
+      <button type="button" disabled={!!busy} onClick={() => approve(decision, best.driver_id, best.driver_name)} className="app-action app-primary w-full text-white">{busy === best.driver_id ? 'Assigning…' : `Assign to ${best.driver_name}`}</button>
       {others.length > 0 && <div className="mt-3 pt-2 border-t border-slate-100 space-y-1.5">
         <div className="text-slate-500">Other options</div>
         {others.slice(0, 3).map(other => <div key={other.driver_id} className="flex items-center justify-between gap-2">
