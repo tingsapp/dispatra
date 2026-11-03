@@ -24,8 +24,6 @@ interface TopMetricsProps {
   onSelectJob: (jobNumber: string) => void;
   onSelectDriver: (driverId: string) => void;
   onActionNotification: (msg: string) => void;
-  onOpenAllDrivers?: () => void;
-  onOpenAllExceptions?: () => void;
 }
 
 export const TopMetrics: React.FC<TopMetricsProps> = ({
@@ -39,9 +37,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
   setShowNeedsAttentionPopover,
   onSelectJob,
   onSelectDriver,
-  onActionNotification,
-  onOpenAllDrivers,
-  onOpenAllExceptions
+  onActionNotification
 }) => {
   const [driverSearchQuery, setDriverSearchQuery] = useState('');
   const [driverFilterTab, setDriverFilterTab] = useState<'available' | 'all'>('available');
@@ -175,19 +171,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                 <span className="text-slate-500 text-xs">
                   Click driver to center on map
                 </span>
-                <button
-                  onClick={() => {
-                    setShowAvailableDriversMenu(false);
-                    if (onOpenAllDrivers) {
-                      onOpenAllDrivers();
-                    } else {
-                      onActionNotification('Opened Driver Roster & Schedules');
-                    }
-                  }}
-                  className="shrink-0 whitespace-nowrap font-medium text-slate-700 hover:text-slate-950"
-                >
-                  View more &rarr;
-                </button>
+
               </div>
       </FloatingPanel>
 
@@ -242,22 +226,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                 ))}
               </div>
 
-              {/* Footer */}
-              <div className="mt-2 pt-2.5 flex items-center justify-end text-xs border-t border-slate-100">
-                <button
-                  onClick={() => {
-                    setShowNeedsAttentionPopover(false);
-                    if (onOpenAllExceptions) {
-                      onOpenAllExceptions();
-                    } else {
-                      onActionNotification('Opened full Exceptions & Alerts center');
-                    }
-                  }}
-                  className="shrink-0 whitespace-nowrap font-medium text-slate-700 hover:text-slate-950"
-                >
-                  View all alerts &rarr;
-                </button>
-              </div>
+
       </FloatingPanel>
     </div>
   );

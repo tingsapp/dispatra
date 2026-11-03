@@ -3,10 +3,10 @@ import { useEffect, useRef } from 'react';
 import { roundedRoutePath } from './roundedRoutePath';
 
 /** A Google-projected SVG route with explicit rounded caps, joins and turns. */
-export function GoogleRoundedRoute({ id, points, selected }: { id: string; points: number[][]; selected: boolean }) {
+export function GoogleRoundedRoute({ id, points, selected, radius = 10 }: { id: string; points: number[][]; selected: boolean; radius?: number }) {
   const map = useMap();
-  const current = useRef({ id, points, selected });
-  current.current = { id, points, selected };
+  const current = useRef({ id, points, selected, radius });
+  current.current = { id, points, selected, radius };
   const overlay = useRef<google.maps.OverlayView | null>(null);
   useEffect(() => {
     if (!map) return;
@@ -36,13 +36,13 @@ export function GoogleRoundedRoute({ id, points, selected }: { id: string; point
           const pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng({ lat, lng }));
           return pixel ? [pixel] : [];
         });
-        path.setAttribute('d', roundedRoutePath(pixels));
+        path.setAttribute('d', roundedRoutePath(pixels, current.current.radius));
       }
       onRemove() { svg.remove(); }
     }
     const instance = new RouteOverlay(); overlay.current = instance; instance.setMap(map);
     return () => { instance.setMap(null); overlay.current = null; };
   }, [map]);
-  useEffect(() => { overlay.current?.draw(); }, [id, points, selected]);
+  useEffect(() => { overlay.current?.draw(); }, [id, points, selected, radius]);
   return null;
 }

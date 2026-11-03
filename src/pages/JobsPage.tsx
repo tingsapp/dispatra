@@ -233,8 +233,7 @@ export function JobsPage({
     const result = await reassign(job, driverId);
     if (!result) return;
     setReassigningJobId(null);
-    if (!result.updated) setActiveJobDossier(null);
-    else if (activeJobDossier?.id === job.id) setActiveJobDossier(result.updated);
+    if (result.updated && activeJobDossier?.id === job.id) setActiveJobDossier(result.updated);
   };
   const complete = useOrderCompletion({ slug, onUpdateJob, onNotification });
   const handleCompleteOrder = async (job: Job) => {
@@ -650,7 +649,7 @@ export function JobsPage({
       </div>
 
       {/* ORDER DETAILS DIALOG */}
-      {activeJobDossier && <OrderDetailsDialog job={activeJobDossier} ctx={pricingCtx} drivers={drivers} onClose={() => setActiveJobDossier(null)}
+      {activeJobDossier && <OrderDetailsDialog job={jobs.find(row => row.id === activeJobDossier.id) ?? activeJobDossier} ctx={pricingCtx} drivers={drivers} onClose={() => setActiveJobDossier(null)}
         onReassign={handleReassignDriver} onEdit={openEditOrder} onComplete={handleCompleteOrder} onLocate={job => { onSelectJob(job.jobNumber); setActiveJobDossier(null); }} />}
 
       {reviewingEmailId && slug && <IntakeDialog slug={slug} id={reviewingEmailId} onClose={() => setReviewingEmailId(null)} onNotification={onNotification}

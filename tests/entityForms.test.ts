@@ -521,7 +521,7 @@ test('Monitor assignment shows off-duty movers with a reason and only assigns an
   const user = userEvent.setup({ document });
   assert.equal((screen.getByRole('button', { name: /DDD-1001/ }) as HTMLButtonElement).disabled, true);
   assert.match(screen.getByRole('button', { name: /DDD-1001/ }).textContent!, /Off duty/);
-  const assign = screen.getByRole('button', { name: 'Assign selected driver' }) as HTMLButtonElement;
+  const assign = screen.getByRole('button', { name: 'Reassign' }) as HTMLButtonElement;
   assert.equal(assign.disabled, true);
   await user.click(screen.getByRole('button', { name: /DDD-1002/ }));
   assert.equal(assign.disabled, false);
@@ -544,7 +544,7 @@ test('Monitor allows an on-route driver to be selected for server-validated live
   assert.equal(jordanButton.disabled, true);
   assert.match(jordanButton.textContent!, /Requires shipper/);
   await user.click(alexButton);
-  await user.click(screen.getByRole('button', { name: 'Assign selected driver' }));
+  await user.click(screen.getByRole('button', { name: 'Assign' }));
   assert.equal(selected, 'alex');
 });
 test('dispatcher completes an assigned order from order details after confirming', async()=>{

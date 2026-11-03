@@ -1,9 +1,11 @@
+import { BrandMark } from "./components/layout/AppBrand";
+import { showPopupFeedback } from './components/ui/popupFeedback';
 import { ChatDialog } from './components/chat/OrderChat';
 import { DriverChatDialog } from './components/chat/DriverChatDialog';
 import type { ChatKind } from './chat/api';
 import { changeDispatchMode } from './operations/changeDispatchMode';
 import { dateTime } from './lib/dateTimeFormat';
-import { PanelLeft,Sparkles } from 'lucide-react';
+import { PanelLeft,} from 'lucide-react';
 import { AnimatePresence,motion } from 'motion/react';
 import { lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -138,7 +140,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const [showNeedsAttentionPopover, setShowNeedsAttentionPopover] = useState<boolean>(false);
   const [showNotificationPopover, setShowNotificationPopover] = useState<boolean>(false);
   const [assistantEntity, setAssistantEntity] = useState<AssistantReference | null>(null);
-  const [showActivityPopover, setShowActivityPopover] = useState(false);
+  const [showActivityPopover, setShowActivityPopover] = useState(true);
   useEffect(() => {
     if (activeTab !== 'monitor') setShowActivityPopover(false);
   }, [activeTab]);
@@ -198,7 +200,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   // Notification Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, tone: 'default' | 'error' = 'default') => {
+    if (showPopupFeedback(msg, tone)) { setToastMessage(null); return; }
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
@@ -235,7 +238,10 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   }, [drivers]);
 
   // Selecting job: Opens primary popover, ensures child and grandchild are CLOSED on-demand
+  const [planAssignment, setPlanAssignment] = useState(false);
+  const [assignmentAnchor, setAssignmentAnchor] = useState<HTMLButtonElement | null>(null);
   const handleSelectJob = useCallback((jobNumber: string, markerPosition?: [number, number]) => {
+    setPlanAssignment(false);
     const found = jobs.find((j) => j.jobNumber === jobNumber);
     if (found && (hiddenOrderIds.has(found.id) || !isActiveMonitorOrder(found))) {
       setShowJobDetail(false);
@@ -349,20 +355,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     });
   };
 
-  const handleOpenAllDrivers = () => {
-    setModalDialog({
-      isOpen: true,
-      type: 'all_drivers'
-    });
-  };
-
-  const handleOpenAllExceptions = () => {
-    setModalDialog({
-      isOpen: true,
-      type: 'all_exceptions'
-    });
-  };
-
   // Navigating from a list page to the Monitor map with the entity selected.
   // The map is unmounted while a list page is open, so the selection is queued
   // and applied once the remounted map can project coordinates again.
@@ -423,9 +415,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         if (!(await confirmDialog({ title: 'Change driver?', message: affected > 1 ? `This planned route has ${affected} orders. Releasing it will leave the other orders unassigned.` : 'The planned route will be released before the assignment changes.', confirmLabel: 'Change driver' }))) return;
       }
       await changeAssignment(slug, record, driverId, driver.currentVehicleId ?? null, route);
-      setShowAssignDriver(false); setShowJobDetail(false);
       showToast(`Assigned ${job.jobNumber} to ${driver.name}.`);
-    } catch (error) { showToast(error instanceof Error ? error.message : 'Could not assign driver.'); }
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Could not assign driver.', 'error'); }
     finally { await refreshDispatch(); }
   };
   const refreshDispatch = () => Promise.all(['orders', 'routes', 'monitor'].map(name => queryClient.invalidateQueries({ queryKey: ['operations', slug, name] })));
@@ -675,12 +666,12 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
             />
 
             {activeTab === 'monitor' && <>
-            <TodaysPlan drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} onOpenAllOrders={handleOpenAllJobs} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
+            <TodaysPlan attentionItems={needsAttentionItems} drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
               attentionIds={new Set(jobs.filter(job => needsAttentionItems.some(item => item.jobNumber === job.jobNumber)).map(job => job.id))}
               loading={!!slug && (orderQuery.isPending || settingsQuery.isPending || monitorQuery.isPending)}
               error={!!slug && (orderQuery.isError || settingsQuery.isError || monitorQuery.isError)}
               onRetry={() => { void orderQuery.refetch(); void settingsQuery.refetch(); void monitorQuery.refetch(); }}
-              onSelectOrder={handleOpenJobDossier} />
+              onSelectOrder={handleOpenJobDossier} onLocateOrder={job => { handleOrderVisibilityChange(job.id, true); handleLocateJobOnMap(job.jobNumber); }} onAssignOrder={(job, anchor) => { setAssignmentAnchor(anchor); setSelectedJobId(job.jobNumber); setPlanAssignment(true); setShowJobDetail(true); setShowDriverPopover(false); setShowAiRecommendation(false); setShowAssignDriver(true); }} />
             {/* DRIVER MARKER FLOW (D14 + Driver Actions Child) */}
             <AnimatePresence>
               {showDriverPopover && (
@@ -703,6 +694,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               {showJobDetail && (
                 <JobDetailPopover
                   job={activeJob}
+                  assignmentOnly={planAssignment}
+                  assignmentAnchor={planAssignment ? assignmentAnchor : null}
                   live={!!slug}
                   drivers={drivers}
                   stopStatuses={Object.fromEntries((routeQuery.data?.find(route => route.id === activeJob.routeId)?.stops ?? []).map(visit => [visit.stop_id, visit.status]))}
@@ -717,7 +710,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   onActionNotification={showToast}
                   onOpenFullDetails={() => handleOpenJobDossier(activeJob)}
                   onMessage={slug ? kind => setContactChat({ order: activeJob, kind, driverId: kind === 'DISPATCH_DRIVER' ? activeJob.assignedDriverId : undefined }) : undefined}
-                  onOpenAllDrivers={handleOpenAllDrivers}
                   position={markerPositions.job ?? markerPositions.job461 ?? undefined}
                   timeZone={settingsQuery.data?.data.time_zone}
                   recommendation={slug && activeRecord?.status === 'NEW' ? <DispatchRecommendation slug={slug} order={activeRecord} onClose={() => setShowAiRecommendation(false)} onAssigned={handleRecommendationAssigned} /> : undefined}
@@ -759,8 +751,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   setShowAvailableDriversMenu(false);
                 }}
                 onActionNotification={showToast}
-                onOpenAllDrivers={handleOpenAllDrivers}
-                onOpenAllExceptions={handleOpenAllExceptions}
               />}
               onSelectReference={reference => {
                 if (reference.kind === 'ORDER' && reference.order_number) {
@@ -773,6 +763,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                 else if (reference.kind === 'VEHICLE') { setAssistantEntity(reference); setActiveTab('vehicles'); }
                 else { setAssistantEntity(reference); setActiveTab('customers'); }
               }}
+              timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
               showActivityPopover={showActivityPopover}
               setShowActivityPopover={setShowActivityPopover}
               showNotificationPopover={showNotificationPopover}
@@ -797,7 +788,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               transition={{ duration: 0.18 }}
               className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-auto bg-slate-900/95 text-white px-4 py-2.5 rounded-xl shadow-xl shadow-slate-900/20 text-xs font-medium flex items-center gap-2.5"
             >
-              <Sparkles className="w-4 h-4 text-app-accent shrink-0" />
+              <BrandMark size={16} />
               <span>{toastMessage}</span>
             </motion.div>
           )}

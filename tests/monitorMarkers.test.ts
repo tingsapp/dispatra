@@ -71,7 +71,7 @@ test('all stop circles select their order at the clicked location with mouse, En
       fireEvent.keyDown(marker, { key: 'Escape' });
       assert.deepEqual(selections.slice(index * 3), Array.from({ length: 3 }, () => [job.jobNumber, [stop.lng, stop.lat]]));
     });
-    assert.equal(screen.getAllByText(`${job.jobNumber} • At Risk`).length, 1, 'The order status is retained once');
+    assert.equal(screen.getAllByText('At Risk').length, 1, 'The order status is retained once');
     assert.equal(mapClicks, 0, 'Stop clicks do not dismiss order details through the map background');
   } finally { pane.removeEventListener('click', backgroundClick); }
 });

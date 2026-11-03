@@ -30,7 +30,7 @@ export function ChatThread({ slug, orderId, driverId, shipperId, channel }: { sl
     const field = composer.current;
     if (!field) return;
     field.style.height = '0px';
-    field.style.height = `${Math.min(112, Math.max(52, field.scrollHeight))}px`;
+    field.style.height = `${Math.min(112, Math.max(24, field.scrollHeight))}px`;
   }, [draft, channel.kind]);
   const body = draft.trim();
   const submit = () => {
@@ -46,13 +46,13 @@ export function ChatThread({ slug, orderId, driverId, shipperId, channel }: { sl
         : messages?.length ? messages.map(message => <Bubble key={message.id} message={message} />)
         : <li className="py-10 text-center text-xs text-slate-500">No messages.</li>}
     </ol>
-    {channel.can_send ? <form className="relative shrink-0" onSubmit={event => { event.preventDefault(); submit(); }}>
+    {channel.can_send ? <form className="public-chat-composer app-message-composer" onSubmit={event => { event.preventDefault(); submit(); }}>
       <label className="sr-only" htmlFor={`chat-${orderId}-${channel.kind}`}>Message {channel.title}</label>
-      <textarea ref={composer} style={{minHeight:52,maxHeight:112}} id={`chat-${orderId}-${channel.kind}`} rows={1} disabled={send.isPending} maxLength={MAX_LENGTH} value={draft} placeholder="Write a message…" className="app-input block min-h-0 w-full resize-none! rounded-xl bg-white py-3 pl-3.5 pr-12 text-sm"
+      <textarea ref={composer} style={{minHeight:24,maxHeight:112}} id={`chat-${orderId}-${channel.kind}`} rows={1} disabled={send.isPending} maxLength={MAX_LENGTH} value={draft} placeholder="Write a message…" className="public-chat-input"
         onChange={event => { setDraft(event.target.value); attempt.current = crypto.randomUUID(); }}
         onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
-      {/* Icon-only send inside the field's bottom-right corner. */}
-      <Button type="submit" size="icon-sm" className="absolute right-2 bottom-2 rounded-full" disabled={!body || send.isPending} aria-busy={send.isPending}
+      {/* Keep the send action aligned with the shared composer. */}
+      <Button type="submit" size="icon-sm" className="public-chat-send" disabled={!body || send.isPending} aria-busy={send.isPending}
         aria-label={send.isPending ? 'Sending message' : 'Send message'} title="Send (Enter)"><ArrowUp className="size-5" strokeWidth={2.5} aria-hidden="true" /></Button>
     </form> : <p className="text-xs text-slate-500">{channel.closed_reason}</p>}
     {send.error && <p role="alert" className="text-xs text-red-700">{send.error.message || 'Message not sent. Try again.'}</p>}

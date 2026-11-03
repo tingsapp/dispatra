@@ -23,6 +23,6 @@ export function MonitorOrderDetails({ job, jobs, drivers, onClose, onEdit, onUpd
   // Read the current record so a local reassignment is reflected immediately.
   const current = jobs.find(row => row.id === job.id) ?? job;
   return <OrderDetailsDialog job={current} ctx={pricingCtx} drivers={drivers} onClose={onClose} onEdit={onEdit}
-    onReassign={async (row, driverId) => { const result = await reassign(row, driverId); if (result && !result.updated) onClose(); }}
+    onReassign={async (row, driverId) => { await reassign(row, driverId); }}
     onComplete={async row => { const result = await complete(row); if (result && !result.updated) onClose(); }} />;
 }

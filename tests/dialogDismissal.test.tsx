@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { after, afterEach, test } from 'node:test';
 import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true });
-for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'NodeFilter', 'Event', 'CustomEvent', 'MutationObserver', 'getComputedStyle']) {
+for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'NodeFilter', 'Event', 'CustomEvent', 'MutationObserver', 'getComputedStyle', 'localStorage']) {
   Object.defineProperty(globalThis, name, { configurable: true, value: dom.window[name as keyof Window] });
 }
 HTMLElement.prototype.scrollIntoView = () => {};
@@ -105,4 +105,50 @@ test('notification X closes the popup without reading or opening a notification'
   assert.equal(reads, 0);
   assert.equal(opens, 0);
   assert.equal(document.activeElement, trigger);
+});
+
+test('submission feedback stays inside the topmost popup and can be dismissed', async () => {
+  const { Dialog } = await import('../src/components/ui/Dialog');
+  const { showPopupFeedback } = await import('../src/components/ui/popupFeedback');
+  render(<><Dialog onClose={() => {}}>Parent form</Dialog><Dialog onClose={() => {}}>Child form</Dialog></>);
+  await act(async () => { assert.equal(showPopupFeedback('Assignment saved.'), true); });
+  const message = screen.getByRole('status');
+  assert.equal(message.textContent, 'Assignment saved.');
+  assert.ok(message.closest('[data-popup-feedback]')?.textContent?.includes('Child form'));
+  await userEvent.setup({ document }).click(screen.getByRole('button', { name: 'Dismiss message' }));
+  assert.equal(screen.queryByRole('status'), null);
+  cleanup();
+  assert.equal(showPopupFeedback('Page feedback'), false);
+});
+
+test('driver selection is pending until Confirm and closing discards it', async () => {
+  const { OrderDetailsDialog } = await import('../src/components/orders/OrderDetailsDialog');
+  const { INITIAL_JOBS, INITIAL_DRIVERS } = await import('../src/data/mockData');
+  const { loadPricingContext } = await import('../src/lib/orderPricing');
+  const calls: string[] = [];
+  const props = { job: { ...INITIAL_JOBS[0], assignedDriverId: undefined }, ctx: loadPricingContext(), drivers: INITIAL_DRIVERS,
+    onClose: () => {}, onReassign: async (_job: unknown, driver: string) => { calls.push(driver); } };
+  const view = render(<OrderDetailsDialog {...props} />);
+  const user = userEvent.setup({ document });
+  assert.equal((screen.getByRole('button', { name: /^Confirm$/ }) as HTMLButtonElement).disabled, true);
+  await user.click(screen.getByRole('combobox', { name: 'Reassign driver' }));
+  await user.click(screen.getByRole('option', { name: new RegExp(INITIAL_DRIVERS[0].name) }));
+  assert.deepEqual(calls, []);
+  view.unmount();
+  render(<OrderDetailsDialog {...props} />);
+  assert.equal((screen.getByRole('button', { name: /^Confirm$/ }) as HTMLButtonElement).disabled, true);
+  await user.click(screen.getByRole('combobox', { name: 'Reassign driver' }));
+  await user.click(screen.getByRole('option', { name: new RegExp(INITIAL_DRIVERS[0].name) }));
+  await user.click(screen.getByRole('button', { name: /^Confirm$/ }));
+  assert.deepEqual(calls, [INITIAL_DRIVERS[0].id]);
+});
+
+test('assignment errors render as red inline alerts', async () => {
+  const { Dialog } = await import('../src/components/ui/Dialog');
+  const { showPopupFeedback } = await import('../src/components/ui/popupFeedback');
+  render(<Dialog onClose={() => {}}>Assign driver</Dialog>);
+  await act(async () => { showPopupFeedback('TomTom routing credits are exhausted.', 'error'); });
+  const alert = screen.getByRole('alert');
+  assert.ok(alert.classList.contains('text-red-700'));
+  assert.ok(alert.classList.contains('bg-red-50'));
 });

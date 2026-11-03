@@ -1,16 +1,29 @@
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { api } from '../../portal/api';
+import { accountWorkspace } from '../../lib/workspaceEntry';
 import { BrandLogo } from '../layout/AppBrand';
 
 const linkClass = 'w-fit rounded text-sm text-app-muted transition-colors hover:text-app-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-accent focus-visible:ring-offset-4';
 
 export function PublicFooter({ workspaceHref }: { workspaceHref?: string }) {
+  const [sessionHref, setSessionHref] = useState<string>();
+  useEffect(() => {
+    if (workspaceHref) return;
+    let active = true;
+    void api.me().then(account => {
+      if (active) setSessionHref(accountWorkspace(account));
+    }).catch(() => { if (active) setSessionHref(undefined); });
+    return () => { active = false; };
+  }, [workspaceHref]);
+  const destination = workspaceHref ?? sessionHref;
   return <footer className="public-footer mt-8 bg-slate-50/70">
     <div className="mx-auto max-w-7xl px-6 lg:px-10">
       <div className="grid grid-cols-2 gap-x-6 gap-y-9 py-10 sm:py-12 lg:grid-cols-[1.5fr_1fr_1fr_1fr] lg:gap-12">
         <div className="col-span-2 lg:col-span-1">
           <a href="/" aria-label="Dispatra home" className="inline-flex min-w-0 items-center gap-2.5 text-xl font-medium tracking-tight"><BrandLogo /></a>
           <p className="mt-4 max-w-xs text-sm leading-6 text-app-muted">Intelligent dispatch that keeps your business moving and you in control.</p>
-          <a href={workspaceHref ?? '/login'} className={`${linkClass} mt-5 inline-flex items-center gap-2`}>{workspaceHref ? 'Open my workspace' : 'Sign in to your workspace'}<ArrowRight className="size-3.5" aria-hidden="true" /></a>
+          <a href={destination ?? '/login'} className={`${linkClass} mt-5 inline-flex items-center gap-2`}>{destination ? 'Open my workspace' : 'Sign in to your workspace'}<ArrowRight className="size-3.5" aria-hidden="true" /></a>
         </div>
         <nav aria-label="Resources" className="flex flex-col items-start gap-3">
           <h3 className="mb-1 text-sm font-medium">Resources</h3>

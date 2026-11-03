@@ -6845,7 +6845,7 @@ export interface components {
              * @default GOOGLE
              * @enum {string}
              */
-            provider: "GOOGLE" | "TOMTOM";
+            provider: "GOOGLE" | "TOMTOM" | "OPENROUTESERVICE";
             /**
              * Truck Profile Applied
              * @default false

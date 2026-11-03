@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -16,11 +16,44 @@ export const DialogCloseButton = React.forwardRef<HTMLButtonElement, Omit<React.
   },
 );
 
-export function Dialog({ onClose, size = 'md', children, className, entity = true, zIndex = 'z-50' }: {
-  onClose: () => void; size?: keyof typeof SIZE; children: React.ReactNode; className?: string; entity?: boolean; zIndex?: string;
+export function Dialog({ onClose, size = 'md', children, className, entity = true, modal = true, label, anchor, zIndex = 'z-50' }: {
+  onClose: () => void; size?: keyof typeof SIZE; children: React.ReactNode; className?: string; entity?: boolean; modal?: boolean; label?: string; anchor?: HTMLElement | null; zIndex?: string;
 }) {
-  return <div {...(entity ? { 'data-entity-dialog': true } : {})} className={cn('app-dialog-backdrop fixed inset-0 flex items-center justify-center p-4 animate-in fade-in duration-150', zIndex)} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className={cn('app-dialog-surface w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-150', SIZE[size], className)} onMouseDown={e => e.stopPropagation()}>{children}</div>
+  const surface = useRef<HTMLDivElement>(null);
+  const [message, setMessage] = useState('');
+  const [messageTone, setMessageTone] = useState<'default' | 'error'>('default');
+  const [anchorStyle, setAnchorStyle] = useState<React.CSSProperties>();
+  useLayoutEffect(() => {
+    if (!anchor || modal) { setAnchorStyle(undefined); return; }
+    const update = () => {
+      const rect = anchor.getBoundingClientRect();
+      const panel = surface.current;
+      if (!panel) return;
+      const width = panel.offsetWidth, height = panel.offsetHeight;
+      const right = rect.right + 12;
+      const left = right + width <= window.innerWidth - 12 ? right : rect.left - width - 12;
+      setAnchorStyle({ position: 'fixed', left: Math.max(12, Math.min(left, window.innerWidth - width - 12)), top: Math.max(12, Math.min(rect.top, window.innerHeight - height - 12)) });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    if (surface.current) observer.observe(surface.current);
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => { observer.disconnect(); window.removeEventListener('resize', update); window.removeEventListener('scroll', update, true); };
+  }, [anchor, modal]);
+  useEffect(() => {
+    const panel = surface.current;
+    const receive = (event: Event) => { const detail = (event as CustomEvent<{ message: string; tone: 'default' | 'error' }>).detail; setMessage(detail.message); setMessageTone(detail.tone); };
+    panel?.addEventListener('popup-feedback', receive);
+    return () => panel?.removeEventListener('popup-feedback', receive);
+  }, []);
+  return <div {...(entity ? { 'data-entity-dialog': true } : {})} className={cn('fixed inset-0 flex items-center justify-center p-4 animate-in fade-in duration-150', modal ? 'app-dialog-backdrop' : 'pointer-events-none', zIndex)} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div ref={surface} style={anchorStyle} role={!modal ? "dialog" : undefined} aria-label={label} aria-modal={!modal ? false : undefined} data-popup-feedback className={cn('app-dialog-surface pointer-events-auto w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-150', SIZE[size], className)} onMouseDown={e => e.stopPropagation()}>
+      {children}
+      {message && <div role={messageTone === 'error' ? 'alert' : 'status'} aria-live={messageTone === 'error' ? 'assertive' : 'polite'} aria-atomic="true" className={cn("mx-5 mb-4 flex shrink-0 items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm", messageTone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-800')}><span>{message}</span>
+        <button type="button" aria-label="Dismiss message" onClick={() => setMessage('')} className="shrink-0 text-slate-500"><X className="h-4 w-4" /></button>
+      </div>}
+    </div>
   </div>;
 }
 

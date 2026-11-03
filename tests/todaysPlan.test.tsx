@@ -4,7 +4,7 @@ import { after, afterEach, test } from 'node:test';
 import React from 'react';
 import { INITIAL_JOBS } from '../src/data/mockData';
 import type { Job } from '../src/types';
-import { companyDay, createdDay, todaysPlan } from '../src/components/monitor/todaysPlan';
+import { companyDay, createdDay, ordersCompletedToday, todaysPlan } from '../src/components/monitor/todaysPlan';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'Event']) Object.defineProperty(globalThis, name, { configurable: true, value: dom.window[name as keyof Window] });
@@ -57,12 +57,12 @@ test('shows one direct order list with status and customer; a click opens detail
   assert.ok(within(button).getByText('Completed'));
   assert.ok(within(button).getByText(job.customerName));
   assert.equal(button.getAttribute('aria-haspopup'), 'dialog');
-  assert.ok(within(list).getByText(unassigned.statusLabel));
+  assert.ok(within(list).getByText('New'));
   assert.ok(within(list).getByLabelText('Needs attention'));
   fireEvent.click(button);
   assert.equal(selected, job);
   assert.equal(screen.getAllByRole('list').length, 1);
-  assert.equal(screen.getAllByRole('button').length, 3);
+  assert.equal(screen.getAllByRole('button').length, 4);
   assert.equal(screen.queryByRole('button', { name: 'Close matching orders' }), null);
   assert.equal(screen.getByRole('button', { name: /Today’s plan/ }).getAttribute('aria-expanded'), 'true');
 });
@@ -109,7 +109,7 @@ test('collapses for chat, restores afterward, and respects intentional hiding', 
 });
 
 
-test('sorts newest first without mutating the source and searches one list without tabs', () => {
+test('sorts newest first without mutating the source and searches the filtered list', () => {
   const today = companyDay(new Date(), zone);
   const older = order('older', 'NEW', `${today}T09:00`);
   const newer = order('newer', 'NEW', `${today}T09:00`);
@@ -121,7 +121,7 @@ test('sorts newest first without mutating the source and searches one list witho
   render(<TodaysPlan jobs={jobs} attentionIds={new Set()} timeZone={zone} onRetry={() => {}} onSelectOrder={() => {}} />);
   const list = screen.getByRole('list', { name: 'Orders created today' });
   assert.match(within(list).getAllByRole('listitem')[0].textContent!, /#newer/);
-  assert.equal(screen.queryByRole('tab'), null);
+  assert.equal(screen.getAllByRole('tab').length, 6);
   fireEvent.change(screen.getByRole('searchbox', { name: 'Search today’s orders' }), { target: { value: '#older' } });
   assert.equal(within(list).getAllByRole('listitem').length, 1);
   assert.equal(within(list).queryByText('#newer'), null);
@@ -136,7 +136,7 @@ test('shows saved delivery deadline, current driver, destination and customer wi
   const drivers = [{ id: 'driver-1', name: 'Ahmed' }] as import('../src/types').Driver[];
   render(<TodaysPlan jobs={[job]} drivers={drivers} attentionIds={new Set()} timeZone={zone} onRetry={() => {}} onSelectOrder={() => {}} />);
   const row = within(screen.getByRole('list')).getByRole('button');
-  assert.ok(within(row).getByText('Due 15:30'));
+  assert.ok(within(row).getByText(`Due ${new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(`${today}T22:30:00Z`))}`));
   assert.ok(within(row).getByText('Driver: Ahmed'));
   assert.ok(row.textContent?.includes(job.dropoffAddress));
   assert.ok(within(row).getByText(job.customerName));
@@ -164,7 +164,7 @@ test('retains delivery dates for other days and compares today in company timezo
   job.pricingInput = { stops: [{ id: 'drop', type: 'DROPOFF', windowEnd: deadline.toISOString() }] } as Job['pricingInput'];
   render(<TodaysPlan jobs={[job]} attentionIds={new Set()} timeZone={zone} onRetry={() => {}} onSelectOrder={() => {}} />);
   const label = screen.getByText(/^Due /).textContent!;
-  assert.match(label, /15:30/);
+  assert.match(label, new RegExp(new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(deadline)));
   assert.notEqual(label, 'Due 15:30');
 });
 
@@ -174,6 +174,134 @@ test('shows missing driver once when already conveyed by the status badge', () =
   const job = { ...order('unassigned', 'NEW', `${today}T09:00`), driverName: undefined, status: 'no_driver' as const, statusLabel: 'No Driver' };
   render(<TodaysPlan jobs={[job]} attentionIds={new Set()} timeZone={zone} onRetry={() => {}} onSelectOrder={() => {}} />);
   const row = within(screen.getByRole('list')).getByRole('button');
-  assert.equal(within(row).getAllByText(/no driver/i).length, 1);
+  assert.ok(within(row).getByText('New'));
+  assert.equal(within(row).queryByText(/no driver/i), null);
   assert.ok(screen.getByText(/1 unassigned/));
+});
+
+
+test('tabs filter orders and Assign opens assignment without opening details', () => {
+  const today = companyDay(new Date(), zone);
+  const jobs = [order('new', 'NEW', `${today}T09:00`), { ...order('assigned', 'ASSIGNED', `${today}T09:00`), assignedDriverId: 'driver-1' }];
+  let assigned: Job | undefined;
+  render(<TodaysPlan jobs={jobs} attentionIds={new Set(['new'])} timeZone={zone} onRetry={() => {}} onSelectOrder={() => { throw new Error('Unexpected details'); }} onAssignOrder={job => { assigned = job; }} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Assign #new' }));
+  assert.equal(assigned, jobs[0]);
+  fireEvent.click(screen.getByRole('button', { name: 'Reassign #assigned' }));
+  assert.equal(assigned, jobs[1]);
+  assert.deepEqual(screen.getAllByRole('tab').map(tab => tab.textContent), ['All', 'New', 'Assigned', 'In progress', 'Completed', 'At risk']);
+  fireEvent.click(screen.getByRole('tab', { name: 'Assigned' }));
+  assert.equal(within(screen.getByRole('list')).getAllByRole('listitem').length, 1);
+  assert.equal(screen.queryByRole('button', { name: 'Assign #new' }), null);
+  fireEvent.click(screen.getByRole('tab', { name: 'At risk' }));
+  assert.ok(screen.getByRole('button', { name: 'Assign #new' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'New' }));
+  assert.equal(within(screen.getByRole('list')).getAllByRole('listitem').length, 1);
+  fireEvent.click(screen.getByRole('tab', { name: 'All' }));
+  assert.equal(within(screen.getByRole('list')).getAllByRole('listitem').length, 2);
+});
+
+test('standalone assignment shows the driver panel without marker order details', async () => {
+  const { JobDetailPopover } = await import('../src/components/JobDetailPopover');
+  const today = companyDay(new Date(), zone);
+  const job = order('standalone', 'NEW', `${today}T09:00`);
+  render(<JobDetailPopover job={job} live assignmentOnly showAssignDriver showAiRecommendation={false}
+    setShowAssignDriver={() => {}} setShowAiRecommendation={() => {}} onClose={() => {}}
+    onApproveRecommendation={() => {}} onKeepCurrent={() => {}} onActionNotification={() => {}} />);
+  assert.ok(screen.getByPlaceholderText('Search drivers...'));
+  assert.equal(document.querySelector('[data-map-detail-overlay="job"]'), null);
+  assert.ok(document.querySelector('[data-map-detail-overlay="assignment"]'));
+  assert.ok(screen.getByRole('dialog', { name: 'Assign driver' }));
+  assert.equal(document.querySelector('.app-dialog-backdrop'), null);
+  assert.equal(screen.getByRole('dialog', { name: 'Assign driver' }).getAttribute('aria-modal'), 'false');
+});
+
+
+test('map button beneath visibility control focuses its order without opening details', () => {
+  const today = companyDay(new Date(), zone);
+  const job = order('locate', 'NEW', `${today}T09:00`);
+  let located: Job | undefined;
+  render(<TodaysPlan jobs={[job]} attentionIds={new Set()} timeZone={zone} onRetry={() => {}}
+    onOrderVisibilityChange={() => {}} hiddenOrderIds={new Set([job.id])}
+    onSelectOrder={() => { throw new Error('Unexpected details'); }} onLocateOrder={value => { located = value; }} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Focus #locate on map' }));
+  assert.equal(located, job);
+});
+
+
+test('warning button toggles warning details without opening the order', () => {
+  const today = companyDay(new Date(), zone);
+  const job = { ...order('warning', 'NEW', `${today}T09:00`), status: 'at_risk' as const, riskText: 'Delivery window may be missed' };
+  render(<TodaysPlan jobs={[job]} attentionIds={new Set([job.id])} timeZone={zone} onRetry={() => {}}
+    onSelectOrder={() => { throw new Error('Unexpected order dialog'); }} />);
+  const warning = screen.getByRole('button', { name: 'Needs attention' });
+  fireEvent.click(warning);
+  assert.match(screen.getByRole('region', { name: 'Warnings for #warning' }).textContent!, /Delivery window may be missed/);
+  fireEvent.click(warning);
+  assert.equal(screen.queryByRole('region', { name: 'Warnings for #warning' }), null);
+});
+
+test('centered driver picker stages selection until submit and prevents duplicate submissions', async () => {
+  const { JobDetailPopover } = await import('../src/components/JobDetailPopover');
+  const { INITIAL_DRIVERS } = await import('../src/data/mockData');
+  const { act } = await import('@testing-library/react');
+  const driver = { ...INITIAL_DRIVERS[2], dutyStatus: 'ON_DUTY' as const, currentVehicleId: 'vehicle-test' };
+  const job = order('assign-confirm', 'NEW', `${companyDay(new Date(), zone)}T09:00`);
+  const assigned: string[] = [];
+  let finish!: () => void;
+  render(<JobDetailPopover job={job} drivers={[driver]} live assignmentOnly showAssignDriver showAiRecommendation={false}
+    setShowAssignDriver={() => {}} setShowAiRecommendation={() => {}} onClose={() => {}}
+    onApproveRecommendation={() => {}} onKeepCurrent={() => {}} onActionNotification={() => {}}
+    onAssignDriver={id => { assigned.push(id); return new Promise<void>(resolve => { finish = resolve; }); }} />);
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(driver.name) }));
+  assert.deepEqual(assigned, []);
+  fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+  assert.deepEqual(assigned, [driver.id]);
+  const pending = screen.getByRole('button', { name: 'Assigning…' }) as HTMLButtonElement;
+  assert.equal(pending.disabled, true);
+  fireEvent.click(pending);
+  assert.equal(assigned.length, 1);
+  await act(async () => { finish(); });
+});
+
+test('daily completions use company-local completion dates independently of creation dates', () => {
+  const completed = (id: string, completedAt?: string) => ({
+    ...order(id, 'COMPLETED', '2026-10-01T09:00'), completedAt,
+  });
+  const jobs = [
+    completed('earlier-created', '2026-10-28T01:00:00Z'),
+    completed('yesterday', '2026-10-27T01:00:00Z'),
+    completed('tomorrow', '2026-10-28T12:00:00Z'),
+    completed('missing'), completed('invalid', 'invalid'),
+    { ...completed('reopened', '2026-10-28T01:00:00Z'), lifecycleStatus: 'IN_PROGRESS' as const },
+  ];
+  assert.deepEqual(ordersCompletedToday(jobs, '2026-10-27', zone).map(job => job.id), ['earlier-created']);
+});
+
+
+test('In progress tab shows only started orders and keeps search filtering', () => {
+  const today = companyDay(new Date(), zone);
+  const moving = order('moving-filter', 'IN_PROGRESS', `${today}T09:00`);
+  const assigned = order('assigned-filter', 'ASSIGNED', `${today}T09:00`);
+  render(<TodaysPlan jobs={[moving, assigned]} attentionIds={new Set()} timeZone={zone} onRetry={() => {}} onSelectOrder={() => {}} />);
+  fireEvent.click(screen.getByRole('tab', { name: 'In progress' }));
+  const list = screen.getByRole('list', { name: 'Orders created today' });
+  assert.equal(within(list).getAllByRole('listitem').length, 1);
+  assert.ok(within(list).getByText('#moving-filter'));
+  assert.equal(within(list).queryByText('#assigned-filter'), null);
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search today’s orders' }), { target: { value: 'no match' } });
+  assert.ok(screen.getByText('No matching orders found.'));
+});
+
+
+test('Completed tab shows only completed orders', () => {
+  const today = companyDay(new Date(), zone);
+  const done = order('done-filter', 'COMPLETED', `${today}T09:00`);
+  const moving = order('moving-filter', 'IN_PROGRESS', `${today}T09:00`);
+  render(<TodaysPlan jobs={[done, moving]} attentionIds={new Set()} timeZone={zone} onRetry={() => {}} onSelectOrder={() => {}} />);
+  fireEvent.click(screen.getByRole('tab', { name: 'Completed' }));
+  const list = screen.getByRole('list', { name: 'Orders created today' });
+  assert.equal(within(list).getAllByRole('listitem').length, 1);
+  assert.ok(within(list).getByText('#done-filter'));
+  assert.equal(within(list).queryByText('#moving-filter'), null);
 });

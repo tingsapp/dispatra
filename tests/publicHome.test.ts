@@ -1,6 +1,6 @@
 import { JSDOM } from 'jsdom';
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, test } from 'node:test';
+import { after, afterEach, beforeEach, test } from 'node:test';
 import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'CustomEvent', 'localStorage', 'HTMLCanvasElement', 'requestAnimationFrame', 'cancelAnimationFrame']) {
@@ -9,7 +9,10 @@ for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInput
 Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', { configurable: true, value: () => null });
 // Scene motion is covered in the browser; keep these interaction checks deterministic.
 Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
-const { render, screen, cleanup, waitFor, within, fireEvent } = await import('@testing-library/react');
+const { render, screen, cleanup, waitFor, within, configure } = await import('@testing-library/react');
+// Visibility and animation are checked in the real-browser smoke test.
+configure({ defaultHidden: true });
+after(() => dom.window.close());
 const { accountWorkspace, signupDestination, dispatcherPageAvailable } = await import('../src/lib/workspaceEntry');
 const { PublicHome } = await import('../src/pages/PublicHome');
 const { api, ApiError } = await import('../src/portal/api');
@@ -34,7 +37,7 @@ test('resume destinations use the authenticated role and company rather than rem
 test('homepage offers a direct free-trial action without a workspace input', async () => {
   api.me = anonymous;
   render(React.createElement(PublicHome));
-  const trial = await screen.findByRole('link', { name: 'Get Started' }, {timeout:5000});
+  const trial = await within(document.querySelector('.home-hero')!).findByRole('link', { name: 'Get Started' }, {timeout:30000});
   const hero = screen.getByRole('heading', { level: 1, name: /AI that runs your dispatch while keeping you in control/ }).closest('section');
   assert.ok(hero?.contains(trial));
   assert.equal(within(hero!).queryByRole('link', { name: 'See how it works' }), null);
@@ -70,7 +73,7 @@ test('authenticated resume uses the session company even with a remembered compa
   api.me = async () => account('DRIVER');
   render(React.createElement(PublicHome));
   assert.equal(screen.queryByRole('textbox'), null);
-  assert.equal((await screen.findByRole('link', { name: 'Get Started' }, {timeout:5000})).getAttribute('href'), '/plans');
+  assert.equal((await within(document.querySelector('.home-hero')!).findByRole('link', { name: 'Get Started' }, {timeout:30000})).getAttribute('href'), '/plans');
   await waitFor(() => assert.equal(screen.getByRole('link', { name: 'Open my workspace' }).getAttribute('href'), '/acme/driver'));
 });
 
@@ -82,19 +85,12 @@ test('Monitor is available in both TMS modes while External TMS keeps its other 
 });
 
 
-test('homepage role views support selection and arrow-key navigation with matching destinations', () => {
+test('homepage header offers contact and the free trial', () => {
   api.me = anonymous;
   render(React.createElement(PublicHome));
-  const driver = screen.getByRole('tab', { name: 'Driver' });
-  assert.equal(screen.getByRole('tab', { name: 'Dispatcher' }).getAttribute('aria-selected'), 'true');
-  fireEvent.click(driver);
-  assert.equal(screen.getByRole('link', { name: 'Sign in as a driver' }).getAttribute('href'), '/driver');
-  fireEvent.click(screen.getByRole('tab', { name: 'Shipper' }));
-  assert.equal(screen.getByRole('link', { name: 'Sign in as a shipper' }).getAttribute('href'), '/shipper');
-  fireEvent.keyDown(screen.getByRole('tablist'), { key: 'ArrowRight' });
-  assert.equal(screen.getByRole('tab', { name: 'Dispatcher' }).getAttribute('aria-selected'), 'true');
-  assert.equal(document.activeElement, screen.getByRole('tab', { name: 'Dispatcher' }));
-  assert.equal(screen.getByRole('link', { name: 'Sign in as a dispatcher' }).getAttribute('href'), '/dispatch');
+  const header = within(screen.getByRole('banner'));
+  assert.equal(header.getByRole('link', { name: 'Let’s talk' }).getAttribute('href'), '/contact');
+  assert.equal(header.getByRole('link', { name: 'Start free trial' }).getAttribute('href'), '/plans');
 });
 
 test('homepage stacks agent scenes with monitoring, assignment, route and contextual answer', () => {

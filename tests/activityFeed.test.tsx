@@ -34,25 +34,26 @@ function mount(active = true) {
   return render(<QueryClientProvider client={cache}><Actions active={active} /></QueryClientProvider>);
 }
 
-test('Monitor popup contains only chat, keeps its composer mounted and never reads activity', async () => {
+test('Monitor opens the daily summary, switches to chat on submit and keeps its composer mounted', async () => {
   let reads = 0;
   operations.activity = async () => { reads++; return page([]); };
   operations.assistant = async () => ({ message: 'Your orders are ready.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false });
   mount(); const user = userEvent.setup({ document });
   const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
-  assert.equal(input.getAttribute('aria-expanded'), 'false');
+  assert.equal(input.getAttribute('aria-expanded'), 'true');
   await user.click(input);
-  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra' }), null);
+  assert.ok(screen.getByLabelText('Daily summary'));
   await user.type(input, '   {Enter}');
-  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra' }), null);
+  assert.ok(screen.getByLabelText('Daily summary'));
   await user.clear(input);
   await user.type(input, 'Check my orders');
-  assert.equal(input.getAttribute('aria-expanded'), 'false');
-  assert.equal(screen.queryByRole('dialog', { name: 'Dispatra' }), null);
+  assert.equal(input.getAttribute('aria-expanded'), 'true');
+  assert.ok(screen.getByLabelText('Daily summary'));
   assert.ok(input.closest('.public-chat-composer'));
   await user.click(screen.getByRole('button', { name: 'Send message' }));
   const panel = screen.getByRole('dialog', { name: 'Dispatra' });
   await screen.findByText('Your orders are ready.');
+  assert.equal(screen.queryByLabelText('Daily summary'), null);
   assert.equal(within(panel).queryByText('Live activity'), null);
   assert.equal(within(panel).queryByRole('group', { name: 'Suggested questions' }), null);
   await user.type(input, 'Next question');

@@ -36,7 +36,7 @@ class FakeLatLng {
 }
 class FakeOverlay {
   onAdd() {} draw() {} onRemove() {}
-  getPanes() { return { overlayMouseTarget: pane }; }
+  getPanes() { return { overlayMouseTarget: pane, overlayLayer: pane }; }
   getProjection() { const project = ({ position }: FakeLatLng) => ({ x: position.lng * 100, y: position.lat * 100 }); return { fromLatLngToDivPixel: project, fromLatLngToContainerPixel: project }; }
   setMap(map: unknown) { if (map) { this.onAdd(); this.draw(); } else this.onRemove(); }
 }
@@ -73,19 +73,19 @@ test('checkboxes hide complete order markers and cached road paths without selec
       <MonitorMapContent demo={false} jobs={rows.filter(row=>isActiveMonitorOrder(row)&&!hidden.has(row.id))} drivers={[INITIAL_DRIVERS[0]]} onSelectJob={()=>{}} onSelectDriver={()=>{}} layerConfig={{mode:'map',traffic:false,labels:true}} /></>;
   }
   const view=render(tree(<Harness/>));const user=userEvent.setup({document});
-  await waitFor(()=>assert.equal(lines.size,2));assert.deepEqual(calls.sort(),['first','second']);assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length,2);
+  await waitFor(()=>assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,2));assert.deepEqual(calls.sort(),['first','second']);assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length,2);
   const beforeToggle = fits.length;
   await user.click(screen.getByRole('checkbox',{name:'Show #100 on map'}));
   await waitFor(() => assert.ok(fits.length > beforeToggle, 'Checkbox changes automatically fit the remaining visible work'));
-  assert.equal(screen.queryByRole('button',{name:/^Order #100,/}),null);assert.equal(lines.size,1);assert.deepEqual(selected,[]);assert.ok(screen.getByRole('region',{name:'Today’s plan'}));
+  assert.equal(screen.queryByRole('button',{name:/^Order #100,/}),null);assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,1);assert.deepEqual(selected,[]);assert.ok(screen.getByRole('region',{name:'Today’s plan'}));
   await user.type(screen.getByPlaceholderText('Search orders, shippers or addresses...'),'200');assert.equal(screen.queryByRole('checkbox',{name:'Show #100 on map'}),null);
   await user.clear(screen.getByPlaceholderText('Search orders, shippers or addresses...'));assert.equal((screen.getByRole('checkbox',{name:'Show #100 on map'}) as HTMLInputElement).checked,false);
   view.rerender(<QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><Harness rows={[{...orders[0],version:2},orders[1],job('new','#300')]} /></APIProviderContext.Provider></QueryClientProvider>);
-  await waitFor(()=>assert.equal(lines.size,2));assert.equal(calls.includes('first')&&calls.filter(id=>id==='first').length,1,'hidden refreshed order never requests a new road path');
+  await waitFor(()=>assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,2));assert.equal(calls.includes('first')&&calls.filter(id=>id==='first').length,1,'hidden refreshed order never requests a new road path');
   assert.equal((screen.getByRole('checkbox',{name:'Show #100 on map'}) as HTMLInputElement).checked,false);assert.equal((screen.getByRole('checkbox',{name:'Show #300 on map'}) as HTMLInputElement).checked,true);
-  await user.click(screen.getByRole('checkbox',{name:'Show #100 on map'}));await waitFor(()=>assert.equal(lines.size,3));assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length,2);
+  await user.click(screen.getByRole('checkbox',{name:'Show #100 on map'}));await waitFor(()=>assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,3));assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length,2);
   for(const number of ['#100','#200','#300']) await user.click(screen.getByRole('checkbox',{name:`Show ${number} on map`}));
-  assert.equal(lines.size,0);assert.equal(screen.queryByRole('button',{name:/^Order #/}),null);assert.ok(screen.getByRole('button',{name:/^Driver /}));
+  assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,0);assert.equal(screen.queryByRole('button',{name:/^Order #/}),null);assert.ok(screen.getByRole('button',{name:/^Driver /}));
   await waitFor(() => assert.deepEqual((pans.at(-1) as FakeLatLng).toJSON(), {lat:INITIAL_DRIVERS[0].lat,lng:INITIAL_DRIVERS[0].lng}));
 });
 
@@ -99,7 +99,7 @@ test('full Active Orders list shares visibility controls and excludes completed/
 
 test('an explicitly empty prototype map does not resurrect seed markers or route lines', () => {
   render(tree(<MonitorMapContent demo jobs={[]} drivers={[]} active={false} onSelectJob={()=>{}} onSelectDriver={()=>{}} layerConfig={{mode:'map',traffic:false,labels:true}} />));
-  assert.equal(screen.queryByRole('button',{name:/^Order /}),null);assert.equal(lines.size,0);
+  assert.equal(screen.queryByRole('button',{name:/^Order /}),null);assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,0);
 });
 
 test('Drivers popup filters/searches real records and selects a driver with the keyboard', async () => {
@@ -121,7 +121,7 @@ test('live bounds react to arrivals, completion, checkboxes, changed coordinates
   const props = { demo: false, drivers: [], onSelectJob() {}, onSelectDriver() {}, layerConfig: { mode: 'map' as const, traffic: false, labels: true } };
   const content = (rows: Job[]) => <QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><MonitorMapContent {...props} jobs={rows} /></APIProviderContext.Provider></QueryClientProvider>;
   const view = render(tree(<MonitorMapContent {...props} jobs={orders} />));
-  await waitFor(() => assert.ok(fits.length && lines.size === 2, 'Initial bounds and road paths must settle'));
+  await waitFor(() => assert.ok(fits.length && pane.querySelectorAll('svg[data-shipper-route]').length === 2, 'Initial bounds and road paths must settle'));
   // Let cached road geometry settle before testing identical data refreshes.
   await new Promise(resolve => setTimeout(resolve, 80));
   const initial = fits.length;
@@ -144,7 +144,7 @@ test('live bounds react to arrivals, completion, checkboxes, changed coordinates
   assert.equal(screen.queryByRole('button',{name:/^Order #100,/}),null);
   view.rerender(content([]));
   await waitFor(() => assert.equal(zooms.at(-1),11));
-  assert.deepEqual(pans.at(-1),{lat:49.2827,lng:-123.1207});assert.equal(lines.size,0);
+  assert.deepEqual(pans.at(-1),{lat:49.2827,lng:-123.1207});assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,0);
   const beforeRestore = fits.length;
   view.rerender(content(orders));await waitFor(() => assert.ok(fits.length > beforeRestore, "Restored orders must return to bounds"));
   const beforeMove = fits.length;
@@ -189,20 +189,20 @@ test('unassigned previews draw road geometry and assignment refresh replaces the
   operations.orderRoadPath = async () => ({ points:[[49.2,-123.1],[49.3,-123.2]],provider:'GOOGLE',preview:true,truck_profile_applied:false,attribution:'' });
   const props={demo:false,jobs:[orders[0]],drivers:[],onSelectJob:()=>{},onSelectDriver:()=>{},layerConfig:{mode:'map' as const,traffic:false,labels:true}};
   const view=render(tree(<MonitorMapContent {...props}/>));
-  await waitFor(()=>assert.equal(lines.size,1));
+  await waitFor(()=>assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,1));
   assert.ok(screen.getByText('Road preview · no vehicle assigned'));
   operations.orderRoadPath = async () => ({ points:[[49.2,-123.1],[49.25,-123.18],[49.3,-123.2]],provider:'TOMTOM',preview:false,truck_profile_applied:true,attribution:'© TomTom' });
   view.rerender(<QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><MonitorMapContent {...props} jobs={[{...orders[0],version:2,assignedDriverId:'assigned'}]}/></APIProviderContext.Provider></QueryClientProvider>);
   await waitFor(()=>assert.ok(screen.getByLabelText('Route data attribution').textContent?.includes('TomTom')));
   assert.equal(screen.queryByText('Road preview · no vehicle assigned'),null);
-  await waitFor(()=>assert.equal([...lines][0].path.length,3));
+  await waitFor(()=>assert.ok(pane.querySelector('svg[data-shipper-route] path')?.getAttribute('d')?.includes('Q'), 'Refreshed three-point road geometry draws its rounded bend'));
 });
 
 test('failed route requests keep stops visible and explain the missing route', async () => {
   operations.orderRoadPath=async()=>{throw new Error('Truck profile required');};
   render(tree(<MonitorMapContent demo={false} jobs={[orders[0]]} drivers={[]} onSelectJob={()=>{}} onSelectDriver={()=>{}} layerConfig={{mode:'map',traffic:false,labels:true}}/>));
   await waitFor(()=>assert.ok(screen.getByRole('status').textContent?.includes('Route unavailable for 1 order')));
-  assert.equal(lines.size,0);
+  assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,0);
   assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length,2);
 });
 

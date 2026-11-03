@@ -1,3 +1,4 @@
+import { GoogleRoundedRoute } from './map/GoogleRoundedRoute';
 import { APP_ACCENT } from '../lib/appearance';
 import { APIProvider, Map, Polyline, useMap } from '@vis.gl/react-google-maps';
 import { Plane, Truck } from 'lucide-react';
@@ -59,7 +60,6 @@ const GREEN_PATH = path(GREEN_ROUTE_WAYPOINTS);
 const ORANGE_PATH = path(ORANGE_ROUTE_WAYPOINTS);
 
 /** Order road paths on the live map. */
-const ROUTE_COLOR = '#000000';
 
 function routePosition(progress: number) {
   const waypoints = BLUE_ROUTE_WAYPOINTS;
@@ -226,7 +226,7 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     queryKey: ['operations', slug, 'road-path', job.id, job.version, stops.map(stop => `${stop.lat},${stop.lng}`).join('|')],
     queryFn: () => operations.orderRoadPath(slug!, job.id),
     enabled: !!slug && stops.length > 1 && props.active !== false, staleTime: 120_000, gcTime: 180_000,
-    retry: false,
+    retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
   })) });
   const roadPaths: Record<string, google.maps.LatLngLiteral[]> = Object.fromEntries(visibleJobs.flatMap(({ job }, index) => {
     const points = pathQueries[index]?.data?.points;
@@ -272,7 +272,7 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     {visibleJobs.map(({ job, stops }) => {
       const path = roadPaths[job.id];
       return <Fragment key={job.id}>
-        {path && path.length > 1 && <Polyline path={path} strokeColor={ROUTE_COLOR} strokeOpacity={0.85} strokeWeight={4} clickable={false} />}
+        {path && path.length > 1 && <GoogleRoundedRoute radius={24} id={job.id} points={path.map(point => [point.lat, point.lng])} selected={true} />}
         <GoogleOrderMarkers job={job} stops={stops} onSelect={props.onSelectJob} />
       </Fragment>;
     })}

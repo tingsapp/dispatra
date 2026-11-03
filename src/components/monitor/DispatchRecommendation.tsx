@@ -1,6 +1,7 @@
+import { BrandMark } from "../layout/AppBrand";
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, RefreshCw, Sparkles, X } from 'lucide-react';
+import { CheckCircle2, RefreshCw, X } from 'lucide-react';
 import { operations, type DispatchDecision, type Order } from '../../operations/api';
 
 const AI_DOWN: Record<string, string> = { AI_NOT_CONFIGURED: 'AI ranking is not configured', AI_RATE_LIMITED: 'AI ranking is busy', AI_AUTHENTICATION_FAILED: 'AI ranking cannot sign in' };
@@ -9,7 +10,7 @@ const AI_DOWN: Record<string, string> = { AI_NOT_CONFIGURED: 'AI ranking is not 
 export function DispatchRecommendation({ slug, order, onClose, onAssigned }: { slug: string; order: Order; onClose: () => void; onAssigned: (message: string) => void }) {
   const queryClient = useQueryClient();
   const queryKey = ['operations', slug, 'dispatch-suggestion', order.id, order.version];
-  const suggestion = useQuery({ queryKey, queryFn: () => operations.dispatchSuggestion(slug, order.id), staleTime: 60_000, retry: false });
+  const suggestion = useQuery({ queryKey, queryFn: () => operations.dispatchSuggestion(slug, order.id), staleTime: 60_000, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false });
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   const decision = suggestion.data;
@@ -28,7 +29,7 @@ export function DispatchRecommendation({ slug, order, onClose, onAssigned }: { s
   const [best, ...others] = decision?.candidates ?? [];
   return <div className="app-menu-surface w-[310px] ring-1 ring-slate-900/10 p-4 text-xs">
     <div className="flex items-center justify-between pb-2">
-      <div className="flex items-center gap-1.5 font-medium text-app-accent whitespace-nowrap"><Sparkles className="w-3.5 h-3.5 fill-app-accent" /><span>AI Recommendation</span></div>
+      <div className="flex items-center gap-1.5 font-medium text-app-accent whitespace-nowrap"><BrandMark size={14} /><span>AI Recommendation</span></div>
       <div className="flex items-center gap-1 shrink-0">
         {decision && <span title={decision.ranked_by === 'RULES' && decision.error_code ? `${AI_DOWN[decision.error_code] ?? 'AI ranking is unavailable'}; ranked by rules.` : undefined}
           className={`px-1.5 py-0.5 rounded-full border whitespace-nowrap ${decision.ranked_by === 'AI' ? 'bg-app-accent-soft text-app-accent border-app-accent/20' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{decision.ranked_by === 'AI' ? 'AI ranked' : 'Rules'}</span>}

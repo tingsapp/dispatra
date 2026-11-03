@@ -26,7 +26,12 @@ export function GoogleOrderMarkers({ job, stops, onSelect }: GoogleOrderMarkersP
   const label = risk ? 'At Risk' : late ? 'Late Start' : unassigned ? 'No Driver' : job.statusLabel;
   const Icon = risk ? Package : late ? Clock3 : unassigned ? UserX : Package;
   const statusStop = [...stops].reverse().find(stop => stop.lat === job.lat && stop.lng === job.lng);
-  const statusTag = <div className={`absolute -top-6 left-1/2 -translate-x-1/2 ${color} text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none`}>{job.jobNumber} • {label}</div>;
+  const statusTone = risk ? 'text-rose-700' : late ? 'text-amber-700' : unassigned ? 'text-slate-500' : 'text-blue-600';
+  const statusTag = <div className="absolute bottom-full mb-0.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-md border border-black/10 bg-white/95 px-2 py-1 text-[10px] leading-3 shadow-sm whitespace-nowrap pointer-events-none">
+    <span className="font-semibold tracking-tight text-slate-800">{job.jobNumber}</span>
+    <span className="h-2.5 w-px bg-slate-200" aria-hidden="true" />
+    <span className={`font-medium ${statusTone}`}>{label}</span>
+  </div>;
 
   return <>
     {stops.map(stop => {

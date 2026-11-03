@@ -1,4 +1,96 @@
+2026-11-03: Today’s plan filter tabs retain their original 8px corners rather than global pill button styling, including selected and hover states.
+
+2026-11-03: Dropdown menu items retain their original menu-item corners (8px in compact Monitor menus), including button-based entries and submenu triggers. CSS-only change; runtime checks unavailable because npm is missing.
+
+2026-11-03: Sidebar navigation items retain their original 8px corners instead of the global pill button style, including hover and selected states.
+
+2026-11-03: Sidebar account card is exempt from fully rounded button styling and retains its original menu-item corner radius.
+
+2026-11-03: Assignment AI recommendation trigger uses a chevron instead of Open/View text, with a keyboard-accessible button and expanded-state label.
+
+2026-11-03: Remaining AI sparkle icons in order details and workspace feedback use Dispatra BrandMark. Global web button corners are fully rounded, including local map/menu overrides. Runtime verification unavailable because npm is missing.
+
+2026-11-03: Driver assignment recommendation entry points and recommendation panels use the supplied Dispatra brand icon instead of sparkles. Runtime checks unavailable: npm is missing.
+
+2026-11-03: Floating Monitor cards, map toolbar controls and assistant composer share a soft layered shadow for contrast against map detail. CSS-only change; runtime verification unavailable because npm is missing in this environment.
+
+2026-11-03: Shared order, driver and shipper conversation inputs now use the Monitor composer styling (44px minimum height, pill corners, 13px text and 30px send action). Public assistant corners are fully rounded too. Runtime checks unavailable in this environment because npm is missing.
+
+2026-11-03: Added Completed to Today’s plan using the existing completed grouping. All six filters, including At risk, remain on one horizontally scrollable row with 13px labels; desktop fits the full row. 19 plan tests passed. Browser verified all six 13px tabs fit one desktop row and scroll on phone with external provider requests blocked. TypeScript passed.
+
+2026-11-03: Disabled automatic focus/reconnect refetch for Monitor route geometry and dispatch suggestions to reduce provider quota use; manual checks and changed order/version keys remain active. Today’s plan tests pass (18), including the In progress filter and search.
+
+2026-11-03: Added Today’s plan In progress tab between Assigned and At risk using the existing IN_PROGRESS grouping; search remains combined with the selected filter and tabs wrap on narrow screens.
+
+2026-11-03: Regenerated operational API types to accept OPENROUTESERVICE assigned-order geometry and attribution. Local development truck-routing provider switched server-side; client assignment commands remain shared.
+
+2026-11-03: Driver picker subtitles use 11px text, 14px line height and 2px gaps; driver names remain unchanged.
+
+2026-11-03: Driver picker submit reads Reassign/Reassigning when the order has an assigned driver, otherwise Assign/Assigning.
+
+2026-11-03: Monitor assignment failures now use explicit error-tone popup feedback: red text, pale red background and accessible alert semantics. TomTom exhausted routing credits receive an actionable server message.
+
+2026-11-03: Rounded driver/order row highlights and shared menu hover/selected controls to 8px corners, retaining flat rows without borders, shadows or divider lines.
+
+2026-11-03: Standardized compact Monitor menu typography and controls: 12px body, 13px headings, 32px inputs and 28px actions. Assignment header/body padding reduced to 16px with a smaller close control and 16px corners. Scope includes map popovers and Available Drivers/Needs Attention panels.
+
+2026-11-03: Monitor Ask Dispatra composer uses fully rounded pill corners in its scoped activity styles.
+
+2026-11-03: Driver assignment menu restored to 280px width with compact driver rows and anchored beside the clicked Today’s plan Assign/Reassign control. Placement follows scroll/resize and clamps within the viewport.
+
+2026-11-03: Dispatcher Monitor composer uses a compact 44px minimum height, 13px input text, reduced field margins and a 30px send button to fit the chat card. Public homepage composer is unchanged.
+
+2026-11-03: End-of-day assistant completion count uses completedAt in the company time zone across all loaded orders, including orders created on previous days. Missing/invalid completion timestamps and non-completed orders are excluded.
+
+2026-11-03: Restored Assign/Reassign as a centered floating menu without a dimmed backdrop or modal focus trapping. Map and Today’s plan remain interactive; compact controls, row styling and inline feedback remain.
+
+2026-11-03: Reduced Today’s plan text-line gaps from 4px to 2px; order padding and spacing between orders remain unchanged.
+
+2026-11-03: Tightened Today’s plan text-line spacing to 4px between ID/status, delivery time and destination, retaining item padding and compact assignment actions.
+
+2026-11-03: Reduced Today’s plan assignment row controls and switched driver-picker submit and dossier Confirm to compact buttons; picker submit is content-width and right-aligned.
+
+2026-11-03: Increased spacing between text lines within each Today’s plan and driver-picker item; item padding and spacing between items remain unchanged.
+
+2026-11-03: Flattened Today’s plan and assignment list rows: no row shadows or individually bordered driver cards; no divider lines between rows; selection and hover backgrounds remain.
+
+2026-11-03: Refined Today’s plan spacing, dividers and outlined assignment actions. Driver assignment now opens in a centered shared dialog (384px maximum), with responsive containment, accessible focus/Escape handling, clearer driver name/code/status rows and pending-submit protection. Successful Monitor assignment stays open for inline feedback. Verified centering and phone containment in local Chrome; 16 plan/picker tests and 8 popup tests pass, including pending selection and duplicate-submit prevention. Final TypeScript and production build passed (existing bundle-size advisory only).
+
+2026-11-03: Monitor assistant opens with a centered summary of orders created today, switches to completed/outstanding counts at 18:00 company time, and hides the summary on message submission. Uses the existing Today’s plan grouping; does not represent completion events for orders created on earlier days. TypeScript, production build and 15 Today’s plan tests passed.
+
+2026-11-03: Dispatcher shared popup action messages now render in a dismissible inline status area in the topmost dialog instead of a snackbar behind it. Monitor and Orders driver assignment keep the dossier open for the result and read refreshed records. Verified in local Chrome with isolated sample records: changing selection and closing do not persist, Confirm saves D09, eligibility rejection stays inline, and desktop/390px layouts render correctly. Focused assignment tests (3) and popup tests (8) pass. Authenticated company API mutations were not exercised.
+
+2026-11-03: Shared dispatcher order details uses a pending driver selection and explicit Confirm action, disables duplicate submissions while saving, and provides a wider aligned details layout. Assignment validation and route confirmation remain in the existing shared command.
+
+2026-11-03: Browser-checked production PortalShell previews for Shipper, Driver web, Company account and Admin, plus the dispatcher prototype Monitor. Sidebar measurements agree at 204px width, 14px/20px labels, 36px rows and 16px icons. Removed the extra visible company-caption row above portal navigation (company identity remains in the page/account context). Monitor overlays now share the reference system font; fine-pointer desktop metrics/settings/zoom use 36px controls while touch sizing is retained. Previews contain no signed-in operational data. Production Vite build and diff whitespace check passed. Native Windows/macOS rendering was not tested.
+
+- 2026-11-03 Today’s plan warning placement: anchored the warning button to its slot directly after the status badge, replacing estimated text-width positioning.
+
+- 2026-11-03 Today’s plan controls: status badge precedes the warning icon beside the ID. Reassign is visible for active assigned orders, including in-progress orders; it opens the shared driver panel. In-progress driver changes retain the existing restriction with an explanation.
+
+- 2026-11-03 Today’s plan marker button: restored the compact square border around the marker icon below each checkbox.
+
+- 2026-11-03 Today’s plan: saved lifecycle status is always shown beside the order ID; assigned orders expose Reassign through the same driver panel. Assignment remains closed for in-progress/completed orders.
+
+- 2026-11-03 Monitor menus: removed View more from the driver menu, View all alerts from Needs Attention, and View full list from driver assignment; removed their unused navigation callbacks.
+
+- 2026-11-03 Today’s plan footer: removed the map checkbox helper label and View full list link.
+
+- 2026-11-03 Today’s plan tab labels: All, New, Assigned, At risk; New retains the unassigned/NEW lifecycle filter.
+
+- 2026-11-03 Today’s plan marker control: replaced the static map picture under each checkbox with a compact marker icon; the shared reveal-and-focus behavior and accessible label are unchanged.
+
+- 2026-11-03 Today’s plan warnings: warning control moved beside the order ID; clicking toggles inline details from Monitor attention records and local order flags without opening order details.
+
+2026-11-03: Shared the dispatcher sidebar styling with Shipper, Driver web, Company account and Platform admin portals: 204px expanded width, system font, 14px/20px regular navigation, 36px rows, neutral colors and compact logo. Collapsed rails retain their existing width.
+
+- 2026-11-03 Today’s plan: Added All, Assigned, Unassigned and At risk filters (existing attention grouping). Unassigned rows expose Assign, opening the shared driver selection panel beside the plan without opening or moving to a marker detail popup. Existing assignment commands and eligibility remain shared. A marker icon below each active order’s checkbox reveals and focuses its marker through the shared locate flow. Validation: 14 plan tests, 10 Monitor visibility tests and TypeScript passed; browser verification requires a current dispatcher login.
+
 - 2026-10-31 Google VM branding publication: Published supplied logo/icon PNGs, alternate filenames, favicon and Apple touch icon to /opt/dispatra/web on project/instance dispatra (northamerica-northeast2-c), matching source commit 092f36636798a3eadb4bdc6288f8989c19328cf5. Versioned the full reachable 18-module JavaScript graph after verification found lazy modules importing the previous shared entry and producing duplicate React instances. Current entry is index-5a9500045d8d-brand092f-v1.js. Browser verification passed homepage, shared sign-in, contact and prototype sign-in branding; fresh prototype/home journey had no browser errors. Supplied artwork loads with correct 2048×546 and 2000×1912 intrinsic dimensions. No authenticated operational actions or native mobile release; no local clone or build. Backups: /var/backups/dispatra/branding-20261031T050337Z and /var/backups/dispatra/branding-module-graph-092f-v1.
+
+2026-11-03: Refined dispatcher menu against the supplied ChatGPT screenshot: contiguous 36px rows, 8px icon gaps, 14px/20px regular labels, neutral gray text and selection, with scoped logo sizing.
+
+2026-11-03: Dispatcher sidebar narrowed to 204px, with 14px regular navigation labels and 20px line height matching the inspected ChatGPT menu. Header logo reduced to 112 × 30px.
 
 - 2026-10-31 supplied branding: Replaced shared logo/icon assets and legacy alternate filenames with the user-supplied transparent PNGs, updated intrinsic dimensions and cache versions, and regenerated favicon/Apple touch icon. Existing shared placements and responsive containers retained. Deployment and browser verification are recorded separately; no runtime build claimed.
 
@@ -1127,3 +1219,9 @@ Final focused Chrome verification passed: real WebGL scene at 1440/390/320px, or
 - 2026-11-03: Browser audit at 320/390/430px confirmed five matching 360px scenes, active mobile stacking and no page-width overflow. Driver phone retains a 0.48 aspect ratio. Moved the Route map label away from the mobile heading. Closing section now uses the established #1447e6 brand blue with blue gradient tones and its existing grain pattern.
 
 - 2026-11-03: Full-homepage browser review at 1440/390/320px found no horizontal overflow and consistent section/card spacing. Verified team preview lazy-loads successfully. Unified dark homepage primary buttons to #171717 and shared hover #303030; retained contrasting white closing CTA. Existing small-phone benefits already switch to one column.
+
+2026-11-03: Monitor order labels use compact 10px white tags with separate order/status typography. Operational road paths use the shared projected SVG renderer for bounded rounded turns and round caps/joins. Marker interaction tests pass; visual browser review remains pending.
+
+2026-11-03: Monitor route corner radius increased from 10px to 24px for softer turns; short segments remain bounded and shipper routes retain their existing radius.
+
+- 2026-11-03 release validation: All 59 npm test scripts exercised across the full run and corrected continuations; stale homepage selection/removed role tabs, rounded SVG map mocks and daily-summary activity expectations reconciled. Agent report regression given 60 seconds under parallel validation load. TypeScript and production build passed. Real-browser smoke passed six public/account entry routes without JavaScript errors. API validation exercised 563 tests with corrected failures rerun; driver 102 tests passed. Practical live order/device acceptance remains for the owner.

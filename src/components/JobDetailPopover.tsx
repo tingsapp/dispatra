@@ -1,3 +1,6 @@
+import { BrandMark } from "./layout/AppBrand";
+import { Button } from './ui/button';
+import { Dialog, DialogBody, DialogHeader } from './ui/Dialog';
 import { PersonContactActions } from './contact/PersonContactActions';
 import type { ChatKind } from '../chat/api';
 import { DriverAvatar } from './DriverAvatar';
@@ -14,10 +17,10 @@ import {
   AlertTriangle,
   Search,
   SlidersHorizontal,
-  Sparkles,
   CheckCircle2,
   UserCheck,
-  Maximize2
+  Maximize2,
+  ChevronRight
 } from 'lucide-react';
 import { Job, Driver, EligibleDriver } from '../types';
 import { ELIGIBLE_DRIVERS } from '../data/mockData';
@@ -36,12 +39,14 @@ function ContactCard({ label, name, phone, email, onMessage }: { label: string; 
 }
 
 interface JobDetailPopoverProps {
+  assignmentAnchor?: HTMLElement | null;
+  assignmentOnly?: boolean;
   job: Job;
   live?: boolean;
   drivers?: Driver[];
   stopStatuses?: Record<string, string>;
   onMessage?: (kind: ChatKind) => void;
-  onAssignDriver?: (driverId: string) => void;
+  onAssignDriver?: (driverId: string) => void | Promise<void>;
   onClose: () => void;
   showAssignDriver: boolean;
   setShowAssignDriver: React.Dispatch<React.SetStateAction<boolean>>;
@@ -51,7 +56,6 @@ interface JobDetailPopoverProps {
   onKeepCurrent: () => void;
   onActionNotification: (msg: string) => void;
   onOpenFullDetails?: () => void;
-  onOpenAllDrivers?: () => void;
   position?: { x: number; y: number };
   /** Company time zone for scheduled times. */
   timeZone?: string;
@@ -61,6 +65,8 @@ interface JobDetailPopoverProps {
 
 export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   job,
+  assignmentAnchor,
+  assignmentOnly = false,
   live = false,
   drivers = [],
   stopStatuses = {},
@@ -75,7 +81,6 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   onKeepCurrent,
   onActionNotification,
   onOpenFullDetails,
-  onOpenAllDrivers,
   position,
   timeZone = 'America/Vancouver',
   recommendation
@@ -100,9 +105,6 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   const { ref, placement } = useMapPopupPlacement(position);
   const baseLeft = placement?.x ?? 0;
   const baseTop = placement?.y ?? 0;
-
-  const assignDriverLeft = Math.max(12, Math.min((placement?.width ?? 0) - 280 - 12, baseLeft + 255));
-  const assignDriverTop = Math.max(12, Math.min((placement?.height ?? 0) - 12, baseTop + 130));
 
   const aiRecLeft = Math.max(12, Math.min((placement?.width ?? 0) - 310 - 12, baseLeft + 360));
   const aiRecTop = Math.max(12, Math.min((placement?.height ?? 0) - 12, baseTop - 50));
@@ -148,10 +150,23 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
     setShowAiRecommendation(false);
   };
 
+  const [localAssignmentAnchor, setLocalAssignmentAnchor] = useState<HTMLButtonElement | null>(null);
+  const [assigning, setAssigning] = useState(false);
+  useEffect(() => {
+    if (!showAssignDriver) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.querySelector('[data-confirm-dialog]')) {
+        setShowAssignDriver(false); setShowAiRecommendation(false); if (assignmentOnly) onClose();
+      }
+    };
+    document.addEventListener('keydown', dismiss);
+    return () => document.removeEventListener('keydown', dismiss);
+  }, [showAssignDriver, assignmentOnly, onClose, setShowAssignDriver, setShowAiRecommendation]);
+
   return (
     <>
       {/* 1. MAIN JOB DETAIL POPOVER - Anchored with arrow pointing toward Job marker */}
-      <motion.div
+      {!assignmentOnly && <motion.div
         {...overlayMotion}
         ref={ref}
         data-map-detail-overlay="job"
@@ -221,7 +236,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               {!live && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-2.5 flex items-center justify-between text-rose-600 font-medium">
                 <span className="text-xs truncate max-w-[170px]">{job.riskText}</span>
                 <button data-map-detail-toggle="recommendation" onClick={() => setShowAiRecommendation((prev) => !prev)} className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-app-accent hover:bg-app-accent/90 text-white text-xs font-medium shadow-xs transition-colors" title="Toggle AI Recommendation Fix">
-                  <Sparkles className="w-3 h-3 fill-white" /><span>AI Fix</span>
+                  <BrandMark size={14} /><span>AI Fix</span>
                 </button>
               </div>}
             </div>
@@ -255,7 +270,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
           <div className="pt-3.5 mt-2 flex items-center gap-1.5 relative">
             <button
               data-map-detail-toggle="assignment"
-              onClick={() => canAssign && setShowAssignDriver((prev) => !prev)}
+              onClick={event => { setLocalAssignmentAnchor(event.currentTarget); if (canAssign) setShowAssignDriver(prev => !prev); }}
               disabled={!canAssign}
               className={`flex-1 font-semibold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 ${
                 showAssignDriver
@@ -268,43 +283,22 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
             </button>
           </div>
         </div>
-      </motion.div>
+      </motion.div>}
 
       {/* 2. ASSIGN DRIVER CHILD MENU - Displayed on demand with smooth animation - strictly z-50 over parent */}
       <AnimatePresence>
-        {showAssignDriver && canAssign && (
-          <motion.div
-            {...overlayMotion}
-            data-map-detail-overlay="assignment"
-            className="absolute z-50 pointer-events-auto select-none"
-            style={{
-              left: `${assignDriverLeft}px`,
-              top: `${assignDriverTop}px`
-            }}
-          >
-            {/* Directional arrow pointing left toward the Find Driver button */}
-
-            <div className="app-menu-surface w-[280px] ring-1 ring-slate-900/10 p-4">
-              {/* Header with Title and Close Icon */}
-              <div className="flex items-center justify-between pb-2 mb-2.5">
-                <div className="flex items-center gap-1.5 font-medium text-slate-900 text-xs">
-                  <span>Assign Driver</span>
-                  <span className="text-xs text-slate-400 font-normal">({filteredDrivers.length})</span>
-                </div>
-                <button
-                  onClick={handleChildClose}
-                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-                  title="Close Assign Driver"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
+        {showAssignDriver && (canAssign || assignmentOnly) && (
+          <div data-map-detail-overlay="assignment"><Dialog modal={false} entity={false} anchor={assignmentOnly ? assignmentAnchor : localAssignmentAnchor} label="Assign driver" size="md" className="app-monitor-menu max-w-[280px]" onClose={assignmentOnly ? handleParentClose : handleChildClose}>
+            <DialogHeader title="Assign driver" description={`${job.jobNumber} · ${filteredDrivers.length} drivers`} onClose={assignmentOnly ? handleParentClose : handleChildClose} />
+            <DialogBody className="space-y-3">
               {/* On-Demand AI Smart Recommendation trigger banner */}
-              {(!live || recommendation) && <div
+              {(!live || recommendation) && <button
+                type="button"
+                aria-label="Toggle AI recommendation details"
+                aria-expanded={showAiRecommendation}
                 data-map-detail-toggle="recommendation"
                 onClick={() => setShowAiRecommendation((prev) => !prev)}
-                className={`mb-2.5 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
+                className={`w-full mb-2.5 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
                   showAiRecommendation
                     ? 'bg-slate-100 border-slate-300'
                     : 'bg-app-accent-soft/60 border-app-accent/80 hover:bg-app-accent-soft'
@@ -312,13 +306,11 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                 title="Click to view AI recommendation details"
               >
                 <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-app-accent fill-app-accent" />
+                  <BrandMark size={14} />
                   <span className="text-xs font-medium text-app-accent">AI Recommendation</span>
                 </div>
-                <span className="text-xs font-medium text-app-accent bg-white px-1.5 py-0.5 rounded border border-app-accent/20 group-hover:border-app-accent/40">
-                  {showAiRecommendation ? 'Open' : 'View'} &rarr;
-                </span>
-              </div>}
+                <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-app-accent" />
+              </button>}
 
               {/* Search field + filter icon */}
               <div className="flex items-center gap-1.5 mb-2.5">
@@ -327,6 +319,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                   <input
                     type="text"
                     placeholder="Search drivers..."
+                    aria-label="Search drivers"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="app-input w-full pl-8 pr-2 focus:bg-white transition-all placeholder-slate-400"
@@ -341,41 +334,34 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               </div>
 
               {/* Registered drivers remain visible with their availability reason. */}
-              <div className="space-y-1.5 max-h-[190px] overflow-y-auto pr-0.5">
+              <div className="max-h-[min(16rem,40dvh)] overflow-y-auto pr-1">
                 {filteredDrivers.map((driver) => {
                   const isCurrent = live && driver.id === job.assignedDriverId;
                   const isSelected = selectedDriverCode === driver.code && (isCurrent || !driver.unavailableReason);
                   return (
                     <button
                       type="button"
-                      disabled={isCurrent || !!driver.unavailableReason}
+                      disabled={assigning || !canAssign || isCurrent || !!driver.unavailableReason}
                       aria-pressed={isSelected}
                       key={driver.id}
                       onClick={() => {
                         setSelectedDriverCode(driver.code);
                         if (!live) onActionNotification(`Selected ${driver.name} (${driver.code})`);
                       }}
-                      className={`w-full text-left flex items-center justify-between gap-2 p-2 rounded-xl border transition-all cursor-pointer disabled:cursor-not-allowed ${isCurrent ? '' : 'disabled:opacity-60'} ${
+                      className={`w-full text-left flex items-center justify-between gap-2 p-2 rounded-lg border-0 shadow-none transition-colors cursor-pointer disabled:cursor-not-allowed ${isCurrent ? '' : 'disabled:opacity-60'} ${
                         isSelected
-                          ? 'border-slate-300 bg-slate-100'
-                          : 'border-slate-100 hover:bg-slate-50'
+                          ? 'bg-slate-100'
+                          : 'hover:bg-slate-50'
                       }`}
                     >
                       <div className="flex flex-1 items-center gap-2 min-w-0">
                         <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-slate-200" referrerPolicy="no-referrer" />
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs font-medium text-slate-900">
-                              {driver.code}
-                            </span>
-                            <span className="text-xs text-slate-700 font-medium truncate max-w-[85px]">
-                              {driver.name}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs">
-                            <span className="text-slate-400">{driver.distance}</span>
+                          <div className="truncate text-xs font-medium text-slate-900" title={driver.name}>{driver.name}</div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] leading-[14px]">
+                            <span className="text-slate-500">{driver.code}</span>
                             <span
-                              className={`font-semibold ${
+                              className={`font-medium ${
                                 isCurrent ? 'text-slate-700' : driver.unavailableReason ? 'text-slate-500' : driver.status === 'available'
                                   ? 'text-emerald-600'
                                   : 'text-app-accent'
@@ -384,6 +370,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                               {isCurrent ? 'Assigned' : driver.unavailableReason || (driver.status === 'available' ? 'Available' : 'On route')}
                             </span>
                           </div>
+                          {driver.distance && driver.distance !== '-' && <p className="mt-0.5 text-[11px] leading-[14px] text-slate-500">{driver.distance}</p>}
                         </div>
                       </div>
 
@@ -403,24 +390,11 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                 {!filteredDrivers.length && <p className="py-3 text-xs text-slate-500">{drivers.length || !live ? 'No drivers match your search.' : 'No drivers registered yet.'}</p>}
               </div>
 
-              {live && <button type="button" disabled={selectedDriverCode === assignedCode || !eligibleDrivers.some(driver => driver.code === selectedDriverCode && !driver.unavailableReason)} onClick={() => { const selected = eligibleDrivers.find(driver => driver.code === selectedDriverCode && !driver.unavailableReason); if (selected) onAssignDriver?.(selected.id); }} className="app-action app-primary mt-2 w-full text-white">Assign selected driver</button>}
-              {/* Footer View full list link */}
-              <div className="pt-2 text-center mt-2">
-                <button
-                  onClick={() => {
-                    if (onOpenAllDrivers) {
-                      onOpenAllDrivers();
-                    } else {
-                      onActionNotification('Showing full roster of eligible fleet drivers');
-                    }
-                  }}
-                  className="text-xs font-medium text-slate-700 hover:text-slate-700 transition-colors"
-                >
-                  View full list &rarr;
-                </button>
-              </div>
-            </div>
-          </motion.div>
+              {live && !canAssign && <p className="mt-2 text-xs text-slate-500">Driver changes are unavailable after this order has started.</p>}
+              {live && <div className="flex justify-end"><Button size="sm" type="button" disabled={assigning || !canAssign || selectedDriverCode === assignedCode || !eligibleDrivers.some(driver => driver.code === selectedDriverCode && !driver.unavailableReason)} onClick={async () => { const selected = eligibleDrivers.find(driver => driver.code === selectedDriverCode && !driver.unavailableReason); if (!selected || assigning) return; setAssigning(true); try { await onAssignDriver?.(selected.id); } finally { setAssigning(false); } }} className="mt-2">{assigning ? (job.assignedDriverId ? 'Reassigning…' : 'Assigning…') : (job.assignedDriverId ? 'Reassign' : 'Assign')}</Button></div>}
+
+            </DialogBody>
+          </Dialog></div>
         )}
       </AnimatePresence>
 
@@ -430,10 +404,10 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
           <motion.div
             {...overlayMotion}
             data-map-detail-overlay="recommendation"
-            className="absolute z-[60] pointer-events-auto select-none"
+            className={assignmentOnly ? "absolute left-3 top-20 z-[60] pointer-events-auto select-none sm:left-6 lg:left-[47rem] lg:top-5" : "absolute z-[60] pointer-events-auto select-none"}
             style={{
-              left: `${aiRecLeft}px`,
-              top: `${aiRecTop}px`
+              left: assignmentOnly ? undefined : `${aiRecLeft}px`,
+              top: assignmentOnly ? undefined : `${aiRecTop}px`
             }}
           >
             {live ? recommendation : <>
@@ -464,7 +438,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               {/* AI Recommendation Banner */}
               <div className="flex items-center justify-between pt-2.5 pb-1">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-app-accent">
-                  <Sparkles className="w-3.5 h-3.5 fill-app-accent" />
+                  <BrandMark size={14} />
                   <span>AI Recommendation</span>
                 </div>
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/70">

@@ -36,3 +36,12 @@ export function todaysPlan(jobs: Job[], today: string, timeZone: string, attenti
   };
   return groups;
 }
+
+/** Completion is counted on its company-local day, independently of creation. */
+export function ordersCompletedToday(jobs: Job[], today: string, timeZone: string): Job[] {
+  return jobs.filter(job => {
+    if (orderLifecycle(job) !== 'COMPLETED' || !job.completedAt) return false;
+    const completed = new Date(job.completedAt);
+    return Number.isFinite(completed.getTime()) && companyDay(completed, timeZone) === today;
+  });
+}

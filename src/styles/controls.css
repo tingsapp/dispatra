@@ -547,3 +547,94 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
   font-weight: 500;
   letter-spacing: -.02em;
 }
+
+/* Portal navigation follows the compact, neutral reference menu. */
+.app-workspace-sidebar { --spacing-sidebar: 204px; font-family: -apple-system-body, ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"; --color-app-sidebar: #fafafa; --color-app-hover: #efefef; --color-app-selected: #efefef; }
+.app-workspace-sidebar .app-nav-item {
+  min-height: 36px;
+  padding: 8px 10px;
+  gap: 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: #424242;
+}
+.app-workspace-sidebar .app-nav-item[aria-current="page"] { font-weight: 400; color: #212121; }
+.app-workspace-sidebar .app-brand-logo { width: 112px; height: 30px; }
+.app-workspace-sidebar .app-brand-wordmark { display: block; }
+.app-workspace-sidebar .app-brand-fallback { display: none; }
+.app-workspace-sidebar .app-account-name { font-size: 14px; line-height: 20px; font-weight: 400; color: #212121; }
+
+/* Match operational map typography and desktop control density to navigation. */
+[aria-label="Monitor map"] {
+  font-family: -apple-system-body, ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14px;
+  line-height: 20px;
+}
+.app-workspace-sidebar .app-nav-item > svg { width: 16px; height: 16px; flex-shrink: 0; }
+@media (pointer: fine) and (min-width: 768px) {
+  [aria-label="Monitor map"] .app-metric { height: 36px; gap: 8px; padding-inline: 10px; border-radius: 8px; }
+  [aria-label="Monitor map"] .app-map-icon { width: 36px; padding: 0; }
+  [aria-label="Monitor map"] .app-metric-icon svg { width: 16px; height: 16px; }
+  [aria-label="Monitor map"] button[title="Zoom In"],
+  [aria-label="Monitor map"] button[title="Zoom Out"] { height: 36px; }
+  [aria-label="Monitor map"] div:has(> button[title="Zoom In"]) { width: 36px; }
+}
+
+/* Compact typography and controls across operational Monitor menus. */
+:is([aria-label="Monitor map"] .app-menu-surface, .app-map-menu, .app-monitor-menu) {
+  font-size: 12px;
+  line-height: 18px;
+}
+.app-monitor-menu { border-radius: 16px; }
+.app-monitor-menu .app-dialog-header { padding: 14px 16px 10px; gap: 8px; }
+.app-monitor-menu .app-dialog-header h3 { font-size: 13px; line-height: 18px; }
+.app-monitor-menu .app-dialog-header p { font-size: 11px; line-height: 16px; }
+.app-monitor-menu .app-dialog-body { padding: 0 16px 14px; }
+.app-monitor-menu .app-dialog-close { width: 26px; height: 26px; margin: -3px -5px -3px 0; }
+.app-monitor-menu .app-dialog-close svg { width: 16px; height: 16px; }
+:is([aria-label="Monitor map"] .app-menu-surface, .app-map-menu, .app-monitor-menu) :is(.text-sm, h3) { font-size: 13px; line-height: 18px; }
+:is([aria-label="Monitor map"] .app-menu-surface, .app-map-menu, .app-monitor-menu) .app-input { min-height: 32px; height: 32px; font-size: 12px; line-height: 18px; }
+:is([aria-label="Monitor map"] .app-menu-surface, .app-map-menu, .app-monitor-menu) :is(.app-button[data-size="sm"], .app-action:not([data-size]):not(.app-icon-button):not(.app-field-trigger)) { min-height: 28px; height: auto; padding: 4px 10px; font-size: 12px; line-height: 18px; }
+
+/* Keep interactive menu highlights rounded in hover and selected states. */
+:is([aria-label="Monitor map"] .app-menu-surface, .app-map-menu, .app-monitor-menu, .app-floating-panel) :is(button, [role="option"], [role="menuitem"], .app-choice-row):not(.rounded-full) {
+  border-radius: 8px;
+}
+
+/* Lift floating Monitor surfaces gently above the map detail. */
+[aria-label="Monitor map"] {
+  --app-map-card-shadow: 0 2px 6px rgb(15 23 42 / 8%), 0 10px 32px rgb(15 23 42 / 14%);
+}
+[aria-label="Monitor map"] :is(.app-map-menu, .app-monitor-menu, .app-menu-surface, .app-metric, .company-activity-panel[data-expanded="true"]) {
+  box-shadow: var(--app-map-card-shadow);
+}
+[aria-label="Monitor map"] .company-activity-panel[data-expanded="false"] .public-chat-composer {
+  box-shadow: var(--app-map-card-shadow);
+}
+
+/* Keep action buttons pill-shaped across all web app entry points. */
+button, [role="button"], .app-button, .app-action, .app-primary, .app-secondary {
+  border-radius: 9999px !important;
+}
+
+/* Account identity keeps its original card corners. */
+button.app-account-card { border-radius: var(--app-radius-menu-item) !important; }
+
+/* Sidebar navigation retains its original compact corners. */
+.app-workspace-sidebar .app-nav-item { border-radius: 8px !important; }
+
+/* Dropdown rows keep their original corners, including button-based entries. */
+.app-dropdown-panel .app-menu-item {
+  border-radius: var(--app-radius-menu-item) !important;
+}
+:is([aria-label="Monitor map"] .app-menu-surface, .app-map-menu, .app-monitor-menu, .app-floating-panel) .app-menu-item {
+  border-radius: 8px !important;
+}
+
+/* Today’s plan filters retain their original compact tab corners. */
+[aria-label="Today’s plan"] [role="tab"] {
+  border-radius: 8px !important;
+}

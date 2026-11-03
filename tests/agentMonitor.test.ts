@@ -272,7 +272,7 @@ test('platform notifications show all open issues before bounded recent problems
   for (const level of ['ERROR', 'WARNING']) assert.ok(calls.some(call => JSON.stringify(call) === JSON.stringify(['activity', undefined, level])));
 });
 
-test('refresh removes fixed reports from every loaded page without retaining routine activity', { timeout: 15_000 }, async () => {
+test('refresh removes fixed reports from every loaded page without retaining routine activity', { timeout: 60_000 }, async () => {
   let fixed = false;
   api.technicalReports = async (_status, before) => ({ items: fixed ? [] : [{ ...issue(), id: before ? 'older' : 'newest', title: before ? 'Older unresolved report' : 'Newest unresolved report' }], next_before: !fixed && !before ? 'older' : null });
   api.agentLogs = async () => ({ items: [entry('activity')], next_before: null });

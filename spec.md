@@ -1,10 +1,16 @@
 # Dispatra web client specification
 
+Web portal sidebars share a 204px expanded width, 36px navigation rows, 16px icons, 14px regular labels with 20px line height, neutral gray colors and the ChatGPT reference system-font stack. Keep the compact header logo and align navigation directly below the header. Dispatcher Monitor overlays use the same font stack; fine-pointer desktop metric/settings/zoom controls are 36px, with existing larger touch targets retained.
+
 Updated: 2026-10-15. This is the current React/TypeScript client contract. [Implementation state](state.md) distinguishes browser demo behavior from API-backed behavior.
 
 Input focus uses a thin black border across native inputs, textareas, selects, grouped inputs, editable table cells, custom select/date triggers and chat composers. Field focus keeps the existing rounded border shape; do not draw an overlapping inset outline over that border. Keep validation error colours and system high-contrast focus indicators.
 
 Weight and vehicle-dimension form fields display at most two decimal places after unit conversion, trimming unnecessary trailing zeroes. Opening or saving an unchanged form preserves canonical stored measurements; do not round database values for display.
+
+Monitor menus use compact 12px body text, 13px headings, 32px inputs and content-sized actions. Monitor assignment uses a compact floating menu beside the clicked Assign/Reassign control without a backdrop, searchable driver rows, clear name/code/status hierarchy and an explicit submit action. Today’s plan uses separated, consistently spaced order rows and outlined Assign/Reassign actions.
+
+Dispatcher order details (Monitor and Orders) stage driver changes locally until Confirm is clicked. Disable Confirm for unchanged selections and while saving. Keep assignment results in the popup. Shared dispatcher popups display action feedback in a dismissible, accessible inline message area rather than a snackbar behind the dialog. Existing eligibility and route confirmation rules still apply.
 
 ## 1. Scope and authority
 
@@ -477,3 +483,7 @@ Samsara supports direct-token account verification: request only the API token, 
 Use the supplied 2048×546 transparent logo and 2000×1912 transparent icon in shared BrandLogo/BrandMark placements throughout public pages, account entry, workspaces and previews. Preserve object-contain proportions and existing responsive containers. Browser favicon and Apple touch icon derive from the supplied icon; refresh asset versions on replacement.
 
 - 2026-11-03: Homepage agent scenes use uninterrupted patterned backgrounds. Route and Chat use full-area fictional SVG neighborhood maps with no live map provider or Vancouver geography.
+
+Today’s plan status tabs include All, New, Assigned, In progress, Completed and At risk. In progress filters the existing creation-day list to IN_PROGRESS orders, combined with search.
+
+Today’s plan filters stay on one row with 13px labels and horizontal overflow on small screens. Completed filters the existing creation-day list to COMPLETED orders; At risk remains available.

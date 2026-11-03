@@ -7,7 +7,7 @@
   min-height: 52px;
   padding: 7px 10px;
   border: 1px solid rgb(0 0 0 / 10%);
-  border-radius: 28px;
+  border-radius: 9999px;
   background: #fff;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 4%), 0 2px 8px rgb(0 0 0 / 4%), 0 4px 80px 8px rgb(0 0 0 / 2.4%);
 }
@@ -184,3 +184,8 @@
 @media(prefers-reduced-motion:reduce) { .public-voice-orb,.public-voice-orb > span { animation:none !important; } .public-voice-control { transition:none; } }
 
 .public-voice-note > span:last-child { white-space:nowrap; }
+
+/* Operational conversations share the compact Monitor composer. */
+.app-message-composer.public-chat-composer { min-height: 44px; padding: 5px 7px; box-shadow: none; }
+.app-message-composer.public-chat-composer .public-chat-input { margin: 0 5px; font-size: 13px; line-height: 24px; }
+.app-message-composer.public-chat-composer .public-chat-send { width: 30px; height: 30px; min-height: 30px; }

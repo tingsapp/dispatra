@@ -110,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div
-      className={`[--spacing-sidebar:220px] h-dvh shrink-0 transition-[width] duration-300 ease-in-out z-30 max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:z-50 ${isOpen ? 'w-sidebar' : collapsed ? 'w-sidebar-rail' : 'w-0'
+      className={`app-workspace-sidebar h-dvh shrink-0 transition-[width] duration-300 ease-in-out z-30 max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:z-50 ${isOpen ? 'w-sidebar' : collapsed ? 'w-sidebar-rail' : 'w-0'
         }`}
     >
       <aside
@@ -133,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }} />
 
           {/* Navigation list */}
-          <nav className="px-2 py-1 space-y-0.5">
+          <nav className="px-1.5 py-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -152,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   title={collapsed ? item.label : undefined}
                   className="app-nav-item"
                 >
-                  <Icon className="w-4.5 h-4.5 shrink-0 text-slate-700" strokeWidth={1.75} />
+                  <Icon className="w-4.5 h-4.5 shrink-0 text-current" strokeWidth={1.75} />
                   <span className={collapsed ? 'sr-only' : undefined}>{item.label}</span>
                 </button>
               );

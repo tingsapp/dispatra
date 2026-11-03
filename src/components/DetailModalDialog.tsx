@@ -1,3 +1,4 @@
+import { BrandMark } from "./layout/AppBrand";
 import { PersonContactActions } from './contact/PersonContactActions';
 import { DriverAvatar } from './DriverAvatar';
 import { DriverActivity } from './entities/DriverActivity';
@@ -9,7 +10,7 @@ import { useOverlayMotion } from './ui/useOverlayMotion';
 import { lifecycleLabel } from '../domain/validation';
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, MapPin, Sparkles } from 'lucide-react';
+import { X, MapPin, } from 'lucide-react';
 import { Job, Driver, NeedsAttentionItem, ModalDialogType } from '../types';
 import { formatWhen } from './orders/OrderDossierSections';
 import { ReadFields } from './entities/Fields';
@@ -423,7 +424,7 @@ const AllExceptionsView: React.FC<{
               {item.jobNumber === '#461' && onApproveAiFix && <button type="button"
                 onClick={() => { onApproveAiFix(); onClose(); }}
                 className="app-action app-primary app-action-compact max-w-full whitespace-normal text-xs">
-                <Sparkles aria-hidden="true" className="size-3.5 shrink-0 fill-white" />
+                <BrandMark size={16} />
                 <span>Execute AI Remedy (Maria D09)</span>
               </button>}
               {onSelectJob && <button type="button"

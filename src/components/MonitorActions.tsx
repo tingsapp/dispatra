@@ -15,6 +15,7 @@ import {
 import { Job } from '../types';
 
 interface MonitorActionsProps {
+  timeZone?: string;
   metrics?: React.ReactNode;
   active?: boolean;
   showActivityPopover?: boolean;
@@ -39,6 +40,7 @@ interface DispatchAlert {
 }
 
 export const MonitorActions: React.FC<MonitorActionsProps> = ({
+  timeZone,
   metrics,
   active = true,
   showActivityPopover: externalShowActivity,
@@ -106,7 +108,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   return (
     <>
       {slug && <div className="absolute bottom-6 left-6 z-40 pointer-events-auto">
-        <MonitorActivity key={slug} slug={slug} open={activityOpen} active={active} onSelectReference={onSelectReference} onOpenChange={next => {
+        <MonitorActivity jobs={jobs} timeZone={timeZone} key={slug} slug={slug} open={activityOpen} active={active} onSelectReference={onSelectReference} onOpenChange={next => {
           setActivityOpen(next);
           if (next) setIsNotificationOpen(false);
         }} />
@@ -122,10 +124,12 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
           title="Dispatch alerts and notifications"
           aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         >
-          <Bell className="w-4 h-4 stroke-[2.2]" />
-          {unreadCount > 0 && (
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
-          )}
+          <span className="relative inline-flex size-4">
+            <Bell className="size-4 stroke-[2.2]" />
+            {unreadCount > 0 && (
+              <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-rose-500 ring-2 ring-white" />
+            )}
+          </span>
         </button>
         }>
         {slug ? isNotificationOpen && <NotificationPanel slug={slug} onClose={() => setIsNotificationOpen(false)} onOpen={row => {
