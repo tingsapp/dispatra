@@ -432,8 +432,3 @@
 .home-page .home-plan .app-button[data-variant="default"]:hover { background:#303030; }
 .home-page .home-hero-actions .hero-get-started-icon { color:#171717; }
 
-/* Scale the homepage wordmark without triggering the narrow-header icon fallback. */
-.home-page .public-header .app-brand-wordmark {
-  transform: scale(.77);
-  transform-origin: left center;
-}
