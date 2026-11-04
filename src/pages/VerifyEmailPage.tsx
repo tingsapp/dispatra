@@ -37,9 +37,9 @@ export function EmailVerificationForm() {
           <Field label="Verification code" type="text" inputMode="numeric" autoComplete="one-time-code" required pattern="[0-9]{6}" minLength={6} maxLength={6} value={code} disabled={busy} onChange={event=>{setCode(event.target.value.replace(/[^0-9]/g,''));confirmation.reset();}} />
           <Notice error={confirmation.error ?? resend.error} />
           {expired && <p role="alert" className="text-sm text-red-700">Your code expired. Request a new code.</p>}
-          <Button className="w-full" disabled={busy || !!expired}>{confirmation.isPending?'Verifying…':'Verify email'}</Button>
+          <Button loading={confirmation.isPending} className="w-full" disabled={busy || !!expired}>{confirmation.isPending?'Verifying…':'Verify email'}</Button>
         </form>
-        <div className="mt-5 text-center"><Button type="button" variant="ghost" disabled={busy || remaining>0} onClick={()=>resend.mutate()}>{resend.isPending?'Sending…':remaining>0?`Resend code in ${remaining}s`:'Resend code'}</Button></div>
+        <div className="mt-5 text-center"><Button loading={resend.isPending} type="button" variant="ghost" disabled={busy || remaining>0} onClick={()=>resend.mutate()}>{resend.isPending?'Sending…':remaining>0?`Resend code in ${remaining}s`:'Resend code'}</Button></div>
       </>}
       {status.error && <Button type="button" variant="outline" className="mt-5" onClick={()=>status.refetch()}>Try again</Button>}
       <p className="mt-6 text-center text-xs text-app-muted">Using a different account? <a href="/login" className="underline underline-offset-4">Sign in</a></p>

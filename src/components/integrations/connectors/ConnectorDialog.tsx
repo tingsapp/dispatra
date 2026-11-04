@@ -58,10 +58,10 @@ export function ConnectorDialog({ slug, connector, onClose, onSaved, navigate = 
       {error && <p role="alert" className="mt-4 text-sm text-rose-700">{error}</p>}
     </DialogBody>
     <DialogFooter>
-      {connector.id === 'samsara' && connector.ready && <Button type="button" variant="outline" onClick={test} disabled={pending || !values.api_key}>
+      {connector.id === 'samsara' && connector.ready && <Button loading={pending} type="button" variant="outline" onClick={test} disabled={pending || !values.api_key}>
         {pending ? 'Checking…' : 'Test connection'}
       </Button>}
-      <Button type="button" onClick={connect} disabled={!connector.ready || pending || (connector.id === 'samsara' && !testedAccount) || (connector.auth !== 'oauth' && connector.credential_fields.some(field => !values[field.key]))}>
+      <Button loading={pending} type="button" onClick={connect} disabled={!connector.ready || pending || (connector.id === 'samsara' && !testedAccount) || (connector.auth !== 'oauth' && connector.credential_fields.some(field => !values[field.key]))}>
         {pending ? (connector.auth === 'oauth' ? 'Connecting…' : 'Testing connection…') : !connector.ready ? 'Test connection' : connector.id === 'samsara' ? 'Connect' : connector.auth === 'oauth' ? `Continue to ${connector.name}` : 'Test connection & connect'}
       </Button>
     </DialogFooter>

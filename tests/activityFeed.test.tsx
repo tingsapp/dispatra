@@ -34,38 +34,35 @@ function mount(active = true) {
   return render(<QueryClientProvider client={cache}><Actions active={active} /></QueryClientProvider>);
 }
 
-test('Monitor opens the daily summary, switches to chat on submit and keeps its composer mounted', async () => {
-  let reads = 0;
-  operations.activity = async () => { reads++; return page([]); };
-  operations.assistant = async () => ({ message: 'Your orders are ready.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false });
+test('Monitor briefs once per page load; focusing the composer does not expand or request a briefing', async () => {
+  const requests: string[] = [];
+  operations.assistant = async (_slug, body) => {
+    requests.push(body.kind ?? 'CHAT');
+    return { message: body.kind === 'BRIEFING' ? 'Review the waiting orders.' : 'Your orders are ready.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false,
+      briefing: body.kind === 'BRIEFING' ? { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 15, unassigned: 12, assigned: 1, in_progress: 1, completed: 1, open_incidents: 2 } : null };
+  };
   mount(); const user = userEvent.setup({ document });
+  await screen.findByLabelText('Daily briefing');
+  assert.deepEqual(requests, ['BRIEFING']);
+  assert.ok(screen.getByText('2 open issues to review'));
   const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
-  assert.equal(input.getAttribute('aria-expanded'), 'true');
-  await user.click(input);
-  assert.ok(screen.getByLabelText('Daily summary'));
-  await user.type(input, '   {Enter}');
-  assert.ok(screen.getByLabelText('Daily summary'));
-  await user.clear(input);
-  await user.type(input, 'Check my orders');
-  assert.equal(input.getAttribute('aria-expanded'), 'true');
-  assert.ok(screen.getByLabelText('Daily summary'));
-  assert.ok(input.closest('.public-chat-composer'));
-  await user.click(screen.getByRole('button', { name: 'Send message' }));
-  const panel = screen.getByRole('dialog', { name: 'Dispatra' });
+  await user.click(screen.getByRole('button', { name: 'Show unassigned' }));
   await screen.findByText('Your orders are ready.');
-  assert.equal(screen.queryByLabelText('Daily summary'), null);
-  assert.equal(within(panel).queryByText('Live activity'), null);
-  assert.equal(within(panel).queryByRole('group', { name: 'Suggested questions' }), null);
+  assert.deepEqual(requests, ['BRIEFING', 'CHAT']);
   await user.type(input, 'Next question');
   await user.click(screen.getByRole('button', { name: 'Close Dispatra' }));
   await user.click(input);
-  assert.equal(screen.getByRole('textbox', { name: 'Message Dispatra' }), input);
-  assert.equal((input as HTMLTextAreaElement).value, 'Next question');
   assert.equal(screen.queryByRole('dialog', { name: 'Dispatra' }), null);
+  assert.equal((input as HTMLTextAreaElement).value, 'Next question');
+  assert.deepEqual(requests, ['BRIEFING', 'CHAT']);
   await user.keyboard('{Enter}');
-  assert.ok(screen.getByRole('dialog', { name: 'Dispatra' }));
   await waitFor(() => assert.equal(screen.getAllByText('Your orders are ready.').length, 2));
-  assert.equal(reads, 0);
+  assert.equal(screen.getAllByLabelText('Daily briefing').length, 1);
+  assert.deepEqual(requests, ['BRIEFING', 'CHAT', 'CHAT']);
+  cleanup(); cache.clear();
+  mount();
+  await screen.findByLabelText('Daily briefing');
+  assert.deepEqual(requests, ['BRIEFING', 'CHAT', 'CHAT', 'BRIEFING']);
 });
 
 test('opening rows and new records slide upward once in chronological order; reduced motion respects visibility', async () => {
@@ -126,8 +123,9 @@ test('the console shows the latest six saved entries and does not replay unchang
 
 test('failed questions retain the draft, retry the same payload without duplicate user messages and prevent double send', async () => {
   const payloads: unknown[] = []; let fail = true;
-  operations.assistant = async (_slug, body) => { payloads.push(body); if (fail) throw new Error('Temporarily unavailable'); return { message: 'Recovered answer.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false }; };
+  operations.assistant = async (_slug, body) => { if (body.kind === 'BRIEFING') return { message: 'Briefing ready.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false }; payloads.push(body); if (fail) throw new Error('Temporarily unavailable'); return { message: 'Recovered answer.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false }; };
   mount(); const user = userEvent.setup({ document });
+  await screen.findByText('Briefing ready.');
   const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
   await user.type(input, 'Where is my order?{Enter}');
   await screen.findByText('Temporarily unavailable');
@@ -137,4 +135,23 @@ test('failed questions retain the draft, retry the same payload without duplicat
   await screen.findByText('Recovered answer.');
   assert.deepEqual(payloads[0], payloads[1]);
   assert.equal(screen.getAllByText('Where is my order?').length, 1);
+});
+
+test('an automatic briefing failure retries without inserting a user message', async () => {
+  let fail = true;
+  const bodies: unknown[] = [];
+  operations.assistant = async (_slug, body) => {
+    bodies.push(body);
+    if (fail) throw new Error('Briefing could not load.');
+    return { message: 'Current briefing.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false };
+  };
+  mount();
+  await screen.findByText('Briefing could not load.');
+  const input = screen.getByRole('textbox', { name: 'Message Dispatra' }) as HTMLTextAreaElement;
+  assert.equal(input.value, '');
+  fail = false;
+  await userEvent.setup({ document }).click(screen.getByRole('button', { name: 'Try again' }));
+  await screen.findByText('Current briefing.');
+  assert.deepEqual(bodies[0], bodies[1]);
+  assert.equal(screen.queryByLabelText('Your message'), null);
 });

@@ -1,3 +1,4 @@
+import { usePendingAction } from '../components/ui/usePendingAction';
 import { ListSummary } from '../components/layout/ListSummary';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
@@ -91,7 +92,9 @@ export function VehiclesPage({
   const maintenanceCount = vehicles.filter(v => v.availability === 'UNAVAILABLE').length;
   const standbyCount = vehicles.filter(v => v.recordStatus === 'INACTIVE').length;
 
+  const handleSaveVehicleAction = usePendingAction();
   const handleSaveVehicle = async (vehicle: VehicleAsset, profile: VehicleProfile) => {
+    return handleSaveVehicleAction.run(async () => {
     if (slug) {
       try {
         const previous = fleetQuery.data?.find(row => row.id === vehicle.id);
@@ -106,6 +109,8 @@ export function VehiclesPage({
 
     const next = saveVehicleProfile(vehicle, profile, vehicles);
     setVehicles(next); setActiveVehicleDrawer(null); setShowRegisterModal(false); onNotification('Vehicle saved');
+
+    });
   };
   const handleDeleteVehicle = async (vehicle: VehicleAsset) => {
     const driver = drivers.find(d => d.id === vehicle.currentDriverId) ?? (vehicle.currentDriverName ? { name: vehicle.currentDriverName } : null);
@@ -211,7 +216,7 @@ export function VehiclesPage({
           <DialogHeader onClose={() => setActiveVehicleDrawer(null)}
             title={<><span className="font-mono">{activeVehicleDrawer.vehicleNumber ?? activeVehicleDrawer.unitNumber}</span><span className="text-xs font-medium px-2 py-0.5 bg-slate-200 text-slate-800 rounded">{activeVehicleDrawer.plateNumber}</span></>} />
           <DialogBody><VehicleEditor vehicle={activeVehicleDrawer} vehicles={vehicles} vehicleTypes={vehicleTypes} live={!!slug} formId="vehicle-details-form" hideActions onCancel={() => setActiveVehicleDrawer(null)} onSave={handleSaveVehicle} /></DialogBody>
-          <DialogFooter><Button type="submit" form="vehicle-details-form">Save vehicle</Button></DialogFooter>
+          <DialogFooter><Button loading={handleSaveVehicleAction.pending} type="submit" form="vehicle-details-form">Save vehicle</Button></DialogFooter>
         </Dialog>
       )}
 
@@ -220,7 +225,7 @@ export function VehiclesPage({
         <Dialog size="md" onClose={() => setShowRegisterModal(false)}>
           <DialogHeader onClose={() => setShowRegisterModal(false)} title="Register Vehicle" />
           <DialogBody><VehicleEditor vehicles={vehicles} vehicleTypes={vehicleTypes} live={!!slug} formId="vehicle-add-form" hideActions onCancel={() => setShowRegisterModal(false)} onSave={handleSaveVehicle} /></DialogBody>
-          <DialogFooter><Button type="submit" form="vehicle-add-form">Save vehicle</Button></DialogFooter>
+          <DialogFooter><Button loading={handleSaveVehicleAction.pending} type="submit" form="vehicle-add-form">Save vehicle</Button></DialogFooter>
         </Dialog>
       )}
     </div>

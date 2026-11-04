@@ -27,7 +27,7 @@ export function CompanyAccessButton({ company, disabled, onBusyChange }: {
     if (ok) mutation.mutate();
   };
   return <div className="space-y-2">
-    <Button type="button" variant={enabled ? 'outline' : 'default'} disabled={disabled || mutation.isPending} title={disabled ? 'Save your changes before changing company access.' : undefined} onClick={change}>{mutation.isPending ? 'Saving…' : enabled ? 'Suspend' : 'Activate'}</Button>
+    <Button loading={mutation.isPending} type="button" variant={enabled ? 'outline' : 'default'} disabled={disabled || mutation.isPending} title={disabled ? 'Save your changes before changing company access.' : undefined} onClick={change}>{mutation.isPending ? 'Saving…' : enabled ? 'Suspend' : 'Activate'}</Button>
     <Notice error={mutation.error} />
   </div>;
 }

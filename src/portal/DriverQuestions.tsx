@@ -25,7 +25,7 @@ function QuestionReply({ slug, question }: { slug: string; question: Operational
     </fieldset>
     <Field label="Additional details" value={details} maxLength={1000} onChange={event => setDetails(event.target.value)} disabled={reply.isPending} />
     <Field label="Expected ready in minutes (optional)" type="number" min={1} max={1440} step={1} value={minutes} onChange={event => setMinutes(event.target.value)} disabled={reply.isPending} />
-    <Notice error={reply.error} /><Button type="submit" disabled={reply.isPending || !reason || (reason === 'OTHER' && details.trim().length < 3)}>{reply.isPending ? 'Sending update…' : 'Send progress update'}</Button>
+    <Notice error={reply.error} /><Button loading={reply.isPending} type="submit" disabled={reply.isPending || !reason || (reason === 'OTHER' && details.trim().length < 3)}>{reply.isPending ? 'Sending update…' : 'Send progress update'}</Button>
   </form>;
 }
 

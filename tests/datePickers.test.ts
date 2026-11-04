@@ -201,3 +201,16 @@ test('Monitor corner keeps notifications without search or a date menu', async (
   assert.equal(screen.queryByTitle('Search orders, drivers, vehicles or addresses'), null);
   assert.ok(screen.getByTitle('Dispatch alerts and notifications'));
 });
+
+test('an open calendar keeps day buttons mounted when its form rerenders', async () => {
+  const user = userEvent.setup({ document });
+  const props = { value: '', today: '2026-11-04', 'aria-label': 'Pickup', onValueChange: (_: string) => {} };
+  const view = render(React.createElement(DatePicker, props));
+  await user.click(screen.getByRole('button', { name: /^Pickup:/ }));
+  const day = screen.getByRole('button', { name: /November 12th, 2026/ });
+  await user.hover(day);
+  view.rerender(React.createElement(DatePicker, { ...props }));
+  assert.ok(screen.getByRole('button', { name: /November 12th, 2026/ }) === day, 'rerender must preserve the hovered day button');
+  await user.click(day);
+  assert.equal(screen.queryByRole('dialog'), null);
+});

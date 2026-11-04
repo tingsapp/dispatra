@@ -215,7 +215,7 @@
 /* These layout-owned styles also govern nested controls with utility classes. */
 .app-summary { border: 0; }
 .app-summary > div { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.app-page-header :where(button:not(.app-icon-button)) { min-height: 2.25rem; border-radius: 999px; }
+.app-page-header :where(button:not(.app-icon-button)) { min-height: 2.25rem; }
 
 /* Identifier/log roles use Inter too; tabular numerals preserve number alignment. */
 .font-mono { font-variant-numeric: tabular-nums; }

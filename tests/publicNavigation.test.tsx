@@ -63,7 +63,7 @@ test('Back and Forward render earlier pages and restore saved scroll positions',
 
 function Links() {
   const route = usePublicNavigation();
-  return <main><h1>{route.pathname}</h1><a href="/help">Help</a><a href="/login">Login</a><a href="https://example.com/help">External</a><a href="mailto:dispatra@tingsapp.com">Email</a><a href="/help" target="_blank">New tab</a><a href="/help" download>Download</a><a href="/help" onClick={event => event.preventDefault()}>Handled</a></main>;
+  return <main><h1>{route.pathname}</h1><a href="/help">Help</a><a href="/login">Login</a><a href="https://example.com/help">External</a><a href="mailto:contact@dispatra.com">Email</a><a href="/help" target="_blank">New tab</a><a href="/help" download>Download</a><a href="/help" onClick={event => event.preventDefault()}>Handled</a></main>;
 }
 test('modified clicks, new tabs, downloads, external destinations and sign-in retain native semantics', () => {
   history.replaceState(null, '', '/about'); render(<Links />);

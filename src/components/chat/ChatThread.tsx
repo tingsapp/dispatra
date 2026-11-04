@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useChatComposer } from './useChatComposer';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useMarkRead, useSendMessage, useThread, type ChatChannel, type ChatMessage } from '../../chat/api';
@@ -26,12 +27,7 @@ export function ChatThread({ slug, orderId, driverId, shipperId, channel }: { sl
   const last = messages?.at(-1)?.seq;
   useEffect(() => { const node = list.current; if (node) node.scrollTop = node.scrollHeight; }, [last, channel.conversation_id]);
   const composer = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    const field = composer.current;
-    if (!field) return;
-    field.style.height = '0px';
-    field.style.height = `${Math.min(112, Math.max(24, field.scrollHeight))}px`;
-  }, [draft, channel.kind]);
+  useChatComposer(composer, draft, channel.kind);
   const body = draft.trim();
   const submit = () => {
     if (!body || send.isPending || !channel.can_send) return;
@@ -48,7 +44,7 @@ export function ChatThread({ slug, orderId, driverId, shipperId, channel }: { sl
     </ol>
     {channel.can_send ? <form className="public-chat-composer app-message-composer" onSubmit={event => { event.preventDefault(); submit(); }}>
       <label className="sr-only" htmlFor={`chat-${orderId}-${channel.kind}`}>Message {channel.title}</label>
-      <textarea ref={composer} style={{minHeight:24,maxHeight:112}} id={`chat-${orderId}-${channel.kind}`} rows={1} disabled={send.isPending} maxLength={MAX_LENGTH} value={draft} placeholder="Write a message…" className="public-chat-input"
+      <textarea ref={composer} id={`chat-${orderId}-${channel.kind}`} rows={1} disabled={send.isPending} maxLength={MAX_LENGTH} value={draft} placeholder="Write a message…" className="public-chat-input"
         onChange={event => { setDraft(event.target.value); attempt.current = crypto.randomUUID(); }}
         onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
       {/* Keep the send action aligned with the shared composer. */}

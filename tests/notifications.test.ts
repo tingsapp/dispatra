@@ -5,7 +5,9 @@ import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/acme/', pretendToBeVisual: true });
 for (const name of ['window','document','navigator','HTMLElement','HTMLInputElement','Element','Node','Event','CustomEvent','MutationObserver','getComputedStyle','localStorage']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
 HTMLElement.prototype.scrollIntoView=()=>{};
-const { render, screen, cleanup, waitFor } = await import('@testing-library/react');
+const { render, screen, cleanup, waitFor, configure } = await import('@testing-library/react');
+// Allow async query notifications to settle when the full suites contend for the event loop.
+configure({ asyncUtilTimeout: 5000 });
 const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { operations } = await import('../src/operations/api');

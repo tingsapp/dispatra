@@ -114,8 +114,8 @@ function OverviewEditor({ company, account, onReload }: {
       </section>}
     </fieldset>
     <Notice error={passwordError ? new Error(passwordError) : reload.error ?? save.error} success={save.isSuccess ? 'Changes saved.' : undefined} />
-    {isConflict(save.error) && <Button type="button" variant="outline" disabled={busy} onClick={() => reload.mutate()}>{reload.isPending ? 'Loading…' : 'Reload latest'}</Button>}
-    <div className="flex justify-end"><Button disabled={busy || !dirty || !draft.name.trim() || Boolean(account && !draft.login.trim())}>{save.isPending ? 'Saving…' : 'Save changes'}</Button></div>
+    {isConflict(save.error) && <Button loading={reload.isPending} type="button" variant="outline" disabled={busy} onClick={() => reload.mutate()}>{reload.isPending ? 'Loading…' : 'Reload latest'}</Button>}
+    <div className="flex justify-end"><Button loading={save.isPending} disabled={busy || !dirty || !draft.name.trim() || Boolean(account && !draft.login.trim())}>{save.isPending ? 'Saving…' : 'Save changes'}</Button></div>
   </form>;
 }
 

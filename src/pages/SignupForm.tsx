@@ -73,6 +73,6 @@ export function SignupForm({ onPendingChange, trialDays = 30, trialEnabled = tru
       <Notice error={error ? new Error(error) : signup.error} />
       <p className="text-xs leading-5 text-app-muted">Verify your email to start your {trialDays}-day trial. No credit card is required for the trial. To continue afterward, authorize monthly automatic billing at your company’s saved rate per registered vehicle.</p>
     </DialogBody>
-    <DialogFooter><Button disabled={signup.isPending || addressResolving || !trialEnabled}>{signup.isPending ? 'Creating your workspace…' : 'Start trial'}</Button></DialogFooter>
+    <DialogFooter><Button loading={signup.isPending} disabled={signup.isPending || addressResolving || !trialEnabled}>{signup.isPending ? 'Creating your workspace…' : 'Start trial'}</Button></DialogFooter>
   </form>;
 }

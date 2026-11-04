@@ -65,13 +65,13 @@
 .company-activity-panel .public-chat-composer:focus-within { border-color: #9ca3af; }
 
 /* Fit the dispatcher composer to the compact Monitor card. */
-.company-activity-panel .public-chat-composer {
+.company-activity-panel .public-chat-composer:not([data-multiline="true"]) {
   min-height: 44px;
   padding: 5px 7px;
   border-radius: 9999px;
   box-shadow: none;
 }
-.company-activity-panel .public-chat-composer .public-chat-input {
+.company-activity-panel .public-chat-composer:not([data-multiline="true"]) .public-chat-input {
   margin: 0 5px;
   font-size: 13px;
   line-height: 24px;
@@ -81,3 +81,5 @@
   height: 30px;
   min-height: 30px;
 }
+
+.company-activity-panel .public-chat-composer[data-multiline="true"] .public-chat-input { font-size: 13px; }

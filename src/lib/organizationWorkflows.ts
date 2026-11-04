@@ -1,7 +1,7 @@
 import { driverOrderLimit } from './driverStorage';
 import { validateOperationalAssignment } from '../domain/assignment';
 import { loadVehicles } from './vehicleStorage';
-import { orderClosed, orderEditable } from '../domain/validation';
+import { orderAssignable, orderEditable } from '../domain/validation';
 import { Driver, Job } from '../types';
 import { PricingOrderInput } from '../types/pricing';
 import { PricingContext } from './pricingEngine';
@@ -67,7 +67,7 @@ export const validateBookingSchedule = (order: PricingOrderInput, timeZone: stri
 
 /** Shared by direct/manual assignment and the static recommendation action. */
 export const validateAssignment = (job: Pick<Job, 'id' | 'pricing' | 'pricingInput' | 'status' | 'assignedDriverId'> & Partial<Job>, driver: Driver, jobs: Job[], ctx: PricingContext, now = new Date()): string[] => {
-  if (job.status === 'completed' || orderClosed(job as Job)) return ['Completed orders cannot be reassigned.'];
+  if (!orderAssignable(job as Job)) return ['Driver changes are unavailable after an order starts or closes.'];
   if (job.pricing?.status !== 'PRICED' || !job.pricingInput) return ['Resolve pricing before assigning this order.'];
   if (job.pricing.stage !== 'FINAL' && job.pricing.quoteExpiresAt && Date.parse(job.pricing.quoteExpiresAt) < now.getTime()) return ['Quote has expired. Re-price explicitly before assigning.'];
   if (job.pricingInput.requiredDriverId && driver.id !== job.pricingInput.requiredDriverId) return ['This order requires the shipper’s assigned driver.'];

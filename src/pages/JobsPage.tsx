@@ -1,3 +1,4 @@
+import { usePendingAction } from '../components/ui/usePendingAction';
 import { clockText } from '../lib/dateTimeFormat';
 import { DriverAvatar } from '../components/DriverAvatar';
 import { ListSummary } from '../components/layout/ListSummary';
@@ -104,10 +105,10 @@ export function JobsPage({
   const [dateFilter, setDateFilter] = useState<OrderDateSelection>({ kind: 'all' });
   const [createMode, setCreateMode] = useState<'order' | 'quote'>('order');
   const today = formatDateValue(new Date());
-  
+
   // Selected job for detail drawer
   const [activeJobDossier, setActiveJobDossier] = useState<Job | null>(null);
-  
+
   // Create Job Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddAccessorial, setShowAddAccessorial] = useState(false);
@@ -243,7 +244,9 @@ export function JobsPage({
     else if (activeJobDossier?.id === job.id) setActiveJobDossier(result.updated);
   };
 
+  const handleCreateSubmitAction = usePendingAction();
   const handleCreateSubmit = async (e: React.FormEvent) => {
+    return handleCreateSubmitAction.run(async () => {
     e.preventDefault();
     if (!editingOrder) {
       const scheduleErrors = validateBookingSchedule(newOrderInput, pricingCtx.billing.general.timeZone);
@@ -351,6 +354,8 @@ export function JobsPage({
         ? `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber}, quoted $${snapshot.total.toFixed(2)} ${snapshot.currency}`
         : `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber}, pricing needs attention`
     );
+
+    });
   };
 
   const sendLiveQuote = async (recipient: string) => {
@@ -729,7 +734,7 @@ export function JobsPage({
                 ? newOrderSnapshot.status === 'PRICED' && !!newOrderInput.rateCardOverrideId
                   ? <QuotationMenu buildQuotation={() => buildQuotation(newOrderInput, newOrderSnapshot, pricingCtx)} sendEmail={slug ? sendLiveQuote : undefined} onNotification={onNotification} triggerLabel="Send Quote" prominent allowRecipientEntry />
                   : <Button type="button" disabled>Send Quote</Button>
-                : <Button type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
+                : <Button loading={handleCreateSubmitAction.pending} type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
             </DialogFooter>
         </Dialog>
       )}

@@ -43,7 +43,7 @@ export function DirectoryPasswordForm({ slug, kind, record }: {
       <Notice error={error || mutation.error} success={mutation.isSuccess ? 'Password changed.' : undefined} />
       <div className="flex flex-wrap justify-end gap-2">
         {mutation.error && <Button type="button" variant="outline" onClick={() => cache.invalidateQueries({ queryKey: listKey })}>Reload account</Button>}
-        <Button type="submit" disabled={!record || mutation.isPending}>{mutation.isPending ? 'Changing…' : 'Change password'}</Button>
+        <Button loading={mutation.isPending} type="submit" disabled={!record || mutation.isPending}>{mutation.isPending ? 'Changing…' : 'Change password'}</Button>
       </div>
     </form>
   </section>;

@@ -544,6 +544,31 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
   letter-spacing: -.02em;
 }
 
+/* All popup text actions share compact sizing; inputs, tabs and icon controls
+   retain the geometry appropriate to their interaction. */
+.app-dialog-surface {
+  --app-popup-action-height: 36px;
+  --app-popup-action-gap: 8px;
+}
+.app-dialog-surface :is(
+  .app-button:is([data-size="default"], [data-size="sm"], [data-size="lg"]):not(.app-field-trigger):not(.app-company-logo),
+  .app-action:not(.app-icon-button):not(.app-field-trigger),
+  button.app-primary:not(.app-icon-button):not(.app-field-trigger),
+  button.app-secondary:not(.app-icon-button):not(.app-field-trigger)
+) {
+  min-height: var(--app-popup-action-height);
+  height: auto;
+  padding: 7px 16px;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 20px;
+  letter-spacing: normal;
+}
+.app-dialog-surface .app-dialog-footer,
+.app-dialog-surface [data-popup-actions] {
+  gap: var(--app-popup-action-gap);
+}
+
 /* Portal navigation follows the compact, neutral reference menu. */
 .app-workspace-sidebar { --spacing-sidebar: 204px; font-family: -apple-system-body, ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"; --color-app-sidebar: #fafafa; --color-app-hover: #efefef; --color-app-selected: #efefef; }
 .app-workspace-sidebar .app-nav-item {
@@ -611,10 +636,8 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
   box-shadow: var(--app-map-card-shadow);
 }
 
-/* Keep action buttons pill-shaped across all web app entry points. */
-button, [role="button"], .app-button, .app-action, .app-primary, .app-secondary {
-  border-radius: 9999px !important;
-}
+/* Pill corners belong to .app-button and .app-action above.
+   Native buttons and role="button" surfaces retain their component geometry. */
 
 /* Account identity keeps its original card corners. */
 button.app-account-card { border-radius: var(--app-radius-menu-item) !important; }
@@ -634,3 +657,30 @@ button.app-account-card { border-radius: var(--app-radius-menu-item) !important;
 [aria-label="Today’s plan"] [role="tab"] {
   border-radius: 8px !important;
 }
+
+/* Order list rows are flat list entries rather than pill actions. */
+button.app-shipper-order-row { border-radius: 6px !important; box-shadow: none; }
+
+/* Pending actions retain their label and expose submission state to assistive technology. */
+button[aria-busy="true"]::before, .app-button[aria-busy="true"]::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: app-button-spin .7s linear infinite;
+}
+button[aria-busy="true"], .app-button[aria-busy="true"] { cursor: wait; }
+button[aria-busy="true"] > svg { display: none; }
+@keyframes app-button-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  button[aria-busy="true"]::before, .app-button[aria-busy="true"]::before { animation-duration: 1.8s; }
+}
+
+.app-button[aria-busy="true"][data-size^="icon"] { font-size: 0; }
+
+/* Driver selection rows use regular list corners. */
+button.app-assignment-driver-row { border-radius: 8px !important; }

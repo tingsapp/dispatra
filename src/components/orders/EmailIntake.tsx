@@ -79,7 +79,7 @@ export function IntakeDialog({ slug, id, onClose, onChanged, onNotification, onC
           <div className="flex flex-wrap gap-2">
             <Select aria-label="Shipper" value={shipperId} onValueChange={setShipperId} placeholder="Choose a Shipper" className="w-72"
               options={(shippers.data ?? []).filter(s => s.status === 'ACTIVE').map(s => ({ value: s.id, label: s.company_name || s.name }))} />
-            <Button type="button" disabled={!shipperId || busy} onClick={() => act('Shipper linked. The Order agent is reading the email again.', () => operations.linkEmailIntakeShipper(slug, row, shipperId))}>Link and read again</Button>
+            <Button loading={!!busy} type="button" disabled={!shipperId || busy} onClick={() => act('Shipper linked. The Order agent is reading the email again.', () => operations.linkEmailIntakeShipper(slug, row, shipperId))}>Link and read again</Button>
           </div>
         </section>}
         <section>
@@ -89,8 +89,8 @@ export function IntakeDialog({ slug, id, onClose, onChanged, onNotification, onC
       </>}
     </DialogBody>
     {row && <DialogFooter note={row.status === 'NEEDS_REVIEW' ? 'Completing opens the order form with everything the agent found.' : undefined}>
-      {open && <Button type="button" variant="outline" disabled={busy} onClick={() => act('Email discarded.', () => operations.discardEmailIntake(slug, row))}>Discard</Button>}
-      {(open || row.status === 'DISCARDED') && row.status !== 'UNKNOWN_SENDER' && <Button type="button" variant="outline" disabled={busy} onClick={() => act('The Order agent is reading the email again.', () => operations.retryEmailIntake(slug, row))}>Read again</Button>}
+      {open && <Button loading={!!busy} type="button" variant="outline" disabled={busy} onClick={() => act('Email discarded.', () => operations.discardEmailIntake(slug, row))}>Discard</Button>}
+      {(open || row.status === 'DISCARDED') && row.status !== 'UNKNOWN_SENDER' && <Button loading={!!busy} type="button" variant="outline" disabled={busy} onClick={() => act('The Order agent is reading the email again.', () => operations.retryEmailIntake(slug, row))}>Read again</Button>}
       {open && row.draft && row.shipper_id && <Button type="button" disabled={busy} onClick={() => onCompleteDraft({ intake: { id: row.id, version: row.version }, draft: row.draft! })}>Complete order</Button>}
       {row.status === 'ORDER_CREATED' && row.order_number && <Button type="button" onClick={() => onShowOrder(row.order_number!)}>Show order</Button>}
     </DialogFooter>}
@@ -200,7 +200,7 @@ function MailboxForm({ slug, mailbox, onSaved }: { slug: string; mailbox: Mailbo
     </fieldset>
     {result && <p role={result.ok ? 'status' : 'alert'} className={`text-sm ${result.ok ? 'text-emerald-700' : 'text-rose-700'}`}>{result.text}</p>}
     <div className="flex flex-wrap justify-end gap-2">
-      <Button type="button" variant="outline" disabled={busy || !form.host || !form.username || (!mailbox && !form.password)} onClick={test}>Test connection</Button>
+      <Button loading={!!busy} type="button" variant="outline" disabled={busy || !form.host || !form.username || (!mailbox && !form.password)} onClick={test}>Test connection</Button>
       <Button type="submit" disabled={busy}>{mailbox ? 'Save mailbox' : 'Connect mailbox'}</Button>
     </div>
   </form>;

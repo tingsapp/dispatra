@@ -1,3 +1,4 @@
+import { usePendingAction } from '../ui/usePendingAction';
 import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { Dialog, DialogHeader } from '../ui/Dialog';
@@ -18,12 +19,13 @@ function DimensionInput({ label, value, onChange, units }: { label: string; valu
 }
 
 /** Name, payload, pallets and inside cargo dimensions. Pricing fields the form does not show are kept as they are. */
-export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialVehicle: VehicleType | null; onSave: (vehicle: VehicleType) => void; onClose: () => void }) {
+export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialVehicle: VehicleType | null; onSave: (vehicle: VehicleType) => void | Promise<void>; onClose: () => void }) {
   const [units] = useState(() => loadBillingConfig().general);
   useEntityDialog(true, onClose);
   const [draft, setDraft] = useState<Partial<VehicleType>>(() => ({ ...initialVehicle, truckRouting: initialVehicle?.truckRouting ?? { lengthM: 0, widthM: 0, heightM: 0, grossWeightKg: 0 } }));
   const [error, setError] = useState('');
   const patch = (change: Partial<VehicleType>) => { setDraft(current => ({ ...current, ...change })); setError(''); };
+  const saveAction = usePendingAction();
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const { name, payloadCapacityKg: payload, palletCapacity: pallets, cargoLengthCm: l, cargoWidthCm: w, cargoHeightCm: h } = draft;
@@ -35,7 +37,7 @@ export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialV
     const routingError = truckRoutingError(draft.truckRouting);
     if (routingError) return setError(routingError);
     if (draft.truckRouting && draft.truckRouting.grossWeightKg < payload) return setError('Loaded gross weight must cover the max payload.');
-    onSave({
+    return onSave({
       fuelEligible: true, hasLiftgate: false, requiresCommercialLicense: false, active: true,
       ...initialVehicle, truckRouting: draft.truckRouting, id: initialVehicle?.id ?? `veh_${crypto.randomUUID()}`, name: name.trim(),
       baseSurcharge: Math.round(Number(draft.baseSurcharge ?? 0) * 100) / 100, payloadCapacityKg: payload, palletCapacity: pallets, cargoLengthCm: l, cargoWidthCm: w, cargoHeightCm: h,
@@ -44,7 +46,7 @@ export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialV
   };
   return <Dialog size="form" onClose={onClose}>
     <DialogHeader onClose={onClose} closeLabel="Close vehicle type form" title={initialVehicle ? 'Edit Vehicle Type' : 'Add Vehicle Type'} description="Capacity, cargo size and outside dimensions." />
-    <form onSubmit={submit} noValidate className="app-dialog-body space-y-4">
+    <form onSubmit={event => { event.preventDefault(); void saveAction.run(() => submit(event)); }} noValidate className="app-dialog-body space-y-4">
       <label className="block"><span className="app-label">Name</span><input className="app-input w-full" aria-label="Name" required value={draft.name ?? ''} onChange={event => patch({ name: event.target.value })} placeholder="e.g. 16ft Cube Truck" /></label>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block"><span className="app-label">Max payload ({units.weightUnit})</span><WeightInput value={draft.payloadCapacityKg ?? null} units={units} label="Max payload" labelWithUnit min={0.000001} required className="app-input w-full" onChange={weight => patch({ payloadCapacityKg: weight ?? undefined })} /></label>
@@ -56,7 +58,7 @@ export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialV
       <TruckRoutingFields value={draft.truckRouting!} onChange={truckRouting => patch({ truckRouting })} units={units} />
       <label className="block sm:max-w-xs"><span className="app-label">Surcharge ($)</span><input className="app-input w-full" aria-label="Surcharge ($)" type="number" min="0" step="0.01" value={draft.baseSurcharge ?? 0} onChange={event => patch({ baseSurcharge: event.target.value === '' ? 0 : Number(event.target.value) })} /><span className="mt-1 block text-xs text-slate-500">Added to the quote when an order requires this vehicle type and its rate card applies vehicle surcharges.</span></label>
       {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
-      <div className="flex items-center justify-end gap-2 pt-2"><Button type="submit">{initialVehicle ? 'Save Changes' : 'Add Vehicle Type'}</Button></div>
+      <div data-popup-actions className="flex flex-wrap items-center justify-end gap-2 pt-2"><Button loading={saveAction.pending} type="submit">{initialVehicle ? 'Save Changes' : 'Add Vehicle Type'}</Button></div>
     </form>
   </Dialog>;
 }

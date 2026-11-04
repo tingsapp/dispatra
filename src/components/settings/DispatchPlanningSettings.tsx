@@ -45,7 +45,7 @@ function SavedDispatchPlanningSettings({ workspace }: { workspace: NonNullable<R
       <input aria-label={`Zone ${index+1} postal prefixes`} className="app-input" placeholder="V5Y, V5Z" value={zone.postal_codes.join(', ')} onChange={e=>edit(zones.map((z,i)=>i===index?{...z,postal_codes:e.target.value.split(',').map(v=>v.trim().toUpperCase())}:z))} />
       <Button type="button" variant="outline" onClick={()=>edit(zones.filter((_,i)=>i!==index))}>Remove zone</Button>
     </fieldset>)}
-    <div className="flex gap-3 flex-wrap"><Button type="button" variant="outline" disabled={busy || zones.length>=100} onClick={()=>edit([...zones,{name:'',postal_codes:[]}])}>Add dispatch zone</Button><Button type="button" disabled={busy || !dirty} onClick={save}>{busy?'Saving…':'Save dispatch planning'}</Button></div>
+    <div className="flex gap-3 flex-wrap"><Button type="button" variant="outline" disabled={busy || zones.length>=100} onClick={()=>edit([...zones,{name:'',postal_codes:[]}])}>Add dispatch zone</Button><Button loading={busy} type="button" disabled={busy || !dirty} onClick={save}>{busy?'Saving…':'Save dispatch planning'}</Button></div>
     {message && <p role="status" className="text-sm">{message}</p>}
   </section>;
 }

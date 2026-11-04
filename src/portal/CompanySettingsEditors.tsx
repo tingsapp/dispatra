@@ -44,7 +44,7 @@ export function SaveSettings({ editor, label }: { editor: ReturnType<typeof useS
     <Notice error={editor.error} success={editor.saved ? 'Changes saved.' : undefined} />
     <div className="flex items-center justify-end gap-3">
       {!!editor.error && <Button type="button" variant="outline" disabled={editor.pending} onClick={editor.reload}>Reload saved settings</Button>}
-      <Button type="submit" disabled={!editor.dirty || editor.pending} className="app-action app-primary rounded-full px-4 py-2 text-xs">{editor.pending ? 'Saving…' : label}</Button>
+      <Button loading={editor.pending} type="submit" disabled={!editor.dirty || editor.pending} className="app-action app-primary rounded-full px-4 py-2 text-xs">{editor.pending ? 'Saving…' : label}</Button>
     </div>
   </div>;
 }

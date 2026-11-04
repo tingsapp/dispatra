@@ -49,7 +49,7 @@ export function CreateCompanyDialog({ onClose, onCreated }: { onClose: () => voi
           <Notice error={mutation.error} />
         </fieldset>
       </DialogBody>
-      <DialogFooter><Button disabled={mutation.isPending || addressResolving}>{mutation.isPending ? 'Creating…' : 'Create company'}</Button></DialogFooter>
+      <DialogFooter><Button loading={mutation.isPending} disabled={mutation.isPending || addressResolving}>{mutation.isPending ? 'Creating…' : 'Create company'}</Button></DialogFooter>
     </form>
   </Dialog>;
 }

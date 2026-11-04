@@ -34,7 +34,7 @@ function ApiKeyCard({ slug }: { slug: string }) {
         <CopyButton value={created} label="Dispatra API key" /></div>
         : <p className="text-sm">{configured ? <>Key <code>{query.data!.prefix}…</code> created {dateTime(query.data!.created_at)}{query.data!.last_used_at ? `, last used ${dateTime(query.data!.last_used_at)}` : ', not used yet'}.</> : 'No API key yet.'}</p>}
       <p className="text-xs text-app-muted">Send it as <code>Authorization: Bearer &lt;key&gt;</code> with an <code>Idempotency-Key</code> on changes. It can use the endpoints listed below.</p>
-      <div><Button type="button" variant="outline" size="sm" disabled={busy || query.isPending} onClick={create}>{configured ? 'Regenerate' : 'Create API key'}</Button></div>
+      <div><Button loading={!!busy} type="button" variant="outline" size="sm" disabled={busy || query.isPending} onClick={create}>{configured ? 'Regenerate' : 'Create API key'}</Button></div>
       {notice && <p role="status" className="text-sm text-app-muted">{notice}</p>}
     </>}
   </SettingsDisclosure>;
@@ -78,7 +78,7 @@ function WebhooksForm({ saved, onSave }: { saved: ApiWebhookView | null; onSave:
     </table>
     {saved?.last_delivery_at && <p className="text-xs text-app-muted">Last delivery {dateTime(saved.last_delivery_at)}{saved.last_error ? ' failed; retrying.' : '.'}</p>}
     {notice && <p role="status" className="text-sm text-app-muted">{notice}</p>}
-    <Button type="button" disabled={!ready || !dirty || busy} onClick={save}>Save webhook</Button>
+    <Button loading={!!busy} type="button" disabled={!ready || !dirty || busy} onClick={save}>Save webhook</Button>
   </>;
 }
 

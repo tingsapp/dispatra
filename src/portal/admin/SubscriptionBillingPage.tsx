@@ -67,9 +67,9 @@ function PlanOptionsForm({ plan }: { plan: MonthlyPlan }) {
     <p className="text-xs leading-5 text-app-muted">Use a three-letter currency code, such as CAD or USD. Leave a price blank to show “Contact us for pricing” for that plan.</p>
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-app-muted"><a href="/plans" className="text-app-text underline underline-offset-4">View public plans</a></p>
-      <Button className="shrink-0" disabled={!dirty || save.isPending || reload.isPending}>{save.isPending ? 'Saving…' : 'Save plans'}</Button>
+      <Button loading={save.isPending} className="shrink-0" disabled={!dirty || save.isPending || reload.isPending}>{save.isPending ? 'Saving…' : 'Save plans'}</Button>
     </div>
     <Notice error={reload.error ?? save.error} success={save.isSuccess ? 'Subscription plans saved.' : undefined} />
-    {isConflict(save.error) && <Button type="button" variant="outline" disabled={reload.isPending} onClick={() => reload.mutate()}>{reload.isPending ? 'Loading…' : 'Reload latest'}</Button>}
+    {isConflict(save.error) && <Button loading={reload.isPending} type="button" variant="outline" disabled={reload.isPending} onClick={() => reload.mutate()}>{reload.isPending ? 'Loading…' : 'Reload latest'}</Button>}
   </form>;
 }

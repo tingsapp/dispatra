@@ -22,6 +22,7 @@ export function assignableRoute(routes: Route[], driverId: string, vehicleId: st
 }
 
 export async function assignToDriver(slug: string, order: Order, driverId: string, vehicleId: string) {
+  if (order.status !== 'NEW') throw new Error('Only unassigned orders can be assigned.');
   const required = shipperAssignment(order)?.id;
   if (required && driverId !== required) throw new Error('This order requires the shipper’s assigned driver.');
   const route = assignableRoute(await allOperations.routes(slug), driverId, vehicleId);
@@ -30,6 +31,8 @@ export async function assignToDriver(slug: string, order: Order, driverId: strin
 
 /** A route is the assignment unit. Release its planned route before moving an order. */
 export async function changeAssignment(slug: string, order: Order, driverId: string | null, vehicleId: string | null, route?: Route) {
+  if (!['NEW', 'ASSIGNED'].includes(order.status)) throw new Error('Driver changes are unavailable after an order starts or closes.');
+  if (route && (route.status !== 'PLANNED' || route.locked)) throw new Error('Only an unlocked planned route can be reassigned.');
   const required = shipperAssignment(order)?.id;
   if (driverId && required && driverId !== required) throw new Error('This order requires the shipper’s assigned driver.');
   if (driverId && !vehicleId) throw new Error('The driver needs an attached vehicle.');

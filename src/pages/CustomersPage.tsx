@@ -1,5 +1,9 @@
+import { usePendingAction } from '../components/ui/usePendingAction';
+import { dateTime } from '../lib/dateTimeFormat';
+import { ORDER_LIFECYCLE_LABELS } from '../domain/operations';
 import { useChatInbox } from '../chat/api';
 import { CompanyChatDialog } from '../components/chat/CompanyChatDialog';
+import { Tabs } from '../components/ui/Tabs';
 import { ListSummary } from '../components/layout/ListSummary';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../components/ui/Dialog';
@@ -162,7 +166,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     setIsModalOpen(true);
   };
 
+  const handleSaveCustomerAction = usePendingAction();
   const handleSaveCustomer = async (e: React.FormEvent) => {
+    return handleSaveCustomerAction.run(async () => {
     e.preventDefault();
     if (!formData.name?.trim()) {
       onNotification?.('Shipper name is required.');
@@ -242,6 +248,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     }
 
     setIsModalOpen(false);
+
+    });
   };
 
   const handleDeleteCustomer = async (id: string, name: string) => {
@@ -441,6 +449,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             leading={<div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 font-medium text-sm flex items-center justify-center shrink-0">{selectedCustomerForView.name.substring(0, 2).toUpperCase()}</div>}
             title={selectedCustomerForView.name} description={<span className="font-mono">{selectedCustomerForView.code}</span>} />
           <DialogBody className="app-sections">
+            <Tabs key={selectedCustomerForView.id} label="Shipper information" items={[
+              { id: 'details', label: 'Details', content: <>
             <div className="flex flex-wrap items-center gap-2">
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                 selectedCustomerForView.status === 'Preferred'
@@ -458,17 +468,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </span>
             </div>
 
-            <section className="space-y-3" aria-label="Order history">
-              <h4 className="app-section-title">Order history</h4>
-              {jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-sm text-slate-500">No linked orders yet.</p>}
-              <div className="flex flex-col items-start gap-2">
-                {jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => (
-                  <Button key={j.id} type="button" variant="link" className="h-auto justify-start whitespace-normal p-0 text-left" onClick={() => onSelectJob?.(j.jobNumber)}>
-                    {j.jobNumber} · {j.statusLabel}
-                  </Button>
-                ))}
-              </div>
-            </section>
 
             <section className="space-y-3" aria-label="Contact information">
               <h4 className="app-section-title">Contact information</h4>
@@ -499,9 +498,31 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             )}
 
             {slug && <DirectoryPasswordForm key={selectedCustomerForView.id} slug={slug} kind="shipper" record={shipperQuery.data?.find(row => row.id === selectedCustomerForView.id)} />}
-            <ListSummary label="Shipper order summary" items={[
-              { label: 'Total volume', value: `${jobs.filter(j => j.customerId === selectedCustomerForView.id).length} orders`, icon: Package },
-              { label: 'Active on road', value: `${activeOrderCount(selectedCustomerForView.id)} orders`, icon: Truck },
+
+              </> },
+              { id: 'orders', label: 'Orders', content: <>
+            <p aria-label="Shipper order summary" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+              <span>Total volume <strong className="ml-1 font-semibold text-slate-800">{jobs.filter(j => j.customerId === selectedCustomerForView.id).length}</strong></span>
+              <span>Active on road <strong className="ml-1 font-semibold text-slate-800">{activeOrderCount(selectedCustomerForView.id)}</strong></span>
+            </p>
+            <section className="space-y-3 rounded-none border-0 shadow-none" aria-label="Order history">
+              <h4 className="app-section-title">Order history</h4>
+              {jobs.filter(j => j.customerId === selectedCustomerForView.id).length === 0 && <p className="text-sm text-slate-500">No linked orders yet.</p>}
+              <div className="divide-y divide-slate-100 rounded-none border-0 shadow-none">
+                {jobs.filter(j => j.customerId === selectedCustomerForView.id).map(j => (
+                  <button key={j.id} type="button" aria-label={`${j.jobNumber} · ${j.lifecycleStatus ? ORDER_LIFECYCLE_LABELS[j.lifecycleStatus] : j.statusLabel}`} onClick={() => onSelectJob?.(j.jobNumber)} className="app-shipper-order-row flex w-full items-center gap-4 rounded-md border-0 px-4 py-3 text-left shadow-none transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold text-slate-900">{j.jobNumber}</span><span className="text-xs text-slate-500">{j.lifecycleStatus ? ORDER_LIFECYCLE_LABELS[j.lifecycleStatus] : j.statusLabel}</span></div>
+                      <p className="truncate text-sm text-slate-600">{j.pickupAddress || 'Pickup unavailable'} → {j.dropoffAddress || 'Delivery unavailable'}</p>
+                      <p className="text-xs text-slate-500">{dateTime(j.scheduledTime) || 'Not scheduled'} · {j.serviceLevel || j.jobType}</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            </section>
+
+              </> },
             ]} />
           </DialogBody>
           <DialogFooter>
@@ -563,7 +584,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </section>
             </form>
           </DialogBody>
-          <DialogFooter><Button type="submit" form="shipper-form">{editingCustomer ? 'Save Changes' : 'Create Shipper'}</Button></DialogFooter>
+          <DialogFooter><Button loading={handleSaveCustomerAction.pending} type="submit" form="shipper-form">{editingCustomer ? 'Save Changes' : 'Create Shipper'}</Button></DialogFooter>
         </Dialog>
       )}
     </div>

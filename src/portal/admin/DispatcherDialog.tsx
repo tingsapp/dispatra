@@ -27,7 +27,7 @@ export function DispatcherDialog({ companyId, onClose, onSaved }: {
         <Notice error={mutation.error} />
         {isConflict(mutation.error) && <p className="text-sm text-app-muted">Close this dialog to load the latest account details.</p>}
       </DialogBody>
-      <DialogFooter><Button type="button" variant="outline" disabled={mutation.isPending} onClick={onClose}>Cancel</Button><Button disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Create dispatcher'}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="outline" disabled={mutation.isPending} onClick={onClose}>Cancel</Button><Button loading={mutation.isPending} disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Create dispatcher'}</Button></DialogFooter>
     </form>
   </Dialog>;
 }

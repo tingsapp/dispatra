@@ -3495,6 +3495,7 @@ export interface components {
         };
         /** AssistantReply */
         AssistantReply: {
+            briefing?: components["schemas"]["DailyBriefing"] | null;
             /** Message */
             message: string;
             /** References */
@@ -4619,6 +4620,27 @@ export interface components {
             status: string;
             /** Version */
             version: number;
+        };
+        /** DailyBriefing */
+        DailyBriefing: {
+            /** Day */
+            day: string;
+            /** Time Zone */
+            time_zone: string;
+            /** Evening */
+            evening: boolean;
+            /** Received */
+            received: number;
+            /** Unassigned */
+            unassigned: number;
+            /** Assigned */
+            assigned: number;
+            /** In Progress */
+            in_progress: number;
+            /** Completed */
+            completed: number;
+            /** Open Incidents */
+            open_incidents: number;
         };
         /** DailyMetric */
         DailyMetric: {
@@ -8289,6 +8311,19 @@ export interface components {
             prices: {
                 [key: string]: string;
             };
+        };
+        /** WorkspaceAssistantQuestion */
+        WorkspaceAssistantQuestion: {
+            /** Message */
+            message: string;
+            /** History */
+            history?: components["schemas"]["AssistantTurn"][];
+            /**
+             * Kind
+             * @default CHAT
+             * @enum {string}
+             */
+            kind: "CHAT" | "BRIEFING";
         };
         /** Zone */
         Zone: {
@@ -26388,7 +26423,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AssistantQuestion"];
+                "application/json": components["schemas"]["WorkspaceAssistantQuestion"];
             };
         };
         responses: {

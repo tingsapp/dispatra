@@ -1,3 +1,35 @@
+2026-11-04 release verification: Full web checks exposed an outdated shipper-details test and concatenated accessible labels on order-history links. Updated the check for the current Details/Orders tabs and restored a readable order-number/status label. A notification test wait now allows asynchronous query updates under full-suite load without changing assertions. All 60 package test modules passed after focused reruns: 666 tests, zero remaining failures. TypeScript passed; newer GitHub logo commits were preserved, and the merged appearance/public-page checks and production build passed. Native generated API types match the web contract.
+
+2026-11-04: Corrected lifecycle action gates across shared order details, Monitor driver selection, Orders details live records, assignment handlers and prototype validation. Driver changes are limited to NEW/ASSIGNED; editing to NEW. Read-only states retain saved driver details; staged changes disappear when an order completes. Shared commands reject closed/executing orders before route queries/release, and reject locked/non-planned source routes. Focused UI/domain/assignment tests passed; final checks recorded in chat.
+
+2026-11-04: Unified all three web chat composer implementations with shared measurement for soft wrapping/newlines, width changes and six-line (144px) height cap. Multiline drafts use 20px corners, full-width text and a separate bottom action row; compact single-line appearance returns after clearing/shortening. Corrected Monitor-specific overrides and narrow-width intrinsic sizing. Fifty browser layout checks passed across public, Monitor and operational chat at 450/320px; visual preview inspected. All 31 focused chat/public assistant/Monitor regressions passed.
+
+2026-11-04: Stabilized shared Calendar Root, Chevron and WeekNumber component identities. Form rerenders now preserve the open calendar DOM and hovered day buttons rather than replacing the subtree and disrupting focus/clicks. Eleven date-picker tests and TypeScript passed, including a new rerender/hover/click regression and existing pickup/drop-off constraints. The new regression failed against the original inline components and passed after stabilizing them. Full signed-in form reproduction was unavailable because the saved local demo login returned 401; isolated shared-component verification passed.
+
+2026-11-04: Corrected Monitor chat opening: composer focus no longer expands the panel; automatic briefing is requested once per mounted company chat/page load, retaining its request guard through closing, reopening and Monitor activation changes. A full page refresh requests a new briefing. Explicit user retries remain available after failures. Seven focused chat regressions passed, including focus staying collapsed, close/send/reopen preserving one briefing, and a fresh mount requesting one new briefing.
+
+2026-11-04: Simplified the Monitor briefing to an unboxed compact response: title/time, received total, one four-column status strip, a single attention line and quiet follow-up links. Removed repeated assistant label, introduction, large issue panel and footer timezone. Commentary is capped at 180 characters by the API. TypeScript and seven focused chat tests passed.
+
+2026-11-04: Monitor Dispatra now requests an API-backed daily briefing on chat opening/reopening, rendered as a dedicated card with daily status totals, workspace-wide recorded open issues, agent commentary, company-zone observation time and normal-chat follow-ups. Conversation and drafts survive closing; automatic failures retry without synthetic user bubbles. Removed the static summary. Generated API types, TypeScript, production build and narrow-width card visual check passed; focused chat/date regressions recorded in chat. Local API restarted and health verified. No production release or live AI-provider validation.
+
+2026-11-04: Removed the global button/role=button pill override and page-header button radius override. Dropdowns, clickable cards, list rows and tabs now use their component corners; shared Button/app-action controls retain pill corners for Submit, Cancel, Complete and similar actions. Supersedes the November 3 global-rounding decision. TypeScript and production build passed; 11 shared appearance/interaction tests passed; 60 browser computed-corner checks passed at desktop/mobile widths in normal, hover and focus states. Local change only; not published.
+
+2026-11-03: Corrected Monitor Assign/Reassign driver rows to full width with 8px corners, overriding the global pill-button rule. Supersedes the content-width adjustment. TypeScript/build passed; published to dispatra.com and verified the served JS/CSS. Rollback retained.
+
+2026-11-03: Published the content-width Monitor driver rows and current popup/button updates to dispatra.com with a rollback copy. TypeScript and production build passed; 3 button-loading, 9 dialog and 29 entity-form tests passed. HTTPS home/workspace responses and the served assignment asset were verified after publication.
+
+2026-11-03: Monitor Assign/Reassign driver rows use content width with a bounded maximum and consistent vertical spacing instead of stretching across the popup.
+
+2026-11-03: Added shared button loading state with an inline spinner, aria-busy and disabled submissions. Connected existing mutation states across account, signup, administration, integrations, email, chat and operational actions; added guarded pending states for shipper, driver, vehicle and order saves and catalog modals. Node/npm unavailable, so runtime tests and build remain unverified.
+
+2026-11-03: Published the validated pending web changes to https://dispatra.com at 14:04 UTC. Archive SHA256 e719bcf15594505f97c331402abbd144bd298d023ea350dae36ab9656055051a; backup /opt/dispatra/web-before-popup-20261103T140457Z. Existing assets/downloads preserved; API/native already match live. Public homepage and origin return 200; Caddy/API active.
+
+2026-11-03 release validation: TypeScript and production build passed for pending popup sizing and Shipper Details/Orders tabs with order-detail navigation. All 45 focused entity-form, dialog-dismissal and navigation checks passed. API and native revisions already match production; no migration required.
+
+2026-11-03: Audited shared modal, detail and confirmation surfaces. Popup small/default/large text actions and native primary/secondary actions share 36px minimum height, 13px labels, 16px horizontal padding and 8px action-group spacing. Inputs, tabs and icon controls retain their own geometry. Runtime checks unavailable because Node/npm are absent.
+
+2026-11-03: Shared popup text actions use compact 36px minimum height, 13px labels and 16px horizontal padding, including confirmation dialogs. Explicit small/icon buttons and field triggers retain their sizes.
+
 2026-11-03: Today’s plan filter tabs retain their original 8px corners rather than global pill button styling, including selected and hover states.
 
 2026-11-03: Dropdown menu items retain their original menu-item corners (8px in compact Monitor menus), including button-based entries and submenu triggers. CSS-only change; runtime checks unavailable because npm is missing.
@@ -1227,3 +1259,9 @@ Final focused Chrome verification passed: real WebGL scene at 1440/390/320px, or
 - 2026-11-03 release validation: All 59 npm test scripts exercised across the full run and corrected continuations; stale homepage selection/removed role tabs, rounded SVG map mocks and daily-summary activity expectations reconciled. Agent report regression given 60 seconds under parallel validation load. TypeScript and production build passed. Real-browser smoke passed six public/account entry routes without JavaScript errors. API validation exercised 563 tests with corrected failures rerun; driver 102 tests passed. Practical live order/device acceptance remains for the owner.
 
 - 2026-11-03: Fixed recommendation approval retry keys exceeding the API 80-character limit for UUIDs; stable compact keys preserve duplicate protection. Failed assignment errors remain visible after recommendation refresh, and the main button names its target driver. Four focused regressions pass. Isolated release excludes concurrent unrelated UI work.
+
+- 2026-11-04: Active public chat uses a nonshrinking dynamic-viewport minimum height and growing transcript to keep the composer at the bottom for short mobile conversations. Sticky scrolling and voice layout remain; device verification pending.
+
+- 2026-11-04: Public contact, FAQ, chat fallback and legal/privacy email links use contact@dispatra.com. Forwarding to dispatra@tingsapp.com requires configuration with the domain email provider.
+
+- 2026-11-04: Public chat dock tracks VisualViewport resize/scroll and keyboard inset; follow-latest uses visible viewport bounds. Chrome mobile emulation at 390px width measured dock bottom exactly at 844px and 480px viewport bottoms after starting chat and focusing input. Real device keyboard validation remains pending.

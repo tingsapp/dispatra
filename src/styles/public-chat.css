@@ -1,5 +1,7 @@
 /* Public assistant field: keep the shared form defaults out of this composer. */
 .public-chat-composer {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-shrink: 0;
   align-items: flex-end;
@@ -81,7 +83,14 @@
   min-height: 0;
   padding-bottom: 5rem;
 }
-.public-chat-body--started { justify-content: flex-start; min-height: calc(100svh - 9rem); padding-bottom: 0; }
+.public-chat-body--started {
+  flex: none;
+  justify-content: flex-start;
+  min-height: calc(100dvh - 9rem);
+  padding-bottom: 0;
+}
+.public-chat-body--started > .public-chat-transcript { flex: 1 0 auto; }
+.public-chat-body--started > .public-chat-dock { margin-top: auto; padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
 .public-chat-transcript {
   flex: 1;
   width: 100%;
@@ -92,7 +101,7 @@
 }
 .public-chat-dock {
   position: sticky;
-  bottom: 0;
+  bottom: var(--chat-keyboard-inset, 0px);
   z-index: 10;
   flex-shrink: 0;
   padding: 1rem 0 1.25rem;
@@ -189,3 +198,26 @@
 .app-message-composer.public-chat-composer { min-height: 44px; padding: 5px 7px; box-shadow: none; }
 .app-message-composer.public-chat-composer .public-chat-input { margin: 0 5px; font-size: 13px; line-height: 24px; }
 .app-message-composer.public-chat-composer .public-chat-send { width: 30px; height: 30px; min-height: 30px; }
+
+/* Multiline messages get a full-width text area and a separate bottom action row. */
+.public-chat-composer[data-multiline="true"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 8px 6px;
+  padding: 12px;
+  border-radius: 20px;
+}
+.public-chat-composer[data-multiline="true"] .public-chat-input {
+  grid-column: 1 / -1;
+  width: 100%;
+  align-self: start;
+  margin: 0;
+  max-height: 144px;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+}
+.public-chat-composer[data-multiline="true"] .public-chat-mic { grid-column: 2; }
+.public-chat-composer[data-multiline="true"] .public-chat-send { grid-column: 3; }
+
+.app-chat-popup .public-chat-composer[data-multiline="true"] textarea::-webkit-scrollbar { display: block; width: 4px; }

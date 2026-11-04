@@ -410,6 +410,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     if (!record || !driver) return;
     const route = routeQuery.data?.find(item => item.id === record.route_id);
     try {
+      if (!['NEW', 'ASSIGNED'].includes(record.status)) throw new Error('Driver changes are unavailable after an order starts or closes.');
+      if (route && (route.status !== 'PLANNED' || route.locked)) throw new Error('Only an unlocked planned route can be reassigned.');
       if (route) {
         const affected = orderQuery.data?.filter(order => order.route_id === route.id).length ?? 1;
         if (!(await confirmDialog({ title: 'Change driver?', message: affected > 1 ? `This planned route has ${affected} orders. Releasing it will leave the other orders unassigned.` : 'The planned route will be released before the assignment changes.', confirmLabel: 'Change driver' }))) return;
@@ -607,7 +609,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
             jobs={jobs}
             onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
-            onSelectJob={handleLocateJobOnMap}
+            onSelectJob={number => { const order = jobs.find(job => job.jobNumber === number); if (order) handleOpenJobDossier(order); }}
           />
         ) : activeTab === 'jobs' ? (
           <JobsPage

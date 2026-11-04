@@ -69,6 +69,6 @@ export function VehicleTypesSection({ onNotification, onChanged }: { onNotificat
         <button type="button" aria-label={`Edit ${type.name}`} onClick={() => setEditing(type)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Pencil className="w-3.5 h-3.5" /></button>
       </div></td>
     </tr>)}{!types.length && !(slug && catalogQuery.isPending) && <tr><td colSpan={6} className="p-6 text-center text-slate-500">No vehicle types yet.</td></tr>}</tbody></table></div>
-    {editing !== undefined && <VehicleTypeModal initialVehicle={editing} onClose={() => setEditing(undefined)} onSave={type => void save(type)} />}
+    {editing !== undefined && <VehicleTypeModal initialVehicle={editing} onClose={() => setEditing(undefined)} onSave={save} />}
   </section>;
 }

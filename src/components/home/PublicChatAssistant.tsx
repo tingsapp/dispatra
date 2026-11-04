@@ -1,3 +1,4 @@
+import { useChatComposer } from '../chat/useChatComposer';
 import type { ReactNode } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useMutation } from '@tanstack/react-query';
@@ -47,12 +48,7 @@ function ChatContent({ contactCard }: Props) {
     wasVoiceActive.current = voice.active;
   }, [voice.active]);
   useEffect(() => () => controller.current?.abort(), []);
-  useLayoutEffect(() => {
-    const field = input.current;
-    if (!field) return;
-    field.style.height = '0px';
-    field.style.height = `${Math.min(160, Math.max(24, field.scrollHeight))}px`;
-  }, [draft, voice.active]);
+  useChatComposer(input, draft, voice.active);
   const ask = useMutation({
     mutationFn: (body: { message: string; history: Turn[] }) => {
       controller.current = new AbortController();
@@ -95,7 +91,7 @@ function ChatContent({ contactCard }: Props) {
       {ask.isError && <div role="alert" className="mb-4 shrink-0 px-1 text-sm leading-6 text-app-muted">
         <p>{ask.error.message || 'Chat is unavailable. Please try again or email our team.'}</p>
         <button type="button" className="mt-2 rounded font-medium text-app-text underline underline-offset-4" onClick={() => ask.variables && ask.mutate(ask.variables)}>Try again</button>
-        <span className="px-2" aria-hidden="true">·</span><a href="mailto:dispatra@tingsapp.com" className="rounded underline underline-offset-4">Email our team instead</a>
+        <span className="px-2" aria-hidden="true">·</span><a href="mailto:contact@dispatra.com" className="rounded underline underline-offset-4">Email our team instead</a>
       </div>}
       {(voice.error || voice.notice) && <p role={voice.error ? 'alert' : 'status'} className="mb-3 px-2 text-sm leading-6 text-app-muted">{voice.error || voice.notice}</p>}
       {voice.active && <PublicVoicePanel status={voice.status} muted={voice.muted} onMute={voice.toggleMute} onEnd={voice.stop} />}
@@ -105,7 +101,7 @@ function ChatContent({ contactCard }: Props) {
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(); } }}
           placeholder="Let’s talk..." className="public-chat-input" />
         <Button type="button" size="icon" variant="ghost" aria-label="Start voice chat" title="Start voice chat" onClick={() => { void voice.start(); }} disabled={voice.active || busy} className="public-chat-mic"><VoiceWaveIcon className="size-5" /></Button>
-        <Button type="submit" size="icon" aria-label="Send question" disabled={!draft.trim() || busy || ask.isError || voice.active} className="public-chat-send"><ArrowUp className="size-[18px]" aria-hidden="true" /></Button>
+        <Button loading={ask.isPending} type="submit" size="icon" aria-label="Send question" disabled={!draft.trim() || busy || ask.isError || voice.active} className="public-chat-send"><ArrowUp className="size-[18px]" aria-hidden="true" /></Button>
       </form>}
       {!started && contactCard && <div ref={contact} className="public-chat-initial-contact">{contactCard}</div>}
       </div>

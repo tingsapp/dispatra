@@ -57,7 +57,7 @@ export function ConfirmDialogHost() {
         <DialogCloseButton ref={closeRef} onClick={() => settle(false)} />
       </div>
       <p id={`${id}-message`} className="mt-2 text-sm leading-6 text-slate-600">{options.message}</p>
-      {(options.cancelLabel !== null || options.confirmLabel !== null) && <div className="mt-6 flex justify-end gap-2">
+      {(options.cancelLabel !== null || options.confirmLabel !== null) && <div data-popup-actions className="mt-6 flex flex-wrap justify-end gap-2">
         {options.cancelLabel !== null && <Button ref={cancelRef} type="button" variant="outline" onClick={() => settle(false)}>{options.cancelLabel ?? 'Cancel'}</Button>}
         {options.confirmLabel !== null && <Button type="button" variant={danger ? 'destructive' : 'default'} onClick={() => settle(true)}>{options.confirmLabel ?? 'Confirm'}</Button>}
       </div>}

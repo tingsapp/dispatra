@@ -37,7 +37,7 @@ test('failed chat offers retry of the same request without duplicating the visit
  fireEvent.change(screen.getByRole('textbox'),{target:{value:'Hello'}});
  fireEvent.click(screen.getByRole('button',{name:'Send question'}));
  assert.ok(await screen.findByRole('alert'));
- assert.equal(screen.getByRole('link',{name:'Email our team instead'}).getAttribute('href'),'mailto:dispatra@tingsapp.com');
+ assert.equal(screen.getByRole('link',{name:'Email our team instead'}).getAttribute('href'),'mailto:contact@dispatra.com');
  fireEvent.click(screen.getByRole('button',{name:'Try again'}));
  await screen.findByText('Hello from Dispatra.');
  assert.equal(screen.getAllByText('Hello',{exact:true}).length,1);

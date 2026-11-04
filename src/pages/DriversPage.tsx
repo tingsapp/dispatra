@@ -1,3 +1,4 @@
+import { usePendingAction } from '../components/ui/usePendingAction';
 import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
 import { DriverAvatar } from '../components/DriverAvatar';
 import { ListSummary } from '../components/layout/ListSummary';
@@ -84,7 +85,9 @@ export function DriversPage({
   const [createdVehicle, setCreatedVehicle] = useState<VehicleAsset | null>(null);
   const openVehicleModal = () => { setCreatedVehicle(null); setShowVehicleModal(true); };
   const openDriverDetails = (driver: Driver) => { setCreatedVehicle(null); setActiveDriverDrawer(driver); };
+  const handleRegisterVehicleAction = usePendingAction();
   const handleRegisterVehicle = async (vehicle: VehicleAsset, profile: VehicleProfile) => {
+    return handleRegisterVehicleAction.run(async () => {
     if (slug) {
       try {
         const saved = await operations.createVehicle(slug, vehicleFromUi(vehicle));
@@ -97,8 +100,12 @@ export function DriversPage({
     try { saveVehicleProfile(vehicle, profile, loadVehicles()); }
     catch { onNotification('Vehicle could not be saved in this browser.'); return; }
     setCreatedVehicle(vehicle); setShowVehicleModal(false); onNotification('Vehicle registered');
+
+    });
   };
+  const saveDriverAction = usePendingAction();
   const saveDriver = async (form: Driver) => {
+    return saveDriverAction.run(async () => {
     if (slug) {
       try {
         const previous = driverQuery.data?.find(row => row.id === form.id);
@@ -112,6 +119,8 @@ export function DriversPage({
     }
     if (drivers.some(d => d.id === form.id)) onUpdateDriver(form); else onCreateDriver(form);
     setActiveDriverDrawer(null); setShowAddModal(false); onNotification('Driver saved');
+
+    });
   };
   // Filtered drivers
   const filteredDrivers = useMemo(() => {
@@ -342,7 +351,7 @@ export function DriversPage({
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { onSelectDriver(activeDriverDrawer.id); setActiveDriverDrawer(null); }}><MapPin /> Locate on Monitor</Button>
-            <Button type="submit" form="driver-details-form" disabled={driverAddressBlocked}>Save driver</Button>
+            <Button loading={saveDriverAction.pending} type="submit" form="driver-details-form" disabled={driverAddressBlocked}>Save driver</Button>
           </DialogFooter>
         </Dialog>
       )}
@@ -354,14 +363,14 @@ export function DriversPage({
         <Dialog size="form" onClose={() => setShowAddModal(false)}>
             <DialogHeader onClose={() => setShowAddModal(false)} title="Add Driver" />
           <DialogBody><DriverEditor drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-add-form" hideActions onAddressBlockedChange={setDriverAddressBlocked} onCancel={() => setShowAddModal(false)} onSave={saveDriver} /></DialogBody>
-          <DialogFooter><Button type="submit" form="driver-add-form" disabled={driverAddressBlocked}>Save driver</Button></DialogFooter>
+          <DialogFooter><Button loading={saveDriverAction.pending} type="submit" form="driver-add-form" disabled={driverAddressBlocked}>Save driver</Button></DialogFooter>
         </Dialog>
       )}
       {showVehicleModal && (
         <Dialog size="md" zIndex="z-[60]" onClose={() => setShowVehicleModal(false)}>
           <DialogHeader onClose={() => setShowVehicleModal(false)} title="Register Vehicle" />
           <DialogBody><VehicleEditor vehicles={vehicleOptions ?? (slug ? [] : loadVehicles())} vehicleTypes={vehicleTypes} live={!!slug} formId="driver-vehicle-add-form" hideActions onCancel={() => setShowVehicleModal(false)} onSave={handleRegisterVehicle} /></DialogBody>
-          <DialogFooter><Button type="submit" form="driver-vehicle-add-form">Save vehicle</Button></DialogFooter>
+          <DialogFooter><Button loading={handleRegisterVehicleAction.pending} type="submit" form="driver-vehicle-add-form">Save vehicle</Button></DialogFooter>
         </Dialog>
       )}
     </div>

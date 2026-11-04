@@ -50,7 +50,7 @@ export function ConnectedTmsTab({ saved, slug, importedRateCard, lastSync, statu
       </div>
       <SecretField label={draft.authType === 'api_key' ? 'API key' : 'Bearer token'} value={credential} saved={draft.credentialConfigured} onChange={value => { setCredential(value); patch({ credentialConfigured: false }); }} />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button type="button" variant="outline" disabled={!savedReady || busy} onClick={() => run(async () => (await onTest()).message)}>Test connection</Button>
+        <Button loading={!!busy} type="button" variant="outline" disabled={!savedReady || busy} onClick={() => run(async () => (await onTest()).message)}>Test connection</Button>
         <label className="flex items-center gap-3 text-sm"><span>{draft.enabled ? 'Enabled' : 'Disabled'}</span>
           <Switch aria-label="Enable TMS integration" checked={draft.enabled} onCheckedChange={enabled => patch({ enabled })} /></label>
       </div>
@@ -62,7 +62,7 @@ export function ConnectedTmsTab({ saved, slug, importedRateCard, lastSync, statu
         <div className="space-y-1.5"><span className="text-sm font-medium text-slate-700">Sync interval</span><Select aria-label="Sync interval" value={String(draft.fleetSyncMinutes)} onValueChange={value => patch({ fleetSyncMinutes: Number(value) as TmsForm['fleetSyncMinutes'] })} options={[15, 60, 360, 1440].map(value => ({ value: String(value), label: intervalLabel(value) }))} className="w-full" /></div>
       </div>
       <p className="text-xs text-app-muted">Drivers get a login and receive orders after signing in to the driver app.</p>
-      <div className="flex flex-wrap items-center gap-3"><Button type="button" variant="outline" disabled={!savedReady || busy} onClick={() => run(async () => fleetSummary(await onSync()))}>Sync now</Button>
+      <div className="flex flex-wrap items-center gap-3"><Button loading={!!busy} type="button" variant="outline" disabled={!savedReady || busy} onClick={() => run(async () => fleetSummary(await onSync()))}>Sync now</Button>
         {!savedReady && <span className="text-xs text-app-muted">Save first.</span>}</div>
       {lastSync && <div className="space-y-1 text-xs text-app-muted">
         <p>Last sync {dateTime(lastSync.at)}: {fleetSummary(lastSync.result)}</p>
@@ -100,7 +100,7 @@ export function ConnectedTmsTab({ saved, slug, importedRateCard, lastSync, statu
     </SettingsDisclosure>
     <div className="space-y-4">
       {notice && <p role="status" className="text-sm text-app-muted">{notice}</p>}
-      <Button type="button" disabled={!!errors.length || !dirty || busy} onClick={save}>Save changes</Button>
+      <Button loading={!!busy} type="button" disabled={!!errors.length || !dirty || busy} onClick={save}>Save changes</Button>
     </div>
   </>;
 }

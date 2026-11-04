@@ -24,7 +24,7 @@ export default function LegalPage({ policy }: { policy: keyof typeof legalPolici
           </section>)}
           <section aria-labelledby="policy-contact">
             <h2 id="policy-contact" className="text-lg font-medium">17. {policy === 'privacy' ? 'Privacy contact' : 'Contact'}</h2>
-            <p className="mt-3 text-sm leading-7 text-app-muted">For {policy === 'privacy' ? 'privacy questions, complaints or personal-information requests' : 'questions about these Terms or your Dispatra agreement'}, contact Tingsapp Inc. at <a href="mailto:legals@tingsapp.com" className="break-words underline underline-offset-4">legals@tingsapp.com</a>. Include Dispatra and your company workspace in the subject so we can direct your request. Please do not email passwords or full payment-card details.</p>
+            <p className="mt-3 text-sm leading-7 text-app-muted">For {policy === 'privacy' ? 'privacy questions, complaints or personal-information requests' : 'questions about these Terms or your Dispatra agreement'}, contact Tingsapp Inc. at <a href="mailto:contact@dispatra.com" className="break-words underline underline-offset-4">contact@dispatra.com</a>. Include Dispatra and your company workspace in the subject so we can direct your request. Please do not email passwords or full payment-card details.</p>
           </section>
         </div>
         <p className="mt-10 text-sm leading-7 text-app-muted">Read our <a href={policy === 'terms' ? '/privacy' : '/terms'} className="underline underline-offset-4">{policy === 'terms' ? 'Privacy Policy' : 'Terms and Conditions'}</a> together with this {policy === 'terms' ? 'agreement' : 'Policy'}.</p>

@@ -27,6 +27,6 @@ function ProfileForm({ slug, profile }: { slug: string; profile: Shipper }) {
       <Field label="Phone" type="tel" maxLength={50} value={form.phone} onChange={e => { setSaved(false); setForm(current => ({ ...current, phone: e.target.value })); }} />
       <AddressField label="Address" maxLength={500} value={form.address} onChange={(address, selected) => { setSaved(false); setSelectedAddress(selected); setForm(current => ({ ...current, address })); }} />
     </div>
-    <Notice error={mutation.error} success={saved ? 'Profile saved.' : undefined} /><div className="flex gap-3"><Button disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Save profile'}</Button>{mutation.error && <Button type="button" variant="outline" onClick={() => client.invalidateQueries({ queryKey: ['shipper-profile',slug] })}>Reload profile</Button>}</div>
+    <Notice error={mutation.error} success={saved ? 'Profile saved.' : undefined} /><div className="flex gap-3"><Button loading={mutation.isPending} disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Save profile'}</Button>{mutation.error && <Button type="button" variant="outline" onClick={() => client.invalidateQueries({ queryKey: ['shipper-profile',slug] })}>Reload profile</Button>}</div>
     <p className="text-xs text-slate-500">Contact your dispatch company to change your business name, login email, or account terms.</p></form></Card>;
 }

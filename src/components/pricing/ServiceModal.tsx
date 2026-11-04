@@ -1,3 +1,4 @@
+import { usePendingAction } from '../ui/usePendingAction';
 import { loadBillingConfig } from '../../lib/billingStorage';
 import { Button } from '../ui/button';
 import { Dialog, DialogHeader } from '../ui/Dialog';
@@ -8,8 +9,8 @@ import { fieldClass, labelClass } from '../settings/BillingFields';
 
 interface ServiceModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  onSave: (service: DeliveryService) => void;
+  onClose: () => void | Promise<void>;
+  onSave: (service: DeliveryService) => void | Promise<void>;
   initialService?: DeliveryService | null;
 }
 
@@ -37,9 +38,10 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
     }
   }, [initialService, isOpen]);
 
-  if (!isOpen) return null;
+  const saveAction = usePendingAction();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  if (!isOpen) return null;
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const additionalCharge = Number(charge);
     if (!name.trim() || !charge.trim() || !Number.isFinite(additionalCharge) || additionalCharge < 0 || Math.abs(additionalCharge * 100 - Math.round(additionalCharge * 100)) > 0.000001) return;
@@ -56,14 +58,14 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       active: initialService?.active ?? true
     };
 
-    onSave(service);
+    await onSave(service);
     onClose();
   };
 
   return (
     <Dialog size="form" onClose={onClose}>
       <DialogHeader onClose={onClose} closeLabel="Close service form" title={initialService ? 'Edit Delivery Service' : 'Add New Delivery Service'} description="Service details and a fixed charge per order." />
-        <form onSubmit={handleSubmit} className="app-dialog-body space-y-5">
+        <form onSubmit={event => { event.preventDefault(); void saveAction.run(() => handleSubmit(event)); }} className="app-dialog-body space-y-5">
           <div>
             <label htmlFor="service-name" className={labelClass}>Service Name <span className="text-rose-500">*</span></label>
             <input id="service-name" aria-label="Service name" type="text" required value={name} onChange={event => setName(event.target.value)} placeholder="e.g., Rush Delivery" className={fieldClass} />
@@ -87,8 +89,8 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <Button
+          <div data-popup-actions className="flex flex-wrap items-center justify-end gap-2 pt-2">
+            <Button loading={saveAction.pending}
               type="submit"
               className="app-action app-primary px-4 py-2 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-full shadow-xs transition-colors"
             >

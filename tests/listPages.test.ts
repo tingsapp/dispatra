@@ -190,12 +190,14 @@ test('shipper details retains contact links, linked orders, notes and navigation
   assert.ok(dialog.querySelector(`a[href="${phoneHref(shipper.phone)}"]`));
   assert.ok(within(dialog).getByText(shipper.address));
   assert.ok(within(dialog).getByText(shipper.notes!));
+  await user.click(within(dialog).getByRole('tab', { name: 'Orders' }));
   const summary = within(dialog).getByLabelText('Shipper order summary');
-  assert.deepEqual(Array.from(summary.querySelectorAll('dd')).map(value => value.textContent), ['2 orders', '1 orders']);
+  assert.match(summary.textContent ?? '', /Total volume\s*2/);
+  assert.match(summary.textContent ?? '', /Active on road\s*1/);
   const history = within(dialog).getByRole('region', { name: 'Order history' });
   assert.equal(within(history).getAllByRole('button').length, 2);
   assert.equal(within(history).queryByText(/#OTHER/), null);
-  await user.click(within(history).getByRole('button', { name: '#SHIP-1 · In progress' }));
+  await user.click(within(history).getByRole('button', { name: /^#SHIP-1\b/ }));
   assert.deepEqual(selected, ['#SHIP-1']);
   await user.click(within(dialog).getByRole('button', { name: 'View on Map' }));
   assert.equal(mapOpened, 1);
@@ -212,7 +214,9 @@ test('shipper details keeps on-hold status explicit, handles empty history and c
   await user.click(screen.getByText(shipper.name));
   const dialog = screen.getByRole('dialog', { name: shipper.name });
   assert.ok(within(dialog).getByText('On Hold'));
+  await user.click(within(dialog).getByRole('tab', { name: 'Orders' }));
   assert.ok(within(dialog).getByText('No linked orders yet.'));
+  await user.click(within(dialog).getByRole('tab', { name: 'Details' }));
   assert.ok(within(dialog).getByText(/^Default \(/));
   assert.equal(within(dialog).queryByRole('region', { name: 'Dispatch & receiving notes' }), null);
   await user.keyboard('{Escape}');

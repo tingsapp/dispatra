@@ -1,1 +1,1 @@
-export const DISPATRA_CONTACT_EMAIL = 'dispatra@tingsapp.com';
+export const DISPATRA_CONTACT_EMAIL = 'contact@dispatra.com';

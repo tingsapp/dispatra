@@ -152,3 +152,34 @@ test('assignment errors render as red inline alerts', async () => {
   assert.ok(alert.classList.contains('text-red-700'));
   assert.ok(alert.classList.contains('bg-red-50'));
 });
+
+for (const lifecycleStatus of ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const) {
+  test(`${lifecycleStatus} order details keep the saved driver read-only`, async () => {
+    const { OrderDetailsDialog } = await import('../src/components/orders/OrderDetailsDialog');
+    const { INITIAL_JOBS, INITIAL_DRIVERS } = await import('../src/data/mockData');
+    const { loadPricingContext } = await import('../src/lib/orderPricing');
+    render(<OrderDetailsDialog job={{ ...INITIAL_JOBS[0], lifecycleStatus, assignedDriverId: INITIAL_DRIVERS[0].id }} ctx={loadPricingContext()} drivers={INITIAL_DRIVERS} onClose={() => {}} onReassign={() => { throw new Error('Closed order reassigned'); }} onEdit={() => {}} onComplete={() => {}} />);
+    assert.equal(screen.queryByRole('combobox', { name: 'Reassign driver' }), null);
+    assert.equal(screen.queryByRole('button', { name: 'Confirm' }), null);
+    assert.equal(screen.queryByRole('button', { name: 'Edit order' }), null);
+    if (lifecycleStatus !== 'IN_PROGRESS') assert.equal(screen.queryByRole('button', { name: 'Complete order' }), null);
+    assert.ok(screen.getByText(INITIAL_DRIVERS[0].name));
+  });
+}
+
+test('an order that completes while driver selection is staged loses its mutation controls', async () => {
+  const { OrderDetailsDialog } = await import('../src/components/orders/OrderDetailsDialog');
+  const { INITIAL_JOBS, INITIAL_DRIVERS } = await import('../src/data/mockData');
+  const { loadPricingContext } = await import('../src/lib/orderPricing');
+  let calls = 0;
+  const job = { ...INITIAL_JOBS[0], lifecycleStatus: 'ASSIGNED' as const, assignedDriverId: INITIAL_DRIVERS[0].id };
+  const props = { job, ctx: loadPricingContext(), drivers: INITIAL_DRIVERS, onClose: () => {}, onReassign: () => { calls++; } };
+  const view = render(<OrderDetailsDialog {...props} />);
+  const user = userEvent.setup({ document });
+  await user.click(screen.getByRole('combobox', { name: 'Reassign driver' }));
+  await user.click(screen.getByRole('option', { name: /Unassigned/ }));
+  assert.equal((screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement).disabled, false);
+  view.rerender(<OrderDetailsDialog {...props} job={{ ...job, lifecycleStatus: 'COMPLETED' }} />);
+  assert.equal(screen.queryByRole('button', { name: 'Confirm' }), null);
+  assert.equal(calls, 0);
+});

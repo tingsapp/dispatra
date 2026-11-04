@@ -5,7 +5,7 @@ import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'CustomEvent', 'MutationObserver', 'getComputedStyle', 'localStorage'])
   Object.defineProperty(globalThis, name, { configurable: true, value: dom.window[name as keyof Window] });
-const { render, screen, cleanup, fireEvent } = await import('@testing-library/react');
+const { render, screen, cleanup, fireEvent, act } = await import('@testing-library/react');
 const { TruckRoutingFields, truckRoutingError } = await import('../src/components/entities/TruckRoutingFields');
 const { vehicleToUi, vehicleFromUi, catalogToVehicleType, vehicleTypeToCatalog } = await import('../src/operations/adapters');
 const { monitorTiming } = await import('../src/operations/monitorTiming');
@@ -59,14 +59,15 @@ test('Vehicle Type form requires shared routing measurements and rejects clearin
   let saved:any;
   render(<VehicleTypeModal initialVehicle={type} onSave={value=>{saved=value;}} onClose={()=>{}} />);
   assert.equal(screen.queryByRole('checkbox'),null);
-  fireEvent.click(screen.getByRole('button',{name:'Save Changes'}));
+  await act(async () => { fireEvent.click(screen.getByRole('button',{name:'Save Changes'})); });
   assert.match(screen.getByRole('alert').textContent!,/outside dimensions/);assert.equal(saved,undefined);
+  assert.equal((screen.getByRole('button',{name:'Save Changes'}) as HTMLButtonElement).disabled,false);
   for(const [label,value] of [['Length (cm)','820'],['Width (cm)','250'],['Height (cm)','380'],['Loaded gross weight','12000']])fireEvent.change(screen.getByLabelText(label),{target:{value}});
-  fireEvent.click(screen.getByRole('button',{name:'Save Changes'}));
+  await act(async () => { fireEvent.click(screen.getByRole('button',{name:'Save Changes'})); });
   assert.deepEqual(saved.truckRouting,{lengthM:8.2,widthM:2.5,heightM:3.8,grossWeightKg:12000});assert.equal(saved.baseSurcharge,5);assert.equal(saved.cargoHeightCm,180);
   const previous=saved;saved=undefined;
   fireEvent.change(screen.getByLabelText('Loaded gross weight'),{target:{value:''}});
-  fireEvent.click(screen.getByRole('button',{name:'Save Changes'}));assert.equal(saved,undefined);
+  await act(async () => { fireEvent.click(screen.getByRole('button',{name:'Save Changes'})); });assert.equal(saved,undefined);
   assert.match(screen.getByRole('alert').textContent!,/outside dimensions/);assert.equal(previous.truckRouting.grossWeightKg,12000);
 });
 

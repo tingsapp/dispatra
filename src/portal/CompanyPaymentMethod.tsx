@@ -72,9 +72,9 @@ export function CompanyPaymentMethod({ target }: { target: PaymentTarget }) {
       {!payment.setup_available && <p className="text-sm text-app-muted">Payment setup is currently unavailable. Contact Dispatra support.</p>}
       {payment.setup_available && configured && <label className="flex items-start gap-2 text-sm"><input className="mt-1 accent-black" type="checkbox" checked={consent} disabled={busy} onChange={event => setConsent(event.target.checked)} /><span>I authorize monthly automatic charges to this card at my company’s saved price per registered vehicle, starting after its free trial and continuing until the subscription is paused or cancelled.</span></label>}
       <div className="flex flex-wrap gap-3">
-        {canEnroll && <Button disabled={busy || !consent || !payment.setup_available || !configured} onClick={() => enroll.mutate()}>{enroll.isPending ? 'Starting…' : 'Start subscription'}</Button>}
-        <Button variant={canEnroll ? 'outline' : 'default'} disabled={busy || !consent || !payment.setup_available || !configured} onClick={() => setup.mutate()}>{setup.isPending ? 'Opening Stripe…' : payment.last4 ? 'Replace payment method' : 'Add payment method'}</Button>
-        {confirm.isError && returnedSession && <Button variant="outline" disabled={busy} onClick={() => confirm.mutate(returnedSession)}>Verify card setup again</Button>}
+        {canEnroll && <Button loading={enroll.isPending} disabled={busy || !consent || !payment.setup_available || !configured} onClick={() => enroll.mutate()}>{enroll.isPending ? 'Starting…' : 'Start subscription'}</Button>}
+        <Button loading={setup.isPending} variant={canEnroll ? 'outline' : 'default'} disabled={busy || !consent || !payment.setup_available || !configured} onClick={() => setup.mutate()}>{setup.isPending ? 'Opening Stripe…' : payment.last4 ? 'Replace payment method' : 'Add payment method'}</Button>
+        {confirm.isError && returnedSession && <Button loading={confirm.isPending} variant="outline" disabled={busy} onClick={() => confirm.mutate(returnedSession)}>Verify card setup again</Button>}
       </div>
       {confirm.isPending && <p role="status" className="text-sm text-app-muted">Verifying your card with Stripe…</p>}
       {returnedSession === 'cancelled' && <p role="status" className="text-sm text-app-muted">Card setup was cancelled. Your saved payment method has not changed.</p>}

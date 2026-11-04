@@ -52,12 +52,12 @@ export function DispatchRecommendation({ slug, order, onClose, onAssigned }: { s
       <div className="font-medium text-slate-900 text-sm">{best.driver_name} <span className="text-slate-500 font-normal">· {best.driver_number} · {best.vehicle_name}</span></div>
       {best.reason && <p className="mt-1 text-slate-700">{best.reason}</p>}
       <ul className="space-y-1.5 my-3 text-slate-600">{best.facts.map(fact => <li key={fact} className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-px" /><span>{fact}</span></li>)}</ul>
-      <button type="button" disabled={!!busy} onClick={() => approve(decision, best.driver_id, best.driver_name)} className="app-action app-primary w-full text-white">{busy === best.driver_id ? 'Assigning…' : `Assign to ${best.driver_name}`}</button>
+      <button aria-busy={busy === best.driver_id} type="button" disabled={!!busy} onClick={() => approve(decision, best.driver_id, best.driver_name)} className="app-action app-primary w-full text-white">{busy === best.driver_id ? 'Assigning…' : `Assign to ${best.driver_name}`}</button>
       {others.length > 0 && <div className="mt-3 pt-2 border-t border-slate-100 space-y-1.5">
         <div className="text-slate-500">Other options</div>
         {others.slice(0, 3).map(other => <div key={other.driver_id} className="flex items-center justify-between gap-2">
           <div className="min-w-0"><div className="font-medium text-slate-800 truncate">{other.driver_name} · {other.driver_number}</div><div className="text-slate-500 truncate" title={other.reason}>{other.reason}</div></div>
-          <button type="button" disabled={!!busy} onClick={() => approve(decision, other.driver_id, other.driver_name)} className="app-action app-secondary shrink-0">{busy === other.driver_id ? '…' : 'Assign'}</button>
+          <button aria-busy={busy === other.driver_id} type="button" disabled={!!busy} onClick={() => approve(decision, other.driver_id, other.driver_name)} className="app-action app-secondary shrink-0">{busy === other.driver_id ? '…' : 'Assign'}</button>
         </div>)}
       </div>}
       {decision.excluded.length > 0 && <p className="mt-2 text-slate-500">{decision.excluded.length} other driver{decision.excluded.length === 1 ? '' : 's'} cannot take it.</p>}

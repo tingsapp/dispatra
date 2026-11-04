@@ -140,3 +140,12 @@ test('legacy invoiced orders read as completed without changing their saved pric
   assert.equal(restored.completedAt,old.completedAt);
   assert.deepEqual(restored.pricing,JSON.parse(JSON.stringify(pricing)));
 });
+
+test('order action rules distinguish booking edits from driver changes', async () => {
+  const { orderAssignable } = await import('../src/domain/validation');
+  for (const lifecycleStatus of ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const) {
+    const job = { ...INITIAL_JOBS[0], lifecycleStatus, pricing: undefined };
+    assert.equal(orderAssignable(job), lifecycleStatus === 'NEW' || lifecycleStatus === 'ASSIGNED');
+    assert.equal(orderEditable(job), lifecycleStatus === 'NEW');
+  }
+});

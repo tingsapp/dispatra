@@ -129,8 +129,8 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
             <input type="checkbox" checked={taxable} onChange={e => setTaxable(e.target.checked)} className={checkboxClass} />
             Taxable
           </label>
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <Button type="submit" disabled={saving}>{saving ? 'Saving…' : initialAccessorial ? 'Save Changes' : 'Create Accessorial'}</Button>
+          <div data-popup-actions className="flex flex-wrap items-center justify-end gap-2 pt-2">
+            <Button loading={saving} type="submit" disabled={saving}>{saving ? 'Saving…' : initialAccessorial ? 'Save Changes' : 'Create Accessorial'}</Button>
           </div>
         </form>
     </Dialog>

@@ -27,6 +27,7 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
   const timeZone = ctx.billing.general.timeZone;
   const snapshot = useOrderPreview({ slug, input, ctx, enabled: true, toBooking: value => inputToShipperBooking(value, timeZone), rateCardName });
   const close = () => { if (!busy) onClose(); };
+  const instructionStop = [...input.stops].reverse().find(stop => stop.type === 'DROPOFF');
   const requested = input.preferredDriverId ?? '';
   const driverOptions = [{ value: '', label: 'No preference' }, ...drivers.map(d => ({ value: d.id, label: d.name })),
     ...(requested && !drivers.some(d => d.id === requested) ? [{ value: requested, label: 'Previously requested driver (unavailable)' }] : [])];
@@ -57,6 +58,10 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
         <div className="lg:col-span-7 space-y-5 text-xs">
           {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
           <OrderPricingForm customerMode="self" showVehicleSelection suggestVehicle={!editing} showStopAddresses futureOnly={!editing} value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
+          <div>
+            <label className="app-label" htmlFor="shipper-order-instructions">Delivery instructions (optional)</label>
+            <textarea id="shipper-order-instructions" className="app-input w-full" rows={3} maxLength={2000} placeholder="Access details, delivery preferences, or other instructions…" value={instructionStop?.instructions ?? ''} onChange={event => setInput({ ...input, stops: input.stops.map(stop => stop.id === instructionStop?.id ? { ...stop, instructions: event.target.value } : stop) })} />
+          </div>
         </div>
         <div className="lg:col-span-5 lg:sticky lg:top-0">
           <PriceBreakdown snapshot={snapshot} title="Live estimate" showMargin={false} showPricingDetail={false} rateRows={companyRateRows(ctx.billing)} />
@@ -65,7 +70,7 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
     </form>
     <DialogFooter note={snapshot.status === 'PRICED' ? 'The estimate is frozen on the order as a Pricing Snapshot.' : 'The order can be created, but it will need a pricing review before dispatch.'}>
       <Button type="button" variant="outline" disabled={busy} onClick={close}>Cancel</Button>
-      <Button type="submit" form="shipper-order-form" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Order' : 'Create Order'}</Button>
+      <Button loading={busy} type="submit" form="shipper-order-form" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Order' : 'Create Order'}</Button>
     </DialogFooter>
   </Dialog>;
 }

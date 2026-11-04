@@ -12,7 +12,7 @@ test('contact preserves either chosen plan in an email draft to the approved add
   for (const [id,name] of [['full','Full Workspace'],['dispatch','AI Dispatch']]) {
     history.replaceState(null,'',`/contact?plan=${id}`); render(React.createElement(Contact));
     const url = new URL(screen.getByRole('link',{name:'Email our team'}).getAttribute('href')!);
-    assert.equal(url.pathname,'dispatra@tingsapp.com');
+    assert.equal(url.pathname,'contact@dispatra.com');
     assert.equal(url.searchParams.get('subject'),`Dispatra enquiry: ${name}`);
     assert.ok(url.searchParams.get('body')?.includes(name));
     assert.equal(screen.queryByRole('link',{name:'Back to plans'}),null);
@@ -24,6 +24,6 @@ test('direct contact and unknown plan identifiers safely use the general enquiry
     history.replaceState(null,'','/contact'+query);render(React.createElement(Contact));
     const href=screen.getByRole('link',{name:'Email our team'}).getAttribute('href')!;
     assert.equal(new URL(href).searchParams.get('subject'),'Dispatra plan enquiry');
-    assert.equal(screen.queryByText('dispatra@tingsapp.com'), null); cleanup();
+    assert.equal(screen.queryByText('contact@dispatra.com'), null); cleanup();
   }
 });

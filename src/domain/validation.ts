@@ -69,7 +69,8 @@ export function validateVehicle(v: VehicleAsset, all: VehicleAsset[]): string[] 
 }
 export const orderLifecycle = (o: Order): OrderLifecycle => normalizeLifecycle(o.lifecycleStatus) ?? (o.status === 'completed' ? 'COMPLETED' : o.assignedDriverId ? 'ASSIGNED' : 'NEW');
 export const orderClosed = (o: Order) => ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(orderLifecycle(o));
-export const orderEditable = (o: Order) => o.pricing?.stage !== 'FINAL' && !orderClosed(o);
+export const orderAssignable = (o: Order) => ['NEW', 'ASSIGNED'].includes(orderLifecycle(o));
+export const orderEditable = (o: Order) => o.pricing?.stage !== 'FINAL' && orderLifecycle(o) === 'NEW';
 export const lifecycleLabel = (o: Order) => ORDER_LIFECYCLE_LABELS[orderLifecycle(o)];
 /** Exceptions overlaying the status; each clears itself when its cause goes away. */
 export const orderAttention = (o: Order): { flag: OrderAttentionFlag; label: string; detail?: string }[] => {

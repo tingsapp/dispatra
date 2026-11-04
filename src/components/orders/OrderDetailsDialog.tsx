@@ -4,7 +4,7 @@ import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../ui/Dialog';
 import { Button } from '../ui/button';
 import { Select } from '../ui/Select';
 import { Detail, OrderDossierSections } from './OrderDossierSections';
-import { orderEditable, orderLifecycle } from '../../domain/validation';
+import { orderAssignable, orderEditable, orderLifecycle } from '../../domain/validation';
 import { orderCompletable } from './useOrderDetails';
 import { ProofOfDelivery, proofAvailable } from './ProofOfDelivery';
 import { companySlugForCurrentPath } from '../../lib/pageRoutes';
@@ -22,9 +22,10 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
   const [selectedDriver, setSelectedDriver] = useState(savedDriver);
   const [saving, setSaving] = useState(false);
   useEffect(() => { setSelectedDriver(savedDriver); }, [job.id, savedDriver]);
+  const assignable = orderAssignable(job);
   const changed = selectedDriver !== savedDriver;
   const confirmAssignment = async () => {
-    if (!changed || saving) return;
+    if (!assignable || !changed || saving) return;
     setSaving(true);
     try { await onReassign(job, selectedDriver); }
     finally { setSaving(false); }
@@ -47,13 +48,15 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
         <h4 className="app-section-title flex items-center gap-1.5"><Truck className="h-3.5 w-3.5" />Dispatch</h4>
         <div>
           <label className="app-label">Assigned driver</label>
+          {assignable ? <>
           <Select aria-label="Reassign driver" className="w-full" value={selectedDriver} disabled={saving} onValueChange={setSelectedDriver}
             options={[{ value: 'unassigned', label: 'Unassigned (needs dispatch)' },
               ...drivers.map((d) => ({ value: d.id, disabled: !!required && d.id !== required, label: `${d.name} (${d.driverNumber ?? d.id}) · ${d.statusLabel} (${d.vehicle.split(' ')[0]})${d.id === requested ? ' · Requested' : ''}` }))]} />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-slate-500" role="status">{changed ? 'Driver change ready to confirm.' : 'Select a driver, then confirm to save.'}</p>
-            <Button size="sm" disabled={!changed || saving} onClick={confirmAssignment}>{saving ? 'Confirming…' : 'Confirm'}</Button>
+            <Button loading={saving} size="sm" disabled={!changed || saving} onClick={confirmAssignment}>{saving ? 'Confirming…' : 'Confirm'}</Button>
           </div>
+          </> : <p className="text-sm text-slate-700">{drivers.find(driver => driver.id === job.assignedDriverId)?.name ?? job.driverName ?? (job.assignedDriverId ? 'Saved driver unavailable' : 'Unassigned')}<span className="mt-1 block text-xs text-slate-500">Driver changes are unavailable after an order starts or closes.</span></p>}
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
           {required && <Detail label="Shipper's assigned driver" value={job.pricingInput?.requiredDriverName ?? drivers.find(d => d.id === required)?.name ?? 'Saved driver (unavailable)'} hint="This order requires this driver." />}
