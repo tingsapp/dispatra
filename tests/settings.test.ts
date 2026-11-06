@@ -1767,3 +1767,91 @@ test('vehicle registration offers active vehicle types and fills capacity and ca
   assert.equal(screen.queryByRole('checkbox', { name: 'Refrigeration' }), null);
   assert.equal((screen.getByRole('checkbox', { name: 'Liftgate' }) as HTMLInputElement).checked, false);
 });
+
+
+test('editing a weight limit through an existing limit keeps both price rows editable', async () => {
+  const { fireEvent } = await import('@testing-library/react');
+  const { rateFromUi, rateToUi } = await import('../src/operations/pricingAdapters');
+  const { zoneRateIssue } = await import('../src/lib/zoneWeightBands');
+  const user = userEvent.setup({ document });
+  seedCard({ pricingMethod: 'ZONE', zoneRates: ['a', 'b', 'c'].map((destinationZoneId, zoneIndex) => ({
+    id: `central-${destinationZoneId}`, originZoneId: '__central_pickup__', destinationZoneId, serviceId: null, amount: 20 + zoneIndex * 5,
+    weightBands: [99, 200, 500, 1000].map((limit, index) => ({ id: `${destinationZoneId}-${index}`, maxWeightKg: limit * 0.45359237,
+      amount: [20, 30, 40, 50][index] + zoneIndex * (index ? 10 : 5) })),
+  })) });
+  const config = loadPricingConfig();
+  config.zones = ['a', 'b', 'c'].map((id, index) => ({ id, code: id.toUpperCase(), name: `Zone ${index + 1}`, postalCodes: ['001'] }));
+  savePricingConfig(config);
+  const notices: string[] = [];
+  render(React.createElement(RateCardsPage, { onNotification: message => notices.push(message) }));
+  await user.click(screen.getByRole('button', { name: 'Add weight range' }));
+  // Typing 2000 passes through the existing 200 lb boundary.
+  const limit = screen.getByLabelText('Weight range 5 to (lb)');
+  await user.type(limit, '200');
+  assert.equal(screen.getByRole('table', { name: 'Zone prices by weight' }).querySelectorAll('tbody tr').length, 5);
+  await user.type(limit, '0');
+  for (const [index, price] of [60, 70, 80].entries()) {
+    await user.type(screen.getByLabelText(`Zone ${index + 1} range 5 price`), String(price));
+  }
+  // This is the 201 lb second boundary shown in the reported screenshot.
+  fireEvent.change(screen.getByLabelText('Weight range 2 to (lb)'), { target: { value: '201' } });
+  await user.click(screen.getByRole('button', { name: 'Save Card' }));
+  assert.match(notices.at(-1)!, /Saved/);
+  const saved = loadPricingConfig().rateCards[0];
+  assert.equal(zoneRateIssue(saved.zoneRates![0]), null);
+  const payload = rateFromUi(saved, config.zones);
+  assert.deepEqual(payload.weight_bands.map(band => band.prices.a), [20, 30, 40, 50, 60]);
+  assert.deepEqual(payload.weight_bands.map(band => band.prices.b), [25, 40, 50, 60, 70]);
+  assert.deepEqual(payload.weight_bands.map(band => band.prices.c), [30, 50, 60, 70, 80]);
+  const restored = rateToUi({ id: saved.id, code: saved.code, data: payload, version: 2, active: true, is_default: true, created_at: saved.updatedAt } as Parameters<typeof rateToUi>[0]);
+  assert.deepEqual(restored.zoneRates![0].weightBands!.map(band => band.amount), [20, 30, 40, 50, 60]);
+});
+
+
+test('sparse destination prices display only the exact bands sent in the save payload', async () => {
+  const { rateFromUi } = await import('../src/operations/pricingAdapters');
+  useMetricCompany();
+  seedCard({ pricingMethod: 'ZONE', zoneRates: [
+    { id: 'c1', originZoneId: '__central_pickup__', destinationZoneId: 'a', serviceId: null, amount: 20,
+      weightBands: [{ id: 'a100', maxWeightKg: 100, amount: 20 }, { id: 'a200', maxWeightKg: 200, amount: 30 }] },
+    { id: 'c2', originZoneId: '__central_pickup__', destinationZoneId: 'b', serviceId: null, amount: 40,
+      weightBands: [{ id: 'b200', maxWeightKg: 200, amount: 40 }] },
+  ] });
+  const config = loadPricingConfig();
+  config.zones = ['a', 'b'].map((id, i) => ({ id, code: id.toUpperCase(), name: `Zone ${i + 1}`, postalCodes: ['001'] }));
+  savePricingConfig(config);
+  render(React.createElement(RateCardsPage, {}));
+  assert.equal((screen.getByLabelText('Zone 2 price') as HTMLInputElement).value, '');
+  assert.equal((screen.getByLabelText('Zone 2 range 2 price') as HTMLInputElement).value, '40');
+  const payload = rateFromUi(config.rateCards[0], config.zones);
+  assert.equal(payload.weight_bands[0].prices.b, undefined);
+  const user = userEvent.setup({ document });
+  await user.type(screen.getByLabelText('Zone 2 price'), '0');
+  await user.click(screen.getByRole('button', { name: 'Save Card' }));
+  assert.equal(rateFromUi(loadPricingConfig().rateCards[0], config.zones).weight_bands[0].prices.b, 0);
+});
+
+test('duplicate weight limits stay visible, validate, and can be corrected without hiding a missing price', async () => {
+  const { fireEvent } = await import('@testing-library/react');
+  const { ZoneMatrixEditor } = await import('../src/components/pricing/ZoneMatrixEditor');
+  const { zoneRateIssue } = await import('../src/lib/zoneWeightBands');
+  const zones = [{ id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['001'] }];
+  const initial = [{ id: 'c1', originZoneId: '__central_pickup__', destinationZoneId: 'a', serviceId: null, amount: 30,
+    weightBands: [{ id: 'same', maxWeightKg: 200, amount: 30 }, { id: 'same', maxWeightKg: 200, amount: null }] }];
+  let current = initial as import('../src/types/pricing').ZoneRate[];
+  function Harness() {
+    const [rates, setRates] = React.useState(current);
+    return React.createElement(ZoneMatrixEditor, { rates, zones, units: { weightUnit: 'kg', distanceUnit: 'km', dimensionUnit: 'cm' }, currency: 'CAD', onChange: next => { current = next; setRates(next); } });
+  }
+  render(React.createElement(Harness));
+  assert.equal((screen.getByLabelText('Zone 1 range 2 price') as HTMLInputElement).value, '');
+  assertFieldIssue('Weight to (kg)', 'Each weight limit must be different');
+  assertFieldIssue('Zone 1 range 2 price', 'Enter a price of zero or more');
+  fireEvent.change(screen.getByLabelText('Weight range 2 to (kg)'), { target: { value: '2000' } });
+  assert.equal(current[0].weightBands![0].maxWeightKg, 200);
+  assert.equal(current[0].weightBands![1].maxWeightKg, 2000);
+  fireEvent.change(screen.getByLabelText('Zone 1 range 2 price'), { target: { value: '0' } });
+  assert.equal(zoneRateIssue(current[0]), null);
+  fireEvent.click(screen.getByRole('button', { name: 'Delete weight row 2' }));
+  assert.deepEqual(current[0].weightBands!.map(band => [band.maxWeightKg, band.amount]), [[200, 30]]);
+});

@@ -2,7 +2,7 @@ import { useId, useRef } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { CENTRAL_PICKUP_ZONE_ID, withCentralZoneRates } from '../../lib/centralZoneRates';
 import { toDisplayWeight, Units } from '../../lib/units';
-import { sortWeightBands, zoneBandFieldIssues, zoneRateIssue } from '../../lib/zoneWeightBands';
+import { zoneBandFieldIssues, zoneRateIssue } from '../../lib/zoneWeightBands';
 import { Zone, ZoneRate, ZoneWeightBand } from '../../types/pricing';
 import { cardClass } from './RateCardFields';
 import { WeightInput } from './WeightInput';
@@ -12,27 +12,36 @@ interface Props {
   rates: ZoneRate[]; zones: Zone[]; units: Units; currency: string;
   onChange: (rates: ZoneRate[]) => void;
 }
-interface MatrixRow { id: string; maxWeightKg: number | null; pending: boolean; flat: boolean }
+interface MatrixRow { id: string; maxWeightKg: number | null; pending: boolean; flat: boolean; bands: ZoneWeightBand[] }
 const routeId = (destination: Zone) => `zr_central_${destination.id}`;
 
 /** One shared range axis for all destination prices. Rows keep the order they were entered in; they are never re-sorted. */
 function matrixRows(rates: ZoneRate[], zones: Zone[]): MatrixRow[] {
   const ordered = [...zones.flatMap(zone => rates.filter(rate => rate.destinationZoneId === zone.id)), ...rates.filter(rate => !zones.some(zone => zone.id === rate.destinationZoneId))];
   const rows = new Map<string, MatrixRow>();
-  for (const band of ordered.flatMap(rate => rate.weightBands ?? [])) {
-    const key = band.maxWeightKg == null ? `pending:${band.id}` : `limit:${band.maxWeightKg}`;
-    if (!rows.has(key)) rows.set(key, { id: band.id, maxWeightKg: band.maxWeightKg, pending: band.maxWeightKg == null, flat: false });
+  for (const rate of ordered) {
+    const occurrences = new Map<string, number>();
+    for (const band of rate.weightBands ?? []) {
+      const boundary = band.maxWeightKg == null ? `pending:${band.id}` : `limit:${band.maxWeightKg}`;
+      const occurrence = occurrences.get(boundary) ?? 0;
+      occurrences.set(boundary, occurrence + 1);
+      // Equal boundaries align destinations, but must never hide a second band
+      // in the same destination while its limit is being edited.
+      const key = `${boundary}:${occurrence}`;
+      const row = rows.get(key);
+      if (row) row.bands.push(band);
+      else rows.set(key, { id: band.id, maxWeightKg: band.maxWeightKg, pending: band.maxWeightKg == null, flat: false, bands: [band] });
+    }
   }
   if (rows.size) return [...rows.values()];
-  if (rates.some(rate => !rate.weightBands)) return [{ id: 'flat-central', maxWeightKg: null, pending: false, flat: true }];
-  return [{ id: 'initial-central', maxWeightKg: null, pending: true, flat: false }];
+  if (rates.some(rate => !rate.weightBands)) return [{ id: 'flat-central', maxWeightKg: null, pending: false, flat: true, bands: [] }];
+  return [{ id: 'initial-central', maxWeightKg: null, pending: true, flat: false, bands: [] }];
 }
 
 function rowPrice(rate: ZoneRate | undefined, row: MatrixRow): number | null {
   if (!rate) return null;
   if (!rate.weightBands) return row.pending ? null : rate.amount;
-  if (row.pending) return rate.weightBands.find(band => band.id === row.id)?.amount ?? null;
-  return sortWeightBands(rate.weightBands).find(band => band.maxWeightKg != null && band.maxWeightKg >= row.maxWeightKg!)?.amount ?? null;
+  return rate.weightBands.find(band => row.bands.includes(band))?.amount ?? null;
 }
 
 /** A single central pickup prices each destination by weight. */
@@ -61,7 +70,7 @@ export function ZoneMatrixEditor({ rates, zones, units, currency, onChange }: Pr
         ? { ...rate, weightBands: [{ id: row.id, maxWeightKg, amount: rate.amount }] } : rate));
       return;
     }
-    if (!centralRates.some(rate => rate.weightBands?.some(band => row.pending ? band.id === row.id : band.maxWeightKg === row.maxWeightKg))) {
+    if (!centralRates.some(rate => rate.weightBands?.some(band => row.bands.includes(band)))) {
       if (zones.length) {
         const destination = zones[0];
         replace(destination, { id: routeId(destination), originZoneId: CENTRAL_PICKUP_ZONE_ID, destinationZoneId: destination.id,
@@ -69,8 +78,8 @@ export function ZoneMatrixEditor({ rates, zones, units, currency, onChange }: Pr
       }
       return;
     }
-    onChange(workingRates.map(rate => rate.originZoneId === CENTRAL_PICKUP_ZONE_ID && rate.weightBands?.some(band => row.pending ? band.id === row.id : band.maxWeightKg === row.maxWeightKg)
-      ? { ...rate, weightBands: rate.weightBands.map(band => (row.pending ? band.id === row.id : band.maxWeightKg === row.maxWeightKg)
+    onChange(workingRates.map(rate => rate.originZoneId === CENTRAL_PICKUP_ZONE_ID && rate.weightBands?.some(band => row.bands.includes(band))
+      ? { ...rate, weightBands: rate.weightBands.map(band => row.bands.includes(band)
         ? { ...band, id: row.id, maxWeightKg } : band) } : rate));
   };
   const addRow = () => {
@@ -85,7 +94,7 @@ export function ZoneMatrixEditor({ rates, zones, units, currency, onChange }: Pr
   const removeRow = (row: MatrixRow) => {
     onChange(workingRates.flatMap(rate => {
       if (rate.originZoneId !== CENTRAL_PICKUP_ZONE_ID || !rate.weightBands) return [rate];
-      const bands = rate.weightBands.filter(band => row.pending ? band.id !== row.id : band.maxWeightKg !== row.maxWeightKg);
+      const bands = rate.weightBands.filter(band => !row.bands.includes(band));
       return bands.length ? [{ ...rate, weightBands: bands }] : [];
     }));
   };
@@ -106,7 +115,7 @@ export function ZoneMatrixEditor({ rates, zones, units, currency, onChange }: Pr
       return;
     }
     const bands = rate?.weightBands ?? [];
-    const exact = bands.find(band => row.pending ? band.id === row.id : band.maxWeightKg === row.maxWeightKg);
+    const exact = bands.find(band => row.bands.includes(band));
     const nextBands: ZoneWeightBand[] = exact
       ? bands.map(band => band === exact ? { ...band, amount } : band)
       : [...bands, { id: row.id, maxWeightKg: row.maxWeightKg, amount }];
@@ -132,11 +141,11 @@ export function ZoneMatrixEditor({ rates, zones, units, currency, onChange }: Pr
           const from = previous == null || previous === -Infinity ? 0 : Number(toDisplayWeight(previous, units).toFixed(6));
           const suffix = index ? ` range ${index + 1}` : '';
           const affected = centralRates.flatMap(rate => rate.weightBands ?? [])
-            .filter(band => row.pending ? band.id === row.id : band.maxWeightKg === row.maxWeightKg);
+            .filter(band => row.bands.includes(band));
           const weightIssue = affected.map(band => zoneBandFieldIssues(band,
             centralRates.find(rate => rate.weightBands?.includes(band))?.weightBands ?? []).weight).find(Boolean);
-          const weightIssueId = `${descriptionId}-${row.id}-weight`;
-          return <tr key={row.id}>
+          const weightIssueId = `${descriptionId}-${row.id}-${index}-weight`;
+          return <tr key={`${row.id}:${index}`}>
             <td><input type="number" readOnly aria-label={`Weight${suffix} from (${units.weightUnit})`} className="app-table-input" value={row.pending ? '' : from} /></td>
             <td><WeightInput value={row.maxWeightKg} units={units} label={`Weight${suffix} to`} labelWithUnit
               className="app-table-input" placeholder={row.flat ? 'Any' : 'To'} invalid={!!weightIssue} min={0.000001}
@@ -145,9 +154,9 @@ export function ZoneMatrixEditor({ rates, zones, units, currency, onChange }: Pr
             </td>
             {zones.map(destination => {
               const rate = rateFor(destination);
-              const exact = rate?.weightBands?.find(band => row.pending ? band.id === row.id : band.maxWeightKg === row.maxWeightKg);
+              const exact = rate?.weightBands?.find(band => row.bands.includes(band));
               const issue = exact ? zoneBandFieldIssues(exact, rate!.weightBands!).price : rate && !rate.weightBands ? zoneRateIssue(rate) : null;
-              const issueId = `${descriptionId}-${destination.id}-${row.id}-price`;
+              const issueId = `${descriptionId}-${destination.id}-${row.id}-${index}-price`;
               return <td key={destination.id}>
                 <input type="number" min="0" step="0.01" aria-label={`${destination.name}${suffix} price`} aria-invalid={!!issue}
                   aria-describedby={issue ? issueId : undefined} className="app-table-input" placeholder="Price"
