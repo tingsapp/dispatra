@@ -12,6 +12,7 @@ export function MonitorActivity({ slug, open, active, onOpenChange, onSelectRefe
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { visible, reducedMotion } = useActivityPresence();
   const chat = useAssistantChat(slug);
+  const opening = !chat.messages.some(message => message.role === 'user');
   useEffect(() => { if (active) onOpenChange(true); }, [active]);
   const briefingRequested = useRef(false);
   useEffect(() => { briefingRequested.current = false; }, [slug]);
@@ -31,7 +32,7 @@ export function MonitorActivity({ slug, open, active, onOpenChange, onSelectRefe
     onOpenChange(true);
     void chat.submit(retry);
   };
-  return <section role={open ? 'dialog' : 'region'} aria-label="Dispatra" data-expanded={open} className="company-activity-panel">
+  return <section role={open ? 'dialog' : 'region'} aria-label="Dispatra" data-expanded={open} data-view={opening ? 'briefing' : 'conversation'} className="company-activity-panel">
     {open && <div id={contentId} className="assistant-panel-content">
     <div className="flex shrink-0 items-center justify-between gap-3 pb-3">
       <h3 className="text-sm font-medium">Dispatra</h3>

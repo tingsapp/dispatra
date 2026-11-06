@@ -378,7 +378,7 @@ test('sidebar account uses Profile name and company logo, follows saved settings
  await waitFor(()=>assert.equal(card.querySelector('img')?.getAttribute('src'),'/updated-company-logo.png'));
  assert.ok(card.querySelector('img')?.classList.contains('object-contain'));
  act(()=>cache.setQueryData(['company-settings','acme'],{...savedSettings(false),data:{...savedSettings(false).data,company_name:'Demo',logo_url:''}}));
- await waitFor(()=>assert.equal(card.querySelector('img'),null));
+ await waitFor(()=>assert.ok(card.querySelector('img') === null, 'expected element to be absent'));
  assert.ok(within(card).getByText('D',{exact:true}));
  act(()=>cache.setQueryData(['company-settings','acme'],{...savedSettings(false),data:{...savedSettings(false).data,company_name:'Updated Company'}}));
  await waitFor(()=>assert.ok(within(card).getByText('Updated Company',{exact:true})));
@@ -437,7 +437,7 @@ test('saving Profile contact name and company logo updates the mounted authentic
  await user.click(screen.getByRole('button',{name:'Remove company logo'}));
  assert.ok(card.querySelector('img'),'Removal is still an unsaved draft.');
  await user.click(screen.getByRole('button',{name:'Save Company'}));
- await waitFor(()=>assert.equal(card.querySelector('img'),null));
+ await waitFor(()=>assert.ok(card.querySelector('img') === null, 'expected element to be absent'));
  assert.ok(within(card).getByText('D',{exact:true}));
  assert.equal(saved.data.logo_url,'');
 });

@@ -5,7 +5,7 @@ import { DialogBody, DialogFooter } from '../components/ui/Dialog';
 import { AddressAutocomplete } from '../components/ui/AddressAutocomplete';
 import { api, type TrialSignupInput } from '../portal/api';
 import { Field, Button, Notice, useOperationKey } from '../portal/ui';
-import { accountWorkspace, signupDestination, TMS_INTEGRATION_LABEL } from '../lib/workspaceEntry';
+import { verifiedWorkspace, signupDestination, TMS_INTEGRATION_LABEL } from '../lib/workspaceEntry';
 
 export function SignupForm({ onPendingChange, trialDays = 30, trialEnabled = true }: { onPendingChange?: (pending: boolean) => void; trialDays?: number; trialEnabled?: boolean }) {
   const [form, setForm] = useState<TrialSignupInput>(() => {
@@ -20,7 +20,7 @@ export function SignupForm({ onPendingChange, trialDays = 30, trialEnabled = tru
   const [error, setError] = useState('');
   const keyFor = useOperationKey();
   const signup = useMutation({ gcTime: 0, mutationFn: (body: TrialSignupInput) => api.signup(body, keyFor(body)),
-    onSuccess: account => { setForm(current => ({ ...current, password: '' })); setConfirmation(''); location.replace('verification_required' in account ? '/signup/verify' : accountWorkspace(account) ?? '/login'); } });
+    onSuccess: account => { setForm(current => ({ ...current, password: '' })); setConfirmation(''); location.replace('verification_required' in account ? '/signup/verify' : verifiedWorkspace(account) ?? '/login'); } });
   useEffect(() => { onPendingChange?.(signup.isPending); }, [signup.isPending, onPendingChange]);
   const change = (field: keyof TrialSignupInput) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setForm(current => ({ ...current, [field]: event.target.value })); setError(''); signup.reset();

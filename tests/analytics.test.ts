@@ -6,7 +6,8 @@ import { DEMO_ANALYTICS } from '../src/lib/reportStorage';
 test('company date bounds handle spring and fall DST without a fixed 24-hour assumption', () => {
   const spring = analyticsBounds({ kind: 'day', date: '2026-03-08' }, 'America/Vancouver');
   assert.equal(Date.parse(spring.end!) - Date.parse(spring.start!), 23 * 3600000);
-  const fall = analyticsBounds({ kind: 'day', date: '2026-11-01' }, 'America/Vancouver');
+  // Vancouver stopped falling back in 2026; use its last historical fall transition.
+  const fall = analyticsBounds({ kind: 'day', date: '2025-11-02' }, 'America/Vancouver');
   assert.equal(Date.parse(fall.end!) - Date.parse(fall.start!), 25 * 3600000);
 });
 test('charts zero-fill days and aggregate long ranges without losing counts', () => {

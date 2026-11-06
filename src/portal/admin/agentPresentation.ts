@@ -5,7 +5,7 @@ export const AGENTS: Record<AgentName, { name: string; description: string; icon
   CHAT: { name: 'Chat agent', description: 'Dispatra answers and workspace search', icon: MessageCircle },
   ORDER: { name: 'Order agent', description: 'Email intake and booking validation', icon: Bot },
   DISPATCH: { name: 'Dispatch agent', description: 'Driver feasibility and assignment', icon: Compass },
-  OPERATIONAL: { name: 'Operational agent', description: 'Order risks, driver clarification and suggested responses', icon: Radar },
+  OPERATIONAL: { name: 'Supervisor agent', description: 'Order risks, driver clarification and suggested responses', icon: Radar },
   TECHNICAL: { name: 'Technical agent', description: 'Platform checks and approved repairs', icon: ShieldCheck },
 };
 export function agentLabel(item: AgentStatus) {

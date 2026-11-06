@@ -1,4 +1,5 @@
 import createClient from 'openapi-fetch';
+import { createReadRecovery } from './readRecovery';
 import type { paths, components } from './schema';
 export type PaymentTarget = { kind: 'owner'; id: string } | { kind: 'company'; slug: string };
 export type Account = components['schemas']['AccountView'];
@@ -35,7 +36,7 @@ export type DispatcherInput = components['schemas']['DispatcherCreate'];
 export type AuditEntry = components['schemas']['AuditEntry'];
 export type CompanyFilter = { search?: string; status?: 'ACTIVE' | 'SUSPENDED' };
 export type PasswordInput = components['schemas']['PasswordChange'];
-export const client = createClient<paths>({ credentials: 'same-origin', headers: { 'X-Requested-With': 'Dispatra' } });
+export const client = createClient<paths>({ credentials: 'same-origin', headers: { 'X-Requested-With': 'Dispatra' }, fetch: createReadRecovery() });
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -79,7 +80,7 @@ export const api = {
   saveCompanySettings: async (slug: string, body: components['schemas']['SettingsUpdate'], key: string) => unwrap(await client.PUT('/api/v1/companies/{slug}/settings', { body, params: { path: { slug }, header: { 'Idempotency-Key': key } } })),
   me: async () => unwrap(await client.GET('/api/v1/auth/me')),
   signup: async (body: TrialSignupInput, key: string) => unwrap(await client.POST('/api/v1/auth/signup', { body, params: { header: { 'Idempotency-Key': key } } })),
-  verification: async () => unwrap(await client.GET('/api/v1/auth/verification')),
+  verification: async (signal?: AbortSignal) => unwrap(await client.GET('/api/v1/auth/verification', { signal })),
   verifyEmail: async (code: string, key: string) => unwrap(await client.POST('/api/v1/auth/verification/confirm', {body:{code},params:{header:{'Idempotency-Key':key}}})),
   resendVerification: async (key: string) => unwrap(await client.POST('/api/v1/auth/verification/resend', {params:{header:{'Idempotency-Key':key}}})),
   login: async (body: LoginInput) => unwrap(await client.POST('/api/v1/auth/login', { body })),
@@ -121,7 +122,7 @@ export const api = {
     return unwrap(await (approve ? client.POST('/api/v1/platform/agents/issues/{identity}/approve', { body: { version: row.version }, params })
       : client.POST('/api/v1/platform/agents/issues/{identity}/reject', { body: { version: row.version }, params })));
   },
-  reportRuntime: async (kind: 'RUNTIME_ERROR' | 'UNHANDLED_REJECTION') => unwrap(await client.POST('/api/v1/diagnostics/runtime', { body: { source: 'WEB', kind } })),
+  reportRuntime: async (kind: components['schemas']['ClientDiagnostic']['kind'], location?: Pick<components['schemas']['ClientDiagnostic'], 'code_path' | 'code_line' | 'error_type'>) => unwrap(await client.POST('/api/v1/diagnostics/runtime', { body: { source: 'WEB', kind, ...location } })),
   customers: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/customers', { params: { path: { slug }, query: { limit: 50, after } } })),
   createCustomer: async (slug: string, body: CustomerInput, key: string) => unwrap(await client.POST('/api/v1/companies/{slug}/customers', { body, params: { path: { slug }, header: { 'Idempotency-Key': key } } })),
   profile: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/profile', { params: { path: { slug } } })),

@@ -14,6 +14,8 @@ export function AgentReportDetails({ entry, actions }: { entry: AgentFeedEntry; 
     const row = entry.row;
     return <div className="space-y-3">
       <p className="break-words text-xs leading-5 text-app-muted">{row.description}</p>
+      {row.repair_summary && <div className="space-y-1 text-xs leading-5"><p className="font-medium">{row.repair_stage === 'COMPLETE' ? 'Tested code repair' : row.status === 'APPLYING' ? 'Code repair in progress' : 'Code repair needs attention'}</p><p className="break-words text-app-muted">{row.repair_summary}</p></div>}
+      {row.diagnosis && <div className="space-y-1 text-xs leading-5"><p className="font-medium">{row.diagnosis_source === 'AI' ? 'AI assessment · needs verification' : 'Recovery assessment'}</p><p className="break-words text-app-muted">{row.diagnosis}</p></div>}
       <p className="break-words text-[11px] text-app-muted">{row.company_name ?? 'Platform'} · {formatWhen(row.created_at)}</p>
       {['NEEDS_ADMIN', 'AWAITING_APPROVAL', 'FAILED'].includes(row.status) && <div className="flex flex-wrap justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" disabled={actions.pending} onClick={() => actions.decide(row, false)}>Dismiss</Button>

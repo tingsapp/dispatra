@@ -36,7 +36,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
   const PageHeading = headerActions && !canvas ? 'div' : 'header';
   const menuButton = <button type="button" className={hidden ? 'app-icon-button' : 'hidden'} aria-hidden={!hidden} tabIndex={hidden ? 0 : -1} aria-label="Open menu" onClick={() => setOpen(true)}><PanelLeft className="h-4.5 w-4.5" strokeWidth={1.5} /></button>;
 
-  return <div className="flex min-h-dvh bg-app-canvas text-app-text">
+  return <div className="flex h-dvh overflow-hidden bg-app-canvas text-app-text">
     {open && mobile && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/20 md:hidden" onClick={() => setOpen(false)} />}
     <aside ref={panelRef} role={open && mobile ? 'dialog' : undefined} aria-modal={open && mobile ? true : undefined} aria-label="Workspace sidebar" aria-hidden={hidden} inert={hidden} data-collapsed={collapsed}
       className={`app-workspace-sidebar app-portal-sidebar border-r border-app-border fixed inset-y-0 left-0 z-50 md:sticky md:top-0 transition-[width] duration-300 ${hidden ? 'hidden' : collapsed ? 'app-sidebar-rail' : ''}`}>
@@ -72,7 +72,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
         <button type="button" className="app-nav-item disabled:opacity-50" aria-label="Sign out" title={collapsed ? 'Sign out' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Sign out</span></button>
       </div>}
     </aside>
-    <div className={headerActions || map ? `relative flex h-dvh min-w-0 flex-1 flex-col ${settings || reading ? 'app-page-reading' : ''}` : 'contents'}>
+    <div className={headerActions || map ? `relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${settings || reading ? 'app-page-reading' : ''}` : 'contents'}>
       {headerActions && !canvas && <header aria-label="Workspace header" className={map ? 'absolute inset-x-0 top-0 z-30 h-16 pointer-events-none' : 'app-workspace-header h-16 shrink-0 bg-app-canvas'}>
         <div className="page-content flex h-full items-center justify-between">
           <div className="pointer-events-auto">{menuButton}</div>
@@ -82,7 +82,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
     {map ? <main className="relative min-h-0 flex-1 overflow-hidden" aria-label={primary}>
       <h1 className="sr-only">{primary}</h1>{children}
     </main> : <>
-    <div className={`app-page min-w-0 flex-1 flex flex-col ${settings || reading ? 'app-page-reading' : ''} ${canvas ? 'app-page-machine min-h-0' : headerActions ? 'app-page-with-header min-h-0' : 'min-h-dvh'}`}>
+    <div className={`app-page min-h-0 min-w-0 flex-1 flex flex-col ${settings || reading ? 'app-page-reading' : ''} ${canvas ? 'app-page-machine' : headerActions ? 'app-page-with-header' : ''}`}>
       <PageHeading aria-label={canvas ? "Workspace header" : undefined} className="app-page-header page-content shrink-0">
         <div className="flex min-w-0 items-center gap-3">
           {(!headerActions || canvas) && menuButton}

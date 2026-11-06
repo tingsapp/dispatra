@@ -3206,6 +3206,11 @@ export interface components {
             awaiting_approval: number;
             /** Needs Attention */
             needs_attention: number;
+            /**
+             * Platform Attention
+             * @default 0
+             */
+            platform_attention: number;
             /** Automatic Fixes 24H */
             automatic_fixes_24h: number;
             /** Errors 24H */
@@ -4052,7 +4057,13 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "RUNTIME_ERROR" | "UNHANDLED_REJECTION";
+            kind: "RUNTIME_ERROR" | "UNHANDLED_REJECTION" | "READ_RECOVERED" | "READ_RECOVERY_FAILED";
+            /** Code Path */
+            code_path?: string | null;
+            /** Code Line */
+            code_line?: number | null;
+            /** Error Type */
+            error_type?: ("Error" | "TypeError" | "ReferenceError" | "RangeError" | "SyntaxError" | "URIError" | "EvalError") | null;
         };
         /** CompanyActivityEntry */
         CompanyActivityEntry: {
@@ -7609,6 +7620,16 @@ export interface components {
             title: string;
             /** Description */
             description: string;
+            /** Diagnosis */
+            diagnosis?: string | null;
+            /** Diagnosis Source */
+            diagnosis_source?: ("AI" | "RULES") | null;
+            /** Diagnosed At */
+            diagnosed_at?: string | null;
+            /** Repair Stage */
+            repair_stage?: string | null;
+            /** Repair Summary */
+            repair_summary?: string | null;
             /**
              * Status
              * @enum {string}

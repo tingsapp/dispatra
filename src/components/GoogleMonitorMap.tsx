@@ -303,7 +303,7 @@ const NO_LABELS: google.maps.MapTypeStyle[] = [{ elementType: 'labels', stylers:
 
 export function GoogleMonitorMap(props: GoogleMonitorMapProps) {
   const [error, setError] = useState(false);
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim();
+  const apiKey = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY?.trim();
   if (!apiKey || error) return <div className="absolute inset-0 grid place-items-center bg-slate-100 px-6 text-center text-sm text-slate-600" role="status">
     {error ? 'Google Maps could not load. Check the browser key, Maps JavaScript API, billing, and allowed website.' : 'Set VITE_GOOGLE_MAPS_API_KEY in client/.env.local to show the Google map.'}
   </div>;

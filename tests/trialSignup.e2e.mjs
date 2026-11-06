@@ -83,14 +83,14 @@ try {
   const verified = page.waitForResponse(r=>r.url().endsWith('/api/v1/auth/verification/confirm'));
   await page.getByRole('button',{name:'Verify email',exact:true}).click();
   assert.equal((await verified).status(),200);
-  await page.waitForURL(origin + '/' + slug + '/');
+  await page.waitForURL(origin + '/' + slug + '/settings');
   const accountResponse = await context.request.get(origin + '/api/v1/auth/me');
   assert.equal(accountResponse.status(),200);
   const account = await accountResponse.json();
   assert.equal(account.role,'DISPATCHER');
   assert.equal(account.organization.slug,slug);
   assert.equal(new Date(account.organization.trial_ends_at)-new Date(account.organization.trial_started_at),30*24*60*60*1000);
-  await page.waitForURL(origin + '/' + slug + '/');
+  await page.waitForURL(origin + '/' + slug + '/settings');
   await page.getByRole('button',{name:'Dispatcher Account',exact:true}).waitFor();
   const me = await context.request.get(origin + '/api/v1/auth/me');
   assert.equal(me.status(),200);

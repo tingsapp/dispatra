@@ -6,7 +6,7 @@ export const SAMPLE_FLOW = [
   { node: 'data', message: 'Validated order, price and stops enter the shared data store.' },
   { node: 'DISPATCH', message: 'Dispatch engine checks drivers and builds an optimized route.' },
   { node: 'delivery', message: 'The route moves through pickup, delivery and proof.' },
-  { node: 'OPERATIONAL', message: 'Operational agent reviews progress and arrival risks.' },
+  { node: 'OPERATIONAL', message: 'Supervisor agent reviews progress and arrival risks.' },
   { node: 'TECHNICAL', message: 'Technical agent checks the platform and reports problems.' },
   { node: 'CHAT', message: 'Chat agent answers a question using authorized workspace records.' },
 ];

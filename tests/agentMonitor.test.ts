@@ -17,7 +17,7 @@ const { installRuntimeDiagnostics } = await import('../src/portal/runtimeDiagnos
 const original = { ...api };
 const time = new Date().toISOString();
 const owner = { id: 'owner', role: 'ADMIN', login_id: 'owner', display_name: 'Owner', organization: null } as never;
-const empty = () => ({ observed_at: time, agents: (['ORDER', 'DISPATCH', 'TECHNICAL'] as const).map(agent => ({ agent, run: null, stale: false, queued: 0, issue_count: 0 })), running: 0, awaiting_approval: 0, needs_attention: 0, automatic_fixes_24h: 0, errors_24h: 0, issues: [] });
+const empty = () => ({ observed_at: time, agents: (['ORDER', 'DISPATCH', 'TECHNICAL'] as const).map(agent => ({ agent, run: null, stale: false, queued: 0, issue_count: 0 })), running: 0, awaiting_approval: 0, needs_attention: 0, platform_attention: 0, automatic_fixes_24h: 0, errors_24h: 0, issues: [] });
 const issue = () => ({ id: 'repair-1', version: 1, organization_id: 'company-1', company_name: 'Acme', agent: 'ORDER' as const, kind: 'ORDER_PROCESSING', severity: 'CRITICAL' as const, title: 'Order agent processing failed', description: 'Reprocessing requires approval.', status: 'AWAITING_APPROVAL' as const, action: 'RETRY_ORDER_AGENT' as const, automatic: false, fixed_count: 0, created_at: time, updated_at: time });
 const entry = (id: string) => ({ id, run_id: 'run-1', agent: 'ORDER' as const, organization_id: 'company-1', company_name: 'Acme', level: 'INFO' as const, message: 'Validating booking facts.', created_at: time });
 const incident = { id: 'incident-1', version: 1, organization_id: 'company-1', company_name: 'Acme', order_id: 'order-1', order_number: 'ACO-1234', stop_id: null,
@@ -230,7 +230,7 @@ test('operational log rows keep warning evidence and acknowledgement available',
 
   api.operationalIssues = async () => ({ items: [{ ...incident, status: acknowledged ? 'ACKNOWLEDGED' as const : 'OPEN' as const }], next_before: null });
   api.acknowledgeOperationalIssue = async row => { acknowledged = true; return { ...row, status: 'ACKNOWLEDGED' as const }; };
-  mount(); await user.click(await screen.findByRole('button', { name: 'Operational agent details' }));
+  mount(); await user.click(await screen.findByRole('button', { name: 'Supervisor agent details' }));
   const viewport = await screen.findByRole('region', { name: 'Report entries' });
   await within(viewport).findByText('Warning');
   assert.ok(viewport.querySelector('.agent-report-line'));
@@ -281,7 +281,7 @@ test('refresh removes fixed reports from every loaded page without retaining rou
   await screen.findByText('Older unresolved report');
   await waitFor(() => assert.equal(cache.isFetching({ queryKey: ['platform', 'agents', 'reports'] }), 0));
   fixed = true; await act(async () => { await cache.invalidateQueries({ queryKey: ['platform', 'agents', 'reports'] }); });
-  await waitFor(() => assert.equal(screen.queryByText('Older unresolved report'), null));
+  await waitFor(() => assert.ok(screen.queryByText('Older unresolved report') === null, 'expected element to be absent'));
   assert.equal(screen.queryByText('Newest unresolved report'), null);
   assert.ok(screen.getByText('No open issues or recent errors or warnings.'));
 });

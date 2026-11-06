@@ -133,7 +133,7 @@
 @media (max-width: 899px) { .machine-support { margin-top: 30px; } .machine-bus-label { margin-top: 35px; } }
 
 /* Monitor is one workspace canvas, with the shared title/actions/bell in one header. */
-.app-page.app-page-machine { padding-top: 14px; background-color: #fafbfc; background-image: radial-gradient(#ccd3df80 .8px, transparent .8px); background-size: 16px 16px; }
+.app-page.app-page-machine { padding-top: 14px; background-color: #f7f6f2; background-image: radial-gradient(#c9c5b84d .8px, transparent .8px); background-size: 16px 16px; }
 .app-page-machine .app-page-header { min-height: 86px; background: transparent; align-items: center; }
 .app-page-machine > main.page-content { padding-top: 0; }
 .app-page-machine .machine-monitor { border: 0; border-radius: 0; background: transparent; overflow: visible; }
@@ -141,7 +141,13 @@
 .app-page-machine .machine-telemetry { border: 0; border-bottom: 1px solid #dde3ed; background: transparent; padding: 10px 0 16px; gap: 12px 18px; }
 .app-page-machine .machine-stream { background: #ffffff80; padding-inline: 0; }
 .app-page-machine .machine-legend { background: transparent; padding-inline: 0; }
-.app-page-machine .machine-bus-label,.app-page-machine .machine-node-copy,.app-page-machine .machine-node-eyebrow { background-color: #fafbfce8; }
+.app-page-machine .machine-bus-label,.app-page-machine .machine-node-copy,.app-page-machine .machine-node-eyebrow { background-color: #f7f6f2eb; }
+/* Paint card surfaces without shifting the measured connection ports. */
+.app-page-machine .machine-node[data-machine-agent] { isolation: isolate; }
+.app-page-machine .machine-node[data-machine-agent]::before { content: ''; position: absolute; inset: -12px 0; z-index: -1; border: 1px solid #e8e6df; border-radius: 16px; background: #fff; box-shadow: 0 2px 5px #28314206, 0 8px 22px #2831420d; pointer-events: none; }
+.app-page-machine .machine-node[data-machine-agent] .machine-node-copy,.app-page-machine .machine-node[data-machine-agent] .machine-node-eyebrow { background: transparent; }
+.app-page-machine .machine-node[data-machine-agent] .machine-node-action { inset: -12px 0; border-radius: 16px; }
+.app-page-machine .machine-node[data-machine-agent] .machine-node-detail,.app-page-machine .machine-node[data-machine-agent] .machine-node-run,.app-page-machine .machine-node[data-machine-agent] .machine-heartbeat { color: #64748b; }
 .machine-now { font-size: 12px; line-height: 20px; color: #52647a; padding: 13px 0 0; overflow-wrap: anywhere; }
 .machine-now b { font-weight: 600; color: #27384e; }
 .machine-node[data-waiting=true] .machine-indicator { background: #d97706; }

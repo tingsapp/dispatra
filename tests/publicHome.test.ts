@@ -13,7 +13,7 @@ const { render, screen, cleanup, waitFor, within, configure } = await import('@t
 // Visibility and animation are checked in the real-browser smoke test.
 configure({ defaultHidden: true });
 after(() => dom.window.close());
-const { accountWorkspace, signupDestination, dispatcherPageAvailable } = await import('../src/lib/workspaceEntry');
+const { accountWorkspace, verifiedWorkspace, signupDestination, dispatcherPageAvailable } = await import('../src/lib/workspaceEntry');
 const { PublicHome } = await import('../src/pages/PublicHome');
 const { api, ApiError } = await import('../src/portal/api');
 import type { Account } from '../src/portal/api';
@@ -33,6 +33,15 @@ test('resume destinations use the authenticated role and company rather than rem
   assert.equal(accountWorkspace({ ...account('DISPATCHER'), tms_workspace: true }), '/acme/integrations');
   assert.equal(accountWorkspace({ ...account('SHIPPER'), tms_workspace: true }), '/acme/shipper');
   assert.equal(accountWorkspace({ ...account('DRIVER'), tms_workspace: true }), '/acme/driver');
+});
+test('verified full-workspace dispatchers start in Settings without changing later login or restricted destinations', () => {
+  const dispatcher = account('DISPATCHER');
+  assert.equal(verifiedWorkspace(dispatcher), '/acme/settings');
+  assert.equal(accountWorkspace(dispatcher), '/acme/');
+  assert.equal(verifiedWorkspace({...dispatcher,tms_workspace:true}), '/acme/integrations');
+  assert.equal(verifiedWorkspace({...dispatcher,organization:{...dispatcher.organization!,payment_required:true}}), '/acme/profile');
+  assert.equal(verifiedWorkspace({...dispatcher,organization:null}), undefined);
+  for(const role of ['SHIPPER','DRIVER','ADMIN'] as const) assert.equal(verifiedWorkspace(account(role)),accountWorkspace(account(role)));
 });
 test('homepage offers a direct free-trial action without a workspace input', async () => {
   api.me = anonymous;

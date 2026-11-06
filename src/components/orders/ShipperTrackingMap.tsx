@@ -76,7 +76,7 @@ export function ShipperTrackingMap(props: Props) {
   const [loaded, setLoaded] = useState(false);
   const onLoad = useCallback(() => setLoaded(true), []);
   const onError = useCallback(() => setFailed(true), []);
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim();
+  const apiKey = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY?.trim();
   useEffect(() => {
     if (!apiKey || loaded) return;
     const timer = window.setTimeout(onError, 30_000);

@@ -31,6 +31,15 @@ export function accountWorkspace(account?: Account): string | undefined {
   return slug ? roleHome(slug, account.role) : undefined;
 }
 
+/** New full-workspace dispatchers configure their company before entering Monitor. */
+export function verifiedWorkspace(account: Account): string | undefined {
+  const home = accountWorkspace(account);
+  if (home && account.role === 'DISPATCHER' && !account.tms_workspace && !account.organization?.payment_required) {
+    return `${home}settings`;
+  }
+  return home;
+}
+
 /** Only a company identifier is accepted; URLs cannot become signup destinations. */
 export function signupDestination(input: string): string | undefined {
   const slug = input.trim().toLowerCase();

@@ -44,10 +44,12 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
   mount(); const user = userEvent.setup({ document });
   await screen.findByLabelText('Daily briefing');
   assert.deepEqual(requests, ['BRIEFING']);
+  assert.equal(screen.getByRole('dialog', {name:'Dispatra'}).getAttribute('data-view'),'briefing');
   assert.ok(screen.getByText('2 open issues to review'));
   const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
   await user.click(screen.getByRole('button', { name: 'Show unassigned' }));
   await screen.findByText('Your orders are ready.');
+  assert.equal(screen.getByRole('dialog', {name:'Dispatra'}).getAttribute('data-view'),'conversation');
   assert.deepEqual(requests, ['BRIEFING', 'CHAT']);
   await user.type(input, 'Next question');
   await user.click(screen.getByRole('button', { name: 'Close Dispatra' }));

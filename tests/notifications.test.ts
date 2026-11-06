@@ -58,7 +58,7 @@ test('panel lists notifications, reads one on open and disables Mark all read on
   await user.click(unread);
   assert.deepEqual(opened, ['n1']);
   await waitFor(() => assert.deepEqual(calls, ['read:n1']));
-  await waitFor(() => assert.equal(screen.queryByLabelText('1 unread'), null));
+  await waitFor(() => assert.ok(screen.queryByLabelText('1 unread') === null, 'expected element to be absent'));
   await waitFor(() => assert.equal((screen.getByRole('button', { name: 'Mark all read' }) as HTMLButtonElement).disabled, true));
   await user.click(screen.getByRole('button', { name: /^Information/ }));
   assert.deepEqual(calls, ['read:n1']);

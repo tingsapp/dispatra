@@ -26,9 +26,9 @@ test('public chat sends the question and context, shows the real reply, and clea
  assert.equal((requests[1] as {history:unknown[]}).history.length,2);
  await waitFor(()=>assert.equal(screen.getByRole('button',{name:'New chat'}).hasAttribute('disabled'),false));
  fireEvent.click(screen.getByRole('button',{name:'New chat'}));
- assert.equal(screen.queryByText('Do I need a card?'),null);
+ assert.ok(screen.queryByText('Do I need a card?') === null, 'expected element to be absent');
  assert.equal((screen.getByRole('textbox') as HTMLTextAreaElement).value,'');
- assert.equal(screen.queryByRole('log'),null);
+ assert.ok(screen.queryByRole('log') === null, 'expected element to be absent');
 });
 test('failed chat offers retry of the same request without duplicating the visitor question',async()=>{
  let count=0;
@@ -80,7 +80,7 @@ test('chat screen keeps the composer available while awaiting an answer and prev
  const field=screen.getByRole('textbox');
  assert.equal(field.getAttribute('rows'),'1');
  assert.ok(screen.getByRole('heading',{level:1,name:'How can I help you?'}));
- assert.equal(screen.queryByRole('log'),null);
+ assert.ok(screen.queryByRole('log') === null, 'expected element to be absent');
  fireEvent.change(field,{target:{value:'How do I start?'}});
  fireEvent.keyDown(field,{key:'Enter'});
  await screen.findByRole('status');
@@ -96,7 +96,7 @@ test('chat screen keeps the composer available while awaiting an answer and prev
  assert.equal((field as HTMLTextAreaElement).value,'And pricing?');
  assert.equal(screen.getByRole('button',{name:'Start voice chat'}).hasAttribute('disabled'),false);
  fireEvent.click(screen.getByRole('button',{name:'New chat'}));
- assert.equal(screen.queryByRole('log'),null);
+ assert.ok(screen.queryByRole('log') === null, 'expected element to be absent');
  assert.equal((field as HTMLTextAreaElement).value,'');
 });
 
@@ -120,9 +120,9 @@ test('reading older messages pauses following; Jump to latest restores it',async
   assert.equal(calls.length,0,'incoming answers must not move a reader away from older messages');
   fireEvent.click(screen.getByRole('button',{name:'Jump to latest'}));
   assert.equal(calls.length,1);assert.equal(calls[0].top,1500-window.innerHeight);
-  assert.equal(screen.queryByRole('button',{name:'Jump to latest'}),null);
+  assert.ok(screen.queryByRole('button',{name:'Jump to latest'}) === null, 'expected element to be absent');
   fireEvent.click(screen.getByRole('button',{name:'New chat'}));
-  assert.equal(calls.at(-1)?.top,0);assert.equal(screen.queryByRole('log'),null);
+  assert.equal(calls.at(-1)?.top,0);assert.ok(screen.queryByRole('log') === null, 'expected element to be absent');
  } finally {window.scrollTo=originalScroll;}
 });
 
@@ -140,11 +140,11 @@ test('replies reveal progressively, keep complete history, and cancel on New cha
   render(<PublicChatAssistant />);
   fireEvent.change(screen.getByRole('textbox'),{target:{value:'Explain Dispatra'}});
   fireEvent.click(screen.getByRole('button',{name:'Send question'}));
-  await waitFor(()=>assert.equal(screen.queryByRole('status'),null));
+  await waitFor(()=>assert.ok(screen.queryByRole('status') === null, 'expected element to be absent'));
   step(0);step(120);
   const log=screen.getByRole('log');
   assert.ok(log.textContent?.includes('Hello! Dispa'));
-  assert.equal(screen.queryByText(reply),null);
+  assert.ok(screen.queryByText(reply) === null, 'expected element to be absent');
   assert.equal(log.getAttribute('aria-busy'),'true');
   fireEvent.change(screen.getByRole('textbox'),{target:{value:'And tracking?'}});
   fireEvent.keyDown(screen.getByRole('textbox'),{key:'Enter'});
@@ -155,11 +155,11 @@ test('replies reveal progressively, keep complete history, and cancel on New cha
   fireEvent.click(screen.getByRole('button',{name:'Send question'}));
   await waitFor(()=>assert.equal(requests.length,2));
   assert.deepEqual(requests[1].history,[{role:'user',content:'Explain Dispatra'},{role:'assistant',content:reply}]);
-  await waitFor(()=>assert.equal(screen.queryByRole('status'),null));
+  await waitFor(()=>assert.ok(screen.queryByRole('status') === null, 'expected element to be absent'));
   step(11000);
   assert.equal(screen.getAllByText(reply).length,1,'older replies remain complete');
   fireEvent.click(screen.getByRole('button',{name:'New chat'}));step(20000);
-  assert.equal(screen.queryByRole('log'),null);assert.equal(screen.queryByText(reply),null);
+  assert.ok(screen.queryByRole('log') === null, 'expected element to be absent');assert.ok(screen.queryByText(reply) === null, 'expected element to be absent');
  } finally {cleanup();window.requestAnimationFrame=originalFrame;window.cancelAnimationFrame=originalCancel;}
 });
 

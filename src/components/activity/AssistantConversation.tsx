@@ -10,12 +10,13 @@ export function AssistantConversation({ messages, pending, active, reducedMotion
   const transcript = useRef<HTMLDivElement>(null);
   const seen = useRef(new Set(messages.map(message => message.id)));
   const pendingHeight = useRef(0);
+  const opening = !messages.some(message => message.role === 'user');
   useLayoutEffect(() => {
     const initialHeight = pendingHeight.current;
     pendingHeight.current = transcript.current?.querySelector<HTMLElement>('[role="status"]')?.offsetHeight ?? 0;
     const fresh = new Set(messages.filter(message => message.role === 'assistant' && !seen.current.has(message.id)).map(message => message.id));
     seen.current = new Set(messages.map(message => message.id));
-    if (!active || reducedMotion || !fresh.size) return;
+    if (!active || reducedMotion || opening || !fresh.size) return;
     const animations: Animation[] = [];
     transcript.current?.querySelectorAll<HTMLElement>('[data-message-id]').forEach(element => {
       if (!fresh.has(element.dataset.messageId!) || !element.animate) return;
@@ -31,12 +32,12 @@ export function AssistantConversation({ messages, pending, active, reducedMotion
     if (animations.length && transcript.current) observer?.observe(transcript.current);
     void Promise.all(animations.map(animation => animation.finished.catch(() => {}))).then(() => observer?.disconnect());
     return () => { observer?.disconnect(); animations.forEach(animation => animation.cancel()); };
-  }, [messages, pending, active, reducedMotion]);
+  }, [messages, pending, active, reducedMotion, opening]);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (active) end.current?.scrollIntoView({ block: 'nearest' }); }, [messages, pending, active]);
-  return <div ref={transcript} role="log" aria-label="Dispatra conversation" aria-live="polite" aria-relevant="additions" className="mt-auto shrink-0 space-y-4 p-1">
+  useEffect(() => { if (active && !opening) end.current?.scrollIntoView({ block: 'nearest' }); }, [messages, pending, active, opening]);
+  return <div ref={transcript} role="log" aria-label="Dispatra conversation" aria-live="polite" aria-relevant="additions" className={`${opening ? '' : 'mt-auto '}shrink-0 space-y-4 p-1`}>
     {messages.map(message => <article key={message.id} data-message-id={message.id} aria-label={message.role === 'user' ? 'Your message' : 'Dispatra message'}
-      className={`assistant-message ${message.role === 'user' ? 'ml-auto w-fit max-w-[calc(100%-1.5rem)] rounded-2xl bg-slate-100 px-3 py-2' : 'mr-2'}`}>
+      className={`assistant-message ${message.role === 'user' ? 'ml-auto w-fit max-w-[calc(100%-1.5rem)] rounded-2xl bg-slate-100 px-3 py-2' : ''}`}>
       {!message.reply?.briefing && <p className="mb-1 text-[10px] text-app-muted">{message.role === 'user' ? 'You' : 'Dispatra'}</p>}
       {message.reply?.briefing ? <BriefingCard reply={message.reply} pending={pending} onFollowUp={onFollowUp} /> : <p className="whitespace-pre-wrap break-words text-[13px] leading-5">{message.content}</p>}
       {!!message.reply?.references.length && message.reply.limited && <p className="mt-2 text-[11px] text-app-muted">Showing recent matches. Refine your question to narrow the results.</p>}

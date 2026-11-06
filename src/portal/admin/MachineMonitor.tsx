@@ -71,7 +71,7 @@ export function MachineMonitor({ monitor, accountId, onOpen, delayed = false, up
       </div>
       <div className="machine-bus-label">SHARED RECORDS & TELEMETRY</div>
       <div className="machine-support">
-        <MachineNode id="OPERATIONAL" title="Operational agent" eyebrow="WATCH & RESPOND" detail="Order progress · arrival risks · driver responses" icon={AGENTS.OPERATIONAL.icon} item={status('OPERATIONAL')} state={state('OPERATIONAL')} delayed={paused} active={active('OPERATIONAL')} demo={playback.demo} onOpen={onOpen} support />
+        <MachineNode id="OPERATIONAL" title={AGENTS.OPERATIONAL.name} eyebrow="WATCH & RESPOND" detail="Order progress · arrival risks · driver responses" icon={AGENTS.OPERATIONAL.icon} item={status('OPERATIONAL')} state={state('OPERATIONAL')} delayed={paused} active={active('OPERATIONAL')} demo={playback.demo} onOpen={onOpen} support />
         <MachineNode id="TECHNICAL" title="Technical agent" eyebrow="MONITOR & REPAIR" detail="Platform checks · approved repairs" icon={AGENTS.TECHNICAL.icon} item={status('TECHNICAL')} state={state('TECHNICAL')} delayed={paused} active={active('TECHNICAL')} demo={playback.demo} onOpen={onOpen} support />
         <MachineNode id="CHAT" title="Chat agent" eyebrow="ASK & RETRIEVE" detail="Workspace questions · company records" icon={AGENTS.CHAT.icon} item={status('CHAT')} state={state('CHAT')} delayed={paused} active={active('CHAT')} demo={playback.demo} onOpen={onOpen} support />
       </div>

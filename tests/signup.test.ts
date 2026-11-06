@@ -7,13 +7,13 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http:
 for (const name of ['window','document','navigator','HTMLElement','HTMLInputElement','Element','Node','Event','CustomEvent','localStorage','sessionStorage','location','history']) {
   Object.defineProperty(globalThis, name, { configurable:true, writable:true, value:dom.window[name as keyof Window] });
 }
-const { render, screen, cleanup, fireEvent, waitFor } = await import('@testing-library/react');
+const { render, screen, cleanup, fireEvent, waitFor, act } = await import('@testing-library/react');
 const { SignupForm, TrialPlansPage } = await import('../src/pages/SignupPage');
 const { EmailVerificationForm } = await import('../src/pages/VerifyEmailPage');
 const { api, ApiError } = await import('../src/portal/api');
-import type { TrialSignupInput } from '../src/portal/api';
+import type { Account, TrialSignupInput } from '../src/portal/api';
 const original = { signup: api.signup, subscriptionPlan: api.subscriptionPlan, verification:api.verification, verifyEmail:api.verifyEmail, resendVerification:api.resendVerification };
-afterEach(() => { cleanup(); delete (globalThis as Record<string, unknown>).google; Object.assign(api, original); localStorage.clear(); sessionStorage.clear(); history.replaceState(null, '', '/signup?company=my-company'); });
+afterEach(() => { cleanup(); globalThis.location = dom.window.location; delete (globalThis as Record<string, unknown>).google; Object.assign(api, original); localStorage.clear(); sessionStorage.clear(); history.replaceState(null, '', '/signup?company=my-company'); });
 const view = () => render(React.createElement(QueryClientProvider, { client:new QueryClient({defaultOptions:{mutations:{retry:false,gcTime:0}}}) }, React.createElement(SignupForm)));
 const plan = { name: 'Monthly subscription' as const, interval: 'MONTHLY' as const, trial_days: 30, trial_enabled: true, monthly_price: null, currency: 'CAD', dispatch_monthly_price: null, dispatch_currency: 'CAD' };
 const page = () => render(React.createElement(QueryClientProvider, { client:new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false,gcTime:0}}}) }, React.createElement(TrialPlansPage)));
@@ -190,7 +190,60 @@ test('untrusted query strings cannot prefill invalid or reserved identifiers', (
 });
 
 const verification = () => ({verification_required:true as const,email:'user@example.com',expires_at:new Date(Date.now()+600000).toISOString(),resend_at:new Date(Date.now()-1000).toISOString(),delivery_status:'SENT' as const});
-const verificationView = () => render(React.createElement(QueryClientProvider,{client:new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false,gcTime:0}}})},React.createElement(EmailVerificationForm)));
+const verificationView = (client = new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false,gcTime:0}}})) => render(React.createElement(QueryClientProvider,{client},React.createElement(EmailVerificationForm)));
+const verifiedAccount: Account = {id:'dispatcher',login_id:'user@example.com',display_name:'Dispatcher',role:'DISPATCHER',tms_workspace:false,
+  organization:{id:'company',slug:'my-company',name:'My Company',active:true,payment_required:false}};
+
+test('successful confirmation cancels a stale status request and stays successful until Settings opens',async()=>{
+  const cache = new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false,gcTime:0}}});
+  const destinations: string[] = [];
+  globalThis.location = {replace:(path:string)=>destinations.push(path)} as unknown as Location;
+  let reads=0, aborted=false;
+  let rejectStatus:(error:Error)=>void=()=>{};
+  let resolveConfirmation:(account:Account)=>void=()=>{};
+  api.verification=async signal=>{
+    reads++;
+    if(reads===1) return verification();
+    signal?.addEventListener('abort',()=>{aborted=true;});
+    return new Promise((_resolve,reject)=>{rejectStatus=reject;});
+  };
+  api.verifyEmail=()=>new Promise(resolve=>{resolveConfirmation=resolve;});
+  verificationView(cache);
+  const input=await screen.findByLabelText('Verification code');
+  fireEvent.change(input,{target:{value:'123456'}});
+  void cache.refetchQueries({queryKey:['email-verification']});
+  await waitFor(()=>assert.equal(reads,2));
+  fireEvent.click(screen.getByRole('button',{name:'Verify email'}));
+  await waitFor(()=>assert.equal(aborted,true));
+  await act(async()=>{
+    resolveConfirmation(verifiedAccount);
+    rejectStatus(new ApiError(401,'Sign in to resume email verification.'));
+  });
+  await screen.findByRole('heading',{name:'Email verified'});
+  assert.deepEqual(destinations,['/my-company/settings']);
+  assert.equal(screen.queryByRole('alert'),null);
+  assert.equal(screen.queryByLabelText('Verification code'),null);
+  await act(async()=>{await cache.invalidateQueries({queryKey:['email-verification']});});
+  assert.equal(reads,2,'Consumed verification must not be fetched again while navigation is pending');
+  cache.clear();
+});
+
+test('verification can recover from an incorrect code without retaining its error on success',async()=>{
+  const destinations:string[]=[];
+  globalThis.location={replace:(path:string)=>destinations.push(path)} as unknown as Location;
+  api.verification=async()=>verification();
+  api.verifyEmail=async code=>{if(code!=='123456')throw new ApiError(400,'The code is incorrect.');return verifiedAccount;};
+  verificationView();
+  const input=await screen.findByLabelText('Verification code');
+  fireEvent.change(input,{target:{value:'000000'}});
+  fireEvent.click(screen.getByRole('button',{name:'Verify email'}));
+  await screen.findByRole('alert');
+  fireEvent.change(input,{target:{value:'123456'}});
+  fireEvent.click(screen.getByRole('button',{name:'Verify email'}));
+  await screen.findByRole('heading',{name:'Email verified'});
+  assert.deepEqual(destinations,['/my-company/settings']);
+  assert.equal(screen.queryByRole('alert'),null);
+});
 test('verification preserves a wrong code for retry and locks code/resend while pending',async()=>{
   api.verification=async()=>verification();
   let reject:(error:Error)=>void=()=>{};

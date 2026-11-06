@@ -45,9 +45,10 @@ export function NotificationPanel({ slug, onOpen, onClose }: { slug: string; onO
 
 type InboxRow = Pick<AppNotification, 'id' | 'created_at' | 'severity' | 'title' | 'body' | 'read_at'>;
 /** Shared inbox presentation for company and platform accounts. */
-export function NotificationInbox<T extends InboxRow>({ rows, unread, loading, loadError, readError, readingAll, onMarkAllRead, onOpen, onClose }: {
+export function NotificationInbox<T extends InboxRow>({ rows, unread, loading, loadError, readError, readingAll, onMarkAllRead, onOpen, onClose, emptyMessage = "You're all caught up." }: {
   rows: T[]; unread: number; loading: boolean; loadError: unknown; readError: unknown; readingAll: boolean;
   onMarkAllRead: () => void; onOpen: (row: T) => void; onClose?: () => void;
+  emptyMessage?: string;
 }) {
   return <div>
     <div className="flex items-center justify-between pb-2.5">
@@ -64,7 +65,7 @@ export function NotificationInbox<T extends InboxRow>({ rows, unread, loading, l
     <div className="mt-1 max-h-80 overflow-y-auto">
       {loading ? <p role="status" className="py-6 text-center text-xs text-slate-500">Loading notifications…</p>
         : loadError ? <p role="alert" className="py-6 text-center text-xs text-red-700">Notifications could not be loaded.</p>
-        : rows.length === 0 ? <p className="py-6 text-center text-xs text-slate-500">You're all caught up.</p>
+        : rows.length === 0 ? <p className="py-6 text-center text-xs text-slate-500">{emptyMessage}</p>
         : <ul className="space-y-0.5">{rows.map(row => {
           const severity = SEVERITY[row.severity];
           const Icon = severity.icon;
