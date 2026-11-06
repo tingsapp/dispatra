@@ -98,7 +98,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   const eligibleDrivers: (EligibleDriver & { unavailableReason?: string })[] = live ? drivers.map(driver => ({
     id: driver.id, code: driver.driverNumber ?? driver.id.slice(0, 8), name: driver.name,
     avatar: driver.avatar, distance: driver.distance || '-', eta: driver.eta,
-    status: driver.status === 'on_route' ? 'on_route' as const : 'available' as const,
+    status: driver.status === 'on_route' ? 'on_route' as const : driver.status === 'assigned' ? 'assigned' as const : 'available' as const,
     unavailableReason: job.pricingInput?.requiredDriverId && driver.id !== job.pricingInput.requiredDriverId ? 'Requires shipper’s assigned driver' : driver.accountStatus === 'INACTIVE' ? 'Inactive account'
       : [driver.dutyStatus !== 'ON_DUTY' ? 'Off duty' : '', !driver.currentVehicleId ? 'No vehicle attached' : ''].filter(Boolean).join(' ') || undefined,
   })) : ELIGIBLE_DRIVERS;
@@ -368,7 +368,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                                   : 'text-app-accent'
                               }`}
                             >
-                              {isCurrent ? 'Assigned' : driver.unavailableReason || (driver.status === 'available' ? 'Available' : 'On route')}
+                              {isCurrent ? 'Assigned' : driver.unavailableReason || (driver.status === 'available' ? 'Available' : driver.status === 'assigned' ? 'Assigned · awaiting start' : 'On route')}
                             </span>
                           </div>
                           {driver.distance && driver.distance !== '-' && <p className="mt-0.5 text-[11px] leading-[14px] text-slate-500">{driver.distance}</p>}

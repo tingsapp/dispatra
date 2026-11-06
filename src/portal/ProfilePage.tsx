@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AddressField, Field, Button, Card, Notice } from './ui';
 import type { SelectedAddress } from '../components/ui/AddressAutocomplete';
 import { operations, type Shipper } from '../operations/api';
+import { LogoUpload } from '../components/settings/LogoUpload';
 import { canadianAddress } from '../operations/adapters';
 
 export function CustomerProfile({ slug }: { slug: string }) {
@@ -13,20 +14,23 @@ export function CustomerProfile({ slug }: { slug: string }) {
 }
 function ProfileForm({ slug, profile }: { slug: string; profile: Shipper }) {
   const client = useQueryClient();
-  const [form, setForm] = useState({ contact_name: profile.name, email: profile.email, phone: profile.phone, address: profile.warehouse.text });
+  const [form, setForm] = useState({ logo_url: profile.logo_url ?? '', contact_name: profile.name, email: profile.email, phone: profile.phone, address: profile.warehouse.text });
   const [selectedAddress, setSelectedAddress] = useState<SelectedAddress>();
   const [saved, setSaved] = useState(false);
   const mutation = useMutation({
-    mutationFn: () => operations.updateOwnShipper(slug, { version: profile.version, contact_name: form.contact_name.trim(), phone: form.phone.trim(), warehouse: canadianAddress(form.address, profile.warehouse, selectedAddress) }),
+    mutationFn: () => operations.updateOwnShipper(slug, { version: profile.version, logo_url: form.logo_url, contact_name: form.contact_name.trim(), phone: form.phone.trim(), warehouse: canadianAddress(form.address, profile.warehouse, selectedAddress) }),
     onSuccess: data => { setSaved(true); client.setQueryData(['shipper-profile', slug], data); client.invalidateQueries({ queryKey: ['operations', slug, 'shippers'] }); },
   });
   return <Card plain title="Contact details" description={`${profile.name} · ${profile.number}`}><form className="space-y-5" onSubmit={e => { e.preventDefault(); mutation.mutate(); }}>
+    <fieldset disabled={mutation.isPending} className="space-y-5">
+    <LogoUpload label="Avatar / logo" subject="shipper avatar or logo" value={form.logo_url} onChange={logo_url => { setSaved(false); setForm(current => ({ ...current, logo_url })); }} />
     <div className="grid gap-5 sm:grid-cols-2">
       <Field label="Contact name" maxLength={160} required value={form.contact_name} onChange={e => { setSaved(false); setForm(current => ({ ...current, contact_name: e.target.value })); }} />
       <Field label="Contact email" type="email" maxLength={254} readOnly value={form.email} />
       <Field label="Phone" type="tel" maxLength={50} value={form.phone} onChange={e => { setSaved(false); setForm(current => ({ ...current, phone: e.target.value })); }} />
       <AddressField label="Address" maxLength={500} value={form.address} onChange={(address, selected) => { setSaved(false); setSelectedAddress(selected); setForm(current => ({ ...current, address })); }} />
     </div>
+    </fieldset>
     <Notice error={mutation.error} success={saved ? 'Profile saved.' : undefined} /><div className="flex gap-3"><Button loading={mutation.isPending} disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Save profile'}</Button>{mutation.error && <Button type="button" variant="outline" onClick={() => client.invalidateQueries({ queryKey: ['shipper-profile',slug] })}>Reload profile</Button>}</div>
     <p className="text-xs text-slate-500">Contact your dispatch company to change your business name, login email, or account terms.</p></form></Card>;
 }

@@ -53,13 +53,17 @@ import type { Driver as UiDriver } from '../types';
 import type { VehicleAsset } from '../lib/vehicleStorage';
 import type { Driver as ApiDriver, DriverInput, Vehicle as ApiVehicle, VehicleInput, CatalogItem, CatalogInput } from './api';
 
-export function driverToUi(row: ApiDriver, vehicle?: ApiVehicle, monitor?: { on_duty: boolean; location?: { latitude?: number; longitude?: number } | null }): UiDriver {
+export function driverToUi(row: ApiDriver, vehicle?: ApiVehicle, monitor?: { on_duty: boolean; location?: { latitude?: number; longitude?: number } | null }, route?: { status: string }, fleetLoaded = false): UiDriver {
   const details = row.data as Partial<DriverInput>;
   const onDuty = row.active && (monitor?.on_duty ?? row.on_duty);
-  const status = !row.active ? 'offline' : onDuty ? 'available' : 'offline';
+  const vehicleUnavailable = fleetLoaded && (!vehicle || !vehicle.active || vehicle.data.availability === 'UNAVAILABLE');
+  const status = !onDuty ? 'offline' : route?.status === 'IN_PROGRESS' ? 'on_route'
+    : vehicleUnavailable ? 'offline' : route?.status === 'PLANNED' ? 'assigned' : 'available';
+  const statusLabel = !row.active ? 'Inactive' : !onDuty ? 'Off duty' : status === 'on_route' ? 'On route'
+    : vehicleUnavailable ? 'Vehicle unavailable' : status === 'assigned' ? 'Assigned · awaiting start' : 'Available';
   return {
     id: row.id, driverNumber: row.number, name: row.name, avatar: details.avatar_url ?? '',
-    status, statusLabel: onDuty ? 'Available' : 'Off duty', vehicle: vehicle ? `${vehicle.number} · ${vehicle.plate}` : 'Unassigned',
+    status, statusLabel, vehicle: vehicle ? `${vehicle.number} · ${vehicle.plate}` : 'Unassigned',
     currentVehicleId: row.vehicle_id, nextStop: 'Not set', eta: '-', distance: '-', lastUpdate: row.last_seen_at ?? 'Not set',
     phone: row.phone, email: row.email, address: row.address.text,
     shiftStart: details.shift_start ?? '', shiftEnd: details.shift_end ?? '',

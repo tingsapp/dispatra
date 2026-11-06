@@ -61,13 +61,15 @@ export function DriversPage({
   const queryClient = useQueryClient();
   const driverQuery = useQuery({ queryKey: ['operations', slug, 'drivers'], queryFn: () => allOperations.drivers(slug!), enabled: !!slug });
   const vehicleQuery = useQuery({ queryKey: ['operations', slug, 'vehicles'], queryFn: () => allOperations.vehicles(slug!), enabled: !!slug });
+  const routeQuery = useQuery({ queryKey: ['operations', slug, 'routes'], queryFn: () => allOperations.routes(slug!), enabled: !!slug });
   const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
   const vehicleOptions = slug ? (vehicleQuery.data ?? []).map(row => vehicleToUi(row, catalogQuery.data?.find(type => type.id === row.type_id), driverQuery.data?.find(driver => driver.vehicle_id === row.id))) : undefined;
   const vehicleTypes = slug ? (catalogQuery.data ?? []).filter(type => type.kind === 'VEHICLE_TYPE').map(catalogToVehicleType) : undefined;
-  const drivers = slug ? (driverQuery.data ?? []).map(row => driverToUi(row, vehicleQuery.data?.find(v => v.id === row.vehicle_id))) : suppliedDrivers;
+  const drivers = slug ? (driverQuery.data ?? []).map(row => driverToUi(row, vehicleQuery.data?.find(v => v.id === row.vehicle_id), undefined,
+    routeQuery.data?.find(route => route.driver_id === row.id && ['PLANNED', 'IN_PROGRESS'].includes(route.status)), vehicleQuery.isSuccess)) : suppliedDrivers;
   const [initialCredential, setInitialCredential] = useState<{ name: string; email: string; password: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'on_route' | 'available' | 'offline'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'on_route' | 'assigned' | 'available' | 'offline'>('all');
 
   // Selected driver for slide-over drawer
   const [activeDriverDrawer, setActiveDriverDrawer] = useState<Driver | null>(null);
@@ -144,6 +146,7 @@ export function DriversPage({
   // Metrics
   const totalDrivers = drivers.length;
   const onRouteCount = drivers.filter((d) => d.status === 'on_route').length;
+  const assignedCount = drivers.filter((d) => d.status === 'assigned').length;
   const availableCount = drivers.filter((d) => d.status === 'available').length;
   const offlineCount = drivers.filter((d) => d.status === 'idle' || d.status === 'offline').length;
 
@@ -183,6 +186,7 @@ export function DriversPage({
         <ListSummary label="Drivers summary" items={[
           { label: 'Total', value: totalDrivers, icon: Users },
           { label: 'On route', value: onRouteCount, icon: Route },
+          { label: 'Assigned', value: assignedCount, icon: Route },
           { label: 'Available', value: availableCount, icon: CircleCheck },
           { label: 'Off duty / on break', value: offlineCount, icon: Coffee },
         ]} />
@@ -211,6 +215,9 @@ export function DriversPage({
                 className="app-tab inline-flex items-center gap-2 whitespace-nowrap"
               >
                 On Route
+              </button>
+              <button onClick={() => setStatusFilter('assigned')} aria-pressed={statusFilter === 'assigned'} className="app-tab inline-flex items-center gap-2 whitespace-nowrap">
+                Assigned
               </button>
               <button
                 onClick={() => setStatusFilter('available')}
@@ -285,7 +292,7 @@ export function DriversPage({
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span
                           className={`px-2 py-0.5 text-xs font-medium rounded-full border ${
-                            driver.status === 'on_route'
+                            (driver.status === 'on_route' || driver.status === 'assigned')
                               ? 'bg-app-accent-soft text-app-accent border-app-accent/20'
                               : driver.status === 'available' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
                           }`}

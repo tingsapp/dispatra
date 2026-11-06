@@ -22,3 +22,17 @@ test('local shift choices use company timezone and omitted fields preserve histo
  const cleared=driverFromUi({...ui,shiftStart:'',shiftEnd:''},previous);
  assert.equal(cleared.shift_start,null);assert.equal(cleared.shift_end,null);
 });
+
+test('planned assignment is not idle availability; start and completion change the display',()=>{
+ const row={...previous as object,active:true,on_duty:true} as Parameters<typeof driverToUi>[0];
+ const vehicle={active:true,number:'V1',plate:'TEST',data:{availability:'AVAILABLE'}} as Parameters<typeof driverToUi>[1];
+ const planned=driverToUi(row,vehicle,undefined,{status:'PLANNED'},true);
+ assert.equal(planned.status,'assigned');assert.equal(planned.statusLabel,'Assigned · awaiting start');
+ assert.equal([planned].filter(d=>d.status==='available').length,0);
+ assert.equal(driverToUi(row,vehicle,undefined,{status:'IN_PROGRESS'},true).status,'on_route');
+ assert.equal(driverToUi(row,vehicle,undefined,{status:'COMPLETED'},true).status,'available');
+ assert.equal(driverToUi(row,vehicle,undefined,undefined,true).status,'available');
+ assert.equal(driverToUi(row,vehicle,{on_duty:false},{status:'PLANNED'},true).status,'offline');
+ assert.equal(driverToUi({...row,active:false},vehicle,undefined,{status:'PLANNED'},true).status,'offline');
+ assert.equal(driverToUi(row,undefined,undefined,{status:'PLANNED'},true).statusLabel,'Vehicle unavailable');
+});

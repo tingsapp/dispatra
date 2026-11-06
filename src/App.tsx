@@ -93,15 +93,13 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const drivers = slug ? (driverQuery.data ?? []).map(row => {
     const current = routeQuery.data?.find(route => route.driver_id === row.id && ['PLANNED', 'IN_PROGRESS'].includes(route.status));
     const vehicle = vehicleQuery.data?.find(item => item.id === row.vehicle_id);
-    const driver = driverToUi(row, vehicle, monitorQuery.data?.drivers.find(item => item.id === row.id));
-    const onRoute = driver.dutyStatus === 'ON_DUTY' && current?.status === 'IN_PROGRESS';
+    const driver = driverToUi(row, vehicle, monitorQuery.data?.drivers.find(item => item.id === row.id), current, vehicleQuery.isSuccess);
+    const onRoute = driver.status === 'on_route';
     const nextVisit = current?.stops.find(stop => stop.status !== 'COMPLETED');
     const timing = monitorTiming(onRoute && !nextVisit?.arrived_at && !monitorQuery.isError
       ? monitorQuery.data?.routes.find(route => route.id === current?.id)?.estimate : null,
       nextVisit?.stop_id, loadPricingContext().billing.general, settingsQuery.data?.data.time_zone);
-    const vehicleUnavailable = vehicleQuery.isSuccess && driver.dutyStatus === 'ON_DUTY' && (!vehicle || !vehicle.active || vehicle.data.availability === 'UNAVAILABLE');
-    return { ...driver, status: onRoute ? 'on_route' as const : vehicleUnavailable ? 'offline' as const : driver.status,
-      statusLabel: onRoute ? 'On route' : vehicleUnavailable ? 'Vehicle unavailable' : driver.statusLabel,
+    return { ...driver,
       currentJob: orderQuery.data?.find(order => order.route_id === current?.id)?.number,
       nextStop: nextVisit?.stop.address.text ?? 'Not set', routeId: current?.id, ...timing,
       lastUpdate: row.last_seen_at ? dateTime(row.last_seen_at) : 'Not set' };

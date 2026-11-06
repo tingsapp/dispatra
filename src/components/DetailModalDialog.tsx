@@ -86,7 +86,7 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
   const [jobSearchQuery, setJobSearchQuery] = useState('');
   const [jobFilter, setJobFilter] = useState<'all' | 'at_risk' | 'on_time'>('all');
   const [driverSearchQuery, setDriverSearchQuery] = useState('');
-  const [driverFilter, setDriverFilter] = useState<'all' | 'available' | 'on_route'>('all');
+  const [driverFilter, setDriverFilter] = useState<'all' | 'available' | 'assigned' | 'on_route'>('all');
 
   const dialogLabel = effectiveType === 'all_drivers' ? 'Drivers' : effectiveType === 'all_jobs' ? 'Active Orders'
     : effectiveType === 'all_exceptions' ? 'Needs Attention' : (effectiveData as Driver | undefined)?.name ?? 'Driver details';
@@ -208,7 +208,7 @@ const DriverDetailView: React.FC<{
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="app-section-title text-slate-900">{driver.name}</h2>
               <span className="text-xs text-slate-500">{driver.driverNumber ?? driver.id}</span>
-              <MonitorBadge tone={driver.status === 'available' ? 'success' : driver.status === 'on_route' ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
+              <MonitorBadge tone={driver.status === 'available' ? 'success' : (driver.status === 'on_route' || driver.status === 'assigned') ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
             </div>
             {phone && <p className="text-xs text-slate-500 mt-0.5">{phone}</p>}
           </div>
@@ -334,8 +334,8 @@ const AllDriversRosterView: React.FC<{
   drivers: Driver[];
   searchQuery: string;
   setSearchQuery: (q: string) => void;
-  filter: 'all' | 'available' | 'on_route';
-  setFilter: (f: 'all' | 'available' | 'on_route') => void;
+  filter: 'all' | 'available' | 'assigned' | 'on_route';
+  setFilter: (f: 'all' | 'available' | 'assigned' | 'on_route') => void;
   onClose: () => void;
   onSelectDriver?: (driverId: string) => void;
   onActionNotification: (msg: string) => void;
@@ -353,7 +353,7 @@ const AllDriversRosterView: React.FC<{
     <div className="px-6 pb-4 flex flex-col sm:flex-row items-center gap-2.5 shrink-0">
       <SearchInput className="flex-1 w-full" value={searchQuery} onChange={setSearchQuery} placeholder="Search by driver name, ID, vehicle..." />
       <div className="flex flex-wrap items-center gap-1.5 shrink-0 self-start sm:self-auto">
-        {tab('all', `All (${drivers.length})`)}{tab('available', 'Available')}{tab('on_route', 'On route')}
+        {tab('all', `All (${drivers.length})`)}{tab('available', 'Available')}{tab('assigned', 'Assigned')}{tab('on_route', 'On route')}
       </div>
     </div>
     <DialogBody>
@@ -375,7 +375,7 @@ const AllDriversRosterView: React.FC<{
                 {driver.eta && driver.eta !== '-' && <span className="mt-1 block [overflow-wrap:anywhere]">{driver.eta}</span>}
               </span>
               <span className="order-2 sm:order-3 sm:text-right">
-                <MonitorBadge tone={driver.status === 'available' ? 'success' : driver.status === 'on_route' ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
+                <MonitorBadge tone={driver.status === 'available' ? 'success' : (driver.status === 'on_route' || driver.status === 'assigned') ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
               </span>
             </span>
           </button>

@@ -1,3 +1,11 @@
+export const TIME_PICKER_MINUTES = ['00', '15', '30', '45', '59'];
+
+/** Round a valid HH:mm minimum up without crossing the hour (59 is selectable). */
+export function nextPickerTime(clock: string): string {
+  const [hour, minute] = clock.split(':');
+  return `${hour}:${TIME_PICKER_MINUTES.find(option => option >= minute) ?? '59'}`;
+}
+
 /** Date-only fields are calendar dates, never UTC instants. */
 export function parseDateValue(value: string): Date | undefined {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;

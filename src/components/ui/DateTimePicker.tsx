@@ -2,7 +2,7 @@ import React from 'react';
 import { DatePicker } from './DatePicker';
 import { TimePicker } from './TimePicker';
 import { organizationTime } from '../../lib/organizationWorkflows';
-import { combineDateAndTime } from '../../lib/dateValues';
+import { combineDateAndTime, nextPickerTime } from '../../lib/dateValues';
 
 const nextMinute = (date: Date) => new Date((Math.floor(date.getTime() / 60000) + 1) * 60000);
 const nextWallMinute = (day: string, clock: string) => new Date(Date.parse(`${day}T${clock}:00Z`) + 60000).toISOString().slice(0, 16);
@@ -36,8 +36,8 @@ export function DateTimePicker({ value, onValueChange, timeZone, 'aria-label': l
   const selectDay = (day: string) => {
     if (!day) { onValueChange(''); return; }
     const minimum = minClock(day);
-    const preferred = parts?.clock ?? minimum;
-    onValueChange(combineDateAndTime(day, preferred < minimum ? minimum : preferred));
+    const preferred = parts?.clock ?? nextPickerTime(minimum);
+    onValueChange(combineDateAndTime(day, preferred < minimum ? nextPickerTime(minimum) : preferred));
   };
   return <div className="flex flex-wrap items-center gap-2">
     <div className="min-w-0 flex-1 basis-40">

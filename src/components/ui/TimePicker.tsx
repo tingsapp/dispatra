@@ -1,9 +1,9 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Select } from './Select';
+import { TIME_PICKER_MINUTES } from '../../lib/dateValues';
 
 const hours = Array.from({ length: 24 }, (_, i) => ({ value: String(i).padStart(2, '0'), label: String(i).padStart(2, '0') }));
-const minutes = Array.from({ length: 60 }, (_, i) => ({ value: String(i).padStart(2, '0'), label: String(i).padStart(2, '0') }));
 
 export function TimePicker({ value, onValueChange, 'aria-label': label, disabled = false, clearable = false, minTime }: {
   value: string;
@@ -14,6 +14,10 @@ export function TimePicker({ value, onValueChange, 'aria-label': label, disabled
   minTime?: string;
 }) {
   const [hour = '', minute = ''] = value.split(':');
+  // Keep an existing exact minute visible and intact until the user changes it.
+  const minuteValues = /^[0-5]\d$/.test(minute) && !TIME_PICKER_MINUTES.includes(minute)
+    ? [...TIME_PICKER_MINUTES, minute].sort() : TIME_PICKER_MINUTES;
+  const minutes = minuteValues.map(value => ({ value, label: value }));
   const allowed = (h: string, m: string) => !minTime || `${h}:${m}` >= minTime;
   const hourOptions = hours.map(option => ({ ...option, disabled: !minutes.some(item => allowed(option.value, item.value)) }));
   const minuteOptions = minutes.map(option => ({ ...option, disabled: !!hour && !allowed(hour, option.value) }));

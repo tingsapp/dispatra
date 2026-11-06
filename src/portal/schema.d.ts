@@ -7314,6 +7314,11 @@ export interface components {
         ShipperProfileUpdate: {
             /** Version */
             version: number;
+            /**
+             * Logo Url
+             * @default
+             */
+            logo_url: string;
             /** Contact Name */
             contact_name?: string | null;
             /**
@@ -7345,6 +7350,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Logo Url
+             * @default
+             */
+            logo_url: string;
             /** Name */
             name: string;
             /** Number */

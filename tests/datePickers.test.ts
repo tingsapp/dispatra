@@ -17,6 +17,7 @@ const { render, screen, cleanup, waitFor } = await import('@testing-library/reac
 const { default: userEvent } = await import('@testing-library/user-event');
 const { DatePicker } = await import('../src/components/ui/DatePicker');
 const { DateTimePicker } = await import('../src/components/ui/DateTimePicker');
+const { TimePicker } = await import('../src/components/ui/TimePicker');
 const { MonitorActions } = await import('../src/components/MonitorActions');
 const { OrderDateFilter } = await import('../src/components/orders/OrderDateFilter');
 afterEach(cleanup);
@@ -106,6 +107,13 @@ test('service calendar preserves organization wall time and arbitrary minutes wh
   await user.click(screen.getByRole('combobox', { name: 'Service window time hours' }));
   await user.click(screen.getByRole('option', { name: '18' }));
   assert.equal(last, '2026-09-16T18:37');
+  await user.click(screen.getByRole('combobox', { name: 'Service window time minutes' }));
+  assert.equal(screen.getByRole('option', { name: '37' }).getAttribute('aria-selected'), 'true');
+  await user.click(screen.getByRole('option', { name: '45' }));
+  assert.equal(last, '2026-09-16T18:45');
+  await user.click(screen.getByRole('combobox', { name: 'Service window time minutes' }));
+  assert.deepEqual(screen.getAllByRole('option').map(option => option.textContent), ['00', '15', '30', '45', '59']);
+  await user.keyboard('{Escape}');
   await user.click(screen.getByRole('button', { name: /^Service window date:/ }));
   await user.click(screen.getByRole('button', { name: 'Clear' }));
   assert.equal(last, '');
@@ -124,15 +132,18 @@ test('new booking picker blocks past dates and minutes while leaving future time
   await user.click(screen.getByRole('button', { name: 'Pickup date: Pick a date' }));
   assert.equal((screen.getByRole('button', { name: /September 13th, 2026/ }) as HTMLButtonElement).disabled, true);
   await user.click(screen.getByRole('button', { name: 'Today' }));
-  assert.equal(selected, '2026-09-14T17:26');
+  assert.equal(selected, '2026-09-14T17:30');
+  await user.click(screen.getByRole('combobox', { name: 'Pickup time minutes' }));
+  assert.equal(screen.getByRole('option', { name: '15' }).getAttribute('aria-disabled'), 'true');
+  await user.keyboard('{Escape}');
   await user.click(screen.getByRole('combobox', { name: 'Pickup time hours' }));
   assert.equal(screen.getByRole('option', { name: '16' }).getAttribute('aria-disabled'), 'true');
   await user.click(screen.getByRole('option', { name: '18' }));
-  assert.equal(selected, '2026-09-14T18:26');
+  assert.equal(selected, '2026-09-14T18:30');
   await user.click(screen.getByRole('combobox', { name: 'Pickup time minutes' }));
-  assert.equal(screen.getByRole('option', { name: '10' }).getAttribute('aria-disabled'), null);
-  await user.click(screen.getByRole('option', { name: '10' }));
-  assert.equal(selected, '2026-09-14T18:10');
+  assert.equal(screen.getByRole('option', { name: '15' }).getAttribute('aria-disabled'), null);
+  await user.click(screen.getByRole('option', { name: '15' }));
+  assert.equal(selected, '2026-09-14T18:15');
 });
 
 test('drop-off picker allows the pickup day from the following minute and blocks older dates', async () => {
@@ -148,12 +159,34 @@ test('drop-off picker allows the pickup day from the following minute and blocks
   assert.equal((screen.getByRole('button', { name: /September 15th, 2026/ }) as HTMLButtonElement).disabled, true);
   assert.equal((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled, true);
   await user.click(screen.getByRole('button', { name: /September 16th, 2026/ }));
-  assert.equal(selected, '2026-09-16T15:46');
+  assert.equal(selected, '2026-09-16T15:59');
   await user.click(screen.getByRole('combobox', { name: 'Drop-off time hours' }));
   assert.equal(screen.getByRole('option', { name: '14' }).getAttribute('aria-disabled'), 'true');
   await user.click(screen.getByRole('option', { name: '15' }));
   await user.click(screen.getByRole('combobox', { name: 'Drop-off time minutes' }));
   assert.equal(screen.getByRole('option', { name: '45' }).getAttribute('aria-disabled'), 'true');
+});
+
+test('time picker offers five minutes with keyboard selection and retains the last minute of the day', async () => {
+  const user = userEvent.setup({ document });
+  let selected = '';
+  render(React.createElement(TimePicker, { value: '23:45', 'aria-label': 'Time', onValueChange: next => { selected = next; } }));
+  screen.getByRole('combobox', { name: 'Time minutes' }).focus();
+  await user.keyboard('{Enter}');
+  assert.deepEqual(screen.getAllByRole('option').map(option => option.textContent), ['00', '15', '30', '45', '59']);
+  await user.keyboard('{End}{Enter}');
+  assert.equal(selected, '23:59');
+});
+
+test('booking defaults advance to midnight after the last minute of the day', async () => {
+  const user = userEvent.setup({ document });
+  let selected = '';
+  render(React.createElement(DateTimePicker, { value: '', timeZone: 'UTC', currentTime: new Date('2026-09-14T23:59:40Z'),
+    futureOnly: true, 'aria-label': 'Late pickup', onValueChange: next => { selected = next; } }));
+  await user.click(screen.getByRole('button', { name: 'Late pickup date: Pick a date' }));
+  assert.equal((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled, true);
+  await user.click(screen.getByRole('button', { name: /September 15th, 2026/ }));
+  assert.equal(selected, '2026-09-15T00:00');
 });
 
 test('shared calendar uses real dates and shortcuts across year boundaries', async () => {

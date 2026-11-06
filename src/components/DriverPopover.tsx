@@ -80,7 +80,7 @@ export const DriverPopover: React.FC<DriverPopoverProps> = ({
                 </span>
               </div>
               <div className="mt-1">
-                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${driver.status === 'offline' ? 'bg-slate-50 text-slate-600 border-slate-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200/60'}`}>
+                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${driver.status === 'offline' ? 'bg-slate-50 text-slate-600 border-slate-200' : driver.status === 'available' ? 'bg-emerald-50 text-emerald-600 border-emerald-200/60' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                   {driver.statusLabel}
                 </span>
               </div>

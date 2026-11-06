@@ -5,7 +5,7 @@ export interface Driver extends DriverOperations {
   id: string;
   name: string;
   avatar: string;
-  status: 'on_route' | 'available' | 'idle' | 'offline';
+  status: 'on_route' | 'assigned' | 'available' | 'idle' | 'offline';
   statusLabel: string;
   vehicle: string;
   currentJob?: string;
@@ -80,7 +80,7 @@ export interface EligibleDriver {
   name: string;
   avatar: string;
   distance: string;
-  status: 'available' | 'on_route';
+  status: 'available' | 'assigned' | 'on_route';
   eta: string;
   selected?: boolean;
 }

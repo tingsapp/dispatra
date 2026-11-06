@@ -215,3 +215,14 @@ test('Monitor toolbar exposes drivers and attention without an Active Orders men
   assert.ok(screen.getByRole('button', {name:/Available Drivers/}));
   assert.ok(screen.getByRole('button', {name:/Needs Attention/}));
 });
+
+test('assigned driver is excluded from Available and labelled in the full roster', async () => {
+  const driver={...INITIAL_DRIVERS[0],id:'assigned-driver',name:'Assigned Driver',status:'assigned' as const,statusLabel:'Assigned · awaiting start'};
+  render(<TopMetrics drivers={[driver]} availableDriversCount={0} needsAttentionCount={0} needsAttentionItems={[]}
+    showAvailableDriversMenu={true} setShowAvailableDriversMenu={()=>{}} showNeedsAttentionPopover={false} setShowNeedsAttentionPopover={()=>{}}
+    onSelectJob={()=>{}} onSelectDriver={()=>{}} onActionNotification={()=>{}} />);
+  assert.equal(screen.queryByText('Assigned Driver'),null);
+  fireEvent.click(screen.getByRole('button',{name:'All (1)'}));
+  assert.ok(screen.getByText('Assigned Driver'));
+  assert.ok(screen.getByText('Assigned · awaiting start'));
+});

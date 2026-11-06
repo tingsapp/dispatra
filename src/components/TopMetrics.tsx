@@ -148,12 +148,12 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     >
                       <div className="relative shrink-0">
                         <DriverAvatar name={driver.name} avatar={driver.avatar} alt={driver.name} className="size-8 rounded-full object-cover" />
-                        <span className={`absolute bottom-0 right-0 size-2 rounded-full ring-2 ring-white ${driver.status === 'available' ? 'bg-emerald-500' : driver.status === 'on_route' ? 'bg-app-accent' : 'bg-slate-400'}`} />
+                        <span className={`absolute bottom-0 right-0 size-2 rounded-full ring-2 ring-white ${driver.status === 'available' ? 'bg-emerald-500' : (driver.status === 'on_route' || driver.status === 'assigned') ? 'bg-app-accent' : 'bg-slate-400'}`} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                           <span className="min-w-0 max-w-full truncate font-medium text-slate-900 text-xs" title={driver.name}>{driver.name}</span>
-                          <MonitorBadge tone={driver.status === 'available' ? 'success' : driver.status === 'on_route' ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
+                          <MonitorBadge tone={driver.status === 'available' ? 'success' : (driver.status === 'on_route' || driver.status === 'assigned') ? 'info' : 'neutral'}>{driver.statusLabel}</MonitorBadge>
                         </div>
                         <p className="mt-1 truncate text-xs text-slate-500" title={`${driver.driverNumber ?? driver.id} · ${driver.vehicle}`}>
                           {driver.driverNumber ?? driver.id} · {driver.vehicle}
