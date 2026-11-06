@@ -183,3 +183,63 @@ test('an order that completes while driver selection is staged loses its mutatio
   assert.equal(screen.queryByRole('button', { name: 'Confirm' }), null);
   assert.equal(calls, 0);
 });
+
+for (const kind of ['select', 'menu', 'calendar'] as const) {
+  test(`${kind} dismisses on the first outside click even when the page handles the pointer event`, async () => {
+    const { Select } = await import('../src/components/ui/Select');
+    const { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } = await import('../src/components/ui/DropdownMenu');
+    const { DatePicker } = await import('../src/components/ui/DatePicker');
+    render(<><div onPointerDown={event => event.stopPropagation()}>Outside target</div>
+      {kind === 'select' ? <Select aria-label="Choose value" value="a" onValueChange={() => {}} options={[{value:'a',label:'Alpha'},{value:'b',label:'Beta'}]} />
+        : kind === 'menu' ? <DropdownMenu modal={false}><DropdownMenuTrigger>Open menu</DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem>Action</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+        : <DatePicker aria-label="Delivery date" value="" onValueChange={() => {}} />}
+    </>);
+    const user = userEvent.setup({document});
+    const trigger = kind === 'select' ? screen.getByRole('combobox', {name:'Choose value'})
+      : screen.getByRole('button', {name:kind === 'menu' ? 'Open menu' : 'Delivery date: Pick a date'});
+    await user.click(trigger);
+    const role = kind === 'select' ? 'listbox' : kind === 'menu' ? 'menu' : 'dialog';
+    assert.ok(screen.getByRole(role));
+    await user.click(screen.getByText('Outside target'));
+    assert.equal(screen.queryByRole(role) === null, true);
+  });
+}
+
+test('nested portalled options stay inside the parent popup and outside clicks still reach their action', async () => {
+  const { FloatingPanel } = await import('../src/components/ui/FloatingPanel');
+  const { Select } = await import('../src/components/ui/Select');
+  let actions = 0, chosen = '';
+  function View() {
+    const [open, setOpen] = React.useState(false);
+    return <><div onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); actions++; }}>Outside action</div>
+      <FloatingPanel open={open} onOpenChange={setOpen} label="Parent popup" trigger={<button>Open parent</button>}>
+        <button onPointerDown={event => event.stopPropagation()}>Inside action</button>
+        <Select aria-label="Nested choice" value="a" onValueChange={value => { chosen = value; }} options={[{value:'a',label:'Alpha'},{value:'b',label:'Beta'}]} />
+      </FloatingPanel></>;
+  }
+  render(<View />);
+  const user = userEvent.setup({document});
+  await user.click(screen.getByRole('button', {name:'Open parent'}));
+  await user.click(screen.getByRole('button', {name:'Inside action'}));
+  await user.click(screen.getByRole('combobox', {name:'Nested choice'}));
+  await user.click(screen.getByRole('option', {name:'Beta'}));
+  assert.equal(chosen, 'b');
+  assert.ok(screen.getByRole('dialog', {name:'Parent popup'}));
+  await user.click(screen.getByText('Outside action'));
+  assert.equal(actions, 1);
+  assert.equal(screen.queryByRole('dialog') === null, true);
+});
+
+test('outside-click fallback respects an explicit pending dismissal lock', async () => {
+  const { FloatingPanel } = await import('../src/components/ui/FloatingPanel');
+  function View() {
+    const [open, setOpen] = React.useState(false);
+    return <><div onPointerDown={event => event.stopPropagation()}>Outside locked popup</div>
+      <FloatingPanel open={open} onOpenChange={setOpen} dismissible={false} label="Saving popup" trigger={<button>Open locked</button>}>Saving</FloatingPanel></>;
+  }
+  render(<View />);
+  const user = userEvent.setup({document});
+  await user.click(screen.getByRole('button', {name:'Open locked'}));
+  await user.click(screen.getByText('Outside locked popup'));
+  assert.ok(screen.getByRole('dialog', {name:'Saving popup'}));
+});

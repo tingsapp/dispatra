@@ -42,7 +42,7 @@ for (const status of ['ACTIVATION_REQUIRED','NOT_CONNECTED','CONNECTING','RECONN
   connectors.list=async()=>[{...row,status,last_sync_at:null}];const user=mount();
   await user.click(screen.getByRole('switch',{name:'Auto dispatch'}));
   const popup=await screen.findByRole('alertdialog',{name:'Auto dispatch unavailable'});
-  assert.ok(within(popup).getByText(/Use Dispatra TMS.*unchecked.*no TMS connector is connected/));
+  assert.ok(within(popup).getByText(/Use Dispatra's built-in TMS.*unchecked.*no TMS connector is connected/));
   assert.equal(screen.getByRole('switch').getAttribute('aria-checked'),'false');assert.equal(writes,0);
   await user.click(within(popup).getByRole('button',{name:'Open Integration'}));
   assert.equal(opened,1);assert.equal(writes,0);

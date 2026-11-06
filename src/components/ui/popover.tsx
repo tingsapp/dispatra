@@ -2,18 +2,20 @@
 
 import * as React from "react"
 import { cn } from "../../lib/utils"
+import { OutsideDismissContext, useOutsideDismissRoot, useOutsideDismissScope, useOutsideDismissContent } from "./OutsideDismiss"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 
 function Popover({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />
+  const { scope, ...state } = useOutsideDismissRoot(props);
+  return <OutsideDismissContext.Provider value={scope}><PopoverPrimitive.Root data-slot="popover" {...props} {...state} /></OutsideDismissContext.Provider>
 }
 
 function PopoverTrigger({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
+  return <PopoverPrimitive.Trigger data-slot="popover-trigger" data-outside-dismiss-scope={useOutsideDismissScope()} {...props} />
 }
 
 function PopoverContent({
@@ -22,6 +24,7 @@ function PopoverContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const dismissal = useOutsideDismissContent(props);
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
@@ -33,6 +36,7 @@ function PopoverContent({
           className
         )}
         {...props}
+        {...dismissal}
       />
     </PopoverPrimitive.Portal>
   )
@@ -41,7 +45,7 @@ function PopoverContent({
 function PopoverAnchor({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
-  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
+  return <PopoverPrimitive.Anchor data-slot="popover-anchor" data-outside-dismiss-scope={useOutsideDismissScope()} {...props} />
 }
 
 function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {

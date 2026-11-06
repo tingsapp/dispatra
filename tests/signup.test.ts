@@ -23,10 +23,12 @@ const fill = () => {
   }
   fireEvent.click(screen.getByRole('checkbox', {name:/I agree to the Terms and Conditions/}));
 };
-test('signup retains the homepage company identifier and explains the 30-day trial', () => {
+test('signup retains the company identifier and explains the built-in TMS choice', () => {
   view();
   assert.equal((screen.getByLabelText('Workspace') as HTMLInputElement).value, 'my-company');
-  assert.ok(screen.getByText(/Verify your email to start your 30-day trial/));
+  assert.ok(screen.getByRole('checkbox', {name: /Use Dispatra's built-in TMS/}));
+  assert.ok(screen.getByText(/Manage your transport operations in Dispatra/));
+  assert.equal(screen.queryByText(/authorize monthly automatic billing/), null);
   assert.equal(screen.queryByRole('radio'), null);
 });
 
@@ -119,7 +121,7 @@ test('TMS signup choice survives failed retries and changes the operation key wh
   const calls: { body: TrialSignupInput; key: string }[] = [];
   api.signup = async (body, key) => { calls.push({ body, key }); throw new ApiError(503, 'Try again.'); };
   view(); fill();
-  const tms = screen.getByRole('checkbox', { name: /Use Dispatra TMS/ }) as HTMLInputElement;
+  const tms = screen.getByRole('checkbox', { name: /Use Dispatra's built-in TMS/ }) as HTMLInputElement;
   assert.equal(tms.checked, true);
   fireEvent.click(tms);
   for (let index = 0; index < 2; index++) {
@@ -182,7 +184,7 @@ test('trial requires explicit terms acceptance, links terms only and clears acce
   fireEvent.click(screen.getByRole('button', {name:'Close dialog'}));
   fireEvent.click(screen.getByRole('button', {name:'Start free trial'}));
   assert.equal((screen.getByRole('checkbox',{name:/I agree to the Terms and Conditions/}) as HTMLInputElement).checked,false);
-  assert.equal((screen.getByRole('checkbox',{name:/Use Dispatra TMS/}) as HTMLInputElement).checked,true);
+  assert.equal((screen.getByRole('checkbox',{name:/Use Dispatra's built-in TMS/}) as HTMLInputElement).checked,true);
 });
 test('untrusted query strings cannot prefill invalid or reserved identifiers', () => {
   history.replaceState(null,'','/signup?company=admin'); view();
@@ -193,6 +195,43 @@ const verification = () => ({verification_required:true as const,email:'user@exa
 const verificationView = (client = new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false,gcTime:0}}})) => render(React.createElement(QueryClientProvider,{client},React.createElement(EmailVerificationForm)));
 const verifiedAccount: Account = {id:'dispatcher',login_id:'user@example.com',display_name:'Dispatcher',role:'DISPATCHER',tms_workspace:false,
   organization:{id:'company',slug:'my-company',name:'My Company',active:true,payment_required:false}};
+
+test('verification keeps the recipient and actions without redundant descriptions', async () => {
+  api.verification = async () => verification();
+  verificationView();
+  await screen.findByLabelText('Verification code');
+  assert.ok(screen.getByText('user@example.com'));
+  assert.ok(screen.getByRole('button', {name:'Verify email'}));
+  assert.ok(screen.getByRole('button', {name:'Resend code'}));
+  assert.equal(screen.getByRole('link', {name:'Back to sign in'}).getAttribute('href'), '/login');
+  assert.equal(screen.queryByText(/Your trial starts after verification/), null);
+  assert.equal(screen.queryByText(/Check your inbox and spam folder/), null);
+  assert.equal(screen.queryByRole('status'), null);
+});
+
+for (const delivery of ['PENDING', 'SENDING', 'SENT'] as const) {
+  test(`verification uses one recipient instruction for ${delivery} delivery`, async () => {
+    api.verification = async () => ({...verification(), delivery_status:delivery});
+    verificationView();
+    await screen.findByLabelText('Verification code');
+    assert.equal(screen.getByText('user@example.com').closest('p')?.textContent,
+      'Enter the six-digit code sent to user@example.com.');
+    assert.equal(screen.queryByRole('status'), null);
+  });
+}
+
+for (const [delivery, message] of [
+  ['FAILED', 'Email delivery failed. Request another code below.'],
+  ['UNKNOWN', 'Delivery could not be confirmed. Check your inbox or request another code.'],
+] as const) {
+  test(`verification retains actionable ${delivery} delivery status`, async () => {
+    api.verification = async () => ({...verification(), delivery_status:delivery});
+    verificationView();
+    await screen.findByLabelText('Verification code');
+    assert.equal(screen.getByRole('status').textContent, message);
+    assert.equal((screen.getByRole('button', {name:'Resend code'}) as HTMLButtonElement).disabled, false);
+  });
+}
 
 test('successful confirmation cancels a stale status request and stays successful until Settings opens',async()=>{
   const cache = new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false,gcTime:0}}});
@@ -300,6 +339,6 @@ test('configured trial length is shown in the public offer and signup dialog', a
   page();await screen.findByRole('heading',{name:'14-day free trial'});
   fireEvent.click(screen.getByRole('button',{name:'Start free trial'}));
   assert.ok(screen.getByText('14 days to try Dispatra. No credit card required.'));
-  assert.ok(screen.getByText(/Verify your email to start your 14-day trial/));
+  assert.equal(screen.queryByText(/Verify your email to start your/), null);
   assert.equal(screen.queryByText(/30 days to try/),null);
 });

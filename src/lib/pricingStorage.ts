@@ -127,11 +127,11 @@ const PRESET_CARD_NAMES: Record<string, { previous: string; name: string }> = {
   rc_westcoast_hourly: { previous: 'West Coast Cold — Dedicated Hourly', name: 'Hourly' },
 };
 
-/** Demo cards use only the fields the V1 editor shows. Distance based is the Default. */
+/** Demo cards use only the fields the V1 editor shows. Zone to zone is the Default. */
 export const INITIAL_RATE_CARDS: RateCard[] = [
-  createEmptyRateCard({ id: 'rc_org_standard', name: 'Distance based', code: 'STD', scope: 'ORGANIZATION', effectiveFrom: '2026-01-01', baseFee: 20, includedKm: 5, kmRate: 1.5 }),
+  createEmptyRateCard({ id: 'rc_org_standard', name: 'Distance based', code: 'STD', scope: 'ORDER', effectiveFrom: '2026-01-01', baseFee: 20, includedKm: 5, kmRate: 1.5 }),
   createEmptyRateCard({ id: 'rc_medical_group', name: 'Medical & Pharma', code: 'MED', status: 'ARCHIVED', effectiveFrom: '2026-01-01', baseFee: 28, includedKm: 8, kmRate: 1.6 }),
-  createEmptyRateCard({ id: 'rc_pacific_fresh', name: 'Zone to zone', code: 'PFL-2026', effectiveFrom: '2026-01-01', pricingMethod: 'ZONE', zoneRates: [] }),
+  createEmptyRateCard({ id: 'rc_pacific_fresh', name: 'Zone to zone', code: 'PFL-2026', scope: 'ORGANIZATION', effectiveFrom: '2026-01-01', pricingMethod: 'ZONE', zoneRates: [] }),
   createEmptyRateCard({ id: 'rc_nordic_direct', name: 'Fixed per delivery', code: 'NBH-DIRECT', effectiveFrom: '2026-03-01', pricingMethod: 'FIXED', fixedAmount: 95 }),
   createEmptyRateCard({ id: 'rc_westcoast_hourly', name: 'Hourly', code: 'WCCS-HOURLY', effectiveFrom: '2026-01-01', pricingMethod: 'HOURLY', hourlyRate: 85, minimumBillableMinutes: 120, billingIncrementMinutes: 30 }),
   createEmptyRateCard({ id: 'rc_org_2025', name: 'Standard (2025)', code: 'STD-2025', status: 'ARCHIVED', effectiveFrom: '2025-01-01', baseFee: 18, includedKm: 5, kmRate: 1.4 })

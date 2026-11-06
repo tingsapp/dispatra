@@ -140,7 +140,7 @@ test('administrator-paused connections cannot be reconnected or synchronized fro
  assert.ok(screen.getByText('Synchronization is paused by the administrator.'));
 });
 
-const tmsLabel='Use Dispatra TMS';
+const tmsLabel="Use Dispatra's built-in TMS";
 test('connector popups use only the header X and retain the pending connection lock',async()=>{
  let closed=0,saved=0;
  let finish:(value:Awaited<ReturnType<typeof connectors.connect>>)=>void=()=>{};

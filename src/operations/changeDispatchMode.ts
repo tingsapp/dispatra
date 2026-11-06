@@ -2,8 +2,9 @@ import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { connectors } from '../integrations/connectors';
 import { api } from '../portal/api';
 import type { SettingsView } from '../portal/WorkspaceAccount';
+import { TMS_INTEGRATION_LABEL } from '../lib/workspaceEntry';
 
-export const AUTO_DISPATCH_UNAVAILABLE = 'Auto dispatch cannot be turned on because this account uses an External TMS, “Use Dispatra TMS” is unchecked, and no TMS connector is connected. Open Integration to connect your TMS, or check “Use Dispatra TMS” to manage operations in Dispatra.';
+export const AUTO_DISPATCH_UNAVAILABLE = `Auto dispatch cannot be turned on because this account uses an External TMS, “${TMS_INTEGRATION_LABEL}” is unchecked, and no TMS connector is connected. Open Integration to connect your TMS, or check “${TMS_INTEGRATION_LABEL}” to manage operations in Dispatra.`;
 
 /** Check current connection state before asking to enable AUTO; the API revalidates on save. */
 export async function changeDispatchMode(slug: string, current: SettingsView, mode: 'AUTO' | 'MANUAL', openIntegration: () => void): Promise<SettingsView | null> {

@@ -507,7 +507,7 @@ test('Medical & Pharma demo card stays archived for fresh and previously saved s
   assert.equal(fresh.rateCards.find(card => card.id === 'rc_medical_group')!.status, 'ARCHIVED');
   const old = fresh.rateCards.find(card => card.id === 'rc_medical_group')!;
   Object.assign(old, { name: 'Medical & Pharma Group', status: 'ACTIVE', scope: 'ORGANIZATION', version: 4 });
-  fresh.rateCards.find(card => card.id === 'rc_org_standard')!.scope = 'ORDER';
+  for (const card of fresh.rateCards) if (card.id !== old.id) card.scope = 'ORDER';
   fresh.rateCards.push(createEmptyRateCard({ id: 'custom-medical', name: 'Medical & Pharma Group' }));
   localStorage.setItem('dispatra_pricing_v1', JSON.stringify({ ...fresh, schemaVersion: 7 }));
   const migrated = loadPricingConfig();
@@ -588,6 +588,17 @@ test('zone card shows one central-pickup table and retains older directional rec
   assert.equal(rates.find(rate => rate.id === 'ab')!.amount, 45);
   assert.equal(rates.find(rate => rate.id === 'ba')!.amount, 70);
   assert.equal(rates.find(rate => rate.originZoneId === '__central_pickup__' && rate.destinationZoneId === 'zone_rmd')!.weightBands![0].amount, 52);
+});
+
+test('fresh pricing defaults to Zone to zone and preserves a saved distance default', () => {
+  const config = loadPricingConfig();
+  const defaults = config.rateCards.filter(card => card.status === 'ACTIVE' && card.scope === 'ORGANIZATION');
+  assert.equal(defaults.length, 1);
+  assert.equal(defaults[0].pricingMethod, 'ZONE');
+  assert.ok(defaults[0].zoneRates?.length);
+  for (const card of config.rateCards) card.scope = card.id === 'rc_org_standard' ? 'ORGANIZATION' : 'ORDER';
+  savePricingConfig(config);
+  assert.deepEqual(loadPricingConfig(), config);
 });
 
 test('preset card names migrate once without changing rates or custom names', () => {

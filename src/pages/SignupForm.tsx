@@ -7,7 +7,7 @@ import { api, type TrialSignupInput } from '../portal/api';
 import { Field, Button, Notice, useOperationKey } from '../portal/ui';
 import { verifiedWorkspace, signupDestination, TMS_INTEGRATION_LABEL } from '../lib/workspaceEntry';
 
-export function SignupForm({ onPendingChange, trialDays = 30, trialEnabled = true }: { onPendingChange?: (pending: boolean) => void; trialDays?: number; trialEnabled?: boolean }) {
+export function SignupForm({ onPendingChange, trialEnabled = true }: { onPendingChange?: (pending: boolean) => void; trialEnabled?: boolean }) {
   const [form, setForm] = useState<TrialSignupInput>(() => {
     const candidate = new URLSearchParams(location.search).get('company') ?? '';
     const slug = signupDestination(candidate) ? candidate.trim().toLowerCase() : '';
@@ -62,7 +62,7 @@ export function SignupForm({ onPendingChange, trialDays = 30, trialEnabled = tru
       <label className="flex items-start gap-3 text-sm leading-5">
         <input type="checkbox" className="app-checkbox mt-0.5" checked={!(form.tms_workspace ?? false)} disabled={signup.isPending}
           onChange={event => { setForm(current => ({ ...current, tms_workspace: !event.target.checked })); setError(''); signup.reset(); }} />
-        <span>{TMS_INTEGRATION_LABEL}<span className="mt-1 block text-xs text-app-muted">Uncheck to connect an External TMS.</span></span>
+        <span>{TMS_INTEGRATION_LABEL}<span className="mt-1 block text-xs text-app-muted">Manage your transport operations in Dispatra. Uncheck this to connect your existing transport management system instead.</span></span>
       </label>
       <div className="flex items-start gap-3 text-sm leading-5">
         <input id="trial-terms" type="checkbox" className="app-checkbox mt-0.5" required checked={acceptedTerms} disabled={signup.isPending}
@@ -71,7 +71,6 @@ export function SignupForm({ onPendingChange, trialDays = 30, trialEnabled = tru
       </div>
       {!trialEnabled && <p role="status" className="text-sm text-app-muted">Free trials are currently unavailable. Contact Dispatra to get started.</p>}
       <Notice error={error ? new Error(error) : signup.error} />
-      <p className="text-xs leading-5 text-app-muted">Verify your email to start your {trialDays}-day trial. No credit card is required for the trial. To continue afterward, authorize monthly automatic billing at your company’s saved rate per registered vehicle.</p>
     </DialogBody>
     <DialogFooter><Button loading={signup.isPending} disabled={signup.isPending || addressResolving || !trialEnabled}>{signup.isPending ? 'Creating your workspace…' : 'Start trial'}</Button></DialogFooter>
   </form>;

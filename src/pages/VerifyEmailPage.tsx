@@ -31,16 +31,17 @@ export function EmailVerificationForm() {
   const remaining = status.data ? Math.max(0,Math.ceil((new Date(status.data.resend_at).getTime()-observed)/1000)) : 0;
   const expired = status.data && new Date(status.data.expires_at).getTime()<=observed;
   const delivery = status.data?.delivery_status;
+  const deliveryMessage = delivery === 'FAILED' ? 'Email delivery failed. Request another code below.'
+    : delivery === 'UNKNOWN' ? 'Delivery could not be confirmed. Check your inbox or request another code.' : null;
   return <div className="public-site flex min-h-dvh flex-col bg-app-canvas text-app-text"><PublicHeader navigation={false} />
     <main className="flex flex-1 items-center justify-center px-6 py-10"><section className="public-auth-card">
       <h1 className="text-center text-2xl font-medium tracking-tight">{confirmation.isSuccess ? 'Email verified' : 'Verify your email'}</h1>
       {confirmation.isSuccess ? <p role="status" className="mt-3 text-center text-sm leading-6 text-app-muted">Opening your workspace setup…</p> : <>
-      <p className="mt-3 text-center text-sm leading-6 text-app-muted">Confirm your email before accessing your workspace. Your trial starts after verification.</p>
       {status.isPending && <p role="status" className="mt-6 text-center text-sm">Loading verification…</p>}
       {!confirming && <Notice error={status.error} />}
       {status.data && <>
-        <p className="mt-6 break-words text-center text-sm">Enter the six-digit code for <strong>{status.data.email}</strong>.</p>
-        <p role="status" className="mt-2 text-center text-xs text-app-muted">{delivery==='FAILED' ? 'Email delivery failed. Request another code below.' : delivery==='UNKNOWN' ? 'Delivery could not be confirmed. Check your inbox or request another code.' : ['PENDING','SENDING'].includes(delivery ?? '') ? 'Sending your verification email…' : 'Check your inbox and spam folder. The code expires after 10 minutes.'}</p>
+        <p className="mt-3 break-words text-center text-sm text-app-muted">Enter the six-digit code sent to <strong className="font-medium text-app-text">{status.data.email}</strong>.</p>
+        {deliveryMessage && <p role="status" className="mt-2 text-center text-xs text-app-muted">{deliveryMessage}</p>}
         <form className="mt-6 space-y-4" onSubmit={event=>{event.preventDefault();if(!busy&&!expired)confirmation.mutate();}}>
           <Field label="Verification code" type="text" inputMode="numeric" autoComplete="one-time-code" required pattern="[0-9]{6}" minLength={6} maxLength={6} value={code} disabled={busy} onChange={event=>{setCode(event.target.value.replace(/[^0-9]/g,''));confirmation.reset();}} />
           {!confirming && <Notice error={confirmation.error ?? resend.error} />}
@@ -50,7 +51,7 @@ export function EmailVerificationForm() {
         <div className="mt-5 text-center"><Button loading={resend.isPending} type="button" variant="ghost" disabled={busy || remaining>0} onClick={()=>resend.mutate()}>{resend.isPending?'Sending…':remaining>0?`Resend code in ${remaining}s`:'Resend code'}</Button></div>
       </>}
       {status.error && !confirming && <Button type="button" variant="outline" className="mt-5" onClick={()=>status.refetch()}>Try again</Button>}
-      <p className="mt-6 text-center text-xs text-app-muted">Using a different account? <a href="/login" className="underline underline-offset-4">Sign in</a></p>
+      <p className="mt-6 text-center text-xs text-app-muted"><a href="/login" className="underline underline-offset-4">Back to sign in</a></p>
       </>}
     </section></main>
   </div>;

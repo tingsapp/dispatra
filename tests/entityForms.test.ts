@@ -193,7 +193,7 @@ test('vehicle form combines type pricing, required dimensions and equipment chec
   const {saveVehicleProfile}=await import('../src/lib/vehicleStorage'); saveVehicleProfile(saved,profile,[]); assert.equal(loadVehicles()[0].maxStops,12);
 });
 test('multi-stop editor: inline contact and phone per stop, ready-at sets the schedule, added pickups keep item links', async()=>{
-  const ctx=loadPricingContext(); const initial=createDefaultOrderInput(ctx); let changed=initial;
+  const ctx=loadPricingContext(); const initial={...createDefaultOrderInput(ctx),rateCardOverrideId:'rc_org_standard'}; let changed=initial;
   function Form(){const [value,setValue]=React.useState(initial);return React.createElement(OrderPricingForm,{value,ctx,snapshot:priceOrder(value,ctx),showStopAddresses:true,onChange:v=>{changed=v;setValue(v);}});}
   const user=userEvent.setup({document});render(React.createElement(Form));
   for (const heading of ['Shipper, Service & Vehicle', 'Stops', 'Packages']) assert.ok(screen.getByRole('heading',{name:heading}));
@@ -312,7 +312,7 @@ test('order origins use saved creation data and never infer TMS from prices or P
 
 test('order address entry retains the company rate without province tax prompts', async()=>{
   const ctx=loadPricingContext(); ctx.billing.quoteSettings.taxRegistrationStatus='REGISTERED'; ctx.billing.quoteSettings.taxRegistrationNumber='123456789RT0001';
-  const initial={...createDefaultOrderInput(ctx),routeKm:15,estimatedMinutes:40}; let latest=priceOrder(initial,ctx); let changed=initial;
+  const initial={...createDefaultOrderInput(ctx),rateCardOverrideId:'rc_org_standard',routeKm:15,estimatedMinutes:40}; let latest=priceOrder(initial,ctx); let changed=initial;
   function Form(){const [value,setValue]=React.useState(initial);latest=priceOrder(value,ctx);return React.createElement(OrderPricingForm,{value,ctx,snapshot:latest,showStopAddresses:true,onChange:v=>{changed=v;setValue(v);}});}
   const user=userEvent.setup({document});render(React.createElement(Form));
   await user.type(screen.getAllByLabelText('Stop address')[0],'100 Main St, Vancouver BC V6A 2S5');

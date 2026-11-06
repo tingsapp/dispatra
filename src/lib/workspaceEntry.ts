@@ -1,7 +1,7 @@
 import type { Account } from '../portal/api';
 import { companySlugForPath, roleHome } from './pageRoutes';
 
-export const TMS_INTEGRATION_LABEL = 'Use Dispatra TMS';
+export const TMS_INTEGRATION_LABEL = "Use Dispatra's built-in TMS";
 export const COMPANY_PLANS = [
   { externalTms: false, label: 'TMS + Smart Dispatching', description: 'Full Dispatra TMS and smart dispatching.' },
   { externalTms: true, label: 'Smart Dispatching only', description: 'Connect smart dispatching to your existing TMS.' },

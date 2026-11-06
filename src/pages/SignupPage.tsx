@@ -83,6 +83,6 @@ function SignupDialog({ onClose, trialDays, trialEnabled }: { onClose: () => voi
   }, []);
   return <Dialog size="md" onClose={close}>
     <DialogHeader title="Start your free trial" description={`${trialDays} days to try Dispatra. No credit card required.`} onClose={close} closeDisabled={pending} />
-    <SignupForm trialDays={trialDays} trialEnabled={trialEnabled} onPendingChange={setPending} />
+    <SignupForm trialEnabled={trialEnabled} onPendingChange={setPending} />
   </Dialog>;
 }
