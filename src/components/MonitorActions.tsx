@@ -1,3 +1,4 @@
+import { openDispatcherChat } from '../chat/navigation';
 import { FloatingPanel } from './ui/FloatingPanel';
 import React, { useEffect, useState } from 'react';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
@@ -134,7 +135,8 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
         }>
         {slug ? isNotificationOpen && <NotificationPanel slug={slug} onClose={() => setIsNotificationOpen(false)} onOpen={row => {
           const job = jobs.find(item => item.id === row.order_id);
-          if (/^(intake|mailbox)\./.test(row.kind)) onOpenEmailDrafts?.();
+          if (row.conversation_id) openDispatcherChat({ conversationId: row.conversation_id });
+          else if (/^(intake|mailbox)\./.test(row.kind)) onOpenEmailDrafts?.();
           else if (job) onSelectJob?.(job.jobNumber);
           setIsNotificationOpen(false);
         }} /> : <>

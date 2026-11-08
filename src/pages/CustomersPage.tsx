@@ -2,7 +2,7 @@ import { usePendingAction } from '../components/ui/usePendingAction';
 import { dateTime } from '../lib/dateTimeFormat';
 import { ORDER_LIFECYCLE_LABELS } from '../domain/operations';
 import { useChatInbox } from '../chat/api';
-import { CompanyChatDialog } from '../components/chat/CompanyChatDialog';
+import { openDispatcherChat } from '../chat/navigation';
 import { Tabs } from '../components/ui/Tabs';
 import { ListSummary } from '../components/layout/ListSummary';
 import { Button } from '../components/ui/button';
@@ -69,7 +69,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const customers = slug ? (shipperQuery.data ?? []).map(shipperToCustomer) : localCustomers;
   const [warehouseCoordinates, setWarehouseCoordinates] = useState<SelectedAddress | undefined>();
   const companyChats = useChatInbox(slug ?? '', !!slug);
-  const [chatShipperId, setChatShipperId] = useState<string | null>(null);
   const companyUnread = (identity: string) => companyChats.data?.find(row => row.kind === 'DISPATCH_SHIPPER' && row.shipper_id === identity)?.unread ?? 0;
   const [initialCredential, setInitialCredential] = useState<{ name: string; email: string; password: string } | null>(null);
   // Pricing lookups for the relationship section, read-only here, edited under Organization Settings.
@@ -408,7 +407,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       {/* Actions */}
                       <td className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
-                          {slug && <button type="button" className="app-icon-button relative" onClick={() => setChatShipperId(customer.id)} title="Chat with shipper" aria-label={`Chat with ${customer.name}${companyUnread(customer.id) ? `, ${companyUnread(customer.id)} unread` : ''}`}>
+                          {slug && <button type="button" className="app-icon-button relative" onClick={() => openDispatcherChat({ shipperId: customer.id })} title="Chat with shipper" aria-label={`Chat with ${customer.name}${companyUnread(customer.id) ? `, ${companyUnread(customer.id)} unread` : ''}`}>
                             <MessageSquare className="w-3.5 h-3.5" />{companyUnread(customer.id) > 0 && <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-rose-600 px-1 text-[9px] text-white">{companyUnread(customer.id)}</span>}
                           </button>}
                           <button
@@ -440,7 +439,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         </div>
       </div>
 
-      {slug && chatShipperId && <CompanyChatDialog key={chatShipperId} slug={slug} shipperId={chatShipperId} onClose={() => setChatShipperId(null)} />}
 
       {/* SHIPPER DETAILS DIALOG */}
       {selectedCustomerForView && (
@@ -526,7 +524,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             ]} />
           </DialogBody>
           <DialogFooter>
-            {slug && <Button type="button" variant="outline" onClick={() => setChatShipperId(selectedCustomerForView.id)}><MessageSquare /> Chat with shipper</Button>}
+            {slug && <Button type="button" variant="outline" onClick={() => openDispatcherChat({ shipperId: selectedCustomerForView.id })}><MessageSquare /> Chat with shipper</Button>}
             <Button type="button" variant="outline" onClick={() => { handleOpenEditModal(selectedCustomerForView); setSelectedCustomerForView(null); }}><Edit2 /> Edit Account</Button>
             <Button type="button" onClick={() => { onBackToMonitor(); onNotification?.(`Returning to Monitor filtered by ${selectedCustomerForView.name}`); }}><ExternalLink /> View on Map</Button>
           </DialogFooter>

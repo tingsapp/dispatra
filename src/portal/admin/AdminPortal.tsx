@@ -1,6 +1,10 @@
+import { ChatWorkspace } from '../../components/chat/ChatWorkspace';
+import { IncomingChatNotice } from '../../components/chat/IncomingChatNotice';
+import { ADMIN_CHAT, useAdminUnread } from '../../chat/api';
+import type { ChatTarget } from '../../chat/navigation';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, Building2, CreditCard, CircleDollarSign, Plus, Wrench, Plug } from 'lucide-react';
+import { Activity, Building2, CreditCard, CircleDollarSign, Plus, Wrench, Plug, MessageSquare } from 'lucide-react';
 import { api, type Account } from '../api';
 import { PortalShell } from '../PortalShell';
 import { Button, Notice } from '../ui';
@@ -21,6 +25,8 @@ import { AdminIntegrationsPage } from './AdminIntegrationsPage';
 /** Platform owner workspace. Every page is also enforced by ADMIN checks in the API. */
 export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { account: Account; onLogout: () => void; loggingOut: boolean; logoutError: unknown }) {
   const [path, setPath] = useState(() => location.pathname);
+  const unreadChat = useAdminUnread();
+  const [chatTarget, setChatTarget] = useState<ChatTarget | null>(() => { const id = new URLSearchParams(location.search).get('conversation'); return id ? { conversationId: id } : null; });
   const [creating, setCreating] = useState(false);
   const [machineDemo, setMachineDemo] = useState(false);
   const [monitorFocus, setMonitorFocus] = useState<MonitorFocus | null>(null);
@@ -38,8 +44,8 @@ export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { ac
   const companyId = route?.page === 'company' ? route.id : '';
   // Shares the detail page's cache entry so the header shows the company name.
   const company = useQuery({ queryKey: companyKey(companyId), queryFn: () => api.company(companyId), enabled: Boolean(companyId) }).data;
-  const title = !route ? 'Page not found' : route.page === 'integrations' ? 'Integrations' : route.page === 'revenue' ? 'Revenue' : route.page === 'billing' ? 'Subscription' : route.page === 'monitor' ? 'One connected machine.' : route.page === 'profile' ? 'Profile' : route.page === 'company' ? company?.name ?? 'Company' : 'Companies';
-  const description = !route ? 'This administration page does not exist.' : route.page === 'integrations' ? 'Connected dispatchers by TMS.' : route.page === 'revenue' ? 'Expected recurring revenue.' : route.page === 'billing' ? 'Monthly pricing for both Dispatra plans.' : route.page === 'monitor' ? 'Live engines, agents and data flow.' : route.page === 'profile' ? 'Your owner account and password.' : route.page === 'company' ? 'Company details, subscription and dispatcher account.' : 'Dispatch companies on this Dispatra installation.';
+  const title = !route ? 'Page not found' : route.page === 'chat' ? 'Chat' : route.page === 'integrations' ? 'Integrations' : route.page === 'revenue' ? 'Revenue' : route.page === 'billing' ? 'Subscription' : route.page === 'monitor' ? 'One connected machine.' : route.page === 'profile' ? 'Profile' : route.page === 'company' ? company?.name ?? 'Company' : 'Companies';
+  const description = !route ? 'This administration page does not exist.' : route.page === 'chat' ? 'Conversations with company dispatchers.' : route.page === 'integrations' ? 'Connected dispatchers by TMS.' : route.page === 'revenue' ? 'Expected recurring revenue.' : route.page === 'billing' ? 'Monthly pricing for both Dispatra plans.' : route.page === 'monitor' ? 'Live engines, agents and data flow.' : route.page === 'profile' ? 'Your owner account and password.' : route.page === 'company' ? 'Company details, subscription and dispatcher account.' : 'Dispatch companies on this Dispatra installation.';
   useEffect(() => { document.title = `${title} · Dispatra administration`; }, [title]);
   return <PortalShell canvas={route?.page === 'monitor'} company="Platform administration" login={account.login_id} primary={title} icon={Building2} settings={false} description={description}
     titleBadge={route?.page === 'company' && company ? <StatusBadge active={company.active} inactiveLabel={company.workspace_enabled && company.payment_required ? "Payment required" : "Suspended"} /> : undefined}
@@ -47,17 +53,20 @@ export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { ac
     navigation={[{ label: 'Monitor', href: '/admin/monitor', icon: Activity, current: route?.page === 'monitor', badge: monitor.data?.needs_attention ?? 0,
       badgeLabel: monitor.data?.needs_attention === 1 ? 'report needs attention' : 'reports need attention' },
       { label: 'Companies', href: '/admin/companies', icon: Building2, current: route?.page === 'companies' || route?.page === 'company' },
+      { label: 'Chat', href: '/admin/chat', icon: MessageSquare, current: route?.page === 'chat', badge: unreadChat.data?.unread ?? 0 },
       { label: 'Integrations', href: '/admin/integrations', icon: Plug, current: route?.page === 'integrations' },
       { label: 'Subscription', href: '/admin/billing', icon: CreditCard, current: route?.page === 'billing' },
       { label: 'Revenue', href: '/admin/revenue', icon: CircleDollarSign, current: route?.page === 'revenue' }]}
     onNavigate={href => go(adminRoute(href) ?? { page: 'companies' })} onHome={() => go({ page: 'companies' })} onSettings={() => go({ page: 'profile' })}
     onLogout={onLogout} loggingOut={loggingOut}
-    headerActions={<AdminNotificationBell accountId={account.id} platformAttention={monitor.data?.platform_attention ?? 0} onOpenCompany={id => go({ page: 'company', id })} onOpenMonitor={() => { setMonitorFocus('ALL'); go({ page: 'monitor' }); }} onOpenOperational={() => { setMonitorFocus('OPERATIONAL'); go({ page: 'monitor' }); }} />}
+    headerActions={<AdminNotificationBell onOpenChat={id => { setChatTarget({ conversationId: id }); go({ page: 'chat' }); }} accountId={account.id} platformAttention={monitor.data?.platform_attention ?? 0} onOpenCompany={id => go({ page: 'company', id })} onOpenMonitor={() => { setMonitorFocus('ALL'); go({ page: 'monitor' }); }} onOpenOperational={() => { setMonitorFocus('OPERATIONAL'); go({ page: 'monitor' }); }} />}
     actions={route?.page === 'monitor' ? <div className="flex flex-wrap items-center gap-2"><div className="machine-mode" role="group" aria-label="Machine display mode"><button type="button" aria-pressed={!machineDemo} onClick={() => setMachineDemo(false)}><span className="machine-live-dot" />Live system</button><button type="button" aria-pressed={machineDemo} onClick={() => setMachineDemo(true)}>Demo flow</button></div><Button loading={platformCheck.isPending} type="button" size="sm" disabled={platformCheck.isPending || Boolean(checking)} onClick={() => platformCheck.mutate()}><Wrench size={15} />{platformCheck.isPending || checking ? 'Checks queued or running' : 'Run checks'}</Button></div>
       : route?.page === 'companies' ? <Button onClick={() => setCreating(true)}><Plus size={16} />Add company</Button>
       : route?.page === 'company' ? <Button variant="outline" onClick={() => go({ page: 'companies' })}>All companies</Button> : undefined}>
 
     <ConfirmDialogHost />
+    <IncomingChatNotice slug={ADMIN_CHAT} accountId={account.id} onOpen={id => { setChatTarget({ conversationId: id }); go({ page: 'chat' }); }} />
+    {route?.page === 'chat' && <div className="h-[calc(100dvh-250px)] min-h-[440px]"><ChatWorkspace slug={ADMIN_CHAT} initialTarget={chatTarget} timeZone="UTC" /></div>}
     <Notice error={logoutError} />
     {!route && <div className="py-10 text-center"><Button variant="outline" onClick={() => go({ page: 'companies' })}>Go to companies</Button></div>}
     {route?.page === 'companies' && <CompaniesPage creating={creating} onCreatingChange={setCreating} onOpen={id => go({ page: 'company', id })} />}

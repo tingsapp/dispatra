@@ -1,3 +1,5 @@
+import { NotificationChat } from '../components/chat/NotificationChat';
+import { IncomingChatNotice } from '../components/chat/IncomingChatNotice';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck, ChevronRight, ClipboardList, Clock, MessageSquare, Package, Phone, Shield, Truck, UserRound } from 'lucide-react';
@@ -49,6 +51,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
   slug: string; company: string; login: string; onLogout: () => void; loggingOut: boolean; logoutError: unknown;
 }) {
   const cache = useQueryClient();
+  const [notificationChat, setNotificationChat] = useState<string | null>(null);
   const [pathname, setPathname] = useState(() => location.pathname);
   useEffect(() => { const sync = () => setPathname(location.pathname); window.addEventListener('popstate', sync); return () => window.removeEventListener('popstate', sync); }, []);
   const go = (href: string) => { if (href !== location.pathname) history.pushState(null, '', href); setPathname(href); window.scrollTo(0, 0); };
@@ -116,11 +119,13 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
       <span className={collapsed ? 'sr-only' : `text-sm font-normal ${online ? 'text-app-text' : 'text-slate-700'}`}>{duty.isPending ? (duty.variables ? 'Going on duty…' : 'Going off duty…') : online ? 'On duty' : 'Off duty'}</span>
       <Switch checked={online} aria-label="Duty status" disabled={!profile.data || duty.isPending} onCheckedChange={next => duty.mutate(next)} />
     </div>}
-    headerActions={<NotificationBell slug={slug} surface onOpen={() => go(base)} />}
+    headerActions={<NotificationBell slug={slug} surface onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} />}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     <Notice error={logoutError || dutyError} />
     {page.path === 'orders' && profile.data && <DriverQuestions slug={slug} driverId={profile.data.id} />}
     {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => void profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} driverId={profile.data?.id} company={company} />) : <DriverOrders timeZone={profile.data?.time_zone} slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
+    <IncomingChatNotice slug={slug} onOpen={setNotificationChat} />
+    {notificationChat && <NotificationChat key={notificationChat} slug={slug} identity={notificationChat} onClose={() => setNotificationChat(null)} />}
   </PortalShell>;
 }
 

@@ -2,6 +2,7 @@
 export const PAGE_PATHS: Record<string, string> = {
   monitor: '/',
   jobs: '/orders',
+  messages: '/chat',
   drivers: '/drivers',
   vehicles: '/vehicles',
   customers: '/shippers',

@@ -49,5 +49,5 @@ export function signupDestination(input: string): string | undefined {
 
 /** Monitor is shared by both dispatcher modes; External TMS keeps its other page restrictions. */
 export function dispatcherPageAvailable(page: string | undefined, externalTms: boolean): boolean {
-  return !externalTms || ['monitor', 'profile', 'help', 'integrations', 'subscription'].includes(page ?? '');
+  return !externalTms || ['monitor', 'messages', 'profile', 'help', 'integrations', 'subscription'].includes(page ?? '');
 }

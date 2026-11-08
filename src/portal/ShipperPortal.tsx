@@ -1,3 +1,5 @@
+import { NotificationChat } from '../components/chat/NotificationChat';
+import { IncomingChatNotice } from '../components/chat/IncomingChatNotice';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { operations } from '../operations/api';
@@ -23,6 +25,7 @@ export const shipperPages = [
 export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logoutError }: {
   slug: string; company: string; login: string; onLogout: () => void; loggingOut: boolean; logoutError: unknown;
 }) {
+  const [notificationChat, setNotificationChat] = useState<string | null>(null);
   const [profileSection, setProfileSection] = useState<'details' | 'security'>('details');
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [url, setUrl] = useState(() => new URL(location.href));
@@ -38,7 +41,7 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   const companyChat = useCompanyChannel(slug, undefined, profile.data?.id);
   const unreadMessages = companyChat.data?.unread ?? 0;
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false}
-    headerActions={<>{page.path !== 'messages' && <ShipperOrderSearch slug={slug} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}<NotificationBell slug={slug} surface={page.path === 'tracking' ? 'white' : true} onOpen={() => go(base)} /></>}
+    headerActions={<>{page.path !== 'messages' && <ShipperOrderSearch slug={slug} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}<NotificationBell slug={slug} surface={page.path === 'tracking' ? 'white' : true} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} /></>}
     actions={page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}
     reading={page.path === 'profile'} map={page.path === 'tracking'}
     account={{ logoUrl: profile.data?.logo_url, name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}
@@ -57,5 +60,7 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
     {page.path === 'orders' && <ShipperOrders slug={slug} open={newOrderOpen} onClose={() => setNewOrderOpen(false)} onNavigate={go} />}
     {page.path === 'messages' && (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => void profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} shipperId={profile.data?.id} company={company} />)}
     {page.path === 'tracking' && <ShipperTracking slug={slug} orderId={url.searchParams.get('order')} logoutError={logoutError} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}
+    <IncomingChatNotice slug={slug} onOpen={setNotificationChat} />
+    {notificationChat && <NotificationChat key={notificationChat} slug={slug} identity={notificationChat} onClose={() => setNotificationChat(null)} />}
   </PortalShell>;
 }

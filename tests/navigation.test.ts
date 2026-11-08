@@ -118,3 +118,11 @@ test('Integrations retains company scope and restores through Back, Forward and 
   view.unmount(); window.history.replaceState(null, '', '/other/integrations');
   render(React.createElement(Navigation)); await at('/other/integrations', 'integrations');
 });
+
+test('dispatcher chat is available in full and external TMS workspaces', async () => {
+  const { dispatcherPageAvailable } = await import('../src/lib/workspaceEntry');
+  assert.equal(pageForPath('/acme/chat'), 'messages');
+  assert.equal(pathForPage('messages', '/acme/orders'), '/acme/chat');
+  assert.equal(dispatcherPageAvailable('messages', false), true);
+  assert.equal(dispatcherPageAvailable('messages', true), true);
+});

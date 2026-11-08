@@ -1,8 +1,10 @@
 import { BrandMark } from "./components/layout/AppBrand";
 import { showPopupFeedback } from './components/ui/popupFeedback';
-import { ChatDialog } from './components/chat/OrderChat';
-import { DriverChatDialog } from './components/chat/DriverChatDialog';
-import type { ChatKind } from './chat/api';
+import { ChatWorkspace } from './components/chat/ChatWorkspace';
+import { IncomingChatNotice } from './components/chat/IncomingChatNotice';
+import { useUnreadMessages } from './chat/api';
+import { OPEN_CHAT, openDispatcherChat, type ChatTarget } from './chat/navigation';
+import { NotificationBell } from './portal/Notifications';
 import { changeDispatchMode } from './operations/changeDispatchMode';
 import { dateTime } from './lib/dateTimeFormat';
 import { PanelLeft,} from 'lucide-react';
@@ -66,6 +68,16 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = usePageNavigation();
+  const unreadMessages = useUnreadMessages(slug);
+  const [chatTarget, setChatTarget] = useState<ChatTarget | null>(() => {
+    const id = new URLSearchParams(location.search).get('conversation');
+    return id ? { conversationId: id } : null;
+  });
+  useEffect(() => {
+    const open = (event: Event) => { setChatTarget((event as CustomEvent<ChatTarget>).detail); setActiveTab('messages'); };
+    window.addEventListener(OPEN_CHAT, open);
+    return () => window.removeEventListener(OPEN_CHAT, open);
+  }, [setActiveTab]);
   useSync(slug, 'DISPATCHER');
   // Record changes arrive through /sync; only driver locations and time-based attention still need a Monitor refresh.
   const liveRefresh = activeTab === 'monitor' ? 30_000 : false;
@@ -112,8 +124,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const activeOrders = jobs.filter(isActiveMonitorOrder);
   const mapOrders = activeOrders.filter(job => !hiddenOrderIds.has(job.id));
   const [dossierJob, setDossierJob] = useState<Job | null>(null);
-  const [contactChat, setContactChat] = useState<{ order: Job; kind: ChatKind; driverId?: string } | null>(null);
-  const [driverChat, setDriverChat] = useState<Driver | null>(null);
+
 
   useEffect(() => { if (!slug) try { saveOrders(localJobs); } catch { showToast('Order changes could not be saved in this browser. Keep this session open and free storage before reloading.'); } }, [localJobs, slug]);
   const [operationalAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
@@ -546,6 +557,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
       {/* LEFT NAVIGATION SIDEBAR */}
       <Sidebar
         tmsWorkspace={tmsWorkspace}
+        chatEnabled={!!slug}
+        unreadMessages={unreadMessages}
         loggingOut={loggingOut}
         logoutError={logoutError}
         activeTab={activeTab}
@@ -584,7 +597,16 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
           <PanelLeft className="w-4.5 h-4.5" strokeWidth={1.5} />
         </button>
 
-        {activeTab !== 'monitor' && (activeTab === 'rate-cards' ? (
+        {slug && <IncomingChatNotice slug={slug} onOpen={id => openDispatcherChat({ conversationId: id })} />}
+        {activeTab !== 'monitor' && (activeTab === 'messages' && slug ? (
+          <div className="flex h-full flex-col bg-app-canvas">
+            <header className="flex h-16 shrink-0 items-center justify-between border-b border-app-border px-6 max-sm:pl-16"><h1 className="app-page-title">Chat</h1><NotificationBell slug={slug} onOpen={row => {
+              if (row.conversation_id) openDispatcherChat({ conversationId: row.conversation_id });
+              else if (row.order_id) { const order = jobs.find(job => job.id === row.order_id); if (order) handleOpenJobDossier(order); }
+            }} /></header>
+            <div className="min-h-0 flex-1 p-3 md:p-5"><ChatWorkspace slug={slug} initialTarget={chatTarget} timeZone={settingsQuery.data?.data.time_zone} onOpenOrder={id => { const order = jobs.find(job => job.id === id); if (order) handleOpenJobDossier(order); }} /></div>
+          </div>
+        ) : activeTab === 'rate-cards' ? (
           <RateCardsPage
             onNotification={showToast}
           />
@@ -683,7 +705,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   setShowActions={setShowDriverActions}
                   onActionNotification={showToast}
                   onOpenFullProfile={() => handleOpenDriverProfile(activeDriver)}
-                  onMessage={slug ? () => setDriverChat(activeDriver) : undefined}
+                  onMessage={slug ? () => openDispatcherChat({ driverId: activeDriver.id }) : undefined}
                   position={markerPositions.driver ?? markerPositions.d14 ?? undefined}
                 />
               )}
@@ -709,7 +731,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   onKeepCurrent={handleKeepCurrent}
                   onActionNotification={showToast}
                   onOpenFullDetails={() => handleOpenJobDossier(activeJob)}
-                  onMessage={slug ? kind => setContactChat({ order: activeJob, kind, driverId: kind === 'DISPATCH_DRIVER' ? activeJob.assignedDriverId : undefined }) : undefined}
+                  onMessage={slug ? kind => openDispatcherChat(kind === 'DISPATCH_SHIPPER' && activeJob.customerId ? { shipperId: activeJob.customerId } : { orderId: activeJob.id, kind, driverId: kind === 'DISPATCH_DRIVER' ? activeJob.assignedDriverId : undefined }) : undefined}
                   position={markerPositions.job ?? markerPositions.job461 ?? undefined}
                   timeZone={settingsQuery.data?.data.time_zone}
                   recommendation={slug && activeRecord?.status === 'NEW' ? <DispatchRecommendation slug={slug} order={activeRecord} onClose={() => setShowAiRecommendation(false)} onAssigned={handleRecommendationAssigned} /> : undefined}
@@ -798,8 +820,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
       {dossierJob && <MonitorOrderDetails job={dossierJob} jobs={jobs} drivers={drivers} onClose={() => setDossierJob(null)}
         onEdit={job => { setDossierJob(null); setEditJobId(job.id); setActiveTab('jobs'); }} onUpdateJob={handleUpdateJob} onNotification={showToast} />}
 
-      {slug && contactChat && <ChatDialog slug={slug} orderId={contactChat.order.id} orderNumber={contactChat.order.jobNumber} initialKind={contactChat.kind} expectedDriverId={contactChat.driverId} onClose={() => setContactChat(null)} />}
-      {slug && driverChat && <DriverChatDialog slug={slug} driver={driverChat} onClose={() => setDriverChat(null)} />}
 
       {/* FULL CLOSABLE DETAIL MODAL DIALOG (Z-[100] PORTAL OVERLAY) */}
       <DetailModalDialog
@@ -811,7 +831,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         onOrderVisibilityChange={handleOrderVisibilityChange}
         needsAttentionItems={needsAttentionItems}
         timeZone={slug ? settingsQuery.data?.data.time_zone : undefined}
-        onMessageDriver={slug ? driver => { handleCloseModal(); setDriverChat(driver); } : undefined}
+        onMessageDriver={slug ? driver => { handleCloseModal(); openDispatcherChat({ driverId: driver.id }); } : undefined}
         onEditDriver={driver => { handleCloseModal(); setOpenDriverId(driver.id); setActiveTab('drivers'); }}
         onSelectJob={(jobNum) => {
           handleCloseModal();

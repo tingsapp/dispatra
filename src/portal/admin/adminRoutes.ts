@@ -1,5 +1,5 @@
 /** Platform administration URLs. `/platform` remains a compatibility entry for the Companies list. */
-export type AdminRoute = { page: 'companies' } | { page: 'company'; id: string; tab?: 'subscription' | 'payment-method' } | { page: 'profile' } | { page: 'monitor' } | { page: 'billing' } | { page: 'revenue' } | { page: 'integrations' };
+export type AdminRoute = { page: 'companies' } | { page: 'company'; id: string; tab?: 'subscription' | 'payment-method' } | { page: 'profile' } | { page: 'monitor' } | { page: 'billing' } | { page: 'revenue' } | { page: 'integrations' } | { page: 'chat' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isAdminPath(path: string) {
@@ -14,6 +14,7 @@ export function adminRoute(path: string): AdminRoute | null {
   if (rest.length) return null;
   if (!section || section === 'login' || (section === 'companies' && !id)) return { page: 'companies' };
   if (section === 'companies' && id && UUID.test(id)) return { page: 'company', id: id.toLowerCase() };
+  if (section === 'chat' && !id) return { page: 'chat' };
   if (section === 'profile' && !id) return { page: 'profile' };
   if (section === 'monitor' && !id) return { page: 'monitor' };
   if (section === 'billing' && !id) return { page: 'billing' };

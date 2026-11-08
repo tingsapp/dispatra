@@ -3,6 +3,7 @@ import {
   Building2,
   ClipboardList,
   HelpCircle,
+  MessageSquare,
   Truck,
   User,
   Users
@@ -20,6 +21,8 @@ import { Notice } from '../portal/ui';
 
 interface SidebarProps {
   tmsWorkspace?: boolean;
+  unreadMessages?: number;
+  chatEnabled?: boolean;
   loggingOut?: boolean;
   logoutError?: unknown;
   activeTab: string;
@@ -41,6 +44,8 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   tmsWorkspace = false,
+  unreadMessages = 0,
+  chatEnabled = false,
   loggingOut = false,
   logoutError,
   activeTab,
@@ -99,12 +104,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = tmsWorkspace ? [
     { id: 'profile', label: 'Profile', icon: User },
+    ...(chatEnabled ? [{ id: 'messages', label: 'Chat', icon: MessageSquare }] : []),
     { id: 'help', label: 'Help', icon: HelpCircle },
   ] : [
     { id: 'jobs', label: 'Orders', icon: ClipboardList },
     { id: 'drivers', label: 'Drivers', icon: Users },
     { id: 'vehicles', label: 'Vehicles', icon: Truck },
     { id: 'customers', label: 'Shippers', icon: Building2 },
+    ...(chatEnabled ? [{ id: 'messages', label: 'Chat', icon: MessageSquare }] : []),
     { id: 'reports', label: 'Analytics', icon: BarChart2 },
   ];
 
@@ -148,12 +155,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onActionNotification(`Navigated to ${item.label}`);
                   }}
                   aria-current={isActive ? 'page' : undefined}
-                  aria-label={item.label}
+                  aria-label={item.id === 'messages' && unreadMessages ? `Chat, ${unreadMessages} unread` : item.label}
                   title={collapsed ? item.label : undefined}
-                  className="app-nav-item"
+                  className="app-nav-item relative"
                 >
                   <Icon className="w-4.5 h-4.5 shrink-0 text-current" strokeWidth={1.75} />
                   <span className={collapsed ? 'sr-only' : undefined}>{item.label}</span>
+                  {item.id === 'messages' && unreadMessages > 0 && <span aria-hidden className={collapsed ? 'absolute right-1 top-1 size-2 rounded-full bg-rose-500' : 'ml-auto rounded-full bg-rose-100 px-1.5 text-xs text-rose-700'}>{!collapsed && unreadMessages}</span>}
                 </button>
               );
             })}

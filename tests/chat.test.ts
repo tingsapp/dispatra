@@ -226,8 +226,12 @@ test('dispatcher shipper row shows company unread count and opens chat before an
   chat.shipperCompanyChannel = async () => channel('DISPATCH_SHIPPER','Fresh Test',null,{shipper_id:'s1',unread:2});
   mount(React.createElement(CustomersPage,{onBackToMonitor:()=>{}}));
   const user = userEvent.setup({document});
+  let target: unknown;
+  const receive = (event: Event) => { target = (event as CustomEvent).detail; };
+  window.addEventListener('dispatra-open-chat', receive);
   await user.click(await screen.findByRole('button',{name:'Chat with Alice Shipper, 2 unread'}));
-  assert.ok(await screen.findByRole('textbox',{name:'Message Fresh Test'}));
+  window.removeEventListener('dispatra-open-chat', receive);
+  assert.deepEqual(target, { shipperId: 's1' });
   assert.equal(screen.queryByRole('tablist'),null);
 });
 
