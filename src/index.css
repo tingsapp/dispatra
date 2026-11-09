@@ -14,6 +14,7 @@
 @import "./components/integrations/connectors/workspace-mode.css";
 @import "./portal/admin/agent-report-log.css";
 @import "./portal/admin/machine-monitor.css";
+@import "./styles/dispatcher-monitor.css";
 
 /* Use the hand cursor consistently for enabled interactive controls. */
 @layer base {

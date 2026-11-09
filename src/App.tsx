@@ -550,7 +550,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const activeRecord = slug && activeJob ? orderQuery.data?.find(order => order.id === activeJob.id) : undefined;
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-app-canvas font-sans text-app-text antialiased">
+    <div className={`relative flex h-dvh w-full overflow-hidden bg-app-canvas font-sans text-app-text antialiased ${slug && activeTab === 'monitor' && !tmsWorkspace ? 'dispatcher-monitor' : ''}`} data-sidebar-open={sidebarOpen}>
       <ConfirmDialogHost />
       {sidebarOpen && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/20 sm:hidden" onClick={() => setSidebarOpen(false)} />}
       {slug && (orderQuery.error || driverQuery.error || monitorQuery.error) && <div role="alert" className="absolute top-3 left-1/2 z-50 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-rose-700">Could not load workspace data. <button type="button" className="underline" onClick={() => queryClient.invalidateQueries({ queryKey: ['operations', slug] })}>Retry</button></div>}

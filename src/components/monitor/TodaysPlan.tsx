@@ -6,7 +6,7 @@ import { OrderMapCheckbox, type OrderMapVisibilityProps } from './OrderMapCheckb
 import { clockTime, dateTime } from '../../lib/dateTimeFormat';
 import type { Driver, Job, NeedsAttentionItem } from '../../types';
 import { lifecycleLabel, orderAttention, orderLifecycle } from '../../domain/validation';
-import { companyDay, todaysPlan } from './todaysPlan';
+import { companyDay, todaysPlan } from './todaysPlanData';
 import { OrderMapFocusButton } from './OrderMapFocusButton';
 
 interface TodaysPlanProps extends OrderMapVisibilityProps {

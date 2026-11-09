@@ -6,6 +6,18 @@ const FIT_PADDING = { top: 120, right: 80, bottom: 90, left: 40 };
 const FIT_MAX_ZOOM = 15;
 const zoomLimits = new WeakMap<google.maps.Map, google.maps.MapsEventListener>();
 
+/** The full-bleed dispatcher map must fit markers beside its floating panels. */
+export function monitorFitPadding(canvas?: HTMLElement): google.maps.Padding {
+  const workspace = canvas?.closest('.dispatcher-monitor');
+  if (!workspace || !canvas) return FIT_PADDING;
+  const bounds = canvas.getBoundingClientRect();
+  if (bounds.width < 640) return FIT_PADDING;
+  const panel = workspace.querySelector('[aria-label="Today’s plan"]');
+  const sidebar = workspace.querySelector('[aria-label="Main navigation"]');
+  const occupiedRight = Math.max(panel?.getBoundingClientRect().right ?? 0, sidebar?.getBoundingClientRect().right ?? 0);
+  return { ...FIT_PADDING, left: Math.min(Math.round(bounds.width * .55), Math.max(40, occupiedRight - bounds.left + 24)) };
+}
+
 /** Shared by automatic framing, Locate and the manual Fit all control. */
 export function fitMonitorPoints(map: google.maps.Map, points: MapPoint[]) {
   zoomLimits.get(map)?.remove();
@@ -14,10 +26,11 @@ export function fitMonitorPoints(map: google.maps.Map, points: MapPoint[]) {
   if (!valid.length) { map.panTo(MONITOR_CAMERA.center); map.setZoom(MONITOR_CAMERA.zoom); return; }
   const bounds = new google.maps.LatLngBounds();
   valid.forEach(([lng, lat]) => bounds.extend({ lat, lng }));
-  if (valid.every(([lng, lat]) => lng === valid[0][0] && lat === valid[0][1])) {
+  const canvas = map.getDiv?.();
+  if (!canvas?.closest('.dispatcher-monitor') && valid.every(([lng, lat]) => lng === valid[0][0] && lat === valid[0][1])) {
     map.panTo(bounds.getCenter()); map.setZoom(FIT_MAX_ZOOM); return;
   }
-  map.fitBounds(bounds, FIT_PADDING);
+  map.fitBounds(bounds, monitorFitPadding(canvas));
   zoomLimits.set(map, google.maps.event.addListenerOnce(map, 'idle', () => {
     zoomLimits.delete(map);
     if ((map.getZoom() ?? 0) > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM);

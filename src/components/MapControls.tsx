@@ -29,7 +29,7 @@ export const MapControls: React.FC<MapControlsProps> = ({
   focusLabel,
   onActionNotification
 }) => {
-  return <div className="absolute bottom-6 right-6 z-30 flex flex-col items-end gap-3 pointer-events-auto select-none">
+  return <div className="monitor-map-controls absolute bottom-6 right-6 z-30 flex flex-col items-end gap-3 pointer-events-auto select-none">
     <div className="flex flex-col gap-2">
       <button type="button" onClick={onFocusMap} className="app-metric app-map-icon" title={focusLabel} aria-label={focusLabel}>
         <LocateFixed size={18} strokeWidth={1.75} />
@@ -61,7 +61,7 @@ export const MapControls: React.FC<MapControlsProps> = ({
           ))}
         </MenuList>
       </FloatingPanel>
-      <div className="w-11 bg-white rounded-xl shadow-sm overflow-hidden flex flex-col">
+      <div className="monitor-map-zoom w-11 bg-white rounded-xl shadow-sm overflow-hidden flex flex-col">
         <button type="button" onClick={onZoomIn} className="w-full h-11 p-0 grid place-items-center text-slate-700 hover:bg-slate-50 transition-colors" title="Zoom In"><Plus size={18} /></button>
         <button type="button" onClick={onZoomOut} className="w-full h-11 p-0 grid place-items-center text-slate-700 hover:bg-slate-50 transition-colors" title="Zoom Out"><Minus size={18} /></button>
       </div>

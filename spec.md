@@ -10,6 +10,8 @@ Successful email verification sends new full-workspace dispatchers to company Se
 
 # Dispatra web client specification
 
+The signed-in full-workspace dispatcher Monitor uses the Finder-inspired white material design: an edge-to-edge map beneath an inset 204px floating sidebar, Inter typography, consistent 16px outline navigation icons, rounded milky-white panels, subtle blur/borders/shadows and blue keyboard focus. Plan and assistant panels sit beside the navigation; status and map controls remain at the right. Desktop collapsed navigation retains its rail; phone navigation retains its accessible modal drawer and touch targets. Map fitting accounts for the floating panels. This presentation is scoped to the dispatcher Monitor only; other dispatcher destinations, Shipper/Driver/Admin, public pages, and `/prototype` retain their existing presentation. Reduced-motion, reduced-transparency and high-contrast settings remain supported.
+
 Web portal sidebars share a 204px expanded width, 36px navigation rows, 16px icons, 14px regular labels with 20px line height, neutral gray colors and the ChatGPT reference system-font stack. Keep the compact header logo and align navigation directly below the header. Dispatcher Monitor overlays use the same font stack; fine-pointer desktop metric/settings/zoom controls are 36px, with existing larger touch targets retained.
 
 Updated: 2026-10-15. This is the current React/TypeScript client contract. [Implementation state](state.md) distinguishes browser demo behavior from API-backed behavior.
