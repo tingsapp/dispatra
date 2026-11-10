@@ -4,7 +4,7 @@ import { after, afterEach, test } from 'node:test';
 import React from 'react';
 import { INITIAL_JOBS } from '../src/data/mockData';
 import type { Job } from '../src/types';
-import { companyDay, createdDay, ordersCompletedToday, todaysPlan } from '../src/components/monitor/todaysPlan';
+import { companyDay, createdDay, ordersCompletedToday, todaysPlan } from '../src/components/monitor/todaysPlanData';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'Event']) Object.defineProperty(globalThis, name, { configurable: true, value: dom.window[name as keyof Window] });
