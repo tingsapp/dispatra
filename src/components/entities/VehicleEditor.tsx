@@ -1,3 +1,4 @@
+import { usePendingAction } from '../ui/usePendingAction';
 import React, { useState } from 'react';
 import { VehicleAsset, normalizeVehicle, syncVehicle, type VehicleProfile } from '../../lib/vehicleStorage';
 import type { VehicleType } from '../../types/simplePricing';
@@ -9,6 +10,7 @@ import { WeightInput } from '../pricing/WeightInput';
 import { Button } from '../ui/button';
 import { Choice, TextField, NumberField, DateField, ReadFields, FormSection } from './Fields';
 import { listedVehicleTypes } from '../../lib/vehicleTypes';
+import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 
 const equipmentOptions = ['Liftgate', 'Open deck', 'Dolly', 'Tie-down rails'];
 /** Refrigeration comes from the vehicle type, not a checkbox; kept on the record so assignment can match reefer types. */
@@ -23,7 +25,7 @@ function CargoDimension({ label, value, onChange, unit }: { label: string; value
     onChange={event => onChange(event.target.value === '' ? undefined : fromDisplayDimension(Number(event.target.value), units))} /></label>;
 }
 
-export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hideActions = false, vehicleTypes, live = false }: { vehicle?: VehicleAsset; vehicles: VehicleAsset[]; onSave: (v: VehicleAsset, profile: VehicleProfile) => void; onCancel: () => void; formId?: string; hideActions?: boolean; vehicleTypes?: VehicleType[]; live?: boolean }) {
+export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hideActions = false, vehicleTypes, live = false }: { vehicle?: VehicleAsset; vehicles: VehicleAsset[]; onSave: (v: VehicleAsset, profile: VehicleProfile) => unknown; onCancel: () => void; formId?: string; hideActions?: boolean; vehicleTypes?: VehicleType[]; live?: boolean }) {
   const [localTypes] = useState(() => loadSimplePricingConfig().vehicles);
   const types = vehicleTypes ?? localTypes;
   const [units] = useState(() => loadBillingConfig().general);
@@ -32,6 +34,7 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
   const [payloadCapacityKg, setPayloadCapacityKg] = useState<number | null>(originalType?.payloadCapacityKg ?? null);
   const [palletCapacity, setPalletCapacity] = useState<number | undefined>(originalType?.palletCapacity);
   const [errors, setErrors] = useState<string[]>([]);
+  const [addressState, setAddressState] = useState<'idle' | 'resolving' | 'failed'>('idle');
   const patch = (changes: Partial<VehicleAsset>) => setDraft(current => ({ ...current, ...changes }));
   const isEditing = !!vehicle;
   const selectedType = types.find(type => type.id === draft.vehicleTypeId);
@@ -48,8 +51,12 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
     const defaults = (type.equipment ?? []).filter(name => !kept.some(item => item.toLowerCase() === name.toLowerCase()));
     patch({ equipment: [...kept, ...defaults] });
   };
-  const submit = (event: React.FormEvent) => {
+  const action = usePendingAction();
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (addressState !== 'idle') {
+      setErrors([addressState === 'resolving' ? 'Wait for the parking address details to load.' : 'Select the parking address again.']); return;
+    }
     if (!selectedType?.name.trim() || payloadCapacityKg == null || payloadCapacityKg <= 0 || palletCapacity == null || palletCapacity < 1 || !Number.isInteger(palletCapacity)) {
       setErrors(['Choose a vehicle type and enter positive payload and pallet capacity.']); return;
     }
@@ -63,21 +70,28 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
     const problems = validateVehicle(next, vehicles);
     setErrors(problems);
     if (problems.length) return;
-    onSave(next, { type: {
+    await action.run(() => onSave(next, { type: {
       ...selectedType, id: typeId, payloadCapacityKg, palletCapacity,
       cargoBedFeet: length! / 30.48, cargoVolumeCbm: volume,
       hasLiftgate: next.hasLiftgate,
       active: selectedType?.active ?? true
-    }, costPerKm: (() => { const costs = loadBillingConfig().operatingCost.costPerKmByVehicleId; return (vehicle?.vehicleTypeId ? costs[vehicle.vehicleTypeId] : undefined) ?? costs[selectedType.id] ?? null; })() });
+    }, costPerKm: (() => { const costs = loadBillingConfig().operatingCost.costPerKmByVehicleId; return (vehicle?.vehicleTypeId ? costs[vehicle.vehicleTypeId] : undefined) ?? costs[selectedType.id] ?? null; })() }));
   };
   return <form id={formId} className="space-y-6" onSubmit={submit}>
     <FormSection title="Vehicle">
       <TextField label="Unit number" value={draft.unitNumber} required onChange={unitNumber => patch({ unitNumber })} placeholder="e.g. V12" />
-      <Choice label="Vehicle type" required value={draft.vehicleTypeId ?? ''} options={[{ value: '', label: 'Choose a vehicle type' }, ...[...listedVehicleTypes(types), ...types.filter(type => type.id === draft.vehicleTypeId && !listedVehicleTypes(types).includes(type))].map(type => ({ value: type.id, label: type.name }))]} onChange={chooseType} hint="Fills capacity and box size from the type. Edits affect this vehicle only." />
+      <Choice label="Vehicle type" required value={draft.vehicleTypeId ?? ''} options={[{ value: '', label: 'Choose a vehicle type' }, ...[...listedVehicleTypes(types), ...types.filter(type => type.id === draft.vehicleTypeId && !listedVehicleTypes(types).includes(type))].map(type => ({ value: type.id, label: type.name }))]} onChange={chooseType} hint="Sets capacity and box size. Changes apply only to this vehicle." />
       <TextField label="Make and model" value={draft.makeModel} onChange={makeModel => patch({ makeModel })} placeholder="e.g. Ford Transit 350" />
       <NumberField label="Year" step="1" value={draft.year || undefined} onChange={year => patch({ year: year ?? 0 })} />
       <TextField label="Licence plate" value={draft.plateNumber} required onChange={plateNumber => patch({ plateNumber })} placeholder="e.g. CVK 421" />
       <TextField label="Plate province" value={draft.plateProvince} onChange={plateProvince => patch({ plateProvince })} />
+      <div className="sm:col-span-2">
+        <label htmlFor="vehicle-parking-address" className="app-label">Parking address <span aria-hidden="true">*</span></label>
+        <AddressAutocomplete id="vehicle-parking-address" aria-label="Parking address" value={draft.parkingAddress ?? ''} includeCoordinates required
+          onSelectionStateChange={setAddressState} onChange={(parkingAddress, parkingAddressCoordinates) => patch({ parkingAddress, parkingAddressCoordinates })}
+          placeholder="Street, city, province, postal code" className="app-input w-full" />
+        <span className="mt-1 block text-xs text-slate-500">Select where this vehicle parks. Used for dispatch when live GPS is unavailable.</span>
+      </div>
     </FormSection>
     <FormSection title="Capacity">
       <label className="block"><span className="app-label">Max payload ({units.weightUnit})</span><WeightInput value={payloadCapacityKg} units={units} label="Max payload" min={0.000001} required onChange={setPayloadCapacityKg} /></label>
@@ -100,6 +114,6 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
     </FormSection>
     {vehicle && <ReadFields values={{ 'Current driver': vehicle.currentDriverName, 'Current route': vehicle.currentRouteId, 'Last location': vehicle.currentLocation }} />}
     {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
-    {!hideActions && <div className="flex justify-end gap-2"><Button type="submit">Save vehicle</Button></div>}
+    {!hideActions && <div className="flex justify-end gap-2"><Button loading={action.pending} type="submit">Save vehicle</Button></div>}
   </form>;
 }

@@ -38,7 +38,9 @@ export function parsePortal(path: string): PortalRoute | null {
 }
 const ROLE = { platform:'ADMIN', dispatch:'DISPATCHER', customer:'SHIPPER', driver:'DRIVER' } as const;
 /** Owner login aliases open Companies; valid owner deep links keep their destination. */
-export function loginDestination(account: Account, path: string): string {
+export function loginDestination(account: Account, path: string, search = ''): string {
+  const draft = new URLSearchParams(search).get('draft');
+  if (account.role === 'SHIPPER' && account.organization && path === `/${account.organization.slug}/shipper` && draft && /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(draft)) return `${path}?draft=${encodeURIComponent(draft)}`;
   return account.role === 'ADMIN' ? adminHref(adminRoute(path) ?? { page: 'companies' }) : accountWorkspace(account) ?? '/';
 }
 export { roleHome } from '../lib/pageRoutes';
@@ -67,7 +69,7 @@ function Portal() {
   if (me.error && !(me.error instanceof ApiError && me.error.status === 401)) return <main className="mx-auto max-w-lg space-y-4 p-10"><Notice error={me.error} /><Button onClick={() => me.refetch()}>Try again</Button></main>;
   // Use the authenticated response immediately instead of reloading the owner's login URL.
   if (!me.data) return <LoginPage portal={route.portal as LoginInput['portal']} onLogin={account => {
-    const destination = loginDestination(account, location.pathname);
+    const destination = loginDestination(account, location.pathname, location.search);
     if (account.role === 'ADMIN') {
       void client.cancelQueries({ queryKey: ['account'], exact: true });
       client.removeQueries({ predicate: query => query.queryKey[0] !== 'account' });

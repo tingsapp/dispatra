@@ -1,3 +1,4 @@
+import { usePendingAction } from '../ui/usePendingAction';
 import { DriverAvatar } from '../DriverAvatar';
 import type { Driver } from '../../types';
 import { User } from 'lucide-react';
@@ -11,11 +12,12 @@ interface Props {
   requiredId?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (driverId: string) => void;
+  onSelect: (driverId: string) => unknown;
 }
 
 /** Presentation only: assignment eligibility and updates remain with the caller. */
 export function DriverAssignmentMenu({ drivers, requestedId, requiredId, open, onOpenChange, onSelect }: Props) {
+  const action = usePendingAction();
   const ordered = requestedId ? [...drivers].sort((a, b) => Number(b.id === requestedId) - Number(a.id === requestedId)) : drivers;
   return <DropdownMenu open={open} onOpenChange={onOpenChange}>
     <DropdownMenuTrigger asChild>
@@ -23,7 +25,7 @@ export function DriverAssignmentMenu({ drivers, requestedId, requiredId, open, o
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start">
       <p className="px-3 py-2 text-xs text-app-muted">Select Driver</p>
-      {ordered.length ? ordered.map(driver => <DropdownMenuItem key={driver.id} disabled={!!requiredId && driver.id !== requiredId} onSelect={() => onSelect(driver.id)}>
+      {ordered.length ? ordered.map(driver => <DropdownMenuItem key={driver.id} loading={action.pendingKey === driver.id} disabled={action.pending || (!!requiredId && driver.id !== requiredId)} onSelect={event => { event.preventDefault(); void action.run(async () => { await onSelect(driver.id); onOpenChange(false); }, driver.id); }}>
         <span className="flex items-center gap-3">
           <DriverAvatar name={driver.name} avatar={driver.avatar} alt="" className="size-8 shrink-0 rounded-full object-cover" />
           <span className="min-w-0 flex-1">

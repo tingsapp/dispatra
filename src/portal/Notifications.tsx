@@ -1,3 +1,4 @@
+import { ActionButton } from '../components/ui/button';
 import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Bell, CheckCircle2, Clock } from 'lucide-react';
@@ -57,7 +58,7 @@ export function NotificationInbox<T extends InboxRow>({ rows, unread, loading, l
         {unread > 0 && <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-medium text-xs" aria-label={`${unread} unread`}>{unread}</span>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <button type="button" disabled={readingAll || !(unread > 0 || rows.some(row => !row.read_at))} onClick={() => onMarkAllRead()} className="text-xs font-medium text-slate-700 hover:text-slate-900 disabled:opacity-40">Mark all read</button>
+        <ActionButton loading={readingAll} type="button" disabled={readingAll || !(unread > 0 || rows.some(row => !row.read_at))} onClick={() => onMarkAllRead()} className="text-xs font-medium text-slate-700 hover:text-slate-900 disabled:opacity-40">Mark all read</ActionButton>
         {onClose && <DialogCloseButton label="Close notifications" onClick={onClose} />}
       </div>
     </div>

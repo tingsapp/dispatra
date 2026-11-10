@@ -26,7 +26,7 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
       <section className="shipper-tracking-card shipper-tracking-summary" aria-label="Order progress">
       <div className="shipper-tracking-scroll">
       <Notice error={logoutError} />
-      {error ? <><Notice error={error} /><Button variant="outline" onClick={() => { void orders.refetch(); void preferences.refetch(); }}>Try again</Button></>
+      {error ? <><Notice error={error} /><Button variant="outline" onClick={() => Promise.all([orders.refetch(), preferences.refetch()])}>Try again</Button></>
         : pending ? <p role="status" className="text-sm text-app-muted">Loading tracking…</p>
         : !rows.length ? <div className="py-4 text-center">
           <MapPin className="mx-auto mb-3 h-8 w-8 text-slate-300" />
@@ -35,7 +35,7 @@ export function ShipperTracking({ slug, orderId, onSelect, logoutError }: { slug
         </div> : <>
       {!selected ? <Notice error={new Error('This order is unavailable. Search for one of your orders to track.')} />
         : tracking.isPending ? <p role="status" className="text-sm text-app-muted">Loading tracking…</p>
-        : tracking.error ? <><Notice error={tracking.error} /><Button variant="outline" onClick={() => void tracking.refetch()}>Retry tracking</Button></>
+        : tracking.error ? <><Notice error={tracking.error} /><Button variant="outline" onClick={() => tracking.refetch()}>Retry tracking</Button></>
         : tracking.data && <>
           <TrackingSummary tracking={tracking.data} timeZone={timeZone} title={selected.number} showDriver={false} />
           <section className="mt-5" aria-label="Stops and timeline">

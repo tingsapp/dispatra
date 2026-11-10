@@ -31,7 +31,7 @@ export function ReportsPage({ today }: ReportsPageProps) {
       <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={companyToday} subject="analytics" />
     </>} />
     <div className="page-content flex-1 overflow-y-auto py-5">
-      {failed ? <div role="alert" className="rounded-xl border border-slate-200 bg-white p-6"><p className="text-sm text-slate-700">{error.message}</p><Button variant="outline" className="mt-3" onClick={() => { void settings.refetch(); void query.refetch(); }}>Try again</Button></div>
+      {failed ? <div role="alert" className="rounded-xl border border-slate-200 bg-white p-6"><p className="text-sm text-slate-700">{error.message}</p><Button variant="outline" className="mt-3" onClick={() => Promise.all([settings.refetch(), query.refetch()])}>Try again</Button></div>
         : loading ? <div role="status" className="space-y-4"><span className="text-sm text-slate-500">Loading analytics…</span><div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-100" />)}</div><div className="h-72 animate-pulse rounded-2xl bg-slate-100" /></div>
         : data && <div className="space-y-5">
           <ListSummary label="Analytics summary" items={[

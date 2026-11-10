@@ -5,6 +5,7 @@ import { ListSummary } from '../components/layout/ListSummary';
 import { DriverAssignmentMenu } from '../components/entities/DriverAssignmentMenu';
 import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
 import { formatDateValue } from '../lib/dateValues';
+import { confirmDialog } from '../components/ui/ConfirmDialog';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogFooter, DialogHeader } from '../components/ui/Dialog';
 import {
@@ -26,9 +27,11 @@ import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { allOperations, operations, type CatalogItem } from '../operations/api';
 import { catalogFromUi } from '../operations/pricingAdapters';
 import { assignableRoute, assignToDriver } from '../operations/assignment';
-import { draftToInput, emailDraftRow, inputToBooking } from '../operations/orderAdapters';
+import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking } from '../operations/orderAdapters';
 import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
-import { EMAIL_DRAFT_STATUSES, IntakeDialog, type EmailDraft } from '../components/orders/EmailIntake';
+import { EMAIL_DRAFT_STATUSES } from '../components/orders/EmailIntake';
+import { EmailDraftSection } from '../components/orders/EmailDraftSection';
+import type { EmailIntakeDetail } from '../operations/api';
 import { useCompanyPricingContext, useOrderAssignment, useOrderCompletion } from '../components/orders/useOrderDetails';
 import { useOrderPreview } from '../components/orders/useOrderPreview';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
@@ -117,7 +120,7 @@ export function JobsPage({
   const [newInstructions, setNewInstructions] = useState('');
   const [orderFields, setOrderFields] = useState<Partial<Job>>({});
   const [editingOrder, setEditingOrder] = useState<Job | null>(null);
-  const [emailSource, setEmailSource] = useState<{ id: string; version: number } | null>(null);
+  const [emailSource, setEmailSource] = useState<EmailIntakeDetail | null>(null);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   // Pricing context is read fresh each time the modal opens so settings edits apply.
   const [localPricingCtx, setPricingCtx] = useState(() => loadPricingContext());
@@ -126,7 +129,7 @@ export function JobsPage({
   const newOrderSnapshot = useOrderPreview({ slug, input: newOrderInput, ctx: pricingCtx, enabled: showCreateModal, toBooking: input => inputToBooking(input, '', pricingCtx.billing.general.timeZone), rates: rateQuery.data });
   const pendingQuote = useRef<{ key: string; quote: Awaited<ReturnType<typeof operations.createQuote>> } | null>(null);
   const selectedCustomer = pricingCtx.customers.find((c) => c.id === newOrderInput.customerId);
-  const closeCreateModal = () => { setShowAddAccessorial(false); setShowCreateModal(false); };
+  const closeCreateModal = () => { if (emailAction) return; setShowAddAccessorial(false); setShowCreateModal(false); };
   const addAccessorial = async (item: AccessorialItem) => {
     const existing = pricingCtx.catalogue.accessorials.find(row => row.code === item.code || row.name.toLowerCase() === item.name.toLowerCase());
     if (existing) throw new Error(existing.active ? 'This accessorial already exists. Select it from the list or edit it in Settings.' : 'This accessorial already exists but is inactive. Activate it in Settings.');
@@ -173,13 +176,60 @@ export function JobsPage({
 
   // Order emails the agent could not book yet are listed as Draft orders in this same Orders list; other emails are ignored.
   const emailQuery = useQuery({ queryKey: ['operations', slug, 'email-intakes', 'drafts'], queryFn: () => operations.emailIntakes(slug!, EMAIL_DRAFT_STATUSES), enabled: !!slug });
-  const [reviewingEmailId, setReviewingEmailId] = useState<string | null>(null);
+  const [openingEmailId, setOpeningEmailId] = useState<string | null>(null);
+  const [emailAction, setEmailAction] = useState<'save' | 'request' | 'discard' | 'retry' | null>(null);
+  const [draftMessage, setDraftMessage] = useState('');
   const [trackingJob, setTrackingJob] = useState<Job | null>(null);
-  const openEmailDraft = (email: EmailDraft) => {
+  const openEmailDraft = (email: EmailIntakeDetail) => {
     if (!livePricingCtx) { onNotification('Pricing data is still loading. Try again in a moment.'); return; }
     setCreateMode('order'); setEditingOrder(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null; setPricingCtx(livePricingCtx);
-    setNewOrderInput(normalizeOrderInput({ ...draftToInput(email.draft), taxCalculation: 'COMPANY' }));
-    setNewInstructions(''); setNewDriverId('unassigned'); setEmailSource(email.intake); setShowCreateModal(true);
+    setNewOrderInput(normalizeOrderInput({ ...draftToInput({ ...email.draft, shipper_id: email.draft?.shipper_id ?? email.shipper_id }, email.extraction, livePricingCtx.billing.general), taxCalculation: 'COMPANY' }));
+    setNewInstructions(String(email.draft?.internal_notes ?? '')); setNewDriverId('unassigned'); setEmailSource(email); setDraftMessage(''); setShowCreateModal(true);
+  };
+
+  const openDraft = async (id: string) => {
+    if (!slug || openingEmailId) return;
+    setOpeningEmailId(id);
+    try {
+      const email = await operations.emailIntake(slug, id);
+      if (!EMAIL_DRAFT_STATUSES.includes(email.status)) throw new Error('This draft is no longer available. Refresh the Orders list.');
+      openEmailDraft(email);
+    } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not open draft.'); }
+    finally { setOpeningEmailId(null); }
+  };
+  const saveEmailDraft = async (request = false) => {
+    if (!slug || !emailSource || emailAction) return;
+    setEmailAction(request ? 'request' : 'save'); setFormErrors([]); setDraftMessage('');
+    try {
+      const saved = await operations.saveEmailDraft(slug, emailSource, inputToDraftBooking(newOrderInput, newInstructions, pricingCtx.billing.general.timeZone));
+      setEmailSource(saved);
+      setNewOrderInput(normalizeOrderInput({ ...draftToInput(saved.draft ?? {}), taxCalculation: 'COMPANY' }));
+      if (request) {
+        await operations.requestEmailDraftDetails(slug, saved);
+        setEmailSource(await operations.emailIntake(slug, saved.id));
+      }
+      setDraftMessage(request ? 'Completion link queued for the shipper.' : 'Draft saved.');
+      await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] });
+    } catch (error) { setFormErrors([error instanceof Error ? error.message : 'Could not save draft.']); }
+    finally { setEmailAction(null); }
+  };
+
+
+  const manageEmailDraft = async (action: 'discard' | 'retry') => {
+    if (!slug || !emailSource || emailAction) return;
+    const confirmed = await confirmDialog(action === 'discard'
+      ? { title: 'Discard draft?', message: 'This draft will be removed from Orders.', confirmLabel: 'Discard draft', tone: 'danger' }
+      : { title: 'Read email again?', message: 'The agent will rebuild this draft from the original email. Manual edits will be replaced.', confirmLabel: 'Read again' });
+    if (!confirmed) return;
+    setEmailAction(action); setFormErrors([]);
+    try {
+      if (action === 'discard') await operations.discardEmailIntake(slug, emailSource);
+      else await operations.retryEmailIntake(slug, emailSource);
+      setShowCreateModal(false); setEmailSource(null);
+      await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] });
+      onNotification(action === 'discard' ? 'Draft discarded.' : 'The agent is reading the email again.');
+    } catch (error) { setFormErrors([error instanceof Error ? error.message : 'Could not update draft.']); }
+    finally { setEmailAction(null); }
   };
 
   // Reassignment popover
@@ -486,7 +536,7 @@ export function JobsPage({
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
                 {visibleDrafts.map(draft => (
-                  <tr key={draft.id} className="hover:bg-slate-50/80 transition-colors cursor-pointer" onClick={() => setReviewingEmailId(draft.id)}>
+                  <tr key={draft.id} className="hover:bg-slate-50/80 transition-colors cursor-pointer" onClick={() => void openDraft(draft.id)}>
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-slate-400">-</span>
@@ -515,7 +565,7 @@ export function JobsPage({
                     <td className="py-3.5 px-4 whitespace-nowrap" />
                     <td className="py-3.5 px-4 whitespace-nowrap"><span className="font-medium text-slate-800">{draft.service}</span></td>
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                      <button type="button" onClick={e => { e.stopPropagation(); setReviewingEmailId(draft.id); }} title="Review draft"
+                      <button type="button" onClick={e => { e.stopPropagation(); void openDraft(draft.id); }} title="Review draft"
                         className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
                     </td>
                   </tr>
@@ -653,13 +703,12 @@ export function JobsPage({
         </div>
       </div>
 
+      {openingEmailId && <p role="status" className="text-sm text-slate-500">Opening draft…</p>}
+
       {/* ORDER DETAILS DIALOG */}
       {activeJobDossier && <OrderDetailsDialog job={jobs.find(row => row.id === activeJobDossier.id) ?? activeJobDossier} ctx={pricingCtx} drivers={drivers} onClose={() => setActiveJobDossier(null)}
         onReassign={handleReassignDriver} onEdit={openEditOrder} onComplete={handleCompleteOrder} onLocate={job => { onSelectJob(job.jobNumber); setActiveJobDossier(null); }} />}
 
-      {reviewingEmailId && slug && <IntakeDialog slug={slug} id={reviewingEmailId} onClose={() => setReviewingEmailId(null)} onNotification={onNotification}
-        onChanged={() => queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] })}
-        onCompleteDraft={email => { setReviewingEmailId(null); openEmailDraft(email); }} onShowOrder={number => { setReviewingEmailId(null); onSelectJob(number); }} />}
       {trackingJob && slug && <OrderTrackingDialog slug={slug} orderId={trackingJob.id} orderNumber={trackingJob.jobNumber} timeZone={pricingCtx.billing.general.timeZone}
         version={jobs.find(job => job.id === trackingJob.id)?.version} onClose={() => setTrackingJob(null)}
         onOpenMap={() => { onSelectJob(trackingJob.jobNumber); setTrackingJob(null); }} />}
@@ -667,17 +716,18 @@ export function JobsPage({
       {/* CREATE NEW ORDER MODAL */}
       {showCreateModal && (
         <Dialog size="xl" onClose={closeCreateModal}>
-          <DialogHeader onClose={closeCreateModal} title={editingOrder ? 'Edit Order' : createMode === 'quote' ? 'New Quote' : emailSource ? 'New Order from Email' : 'New Order'} description={createMode === 'quote' ? 'Enter shipment details to prepare a quotation without creating an order.' : 'Enter the order details on the left to see its live price estimate on the right.'} />
+          <DialogHeader onClose={closeCreateModal} title={editingOrder ? 'Edit Order' : createMode === 'quote' ? 'New Quote' : 'New Order'} description={createMode === 'quote' ? 'Enter shipment details to prepare a quotation without creating an order.' : 'Enter the order details on the left to see its live price estimate on the right.'} />
             <form onSubmit={createMode === 'quote' ? event => event.preventDefault() : handleCreateSubmit} className="app-dialog-body bg-slate-50 pt-5">
+              <fieldset disabled={!!emailAction || handleCreateSubmitAction.pending} className="min-w-0">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-7 space-y-5 text-xs">
                   {!!formErrors.length && <p role="alert" className="text-xs text-rose-700">{formErrors.join(" ")}</p>}
 
                   <OrderPricingForm
-                    showVehicleSelection suggestVehicle={!editingOrder}
+                    showVehicleSelection suggestVehicle={!editingOrder && !emailSource}
                     customerMode={createMode === 'quote' ? 'rateCard' : 'shipper'}
                     value={newOrderInput}
-                    onChange={v => { if (v.customerId !== newOrderInput.customerId) { const c = pricingCtx.customers.find(c => c.id === v.customerId); setOrderFields({ ...orderFields, notificationPreferences: c?.communicationPreferences }); setNewInstructions(c?.instructions ?? ''); } setNewOrderInput(v); }}
+                    onChange={v => { if (!emailSource && v.customerId !== newOrderInput.customerId) { const c = pricingCtx.customers.find(c => c.id === v.customerId); setOrderFields({ ...orderFields, notificationPreferences: c?.communicationPreferences }); setNewInstructions(c?.instructions ?? ''); } setNewOrderInput(v); }}
                     ctx={pricingCtx}
                     snapshot={newOrderSnapshot}
                     showStopAddresses
@@ -727,14 +777,21 @@ export function JobsPage({
                   />
                 </div>
               </div>
+              {emailSource && <EmailDraftSection email={emailSource} timeZone={pricingCtx.billing.general.timeZone} actions={<>
+                <Button variant="outline" disabled={!!emailAction || handleCreateSubmitAction.pending} loading={emailAction === 'discard'} onClick={() => manageEmailDraft('discard')}>Discard</Button>
+                <Button variant="outline" disabled={!!emailAction || handleCreateSubmitAction.pending} loading={emailAction === 'retry'} onClick={() => manageEmailDraft('retry')}>Read again</Button>
+              </>} />}
+              {emailSource && draftMessage && <p role="status" className="mt-3 text-sm text-slate-600">{draftMessage}</p>}
+              </fieldset>
             </form>
 
-            <DialogFooter note={createMode === 'quote' ? 'Sending a quote does not create an order.' : newOrderSnapshot.status === 'PRICED' ? 'The estimate is frozen on the order as a Pricing Snapshot.' : 'The order can be created, but it will land in Needs Attention until it can be priced.'}>
+            <DialogFooter note={createMode === 'quote' ? 'Sending a quote does not create an order.' : undefined}>
+              {emailSource && <><Button variant="outline" disabled={!!emailAction || handleCreateSubmitAction.pending} loading={emailAction === 'save'} onClick={() => saveEmailDraft()}>Save draft</Button><Button variant="outline" disabled={!!emailAction || handleCreateSubmitAction.pending || !newOrderInput.customerId} loading={emailAction === 'request'} onClick={() => saveEmailDraft(true)}>Request details</Button></>}
               {createMode === 'quote'
                 ? newOrderSnapshot.status === 'PRICED' && !!newOrderInput.rateCardOverrideId
                   ? <QuotationMenu buildQuotation={() => buildQuotation(newOrderInput, newOrderSnapshot, pricingCtx)} sendEmail={slug ? sendLiveQuote : undefined} onNotification={onNotification} triggerLabel="Send Quote" prominent allowRecipientEntry />
                   : <Button type="button" disabled>Send Quote</Button>
-                : <Button loading={handleCreateSubmitAction.pending} type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
+                : <Button disabled={!!emailAction} loading={handleCreateSubmitAction.pending} type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
             </DialogFooter>
         </Dialog>
       )}

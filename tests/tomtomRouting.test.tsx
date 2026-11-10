@@ -47,7 +47,7 @@ test('Vehicle Types roundtrip routing measurements independently from cargo dime
 });
 
 test('vehicle adapter omits routing fields so a form save preserves legacy measurements', () => {
-  const row={id:'v',number:'DV-V1',plate:'ABC',province:'BC',type_id:'t',active:true,data:{name:'V1',unit_number:'V1',payload_kg:'1000',length_cm:'300',width_cm:'180',height_cm:'180',pallet_capacity:2,equipment:[],availability:'AVAILABLE',road_profile:{length_m:'8.2',width_m:'2.5',height_m:'3.8',gross_weight_kg:12000,axle_weight_kg:null}}} as never;
+  const row={id:'v',number:'DV-V1',plate:'ABC',province:'BC',type_id:'t',active:true,data:{name:'V1',unit_number:'V1',parking_address:{text:'123 Main St, Vancouver, BC V5Y 1V4',city:'Vancouver',province:'BC',postal_code:'V5Y 1V4',country:'CA',latitude:49.26,longitude:-123.11},payload_kg:'1000',length_cm:'300',width_cm:'180',height_cm:'180',pallet_capacity:2,equipment:[],availability:'AVAILABLE',road_profile:{length_m:'8.2',width_m:'2.5',height_m:'3.8',gross_weight_kg:12000,axle_weight_kg:null}}} as never;
   const payload=vehicleFromUi(vehicleToUi(row));assert.equal('road_profile' in payload,false);
 });
 

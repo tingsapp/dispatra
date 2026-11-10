@@ -5,7 +5,7 @@ import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {url:'http://localhost/contact',pretendToBeVisual:true});
 for (const name of ['window','document','navigator','HTMLElement','Element','Node','location','history']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
 dom.window.scrollTo = () => {};
-const { render, screen, cleanup } = await import('@testing-library/react');
+const { render, screen, cleanup, fireEvent, waitFor } = await import('@testing-library/react');
 const { default: Contact } = await import('../src/pages/ContactPage');
 afterEach(cleanup);
 test('contact preserves either chosen plan in an email draft to the approved address',()=>{
@@ -26,4 +26,35 @@ test('direct contact and unknown plan identifiers safely use the general enquiry
     assert.equal(new URL(href).searchParams.get('subject'),'Dispatra plan enquiry');
     assert.equal(screen.queryByText('contact@dispatra.com'), null); cleanup();
   }
+});
+
+
+test('connector help prefills an editable chat draft and matching email without sending automatically', async () => {
+ const { api } = await import('../src/portal/api');
+ const original = api.publicAssistant;
+ const messages: string[] = [];
+ api.publicAssistant = async body => { messages.push(body.message); return { message: 'Our team can help with configuration.' }; };
+ try {
+  history.replaceState(null,'','/contact?connector=Rose+Rocket');
+  render(React.createElement(Contact));
+  const input=screen.getByRole('textbox',{name:'Message Dispatra'}) as HTMLTextAreaElement;
+  assert.equal(input.value,'I need help connecting or configuring Rose Rocket in Dispatra.');
+  assert.deepEqual(messages,[]);
+  const url=new URL(screen.getByRole('link',{name:'Email our team'}).getAttribute('href')!);
+  assert.equal(url.pathname,'contact@dispatra.com');
+  assert.equal(url.searchParams.get('subject'),'Dispatra connector help: Rose Rocket');
+  assert.ok(url.searchParams.get('body')!.includes(input.value));
+  fireEvent.change(input,{target:{value:'I have another connector issue.'}});
+  fireEvent.submit(input.closest('form')!);
+  await waitFor(()=>assert.deepEqual(messages,['I have another connector issue.']));
+ } finally { cleanup(); api.publicAssistant=original; }
+});
+
+test('invalid connector context falls back to an empty chat draft', () => {
+ for (const name of ['', 'x'.repeat(101), 'Rose\nRocket']) {
+  history.replaceState(null,'',`/contact?connector=${encodeURIComponent(name)}`);
+  render(React.createElement(Contact));
+  assert.equal((screen.getByRole('textbox',{name:'Message Dispatra'}) as HTMLTextAreaElement).value,'');
+  cleanup();
+ }
 });

@@ -123,7 +123,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     <Notice error={logoutError || dutyError} />
     {page.path === 'orders' && profile.data && <DriverQuestions slug={slug} driverId={profile.data.id} />}
-    {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => void profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} driverId={profile.data?.id} company={company} />) : <DriverOrders timeZone={profile.data?.time_zone} slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
+    {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} driverId={profile.data?.id} company={company} />) : <DriverOrders timeZone={profile.data?.time_zone} slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
     <IncomingChatNotice slug={slug} onOpen={setNotificationChat} />
     {notificationChat && <NotificationChat key={notificationChat} slug={slug} identity={notificationChat} onClose={() => setNotificationChat(null)} />}
   </PortalShell>;
@@ -151,7 +151,6 @@ function DriverProfileForm({ slug, profile }: { slug: string; profile: Profile }
       <Field label="Name" readOnly value={profile.name} />
       <Field label="Email" type="email" readOnly value={profile.email} />
       <Field label="Phone" type="tel" required minLength={3} maxLength={50} value={phone} onChange={event => { setSaved(false); setPhone(event.target.value); }} />
-      <Field label="Service city" readOnly value={profile.service_city} />
       <div className="sm:col-span-2"><Field label="Address" readOnly value={profile.address.text} /></div>
       <Field label="Vehicle" readOnly value={profile.vehicle_name ?? 'No vehicle assigned'} />
       <Field label="Status" readOnly value={profile.duty ? 'On duty' : 'Off duty'} />
@@ -276,15 +275,15 @@ function DriverOrderDialog({ timeZone, slug, order, orders, route, online, onSta
         {!done && !route && <p role="status" className="text-slate-500">Loading route…</p>}
         {!done && route?.status === 'PLANNED' && <div className="space-y-2">
           <p className="text-slate-600">This order is on your next route ({route.stops.length} stops).</p>
-          <Button loading={!!busy} type="button" disabled={busy || !online} onClick={() => call(() => onStartRoute(route))}>Start route</Button>
+          <Button type="button" disabled={busy || !online} onClick={() => call(() => onStartRoute(route))}>Start route</Button>
           {!online && <p className="text-xs text-amber-700">Go On Duty from the sidebar switch to start the route.</p>}
         </div>}
-        {!done && route?.status === 'IN_PROGRESS' && needsReview && <div className="space-y-3"><p>When safely stopped, review the remaining stops to enable compatible assignments during delivery.</p><ol className="list-decimal pl-5">{route.stops.filter(v => v.status !== 'COMPLETED').map(v => <li key={v.id}>{v.stop.address.text}</li>)}</ol><Button loading={!!busy} type="button" disabled={busy} onClick={() => call(() => operations.acknowledgeRoute(slug, route, reviewKey.current))}>Acknowledge updated route</Button></div>}
+        {!done && route?.status === 'IN_PROGRESS' && needsReview && <div className="space-y-3"><p>When safely stopped, review the remaining stops to enable compatible assignments during delivery.</p><ol className="list-decimal pl-5">{route.stops.filter(v => v.status !== 'COMPLETED').map(v => <li key={v.id}>{v.stop.address.text}</li>)}</ol><Button type="button" disabled={busy} onClick={() => call(() => operations.acknowledgeRoute(slug, route, reviewKey.current))}>Acknowledge updated route</Button></div>}
         {!done && route?.status === 'IN_PROGRESS' && !needsReview && <>
           {nextOrder && <p className="text-slate-600">Next stop is on order <button type="button" className="font-medium text-app-accent hover:underline" onClick={() => onOpen(nextOrder.id)}>{nextOrder.number}</button>. Complete stops in the planned order.</p>}
           <ol className="space-y-3">{visits.map(visit => <VisitControls key={visit.id} slug={slug} route={route} visit={visit} current={next?.id === visit.id} onChange={refresh} />)}</ol>
         </>}
-        {route?.status === 'IN_PROGRESS' && !needsReview && route.stops.every(visit => visit.status === 'COMPLETED') && <Button loading={!!busy} type="button" disabled={busy} onClick={() => call(() => onFinishRoute(route))}>Complete job</Button>}
+        {route?.status === 'IN_PROGRESS' && !needsReview && route.stops.every(visit => visit.status === 'COMPLETED') && <Button type="button" disabled={busy} onClick={() => call(() => onFinishRoute(route))}>Complete job</Button>}
       </section>
       <OrderChatSection slug={slug} orderId={order.id} />
     </DialogBody>
@@ -324,8 +323,8 @@ function VisitControls({ slug, route, visit, current, onChange }: { slug: string
   return <li className="rounded-lg border border-slate-200 p-4 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium">{visit.position + 1}. {dropoff ? 'Delivery' : 'Pickup'}</p><p className="text-sm text-slate-600">{visit.stop.address.text}</p></div><span className="text-xs text-slate-500">{visit.status === 'COMPLETED' ? 'Completed' : visit.arrived_at ? 'Arrived' : current ? 'Next stop' : 'Upcoming'}</span></div>
     <Notice error={error || evidenceQuery.error} />
-    {current && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => setIssueOpen(value => !value)}>Report issue</Button>{issueOpen && <div className="flex flex-wrap gap-2"><select aria-label="Issue type" className="app-input" value={issueKind} onChange={event => setIssueKind(event.target.value as typeof issueKind)}><option value="OTHER">Other</option><option value="FAILED_PICKUP">Failed pickup</option><option value="FAILED_DELIVERY">Failed delivery</option><option value="SHORT_LOAD">Short load</option><option value="WRONG_ADDRESS">Wrong address</option><option value="UNSAFE">Unsafe location</option><option value="VEHICLE">Vehicle issue</option></select><input aria-label="Issue details" className="app-input flex-1" minLength={3} value={issueText} onChange={event => setIssueText(event.target.value)} placeholder="Describe the issue" /><Button loading={!!busy} type="button" disabled={busy || issueText.trim().length < 3} onClick={() => call(async () => { await operations.reportStopIssue(slug, visit.stop_id, issueKind, issueText.trim()); setIssueOpen(false); setIssueText(''); })}>Submit issue</Button></div>}</div>}
-    {current && !visit.arrived_at && <Button loading={!!busy} type="button" disabled={busy} onClick={() => call(() => operations.arriveStop(slug, route, visit.id))}>Record arrival</Button>}
+    {current && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => setIssueOpen(value => !value)}>Report issue</Button>{issueOpen && <div className="flex flex-wrap gap-2"><select aria-label="Issue type" className="app-input" value={issueKind} onChange={event => setIssueKind(event.target.value as typeof issueKind)}><option value="OTHER">Other</option><option value="FAILED_PICKUP">Failed pickup</option><option value="FAILED_DELIVERY">Failed delivery</option><option value="SHORT_LOAD">Short load</option><option value="WRONG_ADDRESS">Wrong address</option><option value="UNSAFE">Unsafe location</option><option value="VEHICLE">Vehicle issue</option></select><input aria-label="Issue details" className="app-input flex-1" minLength={3} value={issueText} onChange={event => setIssueText(event.target.value)} placeholder="Describe the issue" /><Button type="button" disabled={busy || issueText.trim().length < 3} onClick={() => call(async () => { await operations.reportStopIssue(slug, visit.stop_id, issueKind, issueText.trim()); setIssueOpen(false); setIssueText(''); })}>Submit issue</Button></div>}</div>}
+    {current && !visit.arrived_at && <Button type="button" disabled={busy} onClick={() => call(() => operations.arriveStop(slug, route, visit.id))}>Record arrival</Button>}
     {current && visit.arrived_at && <div className="space-y-3">
       {dropoff && <>
         {visit.stop.unattended_allowed && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={unattended} onChange={event => setUnattended(event.target.checked)} />Recipient not available – leave unattended</label>}
@@ -336,7 +335,7 @@ function VisitControls({ slug, route, visit, current, onChange }: { slug: string
         {(unattended || visit.stop.photo_required) && <label className="block text-sm">{unattended ? 'Delivery photo' : 'Required delivery photo'}<input className="app-input mt-1 w-full" type="file" accept="image/png,image/jpeg" capture="environment" disabled={busy} onChange={event => void uploadPhoto(event.target.files?.[0])} /></label>}
         {photo && <img src={evidenceUrl(slug, photo.id)} alt="Saved delivery photo" className="h-24 rounded-lg border border-slate-200 bg-white object-contain" />}
       </>}
-      <Button loading={!!busy} type="button" disabled={busy || !proofReady} onClick={() => call(() => operations.completeStop(slug, route, visit.id, { quantities, recipient_name: unattended ? '' : recipient.trim(), unattended, safe_placement: unattended && safePlacement, evidence_ids: unattended ? (photo ? [photo.id] : []) : evidenceIds }))}>Confirm {dropoff ? 'delivery' : 'pickup'}</Button>
+      <Button type="button" disabled={busy || !proofReady} onClick={() => call(() => operations.completeStop(slug, route, visit.id, { quantities, recipient_name: unattended ? '' : recipient.trim(), unattended, safe_placement: unattended && safePlacement, evidence_ids: unattended ? (photo ? [photo.id] : []) : evidenceIds }))}>Confirm {dropoff ? 'delivery' : 'pickup'}</Button>
     </div>}
   </li>;
 }

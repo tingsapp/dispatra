@@ -106,3 +106,108 @@ test('order replies bind the displayed recipient and preserve the draft when rea
  assert.deepEqual(sent[0][5],{expected_conversation_id:'order-chat',expected_driver_id:'d1'});
  assert.equal((composer as HTMLTextAreaElement).value,'Keep this reply');
 });
+
+test('contact actions open one popup on the current page, retain drafts and restore focus', async () => {
+ const { DispatcherChatPopup } = await import('../src/components/chat/DispatcherChatPopup');
+ const { openDispatcherChat } = await import('../src/chat/navigation');
+ const user = userEvent.setup({document});
+ history.replaceState(null, '', '/acme/monitor?view=drivers');
+ chat.companyChannel = async () => row();
+ chat.shipperCompanyChannel = async () => row('shipper', {kind:'DISPATCH_SHIPPER', title:'Fresh Foods', driver_id:null, shipper_id:'s1'});
+ chat.messages = async () => ({messages:[],has_more:false});
+ const sent: unknown[][] = [];
+ chat.sendCompany = async (...args) => {sent.push(args);return msg(1);};
+ mount(<><button onClick={() => openDispatcherChat({driverId:'d1'})}>Message driver</button><button onClick={() => openDispatcherChat({shipperId:'s1'})}>Message shipper</button><DispatcherChatPopup slug="acme" /></>);
+ const trigger = screen.getByRole('button',{name:'Message driver'});
+ await user.click(trigger);
+ const composer = await screen.findByRole('textbox',{name:'Message Dana'});
+ assert.equal(location.pathname+location.search,'/acme/monitor?view=drivers');
+ assert.equal(screen.queryByLabelText('Conversations'),null);
+ await user.type(composer,'Keep my draft');
+ await user.keyboard('{Escape}');
+ assert.equal(screen.queryByRole('dialog'),null);
+ assert.equal(document.activeElement,trigger);
+ assert.equal(document.body.style.overflow,'');
+ await user.click(screen.getByRole('button',{name:'Message shipper'}));
+ assert.equal((await screen.findByRole('textbox',{name:'Message Fresh Foods'}) as HTMLTextAreaElement).value,'');
+ await user.click(screen.getByRole('button',{name:'Close dialog'}));
+ await user.click(trigger);
+ await waitFor(() => assert.equal((screen.getByRole('textbox',{name:'Message Dana'}) as HTMLTextAreaElement).value,'Keep my draft'));
+ await user.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(() => assert.equal(sent.length,1));
+ assert.deepEqual(sent[0].slice(0,3),['acme','d1','Keep my draft']);
+ assert.equal(location.pathname+location.search,'/acme/monitor?view=drivers');
+});
+
+test('popup resolves order and notification targets without falling back to a different recipient', async () => {
+ const { DispatcherChatPopup } = await import('../src/components/chat/DispatcherChatPopup');
+ const { openDispatcherChat } = await import('../src/chat/navigation');
+ const user = userEvent.setup({document});
+ history.replaceState(null, '', '/acme/orders');
+ chat.channels = async () => [row('current',{driver_id:'new-driver'})];
+ chat.detail = async (_slug,id) => {assert.equal(id,'oversight');return row(id,{kind:'DRIVER_SHIPPER',can_send:false,closed_reason:'Read only'});};
+ chat.messages = async () => ({messages:[],has_more:false});
+ mount(<><button onClick={() => openDispatcherChat({orderId:'o1',kind:'DISPATCH_DRIVER',driverId:'old-driver'})}>Old driver</button><button onClick={() => openDispatcherChat({conversationId:'oversight'})}>Notification</button><DispatcherChatPopup slug="acme" /></>);
+ await user.click(screen.getByRole('button',{name:'Old driver'}));
+ await screen.findByRole('alert');
+ assert.equal(screen.queryByRole('textbox'),null);
+ chat.channels = async () => [row('old',{driver_id:'old-driver'})];
+ await user.click(screen.getByRole('button',{name:'Try again'}));
+ await screen.findByRole('textbox',{name:'Message Dana'});
+ await user.keyboard('{Escape}');
+ await user.click(screen.getByRole('button',{name:'Notification'}));
+ await screen.findByText('Read only');
+ assert.equal(screen.queryByRole('textbox'),null);
+ assert.equal(location.pathname,'/acme/orders');
+});
+
+test('chat closes above a details dialog without losing its edits or closing the details', async () => {
+ const { DispatcherChatPopup } = await import('../src/components/chat/DispatcherChatPopup');
+ const { openDispatcherChat } = await import('../src/chat/navigation');
+ const { Dialog, DialogBody, DialogHeader } = await import('../src/components/ui/Dialog');
+ const { useEntityDialog } = await import('../src/components/entities/useEntityDialog');
+ const user = userEvent.setup({document});
+ let detailsClosed = false;
+ function Details() {
+  useEntityDialog(true, () => {detailsClosed = true;}, 'Driver details');
+  return <Dialog onClose={() => {detailsClosed = true;}}><DialogHeader title="Driver details" onClose={() => {detailsClosed = true;}} /><DialogBody><input aria-label="Driver notes" defaultValue="Unsaved detail" /><button onClick={() => openDispatcherChat({driverId:'d1'})}>Chat with driver</button></DialogBody></Dialog>;
+ }
+ chat.companyChannel = async () => row();chat.messages = async () => ({messages:[],has_more:false});
+ mount(<><Details /><DispatcherChatPopup slug="acme" /></>);
+ const trigger = screen.getByRole('button',{name:'Chat with driver'});
+ await user.click(trigger);
+ await screen.findByRole('textbox',{name:'Message Dana'});
+ assert.equal(screen.getAllByRole('dialog').length,2);
+ await user.keyboard('{Escape}');
+ assert.equal(detailsClosed,false);
+ assert.equal(screen.getAllByRole('dialog').length,1);
+ assert.equal((screen.getByRole('textbox',{name:'Driver notes'}) as HTMLInputElement).value,'Unsaved detail');
+ assert.equal(document.activeElement,trigger);
+});
+
+test('dispatcher order details open only the chosen shipper or assigned driver on the same page', async () => {
+ const { OrderDetailsDialog } = await import('../src/components/orders/OrderDetailsDialog');
+ const { DispatcherChatPopup } = await import('../src/components/chat/DispatcherChatPopup');
+ const { INITIAL_JOBS, INITIAL_DRIVERS } = await import('../src/data/mockData');
+ const { loadPricingContext } = await import('../src/lib/orderPricing');
+ const user = userEvent.setup({document});
+ history.replaceState(null, '', '/acme/orders');
+ let closes = 0;
+ const job = {...INITIAL_JOBS[0], id:'o1', customerId:'s1', assignedDriverId:'d1'};
+ chat.shipperCompanyChannel = async (_slug,id) => {assert.equal(id,'s1');return row('shipper',{kind:'DISPATCH_SHIPPER',title:'Fresh Foods',driver_id:null,shipper_id:'s1'});};
+ chat.channels = async (_slug,id) => {assert.equal(id,'o1');return [row(),row('other',{kind:'DRIVER_SHIPPER',title:'Oversight',can_send:false})];};
+ chat.messages = async () => ({messages:[],has_more:false});
+ mount(<><OrderDetailsDialog job={job} ctx={loadPricingContext()} drivers={INITIAL_DRIVERS} onClose={() => closes++} onReassign={() => {}} /><DispatcherChatPopup slug="acme" /></>);
+ await user.click(screen.getByRole('button',{name:'Chat with shipper'}));
+ await screen.findByRole('textbox',{name:'Message Fresh Foods'});
+ assert.equal(screen.queryByRole('textbox',{name:'Message Dana'}),null);
+ await user.keyboard('{Escape}');
+ await user.click(screen.getByRole('button',{name:'Chat with driver'}));
+ await screen.findByRole('textbox',{name:'Message Dana'});
+ assert.equal(screen.queryByRole('tablist'),null);
+ assert.equal(screen.queryByRole('textbox',{name:'Message Fresh Foods'}),null);
+ assert.equal(location.pathname,'/acme/orders');
+ await user.keyboard('{Escape}');
+ assert.equal(closes,0);
+ assert.ok(screen.getByRole('button',{name:'Chat with driver'}));
+});

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { draftToInput, emailDraftRow, inputToBooking } from '../src/operations/orderAdapters';
+import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking } from '../src/operations/orderAdapters';
 import { EMAIL_DRAFT_STATUSES } from '../src/components/orders/EmailIntake';
 import type { CatalogItem, EmailIntake, Shipper } from '../src/operations/api';
 import { syncInvalidations } from '../src/portal/sync';
@@ -17,6 +17,7 @@ test('an incomplete email draft opens as blank form fields instead of failing', 
   assert.equal(input.customerId, 'shipper-1');
   assert.equal(input.serviceId, '');
   assert.equal(input.source, 'EMAIL');
+  assert.deepEqual(input.packages[0].missingFields, ['weightKg']);
   assert.equal(input.requiredDriverId, null);
   assert.equal(input.requiredDriverName, null);
   assert.equal(input.externalReference, 'PO-77');
@@ -50,4 +51,55 @@ test('only order emails become Draft rows, shown like an Order with missing fact
   const unknown = emailDraftRow({ ...intake, shipper_id: null, draft: { ...draft, shipper_id: null } } as unknown as EmailIntake, shippers, []);
   assert.deepEqual([unknown.shipper, unknown.phone, unknown.from], ['', '', 'alice@example.com']);
   assert.equal(emailDraftRow({ ...intake, draft: null } as unknown as EmailIntake, shippers, []).pickup, '');
+});
+
+
+test('saving and reopening a partial draft keeps missing measurements null and supplied values intact', () => {
+  const input = draftToInput({ ...draft, scheduled_at: null, items: [{ ...draft.items[0], quantity: null, width_cm: null }] });
+  const saved = inputToDraftBooking(input);
+  assert.equal(saved.scheduled_at, null);
+  assert.equal(saved.service_id, null);
+  assert.equal(saved.items[0].quantity, null);
+  assert.equal(saved.items[0].weight_kg, null);
+  assert.equal(saved.items[0].width_cm, null);
+  assert.equal(saved.items[0].length_cm, 30.48);
+  const restored = draftToInput(saved as unknown as Record<string, unknown>);
+  assert.deepEqual(restored.packages[0].missingFields, ['quantity', 'weightKg', 'widthCm']);
+  assert.equal(restored.stops[0].label, warehouse.text);
+});
+
+test('empty drafts have editable blank pickup, delivery and package fields', () => {
+  const input = draftToInput({});
+  assert.deepEqual(input.stops.map(stop => [stop.type, stop.label]), [['PICKUP',''],['DROPOFF','']]);
+  assert.equal(input.packages.length, 1);
+  assert.equal(input.packages[0].missingFields?.length, 5);
+  assert.equal(input.customerId, null);
+  assert.equal(input.vehicleId, null);
+});
+
+test('old incomplete-address drafts recover supplied address text from the extraction', () => {
+  const input = draftToInput(draft, { stops: [{}, { address: { street: '456 Lougheed hiway', city: 'Burnaby' } }] });
+  assert.equal(input.stops[1].label, '456 Lougheed hiway, Burnaby');
+  assert.equal(input.stops[1].postalCode, '');
+  assert.equal(input.stops[1].contactName, 'Bob');
+});
+
+
+test('two pallets retain one pallet per item, not quantity squared', () => {
+  const input = draftToInput({ ...draft, items: [{ ...draft.items[0], quantity: 2, pallets: 1 }] });
+  const saved = inputToDraftBooking(input);
+  assert.equal(saved.items[0].quantity, 2);
+  assert.equal(saved.items[0].pallets, 1);
+});
+
+
+test('legacy drafts recover stated measurements using company units without restoring cleared saved fields', () => {
+  const original = { ...draft, items: [{ ...draft.items[0], length_cm: null, weight_kg: null }] };
+  const extraction = { items: [{ length: 48, weight_each: 200, weight_unit: 'lb', dimension_unit: null }] };
+  const units = { weightUnit: 'lb' as const, dimensionUnit: 'in' as const, distanceUnit: 'km' as const };
+  const input = draftToInput(original, extraction, units);
+  assert.equal(input.packages[0].lengthCm, 121.92);
+  assert.equal(input.packages[0].weightKg, 90.72);
+  const cleared = draftToInput({ ...original, internal_notes: '' }, extraction, units);
+  assert.ok(cleared.packages[0].missingFields?.includes('lengthCm'));
 });

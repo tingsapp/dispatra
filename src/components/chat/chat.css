@@ -1,8 +1,19 @@
+.app-dialog-surface.app-chat-popup {
+  height: min(340px, calc(100dvh - 2rem));
+  max-height: calc(100dvh - 2rem);
+  max-width: 480px;
+}
+
 .app-chat-popup .app-chat-body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   overflow: hidden;
+}
+
+.app-chat-popup .chat-message-list {
+  flex: 1 1 0%;
+  height: auto;
 }
 
 .chat-message-list,

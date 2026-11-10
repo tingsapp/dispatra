@@ -4,7 +4,6 @@ import { VehicleAsset } from '../lib/vehicleStorage';
 import type { VehicleType } from '../types/simplePricing';
 import { bodyRequirements, meetsBodyRequirement } from '../lib/vehicleTypes';
 import { validateOrderFacts } from './validation';
-import { cityAreaId, cityFromAddress } from '../lib/driverCity';
 const contains = (have: string[] | undefined, need: string[] | undefined) => (need ?? []).every(n => (have ?? []).some(h => h.toLowerCase() === n.toLowerCase()));
 /** Single-order load progression. Combined route optimization remains API-owned. */
 export function validateLoad(input: PricingOrderInput, vehicle: VehicleAsset): string[] {
@@ -34,9 +33,6 @@ export function validateOperationalAssignment(order: Partial<Order>, driver: Dri
   if (driver.accountStatus === 'INACTIVE' || driver.dutyStatus === 'OFF_DUTY' || driver.workStatus === 'ON_BREAK') errors.push('Driver must be active, on duty and not on break.');
   if (!contains(driver.skills, order.requiredSkills)) errors.push('Driver is missing required skills.');
   const input = order.pricingInput;
-  const pickupCity = cityFromAddress(input?.stops.find(stop => stop.type === 'PICKUP')?.label ?? order.pickupAddress);
-  const area = order.serviceAreaId ?? (pickupCity ? cityAreaId(pickupCity) : undefined);
-  if (area && !contains(driver.serviceAreaIds, [area])) errors.push(order.serviceAreaId ? 'Driver does not cover the service area.' : 'Driver does not cover the pickup city.');
   if (!input) return errors;
   if (input.packages.some(p => p.handlingTags?.includes('DANGEROUS_GOODS')) && !contains(driver.skills, ['DG'])) errors.push('Driver requires a verified DG qualification.');
   if (input.packages.some(p => p.requiresTwoPeople) && !contains(driver.skills, ['Two people'])) errors.push('A two-person crew is required.');

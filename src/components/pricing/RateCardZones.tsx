@@ -78,7 +78,7 @@ export function RateCardZones({ zones, addZone, patchZone, deleteZone }: { zones
           </td>
           <td><ZonePostalCodesField zone={zone} patchZone={patchZone} /></td>
           <td className="text-right"><Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove zone ${zone.name || 'Unnamed zone'}`}
-            title="Delete zone" onClick={() => { void remove(zone.id); }}><Trash2 aria-hidden="true" /></Button></td>
+            title="Delete zone" onClick={() => remove(zone.id)}><Trash2 aria-hidden="true" /></Button></td>
         </tr>)}</tbody>
       </table>
     </div>

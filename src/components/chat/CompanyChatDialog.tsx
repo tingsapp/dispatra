@@ -7,7 +7,7 @@ type Target = { slug: string; driverId?: string; shipperId?: string };
 type Query = ReturnType<typeof useCompanyChannel>;
 function CompanyThread({ slug, driverId, shipperId, query }: Target & { query: Query }) {
   return query.isPending ? <p role="status">Loading company conversation…</p>
-    : query.error ? <div><p role="alert">This company conversation could not be loaded.</p><Button variant="outline" onClick={() => void query.refetch()}>Try again</Button></div>
+    : query.error ? <div><p role="alert">This company conversation could not be loaded.</p><Button variant="outline" onClick={() => query.refetch()}>Try again</Button></div>
     : query.data ? <ChatThread key={shipperId ?? driverId} slug={slug} driverId={driverId} shipperId={shipperId} channel={query.data} /> : null;
 }
 export function CompanyChatDialog({ slug, driverId, shipperId, onClose }: Target & { onClose: () => void }) {

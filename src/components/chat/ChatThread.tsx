@@ -1,7 +1,8 @@
+import { ActionButton } from '../ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import { dateTime } from '../../lib/dateTimeFormat';
 import { useChatComposer } from './useChatComposer';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useMarkRead, useSendMessage, useThread, type ChatChannel, type ChatMessage } from '../../chat/api';
@@ -18,6 +19,7 @@ function Bubble({ message, timeZone }: { message: ChatMessage; timeZone?: string
 
 /** One conversation: its messages (newest at the bottom) and, when the caller may send, a composer. */
 export function ChatThread({ slug, orderId, driverId, shipperId, channel, fullHeight = false, timeZone }: { slug: string; orderId?: string; driverId?: string; shipperId?: string; channel: ChatChannel; fullHeight?: boolean; timeZone?: string }) {
+  const composerId = useId();
   const thread = useThread(slug, channel.conversation_id);
   const messages = thread.data?.messages;
   const [atBottom, setAtBottom] = useState(true);
@@ -42,17 +44,17 @@ export function ChatThread({ slug, orderId, driverId, shipperId, channel, fullHe
   };
   return <div className="flex min-h-0 flex-1 flex-col gap-3">
     <ol ref={list} role="log" tabIndex={0} aria-live="polite" aria-label={`Messages with ${channel.title}`} onScroll={event => { const node = event.currentTarget; setAtBottom(node.scrollHeight - node.scrollTop - node.clientHeight < 40); }} className={`chat-message-list ${fullHeight ? 'flex-1' : 'h-[min(42vh,360px)]'} min-h-0 space-y-4 overflow-y-auto overscroll-contain px-1 py-2`}>
-      {thread.canShowEarlier && <li className="text-center"><button type="button" className="text-xs font-medium text-slate-600 hover:text-slate-900" disabled={thread.loadingEarlier} onClick={() => { const node = list.current; const height = node?.scrollHeight ?? 0; const top = node?.scrollTop ?? 0; void thread.showEarlier().then(() => requestAnimationFrame(() => { if (node) node.scrollTop = top + node.scrollHeight - height; })); }}>Show earlier messages</button></li>}
+      {thread.canShowEarlier && <li className="text-center"><ActionButton type="button" className="text-xs font-medium text-slate-600 hover:text-slate-900" disabled={thread.loadingEarlier} onClick={() => { const node = list.current; const height = node?.scrollHeight ?? 0; const top = node?.scrollTop ?? 0; return thread.showEarlier().then(() => requestAnimationFrame(() => { if (node) node.scrollTop = top + node.scrollHeight - height; })); }}>Show earlier messages</ActionButton></li>}
       {!channel.conversation_id ? <li className="py-10 text-center text-xs text-slate-500">{channel.can_send ? `No messages yet. Write to ${channel.title} below.` : 'No messages.'}</li>
         : thread.isPending ? <li role="status" className="py-10 text-center text-xs text-slate-500">Loading messages…</li>
-        : thread.error && !messages ? <li className="py-10 text-center"><p role="alert" className="text-xs text-red-700">Messages could not be loaded.</p><button type="button" className="mt-2 text-xs underline" onClick={() => void thread.refetch()}>Try again</button></li>
+        : thread.error && !messages ? <li className="py-10 text-center"><p role="alert" className="text-xs text-red-700">Messages could not be loaded.</p><ActionButton type="button" className="mt-2 text-xs underline" onClick={() => thread.refetch()}>Try again</ActionButton></li>
         : messages?.length ? messages.map(message => <Bubble key={message.id} message={message} timeZone={timeZone} />)
         : <li className="py-10 text-center text-xs text-slate-500">No messages.</li>}
     </ol>
-    {thread.error && messages && <p role="alert" className="text-xs text-red-700">Messages could not be refreshed. <button type="button" className="underline" onClick={() => void thread.refetch()}>Try again</button></p>}
+    {thread.error && messages && <p role="alert" className="text-xs text-red-700">Messages could not be refreshed. <ActionButton type="button" className="underline" onClick={() => thread.refetch()}>Try again</ActionButton></p>}
     {channel.can_send ? <form className="public-chat-composer app-message-composer" onSubmit={event => { event.preventDefault(); submit(); }}>
-      <label className="sr-only" htmlFor={`chat-${orderId}-${channel.kind}`}>Message {channel.title}</label>
-      <textarea ref={composer} id={`chat-${orderId}-${channel.kind}`} rows={1} disabled={send.isPending} maxLength={MAX_LENGTH} value={draft} placeholder="Write a message…" className="public-chat-input"
+      <label className="sr-only" htmlFor={composerId}>Message {channel.title}</label>
+      <textarea ref={composer} id={composerId} rows={1} disabled={send.isPending} maxLength={MAX_LENGTH} value={draft} placeholder="Write a message…" className="public-chat-input"
         onChange={event => { setDraft(event.target.value); attempt.current = crypto.randomUUID(); cache.setQueryData([...draftKey, 'attempt'], attempt.current); }}
         onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
       {/* Keep the send action aligned with the shared composer. */}

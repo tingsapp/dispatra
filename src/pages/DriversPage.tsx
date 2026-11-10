@@ -1,3 +1,5 @@
+import { openDispatcherChat } from '../chat/navigation';
+import { ActionButton } from '../components/ui/button';
 import { usePendingAction } from '../components/ui/usePendingAction';
 import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
 import { DriverAvatar } from '../components/DriverAvatar';
@@ -10,6 +12,7 @@ Route,
 CircleCheck,
 Coffee,
 MapPin,
+MessageSquare,
 Plus,
 Users,
 Trash2
@@ -168,7 +171,7 @@ export function DriversPage({
 
   return (
     <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
-      <PageHeader title="Drivers" description="Driver profiles, employment, attached vehicles and service areas." actions={<>
+      <PageHeader title="Drivers" description="Driver profiles, contact details and attached vehicles." actions={<>
         <Button
           type="button"
           onClick={() => { setCreatedVehicle(null); setShowAddModal(true); }}
@@ -327,7 +330,7 @@ export function DriversPage({
                         >
                           <MapPin className="w-4 h-4" />
                         </button>
-                        <button type="button" onClick={() => handleDeleteDriver(driver)} title="Delete driver" aria-label={`Delete ${driver.name}`} className="ml-1 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <ActionButton type="button" onClick={() => handleDeleteDriver(driver)} title="Delete driver" aria-label={`Delete ${driver.name}`} className="ml-1 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"><Trash2 className="w-3.5 h-3.5" /></ActionButton>
                       </td>
                     </tr>
                   ))}
@@ -357,6 +360,7 @@ export function DriversPage({
             ]} />
           </DialogBody>
           <DialogFooter>
+            {slug && <Button type="button" variant="outline" onClick={() => openDispatcherChat({ driverId: activeDriverDrawer.id })}><MessageSquare /> Chat with driver</Button>}
             <Button type="button" variant="outline" onClick={() => { onSelectDriver(activeDriverDrawer.id); setActiveDriverDrawer(null); }}><MapPin /> Locate on Monitor</Button>
             <Button loading={saveDriverAction.pending} type="submit" form="driver-details-form" disabled={driverAddressBlocked}>Save driver</Button>
           </DialogFooter>

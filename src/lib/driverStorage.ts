@@ -1,17 +1,15 @@
-import { cityAreaId, cityFromAddress } from './driverCity';
 import { scopedStorageKey } from './scopedStorage';
 import { INITIAL_BILLING_CONFIG } from './billingStorage';
 import { loadVehicles, saveVehicles } from './vehicleStorage';
 import { Driver } from '../types';
 export const DRIVER_STORAGE_KEY = 'dispatra_drivers_v1';
 export function normalizeDriver(d: Driver): Driver {
-  const city = cityFromAddress(d.address);
   return { currentVehicleId: loadVehicles().find(v => v.currentDriverId === d.id)?.id ?? null, driverNumber: d.id, accountStatus: 'ACTIVE', dutyStatus: d.status === 'offline' ? 'OFF_DUTY' : 'ON_DUTY',
     workStatus: (d.status === 'on_route' || d.status === 'assigned') ? 'BUSY' : d.status === 'idle' ? 'ON_BREAK' : 'AVAILABLE',
     skills: [], vehicleTypeQualifications: [], availabilitySchedule: [], locationPermissionStatus: 'UNKNOWN', ...d,
     // V1 knows two kinds of driver; legacy temporary records count as employees.
     employmentType: d.employmentType === 'CONTRACTOR' ? 'CONTRACTOR' : 'EMPLOYEE',
-    serviceAreaIds: city ? [cityAreaId(city)] : d.serviceAreaIds ?? [] };
+    serviceAreaIds: d.serviceAreaIds ?? [] };
 }
 /** Background driver number (D01, D02, …): one past the highest existing number. The API will own this later. */
 export function nextDriverNumber(drivers: Driver[]): string {
@@ -20,8 +18,7 @@ export function nextDriverNumber(drivers: Driver[]): string {
 }
 export function syncDriver(d: Driver): Driver {
   const status = d.accountStatus === 'INACTIVE' || d.dutyStatus === 'OFF_DUTY' ? 'offline' : d.workStatus === 'BUSY' ? 'on_route' : d.workStatus === 'ON_BREAK' ? 'idle' : 'available';
-  const city = cityFromAddress(d.address);
-  return { ...d, serviceAreaIds: city ? [cityAreaId(city)] : [], status, statusLabel: d.accountStatus === 'INACTIVE' ? 'Inactive' : d.dutyStatus === 'OFF_DUTY' ? 'Off duty' : d.workStatus === 'ON_BREAK' ? 'On break' : d.workStatus === 'BUSY' ? 'Busy' : 'Available', updatedAt: new Date().toISOString() };
+  return { ...d, status, statusLabel: d.accountStatus === 'INACTIVE' ? 'Inactive' : d.dutyStatus === 'OFF_DUTY' ? 'Off duty' : d.workStatus === 'ON_BREAK' ? 'On break' : d.workStatus === 'BUSY' ? 'Busy' : 'Available', updatedAt: new Date().toISOString() };
 }
 export function connectivity(timestamp?: string | null, now = Date.now()): 'Online' | 'Stale' | 'Offline' | 'Unknown' {
   if (!timestamp || !Number.isFinite(Date.parse(timestamp))) return 'Unknown';

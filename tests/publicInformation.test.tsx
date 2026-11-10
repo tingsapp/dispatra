@@ -19,11 +19,15 @@ test('public chat sends the question and context, shows the real reply, and clea
  fireEvent.change(screen.getByRole('textbox'),{target:{value:'How does the free trial work?'}});
  fireEvent.click(screen.getByRole('button',{name:'Send question'}));
  await screen.findByText('The trial lasts 30 days after email verification.');
- assert.deepEqual(requests[0],{message:'How does the free trial work?',history:[]});
+ const first=requests[0] as {message:string;history:unknown[];conversation_id:string;request_id:string};
+ assert.equal(first.message,'How does the free trial work?');assert.deepEqual(first.history,[]);
+ assert.match(first.conversation_id,/^[0-9a-f-]{36}$/);assert.match(first.request_id,/^[0-9a-f-]{36}$/);
  fireEvent.change(screen.getByRole('textbox'),{target:{value:'Do I need a card?'}});
  fireEvent.click(screen.getByRole('button',{name:'Send question'}));
  await waitFor(()=>assert.equal(requests.length,2));
  assert.equal((requests[1] as {history:unknown[]}).history.length,2);
+ assert.equal((requests[1] as typeof first).conversation_id,first.conversation_id);
+ assert.notEqual((requests[1] as typeof first).request_id,first.request_id);
  await waitFor(()=>assert.equal(screen.getByRole('button',{name:'New chat'}).hasAttribute('disabled'),false));
  fireEvent.click(screen.getByRole('button',{name:'New chat'}));
  assert.ok(screen.queryByText('Do I need a card?') === null, 'expected element to be absent');
@@ -31,8 +35,8 @@ test('public chat sends the question and context, shows the real reply, and clea
  assert.ok(screen.queryByRole('log') === null, 'expected element to be absent');
 });
 test('failed chat offers retry of the same request without duplicating the visitor question',async()=>{
- let count=0;
- api.publicAssistant=async()=>{if(++count===1)throw new ApiError(503,'Chat is unavailable.');return {message:'Hello from Dispatra.'};};
+ let count=0;const requests:unknown[]=[];
+ api.publicAssistant=async body=>{requests.push(body);if(++count===1)throw new ApiError(503,'Chat is unavailable.');return {message:'Hello from Dispatra.'};};
  render(<PublicChatAssistant />);
  fireEvent.change(screen.getByRole('textbox'),{target:{value:'Hello'}});
  fireEvent.click(screen.getByRole('button',{name:'Send question'}));
@@ -41,6 +45,7 @@ test('failed chat offers retry of the same request without duplicating the visit
  fireEvent.click(screen.getByRole('button',{name:'Try again'}));
  await screen.findByText('Hello from Dispatra.');
  assert.equal(screen.getAllByText('Hello',{exact:true}).length,1);
+ assert.deepEqual(requests[0],requests[1]);
 });
 test('information pages and clean footer expose reachable pages and general app stores',()=>{
  for(const page of ['/about','/help'] as const){
@@ -175,4 +180,21 @@ test('reduced motion displays the complete reply immediately',async()=>{
   assert.equal(screen.getByRole('log').getAttribute('aria-busy'),'false');
   assert.equal(document.querySelector('.public-chat-typing-cursor'),null);
  } finally {cleanup();window.matchMedia=originalMatch;}
+});
+
+
+test('support receipt displays the saved number and New chat uses a fresh conversation',async()=>{
+ const requests: Parameters<typeof api.publicAssistant>[0][]=[];
+ api.publicAssistant=async body=>{requests.push(body);return {message:'Ticket DSP-1234567890ABCDEF has been created. Our team will contact you by email.',ticket_number:'DSP-1234567890ABCDEF'};};
+ render(<PublicChatAssistant />);
+ fireEvent.change(screen.getByRole('textbox'),{target:{value:'Please configure my connector. visitor@example.com'}});
+ fireEvent.click(screen.getByRole('button',{name:'Send question'}));
+ await screen.findByText(/Ticket DSP-1234567890ABCDEF has been created/);
+ fireEvent.click(screen.getByRole('button',{name:'New chat'}));
+ fireEvent.change(screen.getByRole('textbox'),{target:{value:'Another issue'}});
+ fireEvent.click(screen.getByRole('button',{name:'Send question'}));
+ await waitFor(()=>assert.equal(requests.length,2));
+ assert.notEqual(requests[0].conversation_id,requests[1].conversation_id);
+ assert.notEqual(requests[0].request_id,requests[1].request_id);
+ assert.deepEqual(requests[1].history,[]);
 });

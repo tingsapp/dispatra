@@ -64,6 +64,8 @@ export function validateVehicle(v: VehicleAsset, all: VehicleAsset[]): string[] 
   if (![v.payloadCapacityKg,v.palletCapacity,v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm,v.cargoVolumeM3].every(nonnegative) || !Number.isInteger(v.palletCapacity)) return ['Enter nonnegative capacities and whole pallet counts.'];
   if ([v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm].some(value => value == null || !Number.isFinite(value) || value <= 0)) return ['Box length, width and height must be greater than zero.'];
   if (v.maxStops != null && (!Number.isSafeInteger(v.maxStops) || v.maxStops < 1)) return ['Maximum stops must be a positive whole number.'];
+  if (!v.parkingAddress?.trim()) return ['Vehicle parking address is required.'];
+  if (!cityFromAddress(v.parkingAddress) && !v.parkingAddressCoordinates?.city) return ['Parking address must include a Canadian city and province.'];
   if (v.availability === 'UNAVAILABLE' && !v.unavailableReason?.trim()) return ['Enter the reason this vehicle is unavailable.'];
   return windowErrors(v.unavailableFrom, v.unavailableUntil, 'Unavailability');
 }

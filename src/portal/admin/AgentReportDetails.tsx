@@ -18,8 +18,8 @@ export function AgentReportDetails({ entry, actions }: { entry: AgentFeedEntry; 
       {row.diagnosis && <div className="space-y-1 text-xs leading-5"><p className="font-medium">{row.diagnosis_source === 'AI' ? 'AI assessment · needs verification' : 'Recovery assessment'}</p><p className="break-words text-app-muted">{row.diagnosis}</p></div>}
       <p className="break-words text-[11px] text-app-muted">{row.company_name ?? 'Platform'} · {formatWhen(row.created_at)}</p>
       {['NEEDS_ADMIN', 'AWAITING_APPROVAL', 'FAILED'].includes(row.status) && <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" disabled={actions.pending} onClick={() => actions.decide(row, false)}>Dismiss</Button>
-        {row.status === 'AWAITING_APPROVAL' && row.action && <Button type="button" size="sm" disabled={actions.pending} onClick={() => actions.decide(row, true)}>Review repair</Button>}
+        <Button loading={actions.repairPending?.row.id === row.id && !actions.repairPending.approve} type="button" variant="ghost" size="sm" disabled={actions.pending} onClick={() => actions.decide(row, false)}>Dismiss</Button>
+        {row.status === 'AWAITING_APPROVAL' && row.action && <Button loading={actions.repairPending?.row.id === row.id && actions.repairPending.approve} type="button" size="sm" disabled={actions.pending} onClick={() => actions.decide(row, true)}>Review repair</Button>}
       </div>}
     </div>;
   }
@@ -32,6 +32,6 @@ export function AgentReportDetails({ entry, actions }: { entry: AgentFeedEntry; 
     {row.response_due_at && <p className="text-app-muted">Relevant commitment: {formatWhen(row.response_due_at)}</p>}
     {row.resolution && <p>{row.resolution}</p>}
     <p className="text-[11px] text-app-muted">Detected {formatWhen(row.created_at)} · Updated {formatWhen(row.updated_at)}</p>
-    {row.status === 'OPEN' && <Button type="button" size="sm" disabled={actions.pending} onClick={() => actions.acknowledge(row)}>Acknowledge issue</Button>}
+    {row.status === 'OPEN' && <Button loading={actions.acknowledgePendingId === row.id} type="button" size="sm" disabled={actions.pending} onClick={() => actions.acknowledge(row)}>Acknowledge issue</Button>}
   </div>;
 }

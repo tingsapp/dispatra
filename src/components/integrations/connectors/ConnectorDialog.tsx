@@ -14,6 +14,10 @@ export function ConnectorDialog({ slug, connector, onClose, onSaved, navigate = 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const operation = useRef<{ payload: string; key: string } | null>(null);
+  const submitting = useRef(false);
+  const oauth = connector.auth === 'oauth' && connector.ready;
+  const canSubmit = !pending && !connector.paused && !(connector.id === 'samsara' && connector.ready && !testedAccount)
+    && (oauth || !connector.credential_fields.some(field => !values[field.key]?.trim()));
   const close = () => { if (!pending) { setValues({}); onClose(); } };
   useEntityDialog(true, close, `Connect ${connector.name}`);
   const test = async () => {
@@ -25,20 +29,23 @@ export function ConnectorDialog({ slug, connector, onClose, onSaved, navigate = 
     finally { setPending(false); }
   };
   const connect = async () => {
-    const body = { version: connector.version, credentials: connector.auth === 'oauth' ? {} : values };
+    if (!canSubmit || submitting.current) return;
+    submitting.current = true;
+    const body = { version: connector.version, credentials: oauth ? {} : values };
     const payload = JSON.stringify(body);
     if (operation.current?.payload !== payload) operation.current = { payload, key: crypto.randomUUID() };
     setPending(true); setError('');
     try {
       const result = await connectors.connect(slug, connector.id, body, operation.current.key);
-      setValues({}); operation.current = null;
-      if (result.authorization_url) { navigate(result.authorization_url); return; }
+      if (result.authorization_url) { setValues({}); operation.current = null; navigate(result.authorization_url); return; }
       if (result.connector.status !== 'CONNECTED') throw new Error('Connection verification has not succeeded. Please try again.');
+      setValues({}); operation.current = null;
       onSaved(); onClose();
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not connect. Try again.'); }
-    finally { setPending(false); }
+    finally { submitting.current = false; setPending(false); }
   };
   return <Dialog size="form" onClose={close}>
+    <form className="flex min-h-0 flex-col" onSubmit={event => { event.preventDefault(); void connect(); }}>
     <DialogHeader title={`Connect ${connector.name}`} onClose={close} closeDisabled={pending} />
     <DialogBody>
       {connector.auth === 'oauth' && connector.ready ? <p className="text-sm text-app-muted">Continue to {connector.name} to sign in and approve access. Dispatra verifies the account before showing Connected.</p>
@@ -54,16 +61,20 @@ export function ConnectorDialog({ slug, connector, onClose, onSaved, navigate = 
           </div>}
       {connector.id === 'samsara' && <p className="mt-4 text-sm text-app-muted">Create a Samsara API token with Read Org Information under Setup &amp; Administration. Account verification does not enable fleet imports.</p>}
       {testedAccount && <p role="status" className="mt-4 text-sm text-emerald-700">Token verified for {testedAccount}. Select Connect to save the connection.</p>}
-      {!connector.ready && <p role="status" className="mt-4 text-sm text-app-muted">Connection testing is unavailable until Dispatra has a configured provider adapter. Entering credentials alone will not connect the account.</p>}
       {error && <p role="alert" className="mt-4 text-sm text-rose-700">{error}</p>}
     </DialogBody>
     <DialogFooter>
-      {connector.id === 'samsara' && connector.ready && <Button loading={pending} type="button" variant="outline" onClick={test} disabled={pending || !values.api_key}>
+      {!connector.ready && <Button type="button" variant="outline" disabled={pending} onClick={() => {
+        close();
+        navigate(`/contact?${new URLSearchParams({ connector: connector.name })}`);
+      }}>Contact for help</Button>}
+      {connector.id === 'samsara' && connector.ready && <Button type="button" variant="outline" onClick={test} disabled={pending || !values.api_key}>
         {pending ? 'Checking…' : 'Test connection'}
       </Button>}
-      <Button loading={pending} type="button" onClick={connect} disabled={!connector.ready || pending || (connector.id === 'samsara' && !testedAccount) || (connector.auth !== 'oauth' && connector.credential_fields.some(field => !values[field.key]))}>
-        {pending ? (connector.auth === 'oauth' ? 'Connecting…' : 'Testing connection…') : !connector.ready ? 'Test connection' : connector.id === 'samsara' ? 'Connect' : connector.auth === 'oauth' ? `Continue to ${connector.name}` : 'Test connection & connect'}
+      <Button type="submit" loading={pending && submitting.current} disabled={!canSubmit}>
+        {!connector.ready ? 'Submit' : pending ? (connector.auth === 'oauth' ? 'Connecting…' : 'Testing connection…') : connector.id === 'samsara' ? 'Connect' : connector.auth === 'oauth' ? `Continue to ${connector.name}` : 'Test connection & connect'}
       </Button>
     </DialogFooter>
+    </form>
   </Dialog>;
 }

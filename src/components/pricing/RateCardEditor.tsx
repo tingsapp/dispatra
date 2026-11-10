@@ -1,4 +1,5 @@
 import { hasDimensionalWeightSetting } from '../../lib/dimensionalWeight';
+import { SETTINGS_PRICING_METHODS } from '../../lib/rateCardSettings';
 import { ContractRulesEditor } from '../../components/pricing/ContractRulesEditor';
 import { Select } from '../../components/ui/Select';
 import { fromDisplayDistance, fromDisplayDistanceRate, toDisplayDistance, toDisplayDistanceRate } from '../../lib/units';
@@ -24,7 +25,7 @@ export function RateCardEditor({ draft, isNew, config, catalogue, billing, patch
           <input aria-label="Rate card name" type="text" value={draft.name} onChange={(e) => patchDraft({ name: e.target.value })} className={fieldClass} />
         </div>
         {hasMinimum && <NumberField label="Minimum Charge" value={draft.applyOrderMinimum === false ? 0 : draft.minimumOrderSubtotal ?? 0} onChange={value => patchDraft({ minimumOrderSubtotal: value, applyOrderMinimum: true })} prefix="$" hint="Before tax, after discounts and adjustments. 0 = no minimum." />}
-        {isNew && <div className="sm:col-span-2"><label className={labelClass}>Pricing method</label><Select aria-label="Pricing method" className="w-full" value={draft.pricingMethod} onValueChange={value => patchDraft({ pricingMethod: value as PricingMethod, applyVehicleSurcharge: defaultVehicleSurcharge(value as PricingMethod), applyFuelSurcharge: true, ...(value === 'HOURLY' ? { minimumOrderSubtotal: 0 } : {}), ...(value === 'IMPORTED' ? { importedPriceMode: 'FINAL_TOTAL' as const, minimumOrderSubtotal: 0 } : {}), ...(value === 'ZONE' && !draft.zoneRates?.length ? { zoneRates: initialZoneOneRates(draft.id, config.zones, billing.general) } : {}) })} options={(Object.keys(METHOD_LABELS) as PricingMethod[]).map(method => ({ value: method, label: METHOD_LABELS[method] }))} /></div>}
+        {isNew && <div className="sm:col-span-2"><label className={labelClass}>Pricing method</label><Select aria-label="Pricing method" className="w-full" value={draft.pricingMethod} onValueChange={value => patchDraft({ pricingMethod: value as PricingMethod, applyVehicleSurcharge: defaultVehicleSurcharge(value as PricingMethod), applyFuelSurcharge: true, ...(value === 'HOURLY' ? { minimumOrderSubtotal: 0 } : {}), ...(value === 'IMPORTED' ? { importedPriceMode: 'FINAL_TOTAL' as const, minimumOrderSubtotal: 0 } : {}), ...(value === 'ZONE' && !draft.zoneRates?.length ? { zoneRates: initialZoneOneRates(draft.id, config.zones, billing.general) } : {}) })} options={SETTINGS_PRICING_METHODS.map(method => ({ value: method, label: METHOD_LABELS[method] }))} /></div>}
       </div>
       {draft.pricingMethod !== 'IMPORTED' && <fieldset className="mt-5 space-y-2">
         <legend className="app-label">Surcharges</legend>

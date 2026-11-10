@@ -132,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }`}
       >
         {/* Top brand */}
-        <div>
+        <div className="dispatcher-nav-content">
           <SidebarHeader collapsed={collapsed} mobile={mobile} label="Dispatra, Monitor" current={activeTab === 'monitor'} onToggle={onToggle} onHome={() => {
               setShowAccountPopover(false);
               setActiveTab('monitor');
@@ -169,8 +169,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bottom Dispatcher Profile & Anchored Account Popover */}
-        <div className="p-2">
-          <AccountMenu open={showAccountPopover} onOpenChange={setShowAccountPopover}
+        <div className="dispatcher-nav-footer p-2">
+          <AccountMenu loggingOut={loggingOut} open={showAccountPopover} onOpenChange={setShowAccountPopover}
             modal={mobile}
             collapsed={collapsed}
             activeTab={activeTab}

@@ -15,7 +15,8 @@ export const TMS_FIELDS: Record<TmsRecord, TmsField[]> = {
     ...address(true), ['vehicle_unit', 'Truck unit'], ['active', 'Active']]),
   vehicle: fields(undefined, '', [['id', 'TMS vehicle ID', true], ['unit_number', 'Unit number', true], ['name', 'Name'], ['vehicle_type', 'Vehicle type', true],
     ['plate', 'Plate', true], ['province', 'Plate province', true], ['payload', 'Payload'], ['length', 'Length'], ['width', 'Width'], ['height', 'Height'],
-    ['pallet_capacity', 'Pallet capacity'], ['make_model', 'Make and model'], ['year', 'Year'], ['vin', 'VIN'], ['active', 'Active']]),
+    ['pallet_capacity', 'Pallet capacity'], ['make_model', 'Make and model'], ['year', 'Year'], ['vin', 'VIN'], ['active', 'Active'],
+    ['parking.address', 'Parking address'], ['parking.city', 'Parking city'], ['parking.province', 'Parking province'], ['parking.postal_code', 'Parking postal code']]),
   order: [
     ...fields('order', '', [['id', 'TMS order ID', true], ['scheduled_at', 'Scheduled time', true], ['service', 'Service level', true],
       ['vehicle_type', 'Vehicle type'], ['total', 'Total price', true], ['tax', 'Tax', true], ['notes', 'Notes'], ['status', 'Order status']]),
@@ -42,7 +43,7 @@ export const TMS_FIELD_GROUPS: Record<TmsFieldGroup, { title: string; hint: stri
 };
 export const TMS_MAP_HINTS: Record<TmsRecord, string> = {
   driver: 'Enter the TMS field for each Dispatra field.',
-  vehicle: 'Enter the TMS field for each Dispatra field. Empty name, payload, size and pallet fields use the unit number and vehicle type.',
+  vehicle: 'Map parking address fields for new vehicles. Unmapped parking addresses stay as saved in Dispatra. Empty name and capacity fields use the unit number and vehicle type.',
   order: 'Enter the TMS field for each Dispatra field.',
 };
 /** Connected TMS form state. Saved values come from the API; credentials and secrets stay outside it. */

@@ -1,3 +1,4 @@
+import { usePendingAction } from '../ui/usePendingAction';
 import React, { useEffect, useState } from 'react';
 import { Driver } from '../../types';
 import { loadVehicles, type VehicleAsset } from '../../lib/vehicleStorage';
@@ -8,7 +9,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, Plus } from 'lucide-react';
 import { Choice, TextField, FormSection } from './Fields';
 import { AddressAutocomplete } from '../ui/AddressAutocomplete';
-export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehicle, createdVehicle, formId, hideActions = false, vehicleOptions, onAddressBlockedChange }: { driver?: Driver; drivers: Driver[]; onSave: (d: Driver) => void; onCancel: () => void; onRegisterVehicle?: () => void; createdVehicle?: VehicleAsset | null; formId?: string; hideActions?: boolean; vehicleOptions?: VehicleAsset[]; onAddressBlockedChange?: (blocked: boolean) => void }) {
+export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehicle, createdVehicle, formId, hideActions = false, vehicleOptions, onAddressBlockedChange }: { driver?: Driver; drivers: Driver[]; onSave: (d: Driver) => unknown; onCancel: () => void; onRegisterVehicle?: () => void; createdVehicle?: VehicleAsset | null; formId?: string; hideActions?: boolean; vehicleOptions?: VehicleAsset[]; onAddressBlockedChange?: (blocked: boolean) => void }) {
+  const action = usePendingAction();
   const isEditing = !!driver;
   const [draft, setDraft] = useState<Driver>(() => normalizeDriver(driver ?? { id: crypto.randomUUID(), name: '', avatar: '', status: 'offline', statusLabel: 'Off duty', vehicle: 'Unassigned', nextStop: '', eta: '', distance: '', lastUpdate: 'No GPS sample', lat: 49.2827, lng: -123.1207, driverNumber: '', phone: '', maximumWorkMinutes: 480, accountStatus: 'ACTIVE', dutyStatus: 'OFF_DUTY', createdAt: new Date().toISOString() }));
   const [addressState, setAddressState] = useState<'idle' | 'resolving' | 'failed'>('idle');
@@ -28,7 +30,7 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
   const patch = (p: Partial<Driver>) => setDraft(current => ({ ...current, ...p }));
   const selectedVehicle = vehicles.find(vehicle => vehicle.id === draft.currentVehicleId);
   const dgQualified = draft.skills?.includes('DG') ?? false;
-  return <form id={formId} className="space-y-6" onSubmit={async e => { e.preventDefault(); if (addressState !== 'idle') { setErrors([addressState === 'resolving' ? 'Wait for the selected address details to load.' : 'Edit the address and select a suggestion again.']); return; } if (isEditing && (!draft.accountStatus || !draft.dutyStatus)) { setErrors(['Account and duty are required when editing a driver.']); return; } const number = isEditing ? draft.driverNumber : nextDriverNumber(drivers); const next = syncDriver({ ...draft, id: isEditing ? draft.id : number!, driverNumber: number }); const problems = validateDriver(next, drivers); setErrors(problems); if (!problems.length) { try { await onSave(next); } catch (error) { setErrors([error instanceof Error ? error.message : 'Driver could not be saved.']); } } }}>
+  return <form id={formId} className="space-y-6" onSubmit={async e => { e.preventDefault(); if (addressState !== 'idle') { setErrors([addressState === 'resolving' ? 'Wait for the selected address details to load.' : 'Edit the address and select a suggestion again.']); return; } if (isEditing && (!draft.accountStatus || !draft.dutyStatus)) { setErrors(['Account and duty are required when editing a driver.']); return; } const number = isEditing ? draft.driverNumber : nextDriverNumber(drivers); const next = syncDriver({ ...draft, id: isEditing ? draft.id : number!, driverNumber: number }); const problems = validateDriver(next, drivers); setErrors(problems); if (!problems.length) { try { await action.run(() => onSave(next)); } catch (error) { setErrors([error instanceof Error ? error.message : 'Driver could not be saved.']); } } }}>
     <FormSection title="Contact">
       <TextField className="sm:col-span-2" label="Driver name" value={draft.name} onChange={name => patch({ name })} required placeholder="Full name" />
       <TextField label="Phone" type="tel" value={draft.phone} onChange={phone => patch({ phone })} required placeholder="(604) 555-0100" />
@@ -36,7 +38,6 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
       <div className="sm:col-span-2">
         <label htmlFor="driver-address" className="app-label">Address <span aria-hidden="true">*</span></label>
         <AddressAutocomplete id="driver-address" aria-label="Address" value={draft.address ?? ''} includeCoordinates onSelectionStateChange={state => { setAddressState(state); onAddressBlockedChange?.(state !== 'idle'); }} onChange={(address, selected) => patch({ address, addressCoordinates: selected })} required placeholder="Street, city, province, postal code" className="app-input w-full" />
-        <span className="mt-1 block text-xs text-slate-500">The city in this address defines the driver’s service area.</span>
       </div>
     </FormSection>
     {isEditing && <FormSection title="Status">
@@ -68,6 +69,6 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
       </label>
     </FormSection>
     {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
-    {!hideActions && <div className="flex justify-end gap-2"><Button type="submit" disabled={addressState !== 'idle'}>Save driver</Button></div>}
+    {!hideActions && <div className="flex justify-end gap-2"><Button loading={action.pending} type="submit" disabled={addressState !== 'idle'}>Save driver</Button></div>}
   </form>;
 }

@@ -1,3 +1,4 @@
+import { ActionButton } from '../ui/button';
 import { ArrowUpRight, CircleCheck, CircleAlert, Package } from 'lucide-react';
 import type { AssistantReply } from '../../operations/api';
 
@@ -27,6 +28,6 @@ export function BriefingCard({ reply, pending, onFollowUp }: { reply: AssistantR
       <p className={`briefing-issues ${attention ? 'text-amber-700' : 'text-slate-600'}`}><Icon size={15} className="shrink-0" aria-hidden="true" />{attention ? `${data.open_incidents} open ${data.open_incidents === 1 ? 'issue' : 'issues'} to review` : 'No open issues recorded'}<span className="sr-only"> across your workspace</span></p>
       <p className="briefing-recommendation">{reply.message}</p>
     </div>
-    <div className="briefing-actions" aria-label="Briefing follow-ups">{[['Unassigned', 'Show unassigned', 'Show my unassigned orders.'], ['Review issues', 'Review issues', 'Which orders need attention and why?']].map(([label, accessibleLabel, prompt]) => <button key={label} type="button" aria-label={accessibleLabel} disabled={pending || !onFollowUp} onClick={() => onFollowUp?.(prompt)}>{label}<ArrowUpRight size={14} aria-hidden="true" /></button>)}</div>
+    <div className="briefing-actions" aria-label="Briefing follow-ups">{[['Unassigned', 'Show unassigned', 'Show my unassigned orders.'], ['Review issues', 'Review issues', 'Which orders need attention and why?']].map(([label, accessibleLabel, prompt]) => <ActionButton key={label} type="button" aria-label={accessibleLabel} disabled={pending || !onFollowUp} onClick={() => onFollowUp?.(prompt)}>{label}<ArrowUpRight size={14} aria-hidden="true" /></ActionButton>)}</div>
   </div>;
 }

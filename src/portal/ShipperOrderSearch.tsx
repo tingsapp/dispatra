@@ -1,3 +1,4 @@
+import { ActionButton } from '../components/ui/button';
 import { useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { allOperations } from '../operations/api';
@@ -36,7 +37,7 @@ export function ShipperOrderSearch({ slug, onSelect }: { slug: string; onSelect:
       onCloseAutoFocus={event => { event.preventDefault(); if (!outside.current) anchor.current?.querySelector('input')?.focus(); }}
       onInteractOutside={event => { if (anchor.current?.contains(event.target as Node)) event.preventDefault(); else outside.current = true; }}>
       {orders.isPending ? <p role="status" className="p-3 text-sm text-app-muted">Loading orders…</p>
-        : orders.error ? <div className="p-3 text-sm"><p role="alert">Unable to search your orders.</p><button className="app-action app-secondary mt-2" onClick={() => void orders.refetch()}>Try again</button></div>
+        : orders.error ? <div className="p-3 text-sm"><p role="alert">Unable to search your orders.</p><ActionButton className="app-action app-secondary mt-2" onClick={() => orders.refetch()}>Try again</ActionButton></div>
         : !matches.length ? <p role="status" className="p-3 text-sm text-app-muted">No matching orders.</p>
         : <div className="max-h-80 overflow-y-auto" onKeyDown={event => {
           if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;

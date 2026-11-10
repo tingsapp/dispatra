@@ -1,4 +1,7 @@
+import { Button } from '../components/ui/button';
+import { usePendingAction } from '../components/ui/usePendingAction';
 import { hasDimensionalWeightSetting } from '../lib/dimensionalWeight';
+import { isSettingsRateCard, SETTINGS_PRICING_METHODS } from '../lib/rateCardSettings';
 import { zoneRateIssue } from '../lib/zoneWeightBands';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,7 +29,7 @@ import {
 import { RateCardList } from '../components/pricing/RateCardList';
 import { RateCardEditor } from '../components/pricing/RateCardEditor';
 import { Select } from '../components/ui/Select';
-import { METHOD_LABELS, primaryBtn, secondaryBtn } from '../components/pricing/RateCardFields';
+import { METHOD_LABELS } from '../components/pricing/RateCardFields';
 import { BillingSettingsForm } from '../components/settings/BillingSettingsForm';
 import { CatalogueSection } from '../components/settings/CatalogueSection';
 import { PricingTabs } from '../components/pricing/PricingTabs';
@@ -38,6 +41,7 @@ import { DISCARD_CHANGES, useSettingsGuard } from '../components/settings/useSet
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 export function RateCardsPage({ onNotification }: SettingsPageProps) {
   const slug = companySlugForCurrentPath();
+  const action = usePendingAction();
   const workspace = useWorkspaceAccount();
   const queryClient = useQueryClient();
   const rateQuery = useQuery({ queryKey: ['operations', slug, 'rates'], queryFn: () => allOperations.rates(slug!), enabled: !!slug });
@@ -49,12 +53,17 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     [settingsQuery.data, catalogQuery.data, rateQuery.data, shipperQuery.data]);
 
   const [config, setConfig] = useState<PricingConfig>(() => slug ? { ...loadPricingConfig(), rateCards: [], zones: [], zoneRates: [] } : loadPricingConfig());
-  useEffect(() => { if (liveCtx) { setConfig(liveCtx.pricing); setDraft(current => current && liveCtx.pricing.rateCards.find(card => card.id === current.id) || liveCtx.pricing.rateCards.find(card => card.status === 'ACTIVE') || null); } }, [liveCtx]);
+  useEffect(() => {
+    if (!liveCtx) return;
+    const cards = liveCtx.pricing.rateCards.filter(isSettingsRateCard);
+    setConfig(liveCtx.pricing);
+    setDraft(current => cards.find(card => card.id === current?.id) ?? cards[0] ?? null);
+  }, [liveCtx]);
   const [revision, setRevision] = useState(0);
   const [isNew, setIsNew] = useState(false);
   const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState('');
-  const [draft, setDraft] = useState<RateCard | null>(() => config.rateCards.find(card => card.status === 'ACTIVE') ?? null);
+  const [draft, setDraft] = useState<RateCard | null>(() => config.rateCards.find(isSettingsRateCard) ?? null);
   const [isSaved, setIsSaved] = useState(false);
   const editorRef = useRef<HTMLElement>(null);
   const focusedCardId = useRef(draft?.id);
@@ -183,14 +192,12 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     }
     const rateCards = config.rateCards.map(c => c.id === card.id ? stamp(c, { status: 'ARCHIVED' }) : c);
     persist({ ...config, rateCards });
-    if (draft?.id === card.id) { setIsNew(false); setDraft(rateCards.find(c => c.status === 'ACTIVE') ?? null); }
+    if (draft?.id === card.id) { setIsNew(false); setDraft(rateCards.find(isSettingsRateCard) ?? null); }
     onNotification?.(`Archived "${card.name}". ${impact}`);
   };
 
   const visibleCards = useMemo(
-    // Imported cards (external price only) always sit at the end of the list; the others keep their order.
-    () => config.rateCards.filter(c => c.status === 'ACTIVE' && (!methodFilter || c.pricingMethod === methodFilter) && c.name.toLowerCase().includes(search.toLowerCase()))
-      .sort((a, b) => Number(a.pricingMethod === 'IMPORTED') - Number(b.pricingMethod === 'IMPORTED')),
+    () => config.rateCards.filter(c => isSettingsRateCard(c) && (!methodFilter || c.pricingMethod === methodFilter) && c.name.toLowerCase().includes(search.toLowerCase())),
     [config.rateCards, search, methodFilter]
   );
 
@@ -221,30 +228,30 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
   useSettingsGuard(dirty);
   const closeEditor = async () => {
     if (dirty && !(await confirmDialog(DISCARD_CHANGES))) return;
-    setDraft(config.rateCards.find(card => card.status === 'ACTIVE') ?? null);
+    setDraft(config.rateCards.find(isSettingsRateCard) ?? null);
     setIsNew(false);
   };
   const refreshDefaults = (message: string) => { setRevision(value => value + 1); onNotification?.(message); };
   const zoneActions = { addZone, patchZone, deleteZone };
-  const methodFilterControl = <Select aria-label="Filter pricing method" value={methodFilter} onValueChange={setMethodFilter} options={[{ value: '', label: 'All pricing methods' }, ...Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label }))]} />;
+  const methodFilterControl = <Select aria-label="Filter pricing method" value={methodFilter} onValueChange={setMethodFilter} options={[{ value: '', label: 'All pricing methods' }, ...SETTINGS_PRICING_METHODS.map(value => ({ value, label: METHOD_LABELS[value] }))]} />;
   if (slug && !liveCtx) return <SettingsLayout><p role={rateQuery.error || catalogQuery.error || shipperQuery.error || settingsQuery.error ? 'alert' : 'status'} className="text-sm text-slate-500">{rateQuery.error || catalogQuery.error || shipperQuery.error || settingsQuery.error ? 'Could not load pricing data.' : 'Loading pricing…'}</p></SettingsLayout>;
   return <SettingsLayout>
     <PricingTabs tabs={[
       { id: 'cards', label: 'Rate Cards', content: <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
-        <RateCardList cards={visibleCards} selectedId={draft?.id} search={search} onSearch={setSearch} onAdd={addCard} onSelect={selectCard} isDefault={isDefault} />
+        <fieldset disabled={action.pending} className="min-w-0"><RateCardList cards={visibleCards} selectedId={draft?.id} search={search} onSearch={setSearch} onAdd={addCard} onSelect={selectCard} isDefault={isDefault} /></fieldset>
         {draft ? <section ref={editorRef} tabIndex={-1} className="min-w-0 space-y-5 focus:outline-none" aria-label="Rate card editor">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><h2 className="app-section-title text-slate-900">{isNew ? 'New rate card' : draft.name}{!isNew && isDefault(draft) && <span className="ml-2 align-middle text-xs font-medium px-1.5 py-0.5 rounded border bg-slate-100 text-slate-700 border-slate-200">Default</span>}</h2><p className="text-xs text-slate-500">{isNew ? 'Choose a method and enter your rates.' : `Version ${draft.version} · updated ${new Date(draft.updatedAt).toLocaleDateString()}`}{dirty ? ' · Unsaved changes' : ''}</p></div>
             <div className="flex flex-wrap items-center gap-2">
-              {!isNew && !isDefault(draft) && draft.pricingMethod !== 'IMPORTED' && <button type="button" onClick={() => makeDefault(draft)} className={secondaryBtn}>Set as default</button>}
+              {!isNew && !isDefault(draft) && draft.pricingMethod !== 'IMPORTED' && <Button type="button" variant="outline" loading={action.pendingKey === 'default'} disabled={action.pending} onClick={() => action.run(() => makeDefault(draft), 'default')}>Set as default</Button>}
               {methodFilterControl}
             </div>
           </div>
-          <RateCardEditor key={draft.id} {...{ draft, isNew, config, catalogue, billing, patchDraft, zoneActions }} />
+          <fieldset disabled={action.pending} className="min-w-0"><RateCardEditor key={draft.id} {...{ draft, isNew, config, catalogue, billing, patchDraft, zoneActions }} /></fieldset>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {isNew && <button type="button" onClick={closeEditor} className={secondaryBtn}>Cancel</button>}
-            {!isNew && !isDefault(draft) && <button type="button" onClick={() => archiveCard(draft)} className={`${secondaryBtn} text-rose-700`}>Archive</button>}
-            <button type="button" onClick={saveCard} className={primaryBtn}>{isSaved && !dirty ? 'Saved' : 'Save Card'}</button>
+            {isNew && <Button type="button" variant="outline" disabled={action.pending} onClick={closeEditor}>Cancel</Button>}
+            {!isNew && !isDefault(draft) && <Button type="button" variant="outline" loading={action.pendingKey === 'archive'} disabled={action.pending} onClick={() => action.run(() => archiveCard(draft), 'archive')} className="text-rose-700">Archive</Button>}
+            <Button type="button" loading={action.pendingKey === 'save'} disabled={action.pending} onClick={() => action.run(saveCard, 'save')}>{action.pendingKey === 'save' ? 'Saving…' : isSaved && !dirty ? 'Saved' : 'Save Card'}</Button>
           </div>
         </section> : <div className="space-y-5"><div className="flex justify-end">{methodFilterControl}</div><div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">Select a rate card or add one to set your prices.</div></div>}
       </div>

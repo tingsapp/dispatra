@@ -12,6 +12,7 @@ const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query
 const render = (ui: React.ReactElement) => rawRender(React.createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { gcTime: 0 }, mutations: { gcTime: 0 } } }) }, ui));
 const { default: userEvent } = await import('@testing-library/user-event');
 const { RateCardsPage } = await import('../src/pages/RateCardsPage');
+const { RateCardFormula } = await import('../src/components/pricing/RateCardFormula');
 const { VehiclesPage } = await import('../src/pages/VehiclesPage');
 const { loadVehicles } = await import('../src/lib/vehicleStorage');
 const { ProfilePage } = await import('../src/pages/ProfilePage');
@@ -101,10 +102,10 @@ test('old Company URL opens the Company tab in Profile', () => {
 test('new cards choose one method, do not persist before Save, and cancelled drafts leave no records', async () => {
   const user = userEvent.setup({ document }); seedCard(); const before = loadPricingConfig();
   render(React.createElement(RateCardsPage, {  })); await user.click(screen.getByRole('tab', { name: 'Rate Cards' }));
-  await user.click(screen.getByRole('combobox', { name: 'Filter pricing method' })); assert.ok(screen.getByRole('option', { name: 'Imported price' })); await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('combobox', { name: 'Filter pricing method' })); assert.equal(screen.queryByRole('option', { name: 'Imported price' }), null); await user.keyboard('{Escape}');
   await user.click(screen.getByRole('button', { name: 'Add card' }));
   assert.deepEqual(loadPricingConfig(), before);
-  await user.click(screen.getByRole('combobox', { name: 'Pricing method' })); assert.ok(screen.getByRole('option', { name: 'Imported price' })); assert.ok(screen.getByRole('option', { name: 'Fixed per delivery' })); await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('combobox', { name: 'Pricing method' })); assert.equal(screen.queryByRole('option', { name: 'Imported price' }), null); assert.ok(screen.getByRole('option', { name: 'Fixed per delivery' })); await user.keyboard('{Escape}');
   assert.equal(screen.getByLabelText('Minimum Charge').closest('.grid'), screen.getByLabelText('Rate card name').closest('.grid'));
   await select(user, 'Pricing method', 'Fixed per delivery'); assert.ok(screen.getByLabelText('Fixed Amount per Delivery')); assert.equal(screen.queryByLabelText('Base Fee'), null);
   await user.click(screen.getByRole('button', { name: 'Cancel' })); assert.deepEqual(loadPricingConfig(), before);
@@ -148,7 +149,7 @@ test('hourly cards use Minimum Billable only: Minimum Charge is hidden and saved
   await user.click(screen.getByRole('combobox', { name: 'Pricing method' })); await user.click(screen.getByRole('option', { name: /Hourly/ }));
   assert.equal(screen.queryByLabelText('Minimum Charge'), null);
 });
-test('rate cards have Apply fuel and Apply vehicle surcharge checkboxes that save and survive reload; Imported cards have none; new Hourly and Zone cards start without the vehicle surcharge', async () => {
+test('rate cards have Apply fuel and Apply vehicle surcharge checkboxes that save and survive reload; Imported cards are hidden; new Hourly and Zone cards start without the vehicle surcharge', async () => {
   const config = loadPricingConfig();
   config.rateCards = [createEmptyRateCard({ id: 'fixed-all-in', name: 'All-in fixed', scope: 'ORGANIZATION', pricingMethod: 'FIXED', fixedAmount: 95 }), createEmptyRateCard({ id: 'imported-card', name: 'Imported A', pricingMethod: 'IMPORTED' })];
   savePricingConfig(config);
@@ -166,8 +167,7 @@ test('rate cards have Apply fuel and Apply vehicle surcharge checkboxes that sav
   assert.equal(saved.applyFuelSurcharge, false); assert.equal(saved.applyVehicleSurcharge, false);
   await user.click(screen.getByRole('button', { name: 'All-in fixed' }));
   assert.equal((screen.getByRole('checkbox', { name: /Apply fuel surcharge/ }) as HTMLInputElement).checked, false);
-  await user.click(screen.getByRole('button', { name: 'Imported A' }));
-  assert.equal(screen.queryByRole('checkbox', { name: /Apply fuel surcharge/ }), null);
+  assert.equal(screen.queryByRole('button', { name: 'Imported A' }), null);
   await user.click(screen.getByRole('button', { name: 'Add card' }));
   await user.click(screen.getByRole('combobox', { name: 'Pricing method' })); await user.click(screen.getByRole('option', { name: /Hourly/ }));
   assert.equal((screen.getByRole('checkbox', { name: /Apply vehicle surcharge/ }) as HTMLInputElement).checked, false);
@@ -179,13 +179,13 @@ test('rate cards have Apply fuel and Apply vehicle surcharge checkboxes that sav
   }
   page.unmount();
 });
-test('Imported cards sit at the end of the rate card list; the other cards keep their order', () => {
+test('Imported cards are hidden from the rate card list; the other cards keep their order', () => {
   const config = loadPricingConfig();
   config.rateCards = [createEmptyRateCard({ id: 'imp', name: 'Imported price (TMS)', pricingMethod: 'IMPORTED' }), createEmptyRateCard({ id: 'b', name: 'Zone B', pricingMethod: 'ZONE', scope: 'ORGANIZATION' }), createEmptyRateCard({ id: 'a', name: 'Fixed A', pricingMethod: 'FIXED' })];
   savePricingConfig(config);
   render(React.createElement(RateCardsPage, {}));
   const names = within(screen.getByRole('complementary', { name: 'Rate cards' })).getAllByRole('button').map(button => button.textContent ?? '').filter(text => /Imported price \(TMS\)|Zone B|Fixed A/.test(text));
-  assert.deepEqual(names.map(name => name.match(/Imported price \(TMS\)|Zone B|Fixed A/)![0]), ['Zone B', 'Fixed A', 'Imported price (TMS)']);
+  assert.deepEqual(names.map(name => name.match(/Imported price \(TMS\)|Zone B|Fixed A/)![0]), ['Zone B', 'Fixed A']);
 });
 test('unsaved card navigation can be cancelled without losing changes', async () => {
   const user = userEvent.setup({ document }); seedCard(); const config = loadPricingConfig(); config.rateCards.push(createEmptyRateCard({ id: 'contract-b', name: 'Contract B', status: 'ACTIVE', pricingMethod: 'FIXED', fixedAmount: 55 })); savePricingConfig(config); render(React.createElement(RateCardsPage, {  })); await user.click(screen.getByRole('tab', { name: 'Rate Cards' })); await user.click(screen.getByRole('button', { name: 'Contract A' })); await user.type(screen.getByLabelText('Rate card name'), ' edited'); window.confirm = () => false;
@@ -274,9 +274,50 @@ test('Accessorial edit keeps only dollar rate and Taxable, preserving other cata
   const created = loadSimplePricingConfig().accessorials.find(a => a.name === 'Special handling')!;
   assert.deepEqual([created.calculationType, created.appliesAt, created.autoRule, created.minimumCharge, created.maximumCharge, created.taxable], ['FLAT', 'ORDER', 'NONE', null, null, true]);
 });
-test('imported cards are final-total, editable, cannot be the default and have no minimum or surcharge settings', async () => {
-  const user = userEvent.setup({ document }); seedCard({ pricingMethod: 'IMPORTED', importedPriceMode: 'FINAL_TOTAL' }); render(React.createElement(RateCardsPage, {  })); await user.click(screen.getByRole('tab', { name: 'Rate Cards' })); await user.click(screen.getByRole('button', { name: 'Contract A' })); assert.equal(screen.queryByRole('combobox', { name: 'Imported amount means' }), null); assert.ok(screen.getByText('The imported amount is the final total, including tax')); assert.equal(screen.queryByRole('button', { name: 'Set as default' }), null); assert.equal(screen.queryByLabelText('Minimum Charge'), null); assert.equal(screen.queryByRole('checkbox', { name: /Apply fuel surcharge/ }), null); await user.type(screen.getByLabelText('Rate card name'), ' renewed'); await user.click(screen.getByRole('button', { name: 'Save Card' })); assert.equal(loadPricingConfig().rateCards[0].importedPriceMode, 'FINAL_TOTAL');
+test('Settings hides imported cards and methods while preserving them for automatic TMS pricing', async () => {
+  const user = userEvent.setup({ document });
+  const imported = seedCard({ name: 'Imported price', pricingMethod: 'IMPORTED', scope: 'ORDER' });
+  const native = createEmptyRateCard({ name: 'Native contract', scope: 'ORGANIZATION' });
+  const config = loadPricingConfig(); config.rateCards.push(native); savePricingConfig(config);
+  const before = loadPricingConfig().rateCards.find(card => card.id === imported.id);
+  render(React.createElement(RateCardsPage, {}));
+  assert.equal(screen.queryByRole('button', { name: 'Imported price' }), null);
+  assert.equal((screen.getByLabelText('Rate card name') as HTMLInputElement).value, native.name);
+  await user.click(screen.getByRole('combobox', { name: 'Filter pricing method' }));
+  assert.deepEqual(screen.getAllByRole('option').map(option => option.textContent),
+    ['All pricing methods', 'Distance based', 'Fixed per delivery', 'Zone to zone', 'Hourly']);
+  await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('button', { name: 'Add card' }));
+  await user.click(screen.getByRole('combobox', { name: 'Pricing method' }));
+  assert.deepEqual(screen.getAllByRole('option').map(option => option.textContent),
+    ['Distance based', 'Fixed per delivery', 'Zone to zone', 'Hourly']);
+  await user.keyboard('{Escape}');
+  render(React.createElement(ConfirmDialogHost));
+  await user.click(screen.getByRole('button', { name: 'Cancel' }));
+  await user.click(screen.getByRole('button', { name: 'Discard changes' }));
+  assert.equal((screen.getByLabelText('Rate card name') as HTMLInputElement).value, native.name);
+  await user.type(screen.getByLabelText('Rate card name'), ' updated');
+  await user.click(screen.getByRole('button', { name: 'Save Card' }));
+  assert.deepEqual(loadPricingConfig().rateCards.find(card => card.id === imported.id), before);
 });
+
+test('Settings never opens an imported editor when no native cards remain', async () => {
+  const user = userEvent.setup({ document });
+  seedCard({ name: 'Imported price', pricingMethod: 'IMPORTED' });
+  render(React.createElement(RateCardsPage, {}));
+  assert.equal(screen.queryByLabelText('Rate card name'), null);
+  assert.ok(screen.getByText('Select a rate card or add one to set your prices.'));
+  assert.equal(screen.queryByRole('button', { name: 'Imported price' }), null);
+  cleanup();
+  const native = createEmptyRateCard({ name: 'Native contract', scope: 'ORDER' });
+  const config = loadPricingConfig(); config.rateCards.push(native); savePricingConfig(config);
+  render(React.createElement(React.Fragment, null, React.createElement(RateCardsPage), React.createElement(ConfirmDialogHost)));
+  await user.click(screen.getByRole('button', { name: 'Archive' }));
+  await user.click(screen.getByRole('button', { name: 'Archive card' }));
+  assert.equal(screen.queryByLabelText('Rate card name'), null);
+  assert.equal(loadPricingConfig().rateCards[0].status, 'ACTIVE');
+});
+
 
 test('Taxes and Preferences save independently', async () => {
   const user = userEvent.setup({ document });
@@ -778,6 +819,7 @@ test('registering a vehicle saves equipment and running cost without changing th
   render(React.createElement(VehiclesPage, { drivers: [], onNotification: noop }));
   await user.click(screen.getByRole('button', { name: 'Register Vehicle' }));
   await user.type(screen.getByLabelText('Unit number'), 'V99'); await user.type(screen.getByLabelText('Licence plate'), 'TEST-99');
+  await user.type(screen.getByRole('combobox', { name: 'Parking address' }), '123 Main St, Vancouver, BC V5Y 1V4');
   await select(user, 'Vehicle type', seed.name);
   for (const [label, value] of [['Box length (in)', '100'], ['Box width (in)', '60'], ['Box height (in)', '55']]) await user.type(screen.getByLabelText(label), value);
   assert.equal(screen.queryByLabelText('Vehicle upgrade surcharge ($)'), null);
@@ -964,14 +1006,13 @@ test('How pricing works shows an engine-calculated example in plain language wit
   assert.match(calculation, /Total = \$[\d.]+ \+ \$[\d.]+ = \$[\d.]+/);
   assert.equal(section.querySelector('pre'), null);
 
-  for (const method of ['FIXED', 'HOURLY', 'IMPORTED', 'ZONE'] as const) {
+  for (const method of ['FIXED', 'HOURLY', 'ZONE'] as const) {
     cleanup(); localStorage.clear(); seedCard({ pricingMethod: method });
     render(React.createElement(RateCardsPage, {}));
     const details = screen.getByText('How pricing works').closest('details')!;
     assert.doesNotMatch(details.textContent!, /Freight|freight|max\(|Formula/);
     if (method === 'FIXED') assert.match(details.querySelector('summary')!.textContent!, /fixed/);
     if (method === 'HOURLY') assert.match(details.querySelector('summary')!.textContent!, /billable min/);
-    if (method === 'IMPORTED') assert.match(details.querySelector('summary')!.textContent!, /imported/);
     if (method === 'ZONE') {
       assert.equal(screen.queryByText('Pricing terms'), null);
       assert.match(screen.getByRole('status').textContent!, /zone/i);
@@ -980,7 +1021,7 @@ test('How pricing works shows an engine-calculated example in plain language wit
     } else {
       const values = within(details as HTMLElement).getByLabelText('Pricing values');
       if (method === 'HOURLY') assert.match(values.textContent!, /150 min entered; 120 min minimum; 30 min increments/);
-      assert.match(values.textContent!, method === 'IMPORTED' ? /Final total\$100\.00/ : /Delivery charge/);
+      assert.match(values.textContent!, /Delivery charge/);
     }
   }
   cleanup(); localStorage.clear();
@@ -993,8 +1034,8 @@ test('How pricing works shows an engine-calculated example in plain language wit
   assert.match(screen.getByText('How pricing works').closest('details')!.querySelector('summary')!.textContent!, /Example: pickup to Vancouver/);
 
   cleanup(); localStorage.clear();
-  seedCard({ pricingMethod: 'IMPORTED', importedPriceMode: 'FINAL_TOTAL' });
-  render(React.createElement(RateCardsPage, {}));
+  const importedCard = seedCard({ pricingMethod: 'IMPORTED', importedPriceMode: 'FINAL_TOTAL' });
+  render(React.createElement(RateCardFormula, { card: importedCard, config: loadPricingConfig(), billing: loadBillingConfig(), catalogue: loadSimplePricingConfig() }));
   const importedDetails = screen.getByText('How pricing works').closest('details')!;
   assert.equal(importedDetails.textContent!.includes('minimum charge'), false);
   assert.match(screen.getByLabelText('Pricing values').textContent!, /Final total\$100\.00/);
@@ -1112,7 +1153,7 @@ test('customer create form is flat and minimal; status appears only on edit and 
   assert.equal(dialog.querySelector('details'), null);
   for (const gone of ['Account / Code', 'Account Tier', 'Status', 'Default Accessorials / Requirements', 'Legal name', 'Saved locations & delivery defaults', 'Communication preferences']) assert.equal(within(dialog).queryByText(gone), null, gone);
   assert.equal(within(dialog).queryByRole('checkbox', { name: /tax exemption/ }), null); assert.equal(within(dialog).queryByRole('combobox', { name: 'Shipper status' }), null);
-  assert.ok(within(dialog).getByRole('combobox', { name: 'Shipper type' })); assert.ok(within(dialog).getByRole('textbox', { name: 'Company name' })); assert.equal(within(dialog).queryByRole('textbox', { name: 'Contact name' }), null); assert.ok(within(dialog).getByText('Dispatch & Receiving Instructions'));
+  assert.ok(within(dialog).getByRole('combobox', { name: 'Shipper type' })); assert.ok(within(dialog).getByRole('textbox', { name: 'Company name' })); assert.equal(within(dialog).queryByRole('textbox', { name: 'Contact name' }), null); assert.ok(within(dialog).getByText('Pickup & delivery notes'));
   await user.type(within(dialog).getByRole('textbox', { name: 'Shipper name' }), 'Mo Lee'); await user.type(within(dialog).getByRole('textbox', { name: 'Company name' }), 'Harbour Bakery'); await user.type(within(dialog).getByRole('textbox', { name: /^Email / }), 'mo@example.ca');
   await user.click(within(dialog).getByRole('button', { name: 'Create Shipper' }));
   const created = loadCustomers().find(c => c.name === 'Mo Lee')!;
@@ -1471,11 +1512,11 @@ test('removing a shared zone confirms, shrinks both matrix axes and preserves dr
   assert.match(dialog.textContent!, /Previously priced orders stay unchanged/);
   await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
   assert.deepEqual(loadPricingConfig(), before);
-  await waitFor(() => assert.equal(document.activeElement, remove));
+  await waitFor(() => assert.equal(document.activeElement === remove, true));
   await user.click(remove);
   dialog = screen.getByRole('alertdialog', { name: 'Remove zone "Zone 2"?' });
   await user.click(within(dialog).getByRole('button', { name: 'Remove zone' }));
-  await waitFor(() => assert.equal(document.activeElement, screen.getByRole('button', { name: 'Add' })));
+  await waitFor(() => assert.equal(document.activeElement === screen.getByRole('button', { name: 'Add' }), true));
   const matrix = screen.getByRole('table', { name: 'Zone prices by weight' });
   assert.equal(within(matrix).getAllByRole('columnheader').length, 5);
   assert.equal(matrix.querySelectorAll('tbody td').length - matrix.querySelectorAll('tbody tr').length * 3, 2);

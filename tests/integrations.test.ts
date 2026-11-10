@@ -222,7 +222,7 @@ test('polling validates HTTPS, the credential and the orders path, then discards
 
 test('without an Imported price rate card the tab explains how imported orders keep the TMS price', async () => {
   await mount(false);
-  assert.ok(screen.getByText(/Add an Imported price rate card to keep TMS prices\./));
+  assert.ok(screen.getByText(/Imported pricing is set automatically when you switch to External TMS\./));
 });
 
 test('API tab lists collapsed cards for the key, each resource and webhooks with real Dispatra events', async () => {
@@ -329,7 +329,9 @@ test('TMS workspace uses the account menu for Integration, Subscription and guar
     proceed(); assert.equal(logouts, 1);
   } finally { window.removeEventListener(SETTINGS_NAVIGATION_EVENT, guard); }
   view.rerender(React.createElement(Harness, { isOpen: false, loggingOut: true }));
-  await user.click(screen.getByRole('button', { name: 'Dispatcher Account' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Logout' }));
+  const pendingLogout = screen.getByRole('menuitem', { name: 'Logout' });
+  assert.equal(pendingLogout.getAttribute('aria-disabled'), 'true');
+  assert.equal(pendingLogout.getAttribute('aria-busy'), 'true');
+  await user.click(pendingLogout);
   assert.equal(logouts, 1);
 });

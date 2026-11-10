@@ -57,8 +57,8 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
       <div hidden={profileSection !== 'details'}><CustomerProfile slug={slug} /></div>
       {profileSection === 'security' && <PasswordPage plain />}
     </>}
-    {page.path === 'orders' && <ShipperOrders slug={slug} open={newOrderOpen} onClose={() => setNewOrderOpen(false)} onNavigate={go} />}
-    {page.path === 'messages' && (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => void profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} shipperId={profile.data?.id} company={company} />)}
+    {page.path === 'orders' && <ShipperOrders draftId={url.searchParams.get('draft')} slug={slug} open={newOrderOpen} onClose={() => setNewOrderOpen(false)} onNavigate={go} />}
+    {page.path === 'messages' && (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} shipperId={profile.data?.id} company={company} />)}
     {page.path === 'tracking' && <ShipperTracking slug={slug} orderId={url.searchParams.get('order')} logoutError={logoutError} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}
     <IncomingChatNotice slug={slug} onOpen={setNotificationChat} />
     {notificationChat && <NotificationChat key={notificationChat} slug={slug} identity={notificationChat} onClose={() => setNotificationChat(null)} />}

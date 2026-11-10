@@ -192,7 +192,11 @@ export interface PricingStopInput extends StopOperations {
 }
 
 export interface PricingPackageInput extends ItemOperations {
+  /** Physical pallet count per unit, preserved from imported/email bookings. */
+  palletsPerUnit?: number;
   id: string;
+  /** Missing email facts stay blank; numeric placeholders never become booking values. */
+  missingFields?: Array<'quantity' | 'weightKg' | 'lengthCm' | 'widthCm' | 'heightCm'>;
   quantity: number;
   /** Per piece. Canonical units: kg and cm. */
   weightKg: number;

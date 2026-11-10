@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Dialog, DialogFooter, DialogHeader } from '../components/ui/Dialog';
 import { Button } from '../components/ui/button';
 import { Select } from '../components/ui/Select';
@@ -7,8 +7,8 @@ import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
 import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
 import { useOrderPreview } from '../components/orders/useOrderPreview';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
-import { operations, type Order } from '../operations/api';
-import { inputToShipperBooking } from '../operations/orderAdapters';
+import { operations, type Order, type ShipperDraft } from '../operations/api';
+import { inputToShipperBooking, inputToDraftShipment } from '../operations/orderAdapters';
 import { validateBookingSchedule } from '../lib/organizationWorkflows';
 import type { PricingContext } from '../lib/pricingEngine';
 import type { PricingOrderInput } from '../types/pricing';
@@ -17,10 +17,12 @@ type BookingDriver = { id: string; name: string };
 
 /** The dispatcher's order form for the signed-in shipper: no shipper, rate card choice, vehicle, assignment or internal notes.
  *  The shipper may name an optional preferred driver; their own rate card prices the order and is named in the live estimate. */
-export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateCardName, onClose, onSaved }: {
+export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateCardName, onClose, onSaved, draft, onDraftSubmitted }: {
   slug: string; ctx: PricingContext; initial: PricingOrderInput; editing?: Order; drivers: BookingDriver[]; rateCardName: string | null;
+  draft?: ShipperDraft; onDraftSubmitted?: () => void;
   onClose: () => void; onSaved: (order: Order, created: boolean) => void;
 }) {
+  const pendingDraft = useRef<{ payload: string; key: string } | null>(null);
   const [input, setInput] = useState(initial);
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -46,6 +48,13 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
     try {
       if (!editing) { const scheduleErrors = validateBookingSchedule(input, timeZone); if (scheduleErrors.length) throw new Error(scheduleErrors.join(' ')); }
       const booking = inputToShipperBooking(input, timeZone);
+      if (draft) {
+        const shipment = inputToDraftShipment(input, timeZone);
+        const payload = JSON.stringify(shipment);
+        if (pendingDraft.current?.payload !== payload) pendingDraft.current = { payload, key: crypto.randomUUID() };
+        await operations.submitShipperDraft(slug, draft, shipment, pendingDraft.current.key);
+        onDraftSubmitted?.(); return;
+      }
       const saved = editing ? await operations.updateOrder(slug, editing, booking) : await operations.createOrder(slug, booking);
       onSaved(saved, !editing);
     } catch (error) { setErrors([error instanceof Error ? error.message : 'Could not save order.']); }
@@ -54,10 +63,10 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
   return <Dialog size="xl" onClose={close}>
     <DialogHeader onClose={close} title={editing ? 'Edit Order' : 'New Order'} description="Enter the order details on the left to see its live price estimate on the right." />
     <form id="shipper-order-form" onSubmit={submit} className="app-dialog-body bg-slate-50 pt-5">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <fieldset disabled={busy} className="min-w-0"><div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-7 space-y-5 text-xs">
           {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
-          <OrderPricingForm customerMode="self" showVehicleSelection suggestVehicle={!editing} showStopAddresses futureOnly={!editing} value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
+          <OrderPricingForm customerMode="self" showVehicleSelection suggestVehicle={!editing && !draft} showStopAddresses futureOnly={!editing} value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
           <div>
             <label className="app-label" htmlFor="shipper-order-instructions">Delivery instructions (optional)</label>
             <textarea id="shipper-order-instructions" className="app-input w-full" rows={3} maxLength={2000} placeholder="Access details, delivery preferences, or other instructions…" value={instructionStop?.instructions ?? ''} onChange={event => setInput({ ...input, stops: input.stops.map(stop => stop.id === instructionStop?.id ? { ...stop, instructions: event.target.value } : stop) })} />
@@ -67,10 +76,11 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
           <PriceBreakdown snapshot={snapshot} title="Live estimate" showMargin={false} showPricingDetail={false} rateRows={companyRateRows(ctx.billing)} />
         </div>
       </div>
+      </fieldset>
     </form>
-    <DialogFooter note={snapshot.status === 'PRICED' ? 'The estimate is frozen on the order as a Pricing Snapshot.' : 'The order can be created, but it will need a pricing review before dispatch.'}>
+    <DialogFooter>
       <Button type="button" variant="outline" disabled={busy} onClick={close}>Cancel</Button>
-      <Button loading={busy} type="submit" form="shipper-order-form" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Order' : 'Create Order'}</Button>
+      <Button loading={busy} type="submit" form="shipper-order-form" disabled={busy}>{busy ? 'Saving…' : draft ? 'Send details to dispatcher' : editing ? 'Save Order' : 'Create Order'}</Button>
     </DialogFooter>
   </Dialog>;
 }

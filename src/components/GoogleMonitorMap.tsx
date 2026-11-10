@@ -10,6 +10,8 @@ import { BLUE_ROUTE_WAYPOINTS, GREEN_ROUTE_WAYPOINTS, ORANGE_ROUTE_WAYPOINTS, IN
 import type { Driver, Job, MapLayerConfig } from '../types';
 import { GoogleOverlayMarker } from './monitor/GoogleOverlayMarker';
 import { GoogleOrderMarkers } from './monitor/GoogleOrderMarkers';
+import { GoogleVehicleMarkers } from './monitor/GoogleVehicleMarkers';
+import { locatedOrderStops, separateStopMarkers, validMapPoint, type MapVehicle } from './monitor/mapLocations';
 import { MONITOR_CAMERA } from './monitor/mapScene';
 import { isActiveMonitorOrder } from './monitor/orderVisibility';
 import { fitMonitorPoints as fitPoints, useMonitorMapCamera } from './monitor/useMonitorMapCamera';
@@ -39,6 +41,8 @@ interface GoogleMonitorMapProps {
   demo?: boolean;
   drivers?: Driver[];
   jobs?: Job[];
+  vehicles?: MapVehicle[];
+  onOpenVehicle?: (id: string) => void;
   selectedDriverId?: string | null;
   selectedJobId?: string | null;
   onSelectDriver: (id: string, markerPosition?: [number, number]) => void;
@@ -206,20 +210,10 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     return () => cancelAnimationFrame(animationFrame);
   }, [updatePositions, props.active, props.demo]);
 
-  // Located stops use the homepage's circles; the final stop carries the order's status tag.
-  const located = (lat?: number | null, lng?: number | null): lat is number => lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng);
-  const orderStops = (job: Job) => {
-    const stops = (job.pricingInput?.stops ?? []).filter(stop => located(stop.latitude, stop.longitude))
-      .map(stop => ({ id: stop.id, type: stop.type, label: stop.label ?? '', lat: stop.latitude!, lng: stop.longitude! }));
-    return stops;
-  };
-  const visibleJobs = (props.jobs ?? (props.demo === false ? [] : INITIAL_JOBS)).filter(job => {
-    if (!isActiveMonitorOrder(job) || !Number.isFinite(job.lat) || !Number.isFinite(job.lng)) return false;
-    if (props.demo !== false && INITIAL_JOBS.some(seed => seed.id === job.id)) return true;
-    const drops = job.pricingInput?.stops.filter(stop => stop.type === 'DROPOFF') ?? [];
-    const destination = drops[drops.length - 1];
-    return destination?.latitude != null && destination.longitude != null;
-  }).map(job => ({ job, stops: orderStops(job) }));
+  // A missing final coordinate must not hide valid pickups or intermediate visits.
+  const visibleJobs = separateStopMarkers((props.jobs ?? (props.demo === false ? [] : INITIAL_JOBS))
+    .filter(isActiveMonitorOrder).map(job => ({ job, stops: locatedOrderStops(job) }))
+    .filter(({ job, stops }) => stops.length > 0 || props.demo !== false && validMapPoint(job.lat, job.lng)));
   // Provider road geometry is an overlay; the Google map and GPS markers stay in place.
   const slug = props.demo === false ? companySlugForCurrentPath() : null;
   const pathQueries = useQueries({ queries: visibleJobs.map(({ job, stops }) => ({
@@ -235,20 +229,28 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
   const routeAttribution = [...new Set(pathQueries.flatMap(query => query.data?.points.length && query.data.attribution ? [query.data.attribution] : []))].join(' · ');
   const hasPreview = pathQueries.some(query => query.data?.preview && query.data.points.length > 1);
   const failedPaths = pathQueries.filter(query => query.isError).length;
-  const locatedDrivers = (props.demo === false ? props.drivers ?? [] : [])
+  const locatedDrivers = (props.demo === false && props.vehicles === undefined ? props.drivers ?? [] : [])
     .filter(driver => Number.isFinite(driver.lat) && Number.isFinite(driver.lng));
   const allPoints: [number, number][] = [
     ...visibleJobs.flatMap(({ job, stops }) => stops.length ? stops.map(stop => [stop.lng, stop.lat] as [number, number]) : [[job.lng, job.lat] as [number, number]]),
     ...Object.values(roadPaths).flatMap(points => points.map(({ lng, lat }) => [lng, lat] as [number, number])),
     ...locatedDrivers.map(driver => [driver.lng, driver.lat] as [number, number]),
+    ...(props.vehicles ?? []).map(vehicle => [vehicle.lng, vehicle.lat] as [number, number]),
   ];
   allPointsRef.current = allPoints;
   useMonitorMapCamera(map, allPoints, [
     ...visibleJobs.map(({ job }) => `order:${job.id}`), ...locatedDrivers.map(driver => `driver:${driver.id}`),
+    ...(props.vehicles ?? []).map(vehicle => `vehicle:${vehicle.id}`),
   ], props.demo === false && props.active !== false);
 
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />
+    <GoogleVehicleMarkers vehicles={props.vehicles ?? []} onOpenVehicle={props.onOpenVehicle} />
+    <div aria-label="Map marker legend" className="absolute bottom-4 left-4 z-10 flex items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-[11px] text-slate-600 shadow-sm">
+      <span className="flex items-center gap-1"><span className="size-2.5 rounded-full border-2 border-slate-900 bg-white" />Pickup</span>
+      <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-slate-900" />Drop-off</span>
+      <span className="flex items-center gap-1"><Truck className="size-3.5" />Vehicle · P = parking</span>
+    </div>
     {(routeAttribution || hasPreview || failedPaths > 0) &&
       <div className="absolute bottom-8 right-16 z-10 max-w-[calc(100%-5rem)] rounded bg-white/95 px-2 py-1 text-[10px] text-slate-600" aria-label="Route information">
         {hasPreview && <div>Road preview · no vehicle assigned</div>}
@@ -285,7 +287,7 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
       </div>
     </GoogleOverlayMarker>
     }
-    {(props.demo === false ? props.drivers ?? [] : props.drivers?.length ? props.drivers : INITIAL_DRIVERS).filter(driver => (props.demo === false || driver.id !== 'D14') && Number.isFinite(driver.lat) && Number.isFinite(driver.lng)).map(driver => {
+    {(props.demo === false ? props.vehicles === undefined ? props.drivers ?? [] : [] : props.drivers?.length ? props.drivers : INITIAL_DRIVERS).filter(driver => (props.demo === false || driver.id !== 'D14') && Number.isFinite(driver.lat) && Number.isFinite(driver.lng)).map(driver => {
       const available = driver.status === 'available';
       const label = props.demo === false ? `Driver ${driver.driverNumber ?? driver.name}, ${driver.name}` : driver.id === 'D28' ? 'Driver D28, Marcus' : driver.id === 'D09' ? 'Driver D09, available' : `Driver ${driver.id}, ${driver.name}`;
       return <GoogleOverlayMarker key={driver.id} position={{ lat: driver.lat, lng: driver.lng }} label={label}

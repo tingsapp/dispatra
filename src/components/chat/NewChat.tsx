@@ -1,3 +1,4 @@
+import { ActionButton } from '../ui/button';
 import { useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { ADMIN_CHAT, chat } from '../../chat/api';
@@ -26,10 +27,10 @@ export function NewChat({ slug, onSelect, onClose }: { slug: string; onSelect: (
     <div className="flex items-center justify-between gap-2"><h2 className="app-section-title">New chat</h2><Button variant="ghost" onClick={onClose}>Back</Button></div>
     <SearchInput value={search} onChange={setSearch} aria-label="Find a contact" placeholder={admin ? 'Find a dispatcher or company…' : 'Find a driver or shipper…'} className="shrink-0 grow-0" />
     {pending && <p role="status">Loading contacts…</p>}
-    {error && <p role="alert">Contacts could not be loaded. <button className="underline" onClick={() => { if (admin) void dispatchers.refetch(); else { void drivers.refetch(); void shippers.refetch(); } }}>Try again</button></p>}
+    {error && <p role="alert">Contacts could not be loaded. <ActionButton className="underline" onClick={() => admin ? dispatchers.refetch() : Promise.all([drivers.refetch(), shippers.refetch()])}>Try again</ActionButton></p>}
     <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">{filtered.map(row => <li key={row.id}><button type="button" className="w-full rounded-lg p-3 text-left hover:bg-app-hover focus-visible:ring-2" onClick={() => onSelect(row.target)}>
       <span className="block text-sm font-medium">{row.name}</span><span className="text-xs text-app-muted">{row.description}</span>
     </button></li>)}{!pending && !error && !filtered.length && <li className="p-4 text-sm text-app-muted">No contacts found.</li>}</ul>
-    {admin && dispatchers.hasNextPage && <Button variant="outline" disabled={dispatchers.isFetchingNextPage} onClick={() => void dispatchers.fetchNextPage()}>More contacts</Button>}
+    {admin && dispatchers.hasNextPage && <Button variant="outline" disabled={dispatchers.isFetchingNextPage} onClick={() => dispatchers.fetchNextPage()}>More contacts</Button>}
   </section>;
 }

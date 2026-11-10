@@ -28,9 +28,9 @@ export function DropdownMenuSubContent({ className, sideOffset = 8, collisionPad
   </Dropdown.Portal>;
 }
 
-type RowProps = { icon?: LucideIcon; selected?: boolean };
-export function DropdownMenuItem({ icon, selected, children, ...props }: ComponentProps<typeof Dropdown.Item> & RowProps) {
-  return <Dropdown.Item {...props} asChild><MenuItem icon={icon} selected={selected}>{children}</MenuItem></Dropdown.Item>;
+type RowProps = { icon?: LucideIcon; selected?: boolean; loading?: boolean };
+export function DropdownMenuItem({ icon, selected, loading, children, ...props }: ComponentProps<typeof Dropdown.Item> & RowProps) {
+  return <Dropdown.Item {...props} asChild><MenuItem icon={icon} selected={selected} loading={loading}>{children}</MenuItem></Dropdown.Item>;
 }
 
 export function DropdownMenuSubTrigger({ icon, selected, children, ...props }: ComponentProps<typeof Dropdown.SubTrigger> & RowProps) {

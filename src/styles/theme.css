@@ -3,11 +3,11 @@
   font-family: "Inter";
   font-style: normal;
   font-weight: 100 900;
-  font-display: swap;
+  font-display: block;
   src: url("/fonts/InterVariable.woff2") format("woff2");
 }
 @theme {
-  --font-sans: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Inter", sans-serif;
   --font-mono: var(--font-sans);
   --font-serif: var(--font-sans);
   --color-slate-50: #f9f9f9;
@@ -33,10 +33,21 @@
   --color-app-accent-soft: #eff6ff;
   --spacing-sidebar: 260px;
   --spacing-sidebar-rail: 64px;
-  --text-sm: 0.875rem;
+  /* Compact type scale; keep the rem baseline and control hit areas intact. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
   --text-sm--line-height: 1.25rem;
-  --text-xs: 0.8125rem;
-  --text-xs--line-height: 1.45;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.25rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.125rem;
+  --text-xl--line-height: 1.5rem;
+  --text-2xl: 1.25rem;
+  --text-2xl--line-height: 1.75rem;
+  --text-3xl: 1.5rem;
+  --text-3xl--line-height: 2rem;
   --shadow-2xs: 0 0 #0000;
   --shadow-xs: 0 0 #0000;
   --shadow-sm: 0 1px 3px #00000008;
@@ -79,13 +90,24 @@
   html {
     color-scheme: light;
     font-family: var(--font-sans);
+    /* A fixed rem baseline avoids OS/browser default-size differences.
+       Browser zoom and user accessibility overrides remain available. */
+    font-size: 16px;
+    font-optical-sizing: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     color: var(--color-app-text);
     background: var(--color-app-canvas);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
-  body { margin: 0; background: var(--color-app-canvas); }
+  body {
+    margin: 0;
+    background: var(--color-app-canvas);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
   #root { min-height: 100dvh; }
   ::selection { background: #dedede; color: #0d0d0d; }
   :where(input, textarea)::placeholder { color: var(--color-slate-400); }
@@ -138,7 +160,7 @@
     padding: 0.625rem 0.75rem;
     border-radius: var(--app-radius-menu-item);
     text-align: left;
-    font-size: 0.875rem;
+    font-size: var(--text-sm);
     font-weight: 400;
     color: var(--color-app-text);
     transition: background-color 150ms;
@@ -151,7 +173,7 @@
     padding: 0.5rem 0.875rem;
     border-radius: var(--app-radius-menu-item);
     color: var(--color-slate-600);
-    font-size: 0.875rem;
+    font-size: var(--text-sm);
     font-weight: 500;
     transition: background-color 150ms, color 150ms;
   }
@@ -180,7 +202,7 @@
     padding: 0.5625rem 0.875rem;
     color: var(--color-app-text);
     background: var(--color-app-surface);
-    font-size: 0.875rem;
+    font-size: var(--text-sm);
     line-height: 1.25rem;
     transition: border-color 150ms, box-shadow 150ms;
   }

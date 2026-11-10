@@ -73,7 +73,7 @@ test('driver form: contact and assignment edits preserve saved scheduling withou
   assert.equal(document.querySelector('details'),null);
   await user.click(screen.getByRole('button',{name:'Attached vehicle'})); const options=screen.getAllByRole('menuitem'); assert.equal(options[0].textContent,'None yet'); await user.click(options[1]);
   await user.click(screen.getByRole('button',{name:'Save driver'}));
-  assert.equal(saved.email,'driver@example.test'); assert.equal(saved.address,'200 Broadway, Vancouver, BC V5Y 1V4'); assert.equal(saved.employmentType,'CONTRACTOR'); assert.ok(saved.currentVehicleId); assert.deepEqual(saved.serviceAreaIds,['vancouver']); assert.equal(saved.dutyStatus,driver.dutyStatus);
+  assert.equal(saved.email,'driver@example.test'); assert.equal(saved.address,'200 Broadway, Vancouver, BC V5Y 1V4'); assert.equal(saved.employmentType,'CONTRACTOR'); assert.ok(saved.currentVehicleId); assert.deepEqual(saved.serviceAreaIds,['Vancouver','Burnaby']); assert.equal(saved.dutyStatus,driver.dutyStatus);
   assert.deepEqual(saved.skills,['Furniture']); assert.deepEqual(driverFromUi(saved).qualifications,['Furniture']);
   assert.equal(screen.queryByText('Dispatch availability'),null);
   const payload=driverFromUi(saved);
@@ -92,6 +92,7 @@ test('driver vehicle menu registers and selects a vehicle without losing the new
   await user.click(screen.getByRole('button',{name:'Attached vehicle'}));
   const menuItems=screen.getAllByRole('menuitem'); assert.equal(menuItems[0].textContent,'Register new vehicle');
   await user.click(menuItems[0]); assert.ok(screen.getByRole('heading',{name:'Register Vehicle'}));
+  await user.type(screen.getByRole('combobox',{name:'Parking address'}),'123 Main St, Vancouver, BC V5Y 1V4');
   await user.type(screen.getByLabelText('Unit number'),'V99'); await user.type(screen.getByLabelText('Licence plate'),'TEST-99');
   await user.click(screen.getByRole('combobox',{name:'Vehicle type'})); await user.click(screen.getByRole('option',{name:loadSimplePricingConfig().vehicles.find(type=>type.active)!.name}));
   for (const [label,value] of [['Box length (in)','100'],['Box width (in)','60'],['Box height (in)','60']]) await user.type(screen.getByLabelText(label),value);
@@ -112,7 +113,7 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
   assert.equal(screen.queryByText('Credit card'),null); assert.equal(screen.queryByRole('button',{name:'Add credit card'}),null);
   assert.equal(screen.queryByLabelText(/Card number|Expiry|CVC/i),null);
   const address=screen.getByLabelText('Warehouse Address') as HTMLInputElement;
-  assert.match(address.parentElement!.textContent!,/street, city, province and postal code/i);
+  assert.match(address.parentElement!.textContent!,/street, city, province & postal code/i);
   assert.ok(screen.getByRole('textbox',{name:'Shipper name'}));
   assert.ok(screen.getByRole('textbox',{name:'Company name'}));
   assert.equal(screen.queryByRole('textbox',{name:'Contact name'}),null);
@@ -168,6 +169,7 @@ test('vehicle form combines type pricing, required dimensions and equipment chec
   render(React.createElement(VehicleEditor,{vehicles:[],onSave:(vehicle,details)=>{saved=vehicle;profile=details;},onCancel:()=>{}}));
   assert.equal(screen.queryByRole('heading',{name:'Outside dimensions & weight'}),null);
   assert.equal(screen.queryByRole('checkbox',{name:'Set truck routing measurements'}),null);
+  await user.type(screen.getByRole('combobox',{name:'Parking address'}),'123 Main St, Vancouver, BC V5Y 1V4');
   await user.type(screen.getByLabelText('Unit number'),'V99'); await user.type(screen.getByLabelText('Licence plate'),'TEST-99');
   assert.equal(screen.queryByRole('combobox',{name:'Record status'}),null); assert.equal(screen.queryByRole('combobox',{name:'Availability'}),null);
   await user.click(screen.getByRole('combobox',{name:'Vehicle type'})); await user.click(screen.getByRole('option',{name:types[1].name}));
@@ -263,7 +265,7 @@ test('order create, detail, edit and save retain operational and stop data', asy
   await user.click(screen.getByRole('combobox',{name:'Shipper'})); await user.click(screen.getAllByRole('option')[1]);
   assert.ok((screen.getAllByLabelText('Stop address')[0] as HTMLInputElement).value);
   await user.clear(screen.getAllByLabelText('Stop address')[0]); await user.type(screen.getAllByLabelText('Stop address')[0],'100 Main St, Vancouver BC V6A 2S5'); await user.type(screen.getAllByLabelText('Stop address')[1],'200 Broadway, Vancouver BC V5Y 1P3');
-  assert.match(screen.getByText(/calculated from the stop addresses/).textContent!,/routing is connected/); assert.equal(screen.queryByLabelText('Route distance'),null);
+  assert.equal(screen.queryByText(/calculated from the stop addresses/) === null,true); assert.equal(screen.queryByLabelText('Route distance'),null);
   await user.click(screen.getByRole('checkbox',{name:'Package 1 dangerous goods'}));
   await user.click(screen.getByRole('button',{name:'Create Order'})); assert.ok(created,notices.join(' ')); assert.match(created.jobNumber,/^#\d+$/); assert.equal(created.pricingInput.routeKm,null); assert.equal(created.pricing.status,'NEEDS_ATTENTION'); assert.equal(created.pricing.taxDecision.ruleVersion,'company-tax-v2'); assert.equal(created.lifecycleStatus,'NEW'); assert.equal(created.pricingInput.stops.length,2); assert.deepEqual(created.pricingInput.packages[0].handlingTags,['DANGEROUS_GOODS']); assert.ok(created.customerSnapshot?.id);
   assert.ok(created.pricingInput.stops.every((stop: { contactPhone?: string }) => !stop.contactPhone));
@@ -440,6 +442,7 @@ test('editing a vehicle exposes status and re-derives capacity from its type', a
   render(React.createElement(VehicleEditor, { vehicle: { ...vehicle, cargoLengthCm: 254, cargoWidthCm: 127, cargoHeightCm: 101.6, payloadCapacityKg: 1 }, vehicles: [vehicle], onSave: value => { saved = value; }, onCancel: () => {} }));
   assert.ok(screen.getByRole('combobox', { name: 'Record status' })); assert.ok(screen.getByRole('combobox', { name: 'Availability' }));
   assert.ok(screen.getByLabelText('Max payload'));
+  await user.type(screen.getByRole('combobox',{name:'Parking address'}),'123 Main St, Vancouver, BC V5Y 1V4');
   await user.click(screen.getByRole('button', { name: 'Save vehicle' }));
   assert.equal(saved.payloadCapacityKg, type.payloadCapacityKg);
 });

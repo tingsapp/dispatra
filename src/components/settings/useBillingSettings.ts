@@ -1,3 +1,4 @@
+import { usePendingAction } from '../ui/usePendingAction';
 import { useContext, useEffect, useState } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import { useWorkspaceAccount, companySettingsKey } from '../../portal/WorkspaceAccount';
@@ -10,6 +11,7 @@ import { BillingConfig } from '../../types/billing';
 import { useSettingsGuard } from './useSettingsGuard';
 export function useBillingSettings(onNotification?: (message: string) => void) {
   const workspace = useWorkspaceAccount();
+  const action = usePendingAction();
   const queryClient = useContext(QueryClientContext);
   const [config, setConfig] = useState<BillingConfig>(() => workspace ? companySettingsBilling(workspace.settings.data, loadBillingConfig()) : loadBillingConfig());
   const [isSaved, setIsSaved] = useState(false);
@@ -77,6 +79,6 @@ export function useBillingSettings(onNotification?: (message: string) => void) {
 
 
 
-  return { config, patch, dirty, isSaved, saveError, handleSave };
+  return { config, patch, dirty, isSaved, saveError, pending: action.pending, handleSave: () => action.run(handleSave) };
 }
 export type BillingEditor = ReturnType<typeof useBillingSettings>;

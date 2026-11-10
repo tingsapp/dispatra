@@ -10,10 +10,11 @@ import { GoogleOrderMarkers, type LocatedOrderStop } from '../src/components/mon
 import { ShipperStopMarker } from '../src/components/orders/ShipperStopMarker';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
-for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'Event', 'KeyboardEvent', 'MouseEvent']) {
+for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'Event', 'KeyboardEvent', 'MouseEvent', 'CustomEvent', 'HTMLInputElement', 'NodeFilter', 'MutationObserver', 'getComputedStyle']) {
   Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: dom.window[name as keyof Window] });
 }
-const { render, screen, cleanup, fireEvent } = await import('@testing-library/react');
+const { render, screen, cleanup, fireEvent, waitFor } = await import('@testing-library/react');
+const { GoogleVehicleMarkers } = await import('../src/components/monitor/GoogleVehicleMarkers');
 const pane = document.createElement('div');
 const overlays = new Set<FakeOverlay>();
 let cameraOffset = 0;
@@ -36,7 +37,7 @@ class FakeOverlay {
 Object.defineProperty(globalThis, 'google', { configurable: true, value: { maps: { OverlayView: FakeOverlay, LatLng: FakeLatLng } } });
 const context: APIProviderContextValue = {
   status: APILoadingStatus.LOADED, loadedLibraries: {}, importLibrary: async () => { throw new Error('Unexpected library load in overlay test'); },
-  mapInstances: { default: { getCenter: () => new FakeLatLng({ lat: 0, lng: 0 }), getDiv: () => pane } as unknown as google.maps.Map }, addMapInstance() {}, removeMapInstance() {}, clearMapInstances() {},
+  mapInstances: { default: { getCenter: () => new FakeLatLng({ lat: 0, lng: 0 }), getDiv: () => pane, addListener: () => ({ remove() {} }) } as unknown as google.maps.Map }, addMapInstance() {}, removeMapInstance() {}, clearMapInstances() {},
   map3dInstances: {}, addMap3DInstance() {}, removeMap3DInstance() {}, clearMap3DInstances() {}, internalUsageAttributionIds: null,
 };
 const stops: LocatedOrderStop[] = [
@@ -158,4 +159,22 @@ test('Google route overlay rounds caps and joins, stays projected during camera 
   view.rerender(routeTree(false));
   assert.equal(path.getAttribute('stroke-width'), '4');
   view.unmount(); assert.equal(pane.childElementCount, 0);
+});
+
+test('shared vehicle parking opens every vehicle, supports keyboard dismissal and distinguishes live GPS', async () => {
+  document.body.appendChild(pane);
+  const vehicles = ['V1', 'V2'].map(id => ({ id, label: id, lat: 49.2, lng: -123.1, source: 'PARKING' as const, address: 'Yard address', unavailable: false }));
+  const opened: string[] = [];
+  const wrap = (rows: typeof vehicles | Array<Omit<typeof vehicles[number], 'source'> & { source: 'GPS' }>) => React.createElement(APIProviderContext.Provider, { value: context }, React.createElement(GoogleVehicleMarkers, { vehicles: rows, onOpenVehicle: id => opened.push(id) }));
+  const view = render(wrap(vehicles));
+  const marker = screen.getByRole('button', { name: '2 vehicles at this location' });
+  fireEvent.keyDown(marker, { key: 'Enter' });
+  await waitFor(() => assert.equal(screen.getByRole('dialog', { name: 'Vehicle location details' }).querySelectorAll('button').length, 3));
+  fireEvent.click(screen.getAllByRole('button', { name: 'View vehicle' })[1]);
+  assert.deepEqual(opened, ['V2']);
+  fireEvent.click(marker);
+  fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+  assert.equal(screen.queryByRole('dialog'), null);
+  view.rerender(wrap([{ ...vehicles[0], source: 'GPS' }]));
+  assert.ok(screen.getByRole('button', { name: 'Vehicle V1, Live GPS' }));
 });

@@ -1,9 +1,11 @@
+import { ActionButton } from './components/ui/button';
 import { BrandMark } from "./components/layout/AppBrand";
 import { showPopupFeedback } from './components/ui/popupFeedback';
 import { ChatWorkspace } from './components/chat/ChatWorkspace';
+import { DispatcherChatPopup } from './components/chat/DispatcherChatPopup';
 import { IncomingChatNotice } from './components/chat/IncomingChatNotice';
 import { useUnreadMessages } from './chat/api';
-import { OPEN_CHAT, openDispatcherChat, type ChatTarget } from './chat/navigation';
+import { openDispatcherChat, type ChatTarget } from './chat/navigation';
 import { NotificationBell } from './portal/Notifications';
 import { changeDispatchMode } from './operations/changeDispatchMode';
 import { dateTime } from './lib/dateTimeFormat';
@@ -15,6 +17,7 @@ import { companySlugForCurrentPath } from './lib/pageRoutes';
 import { allOperations, operations, type AssistantReference } from './operations/api';
 import { changeAssignment } from './operations/assignment';
 import { driverToUi } from './operations/adapters';
+import { vehicleMapLocations } from './components/monitor/mapLocations';
 import { monitorTiming } from './operations/monitorTiming';
 import { api } from './portal/api';
 import { companySettingsKey, useWorkspaceAccount } from './portal/WorkspaceAccount';
@@ -69,15 +72,10 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = usePageNavigation();
   const unreadMessages = useUnreadMessages(slug);
-  const [chatTarget, setChatTarget] = useState<ChatTarget | null>(() => {
+  const [chatTarget] = useState<ChatTarget | null>(() => {
     const id = new URLSearchParams(location.search).get('conversation');
     return id ? { conversationId: id } : null;
   });
-  useEffect(() => {
-    const open = (event: Event) => { setChatTarget((event as CustomEvent<ChatTarget>).detail); setActiveTab('messages'); };
-    window.addEventListener(OPEN_CHAT, open);
-    return () => window.removeEventListener(OPEN_CHAT, open);
-  }, [setActiveTab]);
   useSync(slug, 'DISPATCHER');
   // Record changes arrive through /sync; only driver locations and time-based attention still need a Monitor refresh.
   const liveRefresh = activeTab === 'monitor' ? 30_000 : false;
@@ -550,10 +548,10 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const activeRecord = slug && activeJob ? orderQuery.data?.find(order => order.id === activeJob.id) : undefined;
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-app-canvas font-sans text-app-text antialiased">
+    <div className={`relative flex h-dvh w-full overflow-hidden bg-app-canvas font-sans text-app-text antialiased ${slug && activeTab === 'monitor' && !tmsWorkspace ? 'dispatcher-monitor' : ''}`} data-sidebar-open={sidebarOpen}>
       <ConfirmDialogHost />
       {sidebarOpen && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/20 sm:hidden" onClick={() => setSidebarOpen(false)} />}
-      {slug && (orderQuery.error || driverQuery.error || monitorQuery.error) && <div role="alert" className="absolute top-3 left-1/2 z-50 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-rose-700">Could not load workspace data. <button type="button" className="underline" onClick={() => queryClient.invalidateQueries({ queryKey: ['operations', slug] })}>Retry</button></div>}
+      {slug && (orderQuery.error || driverQuery.error || monitorQuery.error) && <div role="alert" className="absolute top-3 left-1/2 z-50 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-rose-700">Could not load workspace data. <ActionButton type="button" className="underline" onClick={() => queryClient.invalidateQueries({ queryKey: ['operations', slug] })}>Retry</ActionButton></div>}
       {/* LEFT NAVIGATION SIDEBAR */}
       <Sidebar
         tmsWorkspace={tmsWorkspace}
@@ -597,6 +595,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
           <PanelLeft className="w-4.5 h-4.5" strokeWidth={1.5} />
         </button>
 
+        {slug && <DispatcherChatPopup key={slug} slug={slug} timeZone={settingsQuery.data?.data.time_zone} />}
         {slug && <IncomingChatNotice slug={slug} onOpen={id => openDispatcherChat({ conversationId: id })} />}
         {activeTab !== 'monitor' && (activeTab === 'messages' && slug ? (
           <div className="flex h-full flex-col bg-app-canvas">
@@ -674,6 +673,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               mapInstanceRef={mapRef}
               drivers={drivers}
               jobs={mapOrders}
+              vehicles={slug ? vehicleMapLocations(vehicleQuery.data ?? [], driverQuery.data ?? [], monitorQuery.isError ? [] : monitorQuery.data?.drivers ?? []) : undefined}
+              onOpenVehicle={id => { setAssistantEntity({ key: `vehicle:${id}`, kind: 'VEHICLE', id, label: 'Vehicle', detail: '' }); setActiveTab('vehicles'); }}
               selectedDriverId={selectedDriverId}
               selectedJobId={selectedJobId}
               layerConfig={layerConfig}
@@ -692,7 +693,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               attentionIds={new Set(jobs.filter(job => needsAttentionItems.some(item => item.jobNumber === job.jobNumber)).map(job => job.id))}
               loading={!!slug && (orderQuery.isPending || settingsQuery.isPending || monitorQuery.isPending)}
               error={!!slug && (orderQuery.isError || settingsQuery.isError || monitorQuery.isError)}
-              onRetry={() => { void orderQuery.refetch(); void settingsQuery.refetch(); void monitorQuery.refetch(); }}
+              onRetry={() => Promise.all([orderQuery.refetch(), settingsQuery.refetch(), monitorQuery.refetch()])}
               onSelectOrder={handleOpenJobDossier} onLocateOrder={job => { handleOrderVisibilityChange(job.id, true); handleLocateJobOnMap(job.jobNumber); }} onAssignOrder={(job, anchor) => { setAssignmentAnchor(anchor); setSelectedJobId(job.jobNumber); setPlanAssignment(true); setShowJobDetail(true); setShowDriverPopover(false); setShowAiRecommendation(false); setShowAssignDriver(true); }} />
             {/* DRIVER MARKER FLOW (D14 + Driver Actions Child) */}
             <AnimatePresence>
@@ -831,7 +832,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         onOrderVisibilityChange={handleOrderVisibilityChange}
         needsAttentionItems={needsAttentionItems}
         timeZone={slug ? settingsQuery.data?.data.time_zone : undefined}
-        onMessageDriver={slug ? driver => { handleCloseModal(); openDispatcherChat({ driverId: driver.id }); } : undefined}
+        onMessageDriver={slug ? driver => openDispatcherChat({ driverId: driver.id }) : undefined}
         onEditDriver={driver => { handleCloseModal(); setOpenDriverId(driver.id); setActiveTab('drivers'); }}
         onSelectJob={(jobNum) => {
           handleCloseModal();

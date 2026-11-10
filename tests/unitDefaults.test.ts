@@ -80,7 +80,7 @@ test('default order fields accept fractional inches and pounds and store canonic
   assert.deepEqual(priceOrder(current, ctx).inputs, priceOrder(current, metric).inputs);
 });
 test('vehicle type limits display in company units and stored cargo dimensions survive an edit', async () => {
-  const vehicle = { ...loadVehicles()[0], cargoLengthCm: 254, cargoWidthCm: 127, cargoHeightCm: 101.6 };
+  const vehicle = { ...loadVehicles()[0], parkingAddress: '123 Main St, Vancouver, BC V5Y 1V4', cargoLengthCm: 254, cargoWidthCm: 127, cargoHeightCm: 101.6 };
   let saved: typeof vehicle | undefined;
   const user = userEvent.setup({ document });
   render(React.createElement(VehicleEditor, { vehicle, vehicles: [vehicle], onCancel: () => {}, onSave: next => { saved = next as typeof vehicle; } }));

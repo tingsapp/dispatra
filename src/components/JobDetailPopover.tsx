@@ -392,7 +392,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               </div>
 
               {live && !canAssign && <p className="mt-2 text-xs text-slate-500">Driver changes are unavailable after this order has started.</p>}
-              {live && <div className="flex justify-end"><Button size="sm" type="button" disabled={assigning || !canAssign || selectedDriverCode === assignedCode || !eligibleDrivers.some(driver => driver.code === selectedDriverCode && !driver.unavailableReason)} onClick={async () => { const selected = eligibleDrivers.find(driver => driver.code === selectedDriverCode && !driver.unavailableReason); if (!canAssign || !selected || assigning) return; setAssigning(true); try { await onAssignDriver?.(selected.id); } finally { setAssigning(false); } }} className="mt-2">{assigning ? (job.assignedDriverId ? 'Reassigning…' : 'Assigning…') : (job.assignedDriverId ? 'Reassign' : 'Assign')}</Button></div>}
+              {live && <div className="flex justify-end"><Button loading={assigning} size="sm" type="button" disabled={assigning || !canAssign || selectedDriverCode === assignedCode || !eligibleDrivers.some(driver => driver.code === selectedDriverCode && !driver.unavailableReason)} onClick={async () => { const selected = eligibleDrivers.find(driver => driver.code === selectedDriverCode && !driver.unavailableReason); if (!canAssign || !selected || assigning) return; setAssigning(true); try { await onAssignDriver?.(selected.id); } finally { setAssigning(false); } }} className="mt-2">{assigning ? (job.assignedDriverId ? 'Reassigning…' : 'Assigning…') : (job.assignedDriverId ? 'Reassign' : 'Assign')}</Button></div>}
 
             </DialogBody>
           </Dialog></div>

@@ -108,7 +108,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
 
   return (
     <>
-      {slug && <div className="absolute bottom-6 left-6 z-40 pointer-events-auto">
+      {slug && <div className="monitor-assistant-dock absolute bottom-6 left-6 z-40 pointer-events-auto">
         <MonitorActivity jobs={jobs} timeZone={timeZone} key={slug} slug={slug} open={activityOpen} active={active} onSelectReference={onSelectReference} onOpenChange={next => {
           setActivityOpen(next);
           if (next) setIsNotificationOpen(false);

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, MapPin, Truck } from 'lucide-react';
+import { CheckCircle2, MapPin, MessageSquare, Truck } from 'lucide-react';
 import { Dialog, DialogBody, DialogFooter, DialogHeader } from '../ui/Dialog';
 import { Button } from '../ui/button';
+import { usePendingAction } from '../ui/usePendingAction';
 import { Select } from '../ui/Select';
 import { Detail, OrderDossierSections } from './OrderDossierSections';
 import { orderAssignable, orderEditable, orderLifecycle } from '../../domain/validation';
 import { orderCompletable } from './useOrderDetails';
 import { ProofOfDelivery, proofAvailable } from './ProofOfDelivery';
 import { companySlugForCurrentPath } from '../../lib/pageRoutes';
-import { OrderChatSection } from '../chat/OrderChat';
+import { openDispatcherChat } from '../../chat/navigation';
 import type { PricingContext } from '../../lib/pricingEngine';
 import type { Driver, Job } from '../../types';
 
@@ -16,11 +17,12 @@ import type { Driver, Job } from '../../types';
 export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onEdit, onLocate, onComplete }: {
   job: Job; ctx: PricingContext; drivers: Driver[]; onClose: () => void;
   onReassign: (job: Job, driverId: string) => void | Promise<void>; onEdit?: (job: Job) => void; onLocate?: (job: Job) => void;
-  onComplete?: (job: Job) => void;
+  onComplete?: (job: Job) => void | Promise<void>;
 }) {
   const savedDriver = job.assignedDriverId || 'unassigned';
   const [selectedDriver, setSelectedDriver] = useState(savedDriver);
   const [saving, setSaving] = useState(false);
+  const completion = usePendingAction();
   useEffect(() => { setSelectedDriver(savedDriver); }, [job.id, savedDriver]);
   const assignable = orderAssignable(job);
   const changed = selectedDriver !== savedDriver;
@@ -66,11 +68,18 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
         </dl>
       </section>} />
       {slug && proofAvailable(job.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={job.id} timeZone={ctx.billing.general.timeZone} />}
-      {slug && <OrderChatSection slug={slug} orderId={job.id} />}
+      {slug && <section aria-label="Messages" className="rounded-xl border border-slate-200 p-4">
+        <h4 className="app-section-title flex items-center gap-2"><MessageSquare className="size-4" />Messages</h4>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => openDispatcherChat(job.customerId ? { shipperId: job.customerId } : { orderId: job.id, kind: 'DISPATCH_SHIPPER' })}>Chat with shipper</Button>
+          {job.assignedDriverId && <Button variant="outline" onClick={() => openDispatcherChat({ orderId: job.id, kind: 'DISPATCH_DRIVER', driverId: job.assignedDriverId })}>Chat with driver</Button>}
+        </div>
+        {!job.assignedDriverId && <p className="mt-2 text-xs text-app-muted">Driver chat is available once a driver is assigned.</p>}
+      </section>}
     </DialogBody>
     {(editable || completable || locatable) && <DialogFooter>
       {editable && <Button variant="outline" onClick={() => onEdit!(job)}>Edit order</Button>}
-      {completable && <Button variant="outline" onClick={() => onComplete!(job)}><CheckCircle2 /> Complete order</Button>}
+      {completable && <Button loading={completion.pending} variant="outline" onClick={() => completion.run(() => onComplete!(job))}><CheckCircle2 /> Complete order</Button>}
       {locatable && <Button onClick={() => onLocate!(job)}><MapPin /> Locate on Monitor</Button>}
     </DialogFooter>}
   </Dialog>;

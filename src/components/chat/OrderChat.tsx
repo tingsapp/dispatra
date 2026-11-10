@@ -22,7 +22,7 @@ export function OrderChat({ slug, orderId, initialKind, initialConversation, exp
     ?? (initialKind || initialConversation ? undefined : rows[0]);
   const select = (index: number) => { setSelected(channelKey(rows[index])); tabs.current[index]?.focus(); };
   const content = channels.isPending ? <p role="status" className="py-6 text-center text-xs text-slate-500">Loading chats…</p>
-    : channels.error ? <div className="py-6 text-center"><p role="alert" className="text-sm text-red-700">Chats could not be loaded.</p><Button variant="outline" className="mt-3" onClick={() => void channels.refetch()}>Try again</Button></div>
+    : channels.error ? <div className="py-6 text-center"><p role="alert" className="text-sm text-red-700">Chats could not be loaded.</p><Button variant="outline" className="mt-3" onClick={() => channels.refetch()}>Try again</Button></div>
     : !current ? <p className="py-6 text-center text-xs text-slate-500">{driverOnly && rows.length === 0 ? 'Driver chat opens when a driver is assigned to this order.' : 'This conversation is unavailable. Reopen the order to view its current chats.'}</p>
     : <div className="flex min-h-0 flex-1 flex-col gap-3">
     {rows.length > 1 && <div role="tablist" aria-label="Chats" className="flex shrink-0 gap-1 overflow-x-auto py-1" style={{scrollbarWidth:'none'}}>

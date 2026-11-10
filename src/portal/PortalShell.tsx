@@ -1,3 +1,4 @@
+import { ActionButton } from '../components/ui/button';
 import { useState, type ReactNode } from 'react';
 import { LogOut, PanelLeft, Settings, type LucideIcon } from 'lucide-react';
 import { SidebarHeader } from '../components/layout/SidebarHeader';
@@ -50,7 +51,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
 
       </nav>
       {account ? <div className="mt-auto p-2">
-        <AccountMenu open={menuOpen} onOpenChange={setMenuOpen} modal={mobile} collapsed={collapsed} activeTab={account.activeTab ?? (account.profileCurrent ? 'profile' : '')}
+        <AccountMenu loggingOut={loggingOut} open={menuOpen} onOpenChange={setMenuOpen} modal={mobile} collapsed={collapsed} activeTab={account.activeTab ?? (account.profileCurrent ? 'profile' : '')}
           onProfile={() => navigate(onSettings)}
           onPricing={account.onSettings ? () => navigate(account.onSettings!) : undefined}
           onSubscription={account.onSubscription ? () => navigate(account.onSubscription!) : undefined}
@@ -65,11 +66,11 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
           </button>} />
         {footer?.(collapsed)}
       </div> : footer ? <div className="mt-auto p-2">
-        <button type="button" className="app-account-card border border-app-border bg-white shadow-sm hover:bg-white disabled:opacity-50" aria-label="Logout" title={collapsed ? 'Logout' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} className="shrink-0 text-slate-600" /><span className={collapsed ? 'sr-only' : 'text-sm font-medium text-slate-900'}>{loggingOut ? 'Logging out…' : 'Logout'}</span></button>
+        <ActionButton loading={loggingOut} type="button" className="app-account-card border border-app-border bg-white shadow-sm hover:bg-white disabled:opacity-50" aria-label="Logout" title={collapsed ? 'Logout' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} className="shrink-0 text-slate-600" /><span className={collapsed ? 'sr-only' : 'text-sm font-medium text-slate-900'}>{loggingOut ? 'Logging out…' : 'Logout'}</span></ActionButton>
         {footer(collapsed)}
       </div> : <div className={`mt-auto space-y-2 ${collapsed ? 'p-2' : 'p-3'}`}>
         <p className={collapsed ? 'sr-only' : 'truncate px-2 text-xs text-app-muted'} title={login}>{login}</p>
-        <button type="button" className="app-nav-item disabled:opacity-50" aria-label="Sign out" title={collapsed ? 'Sign out' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Sign out</span></button>
+        <ActionButton loading={loggingOut} type="button" className="app-nav-item disabled:opacity-50" aria-label="Sign out" title={collapsed ? 'Sign out' : undefined} disabled={loggingOut} onClick={onLogout}><LogOut size={18} strokeWidth={1.75} /><span className={collapsed ? 'sr-only' : undefined}>Sign out</span></ActionButton>
       </div>}
     </aside>
     <div className={headerActions || map ? `relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${settings || reading ? 'app-page-reading' : ''}` : 'contents'}>

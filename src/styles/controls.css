@@ -41,7 +41,7 @@
 .shipper-tracking-card {
   background: var(--color-app-surface); border: 1px solid var(--color-app-border);
   border-radius: var(--app-radius-card);
-  box-shadow: 0 4px 24px #0000000a; pointer-events: auto; font-size: .875rem;
+  box-shadow: 0 4px 24px #0000000a; pointer-events: auto; font-size: var(--text-sm);
 }
 .shipper-tracking-summary { display: flex; flex-direction: column; flex-shrink: 0; max-height: 75%; overflow: hidden; }
 .shipper-tracking-scroll { min-height: 0; overflow-y: auto; padding: 1.25rem; overscroll-behavior: contain; }
@@ -77,11 +77,11 @@
   flex-direction: column;
 }
 .app-page:has([data-page-width="reading"]) { --app-page-width: var(--app-reading-width); }
-.app-page-title { font-size: 1.75rem; line-height: 2.25rem; font-weight: 500; letter-spacing: -.025em; color: var(--color-app-text); }
+.app-page-title { font-size: var(--text-3xl); line-height: 2.25rem; font-weight: 500; letter-spacing: -.025em; color: var(--color-app-text); }
 @media (max-width: 767px) {
   .app-page { padding-top: 3.5rem; padding-bottom: 1rem; }
   .app-page.app-page-with-header { padding-top: 1.5rem; }
-  .app-page-title { font-size: 1.5rem; line-height: 2rem; }
+  .app-page-title { font-size: var(--text-2xl); line-height: 2rem; }
 }
 
 :where(button, a[href], summary, [role="button"]) {
@@ -97,7 +97,7 @@
 svg.lucide { stroke-width: 1.75; }
 .app-sections { display: flex; flex-direction: column; gap: var(--app-section-gap); }
 .app-toolbar { border: 0; padding: 0; background: var(--color-app-canvas); box-shadow: none; }
-.app-panel > :where(h2, h3) { font-size: 1rem; line-height: 1.5rem; font-weight: 500; }
+.app-panel > :where(h2, h3) { font-size: var(--text-base); line-height: 1.5rem; font-weight: 500; }
 .app-rate-card-details > :is(.app-panel, section, details) {
   border: 0;
   box-shadow: none;
@@ -376,7 +376,7 @@ svg.lucide { stroke-width: 1.75; }
   border-radius: var(--app-radius-card);
   box-shadow: none;
 }
-.app-zone-panel .app-zone-section-title { font-size: 1rem; line-height: 1.5rem; font-weight: 500; color: var(--color-app-text); }
+.app-zone-panel .app-zone-section-title { font-size: var(--text-base); line-height: 1.5rem; font-weight: 500; color: var(--color-app-text); }
 .app-zone-panel .app-zone-add { border-radius: var(--app-radius-action); font-size: var(--text-sm); }
 .app-zone-table { font-size: var(--text-sm); }
 .app-zone-table tbody { font-size: inherit; }
@@ -413,7 +413,7 @@ svg.lucide { stroke-width: 1.75; }
 .app-tab { min-height: 2.25rem; border: 0; border-radius: var(--app-radius-menu-item); font-size: var(--text-sm); font-weight: 400; }
 .app-tab[aria-selected="true"], .app-tab[aria-pressed="true"] { background: var(--color-app-selected); color: #0d0d0d; font-weight: 500; }
 .app-form-dialog { max-width: var(--app-dialog-width); }
-.app-form-dialog > :first-child :where(h2, h3), [data-confirm-dialog] h2 { font-size: 1.125rem; line-height: 1.5rem; font-weight: 500; }
+.app-form-dialog > :first-child :where(h2, h3), [data-confirm-dialog] h2 { font-size: var(--text-lg); line-height: 1.5rem; font-weight: 500; }
 :where([data-entity-dialog].bg-white, [data-entity-dialog] > .bg-white:is(.rounded-xl, .rounded-2xl), [data-confirm-dialog]) { border-radius: var(--app-radius-dialog); box-shadow: var(--app-menu-shadow); }
 
 /* Actual animations for the existing Tailwind-style names (no animation plugin). */
@@ -439,7 +439,7 @@ svg.lucide { stroke-width: 1.75; }
 
 
 /* One vocabulary for legacy pages, shared primitives and portal forms. */
-.app-section-title { font-size: 1rem; line-height: 1.5rem; font-weight: 500; letter-spacing: normal; }
+.app-section-title { font-size: var(--text-base); line-height: 1.5rem; font-weight: 500; letter-spacing: normal; }
 .app-label { display: block; margin-bottom: .375rem; font-size: var(--text-sm); line-height: 1.25rem; font-weight: 400; color: var(--color-slate-700); }
 .app-button { border-radius: var(--app-radius-action); font-size: var(--text-sm); font-weight: 500; box-shadow: none; }
 .app-danger { background: var(--color-rose-600); color: white; border-color: transparent; }
@@ -467,7 +467,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-disclosure-content { padding: 0 var(--app-panel-padding) var(--app-panel-padding); }
 .app-dialog-backdrop { background: var(--app-backdrop); backdrop-filter: none; }
 .app-dialog-surface { background: var(--color-app-surface); border: 0; border-radius: var(--app-radius-dialog); box-shadow: var(--app-menu-shadow); }
-.app-dialog-surface :where(h2) { font-size: 1.125rem; line-height: 1.5rem; font-weight: 500; }
+.app-dialog-surface :where(h2) { font-size: var(--text-lg); line-height: 1.5rem; font-weight: 500; }
 @media (forced-colors: active) {
   .app-input:focus, .app-table-input:focus, .app-input-group:focus-within, .app-combobox:focus, .app-field-trigger:focus, .app-button:focus-visible, .app-choice-row:focus-visible { outline: 2px solid Highlight; }
   .app-choice-row[aria-pressed="true"] { outline: 1px solid Highlight; }
@@ -480,7 +480,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-checkbox:disabled { opacity: .5; }
 /* Shared dialog anatomy: header, scrolling body and footer with one set of gutters. Spacing separates them; no rules. */
 .app-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem 1rem; flex-shrink: 0; }
-.app-dialog-header h3 { font-size: 1.125rem; line-height: 1.5rem; font-weight: 500; }
+.app-dialog-header h3 { font-size: var(--text-lg); line-height: 1.5rem; font-weight: 500; }
 .app-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 1.5rem 1.5rem; }
 .app-monitor-dialog :where(.app-dialog-body, .overflow-y-auto) { scrollbar-width: thin; scrollbar-gutter: stable; scrollbar-color: #c9c9c9 transparent; }
 .app-dialog-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem; padding: 1rem 1.5rem; flex-shrink: 0; background: var(--color-app-surface); }
@@ -488,7 +488,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-dialog-close:hover { color: var(--color-slate-700); background: var(--color-app-hover); }
 .app-dialog-surface.app-drawer { border-radius: var(--app-radius-dialog) 0 0 var(--app-radius-dialog); }
 .app-dialog-surface > form { background: var(--color-app-surface); }
-.app-dialog-surface > :first-child :is(h2, h3), .app-drawer > h2 { font-size: 1.125rem; line-height: 1.5rem; font-weight: 500; }
+.app-dialog-surface > :first-child :is(h2, h3), .app-drawer > h2 { font-size: var(--text-lg); line-height: 1.5rem; font-weight: 500; }
 
 /* Company logo doubles as the upload trigger, keeping its preview shape. */
 .app-button.app-company-logo { border-radius: .75rem; }
@@ -499,7 +499,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-list-summary > div:has(.app-list-summary-note) { grid-row: span 3; }
 .app-list-summary dt { display: flex; align-items: center; gap: .5rem; color: var(--color-app-muted); font-size: var(--text-xs); line-height: 1.5; }
 .app-list-summary-icon { flex-shrink: 0; width: 1rem; height: 1rem; color: var(--color-app-muted); }
-.app-list-summary dd { margin: 0; color: var(--color-app-text); font-size: 1.375rem; line-height: 1.25; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
+.app-list-summary dd { margin: 0; color: var(--color-app-text); font-size: var(--text-2xl); line-height: 1.25; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
 .app-list-summary dd.app-list-summary-note { color: var(--color-app-muted); font-size: var(--text-xs); line-height: 1.5; font-weight: 400; letter-spacing: normal; }
 .app-list-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
 .app-list-search { flex: 1 1 18rem; min-width: 0; max-width: 28rem; }
@@ -527,7 +527,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
   text-overflow: ellipsis;
 }
 
-/* Standard text actions share the homepage trial button proportions.
+/* Standard text actions use the shared compact type scale.
    Explicit compact/icon sizes and field triggers retain their own geometry. */
 .app-button[data-size="default"]:not(.app-field-trigger):not(.app-company-logo),
 .app-button[data-size="lg"]:not(.app-field-trigger):not(.app-company-logo),
@@ -538,7 +538,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
   max-width: 100%;
   white-space: normal;
   text-align: center;
-  font-size: 16px;
+  font-size: var(--text-base);
   line-height: 22px;
   font-weight: 500;
   letter-spacing: -.02em;
@@ -553,8 +553,8 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-dialog-surface :is(
   .app-button:is([data-size="default"], [data-size="sm"], [data-size="lg"]):not(.app-field-trigger):not(.app-company-logo),
   .app-action:not(.app-icon-button):not(.app-field-trigger),
-  button.app-primary:not(.app-icon-button):not(.app-field-trigger),
-  button.app-secondary:not(.app-icon-button):not(.app-field-trigger)
+  button.app-primary:not([data-size^="icon"]):not(.app-icon-button):not(.app-field-trigger),
+  button.app-secondary:not([data-size^="icon"]):not(.app-icon-button):not(.app-field-trigger)
 ) {
   min-height: var(--app-popup-action-height);
   height: auto;
@@ -570,13 +570,13 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 }
 
 /* Portal navigation follows the compact, neutral reference menu. */
-.app-workspace-sidebar { --spacing-sidebar: 204px; font-family: -apple-system-body, ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"; --color-app-sidebar: #fafafa; --color-app-hover: #efefef; --color-app-selected: #efefef; }
+.app-workspace-sidebar { --spacing-sidebar: 204px; font-family: var(--font-sans); --color-app-sidebar: #fafafa; --color-app-hover: #efefef; --color-app-selected: #efefef; }
 .app-workspace-sidebar .app-nav-item {
   min-height: 36px;
   padding: 8px 10px;
   gap: 8px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 20px;
   font-weight: 400;
   letter-spacing: normal;
@@ -586,12 +586,12 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 .app-workspace-sidebar .app-brand-logo { width: 112px; height: 30px; }
 .app-workspace-sidebar .app-brand-wordmark { display: block; }
 .app-workspace-sidebar .app-brand-fallback { display: none; }
-.app-workspace-sidebar .app-account-name { font-size: 14px; line-height: 20px; font-weight: 400; color: #212121; }
+.app-workspace-sidebar .app-account-name { font-size: var(--text-sm); line-height: 20px; font-weight: 400; color: #212121; }
 
 /* Match operational map typography and desktop control density to navigation. */
 [aria-label="Monitor map"] {
-  font-family: -apple-system-body, ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
-  font-size: 14px;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
   line-height: 20px;
 }
 .app-workspace-sidebar .app-nav-item > svg { width: 16px; height: 16px; flex-shrink: 0; }
@@ -662,7 +662,7 @@ button.app-account-card { border-radius: var(--app-radius-menu-item) !important;
 button.app-shipper-order-row { border-radius: 6px !important; box-shadow: none; }
 
 /* Pending actions retain their label and expose submission state to assistive technology. */
-button[aria-busy="true"]::before, .app-button[aria-busy="true"]::before {
+button[aria-busy="true"]:not([data-slot="button"])::before {
   content: "";
   display: inline-block;
   width: 14px;
@@ -674,10 +674,12 @@ button[aria-busy="true"]::before, .app-button[aria-busy="true"]::before {
   animation: app-button-spin .7s linear infinite;
 }
 button[aria-busy="true"], .app-button[aria-busy="true"] { cursor: wait; }
-button[aria-busy="true"] > svg { display: none; }
+/* Shared Buttons render their spinner explicitly; native busy buttons use the fallback above. */
+.app-button-spinner { display: inline-block; flex-shrink: 0; vertical-align: middle; animation: app-button-spin .7s linear infinite; }
+:is(button, .app-button)[aria-busy="true"] > svg:not([data-button-spinner]) { display: none; }
 @keyframes app-button-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  button[aria-busy="true"]::before, .app-button[aria-busy="true"]::before { animation-duration: 1.8s; }
+  button[aria-busy="true"]::before, .app-button-spinner { display: inline-block; flex-shrink: 0; vertical-align: middle; animation: none !important; }
 }
 
 .app-button[aria-busy="true"][data-size^="icon"] { font-size: 0; }

@@ -29,6 +29,7 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode, navigate = (url:
   const query = useQuery({ queryKey, queryFn: () => connectors.list(slug), enabled: !nativeTms, refetchInterval: data => data.state.data?.some(row => ['CONNECTING', 'SYNCING'].includes(row.status)) ? 3000 : 15000, refetchIntervalInBackground: false });
   const [selected, setSelected] = useState<Connector | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState('');
   const [review, setReview] = useState<{ provider: string; rows: Awaited<ReturnType<typeof connectors.review>> } | null>(null);
   const retries = useRef(new Map<string, string>());
@@ -37,7 +38,7 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode, navigate = (url:
     if (disconnect && !await confirmDialog({ title: `Disconnect ${row.name}?`, message: 'Synchronization will stop. Previously imported records stay in Dispatra.', confirmLabel: 'Disconnect' })) return;
     const operation = `${row.id}:${row.version}:${disconnect}`;
     const key = retries.current.get(operation) ?? crypto.randomUUID(); retries.current.set(operation, key);
-    setPending(row.id); setError('');
+    setPending(row.id); setDisconnecting(disconnect); setError('');
     try {
       if (disconnect) await connectors.disconnect(slug, row, key); else await connectors.sync(slug, row, key);
       retries.current.delete(operation); refresh();
@@ -52,7 +53,7 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode, navigate = (url:
   return <section aria-label={nativeTms ? undefined : 'Connectors'} className="space-y-5">
     <WorkspaceModeLayout nativeTms={nativeTms}>
     {query.isPending && <p role="status" className="text-sm text-app-muted">Loading connectors…</p>}
-    {query.error && <div role="alert" className="space-y-2 text-sm"><p>Connectors could not be loaded.</p><Button type="button" variant="outline" onClick={() => void query.refetch()}>Try again</Button></div>}
+    {query.error && <div role="alert" className="space-y-2 text-sm"><p>Connectors could not be loaded.</p><Button type="button" variant="outline" onClick={() => query.refetch()}>Try again</Button></div>}
     {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     {!query.isPending && !query.error && !visible.length && <p className="text-sm text-app-muted">No TMS connectors are available right now.</p>}
     <div className="grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-2">
@@ -63,7 +64,7 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode, navigate = (url:
         const actionLabel = row.paused ? `${row.name} synchronization paused` : needsSetup ? `Connect ${row.name}` : connected || row.status === 'SYNC_FAILED' ? `${row.id === 'samsara' ? 'Test' : 'Sync'} ${row.name}`
           : row.status === 'RECONNECT_REQUIRED' ? `Reconnect ${row.name}` : busy ? `${needsSetup && !row.paused ? 'Configuration required' : LABELS[row.status]} ${row.name}` : `Connect ${row.name}`;
         const textAction = needsSetup || (!connected && row.status !== 'SYNC_FAILED' && !busy);
-        const action = <Button type="button" variant="ghost" size={textAction ? 'default' : 'icon-lg'} aria-label={actionLabel} title={needsSetup ? `${row.name} requires configuration.` : actionLabel} aria-busy={pending === row.id}
+        const action = <Button type="button" variant="ghost" size={textAction ? 'default' : 'icon-lg'} aria-label={actionLabel} title={needsSetup ? `${row.name} requires configuration.` : actionLabel} aria-busy={pending === row.id && !disconnecting}
               disabled={row.paused || busy || pending !== null}
               className="shrink-0 text-app-muted"
               onClick={() => {
@@ -92,7 +93,7 @@ export function ConnectorsTab({ slug, nativeTms: presentedMode, navigate = (url:
           </div>
           {textAction && <div className="mt-2 pl-[54px]">{action}</div>}
           {(hasConnection || row.review_count > 0) && <div className="mt-2 flex flex-wrap items-center gap-2 pl-[54px]">
-            {hasConnection && <Button type="button" variant="ghost" disabled={pending === row.id} onClick={() => void act(row, true)}>Disconnect</Button>}
+            {hasConnection && <Button loading={pending === row.id && disconnecting} type="button" variant="ghost" disabled={pending !== null} onClick={() => void act(row, true)}>Disconnect</Button>}
             {row.review_count > 0 && <Button type="button" variant="ghost" onClick={async () => {
               try { setReview({ provider: row.name, rows: await connectors.review(slug, row.id) }); }
               catch { setError('Could not load the records needing review.'); }

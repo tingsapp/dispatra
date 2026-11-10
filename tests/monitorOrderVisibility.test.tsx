@@ -226,3 +226,21 @@ test('assigned driver is excluded from Available and labelled in the full roster
   assert.ok(screen.getByText('Assigned Driver'));
   assert.ok(screen.getByText('Assigned · awaiting start'));
 });
+
+test('located pickups and intermediate stops remain visible without a final drop-off coordinate or road path', async () => {
+  operations.orderRoadPath = async () => { throw new Error('Road provider unavailable'); };
+  const row = job('partial', '#PARTIAL');
+  row.lat = NaN; row.lng = NaN;
+  row.pricingInput = { ...row.pricingInput!, stops: [
+    { ...row.pricingInput!.stops[0], id: 'pickup' },
+    { ...row.pricingInput!.stops[1], id: 'middle', label: 'Intermediate delivery' },
+    { ...row.pricingInput!.stops[1], id: 'last', label: 'Final destination', latitude: null, longitude: null },
+  ] };
+  render(tree(<MonitorMapContent demo={false} jobs={[row]} vehicles={[{ id: 'v1', label: 'V1', lat: 49.1, lng: -123.3, source: 'PARKING', unavailable: false }]}
+    drivers={[]} onSelectJob={()=>{}} onSelectDriver={()=>{}} layerConfig={{mode:'map',traffic:false,labels:true}} />));
+  assert.ok(screen.getByRole('button', { name: /Order #PARTIAL, Pickup, stop 1/ }));
+  assert.ok(screen.getByRole('button', { name: /Order #PARTIAL, Drop-off, stop 2, Intermediate delivery/ }));
+  assert.equal(screen.queryByRole('button', { name: /Final destination/ }), null);
+  assert.ok(screen.getByRole('button', { name: 'Vehicle V1, Parking address' }));
+  await waitFor(() => assert.ok(screen.getByText('Route unavailable for 1 order')));
+});

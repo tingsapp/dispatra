@@ -95,6 +95,9 @@ export function vehicleToUi(row: ApiVehicle, type?: CatalogItem, driver?: ApiDri
   const status = available === 'UNAVAILABLE' ? 'maintenance' : available === 'INACTIVE' ? 'standby' : 'available';
   return {
     id: row.id, vehicleNumber: row.number, unitNumber: data.unit_number, plateNumber: row.plate, vin: data.vin,
+    parkingAddress: data.parking_address?.text ?? '',
+    parkingAddressCoordinates: data.parking_address ? { latitude: data.parking_address.latitude ?? null, longitude: data.parking_address.longitude ?? null,
+      city: data.parking_address.city, province: data.parking_address.province, postalCode: data.parking_address.postal_code, country: data.parking_address.country } : undefined,
     category: (['1 Tonne Van', '2 Tonne Cube', '3 Tonne Box', '5 Tonne Freight', 'Flatbed', 'Refrigerated Reefer'] as const).find(name => name === type?.data.name) ?? (data.equipment.includes('REFRIGERATION') ? 'Refrigerated Reefer' : '1 Tonne Van'), makeModel: data.make_model, year: data.year ?? 0,
     status, statusLabel: available === 'UNAVAILABLE' ? 'Unavailable' : available === 'INACTIVE' ? 'Inactive' : 'Available',
     currentDriverId: driver?.id, currentDriverName: driver?.name, currentLocation: '',
@@ -118,6 +121,7 @@ export function vehicleFromUi(form: VehicleAsset, previous?: ApiVehicle): Vehicl
   const old = previous?.data;
   return {
     name: form.unitNumber.trim(), unit_number: form.unitNumber.trim(), make_model: form.makeModel ?? '',
+    parking_address: canadianAddress(form.parkingAddress ?? '', old?.parking_address ?? undefined, form.parkingAddressCoordinates),
     year: form.year || null, vin: form.vin ?? '',
     availability: form.availability === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE',
     unavailable_reason: form.availability === 'UNAVAILABLE' ? form.unavailableReason ?? '' : '',

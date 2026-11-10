@@ -79,7 +79,7 @@ export function IntakeDialog({ slug, id, onClose, onChanged, onNotification, onC
           <div className="flex flex-wrap gap-2">
             <Select aria-label="Shipper" value={shipperId} onValueChange={setShipperId} placeholder="Choose a Shipper" className="w-72"
               options={(shippers.data ?? []).filter(s => s.status === 'ACTIVE').map(s => ({ value: s.id, label: s.company_name || s.name }))} />
-            <Button loading={!!busy} type="button" disabled={!shipperId || busy} onClick={() => act('Shipper linked. The Order agent is reading the email again.', () => operations.linkEmailIntakeShipper(slug, row, shipperId))}>Link and read again</Button>
+            <Button type="button" disabled={!shipperId || busy} onClick={() => act('Shipper linked. The Order agent is reading the email again.', () => operations.linkEmailIntakeShipper(slug, row, shipperId))}>Link and read again</Button>
           </div>
         </section>}
         <section>
@@ -89,8 +89,8 @@ export function IntakeDialog({ slug, id, onClose, onChanged, onNotification, onC
       </>}
     </DialogBody>
     {row && <DialogFooter note={row.status === 'NEEDS_REVIEW' ? 'Completing opens the order form with everything the agent found.' : undefined}>
-      {open && <Button loading={!!busy} type="button" variant="outline" disabled={busy} onClick={() => act('Email discarded.', () => operations.discardEmailIntake(slug, row))}>Discard</Button>}
-      {(open || row.status === 'DISCARDED') && row.status !== 'UNKNOWN_SENDER' && <Button loading={!!busy} type="button" variant="outline" disabled={busy} onClick={() => act('The Order agent is reading the email again.', () => operations.retryEmailIntake(slug, row))}>Read again</Button>}
+      {open && <Button type="button" variant="outline" disabled={busy} onClick={() => act('Email discarded.', () => operations.discardEmailIntake(slug, row))}>Discard</Button>}
+      {(open || row.status === 'DISCARDED') && row.status !== 'UNKNOWN_SENDER' && <Button type="button" variant="outline" disabled={busy} onClick={() => act('The Order agent is reading the email again.', () => operations.retryEmailIntake(slug, row))}>Read again</Button>}
       {open && row.draft && row.shipper_id && <Button type="button" disabled={busy} onClick={() => onCompleteDraft({ intake: { id: row.id, version: row.version }, draft: row.draft! })}>Complete order</Button>}
       {row.status === 'ORDER_CREATED' && row.order_number && <Button type="button" onClick={() => onShowOrder(row.order_number!)}>Show order</Button>}
     </DialogFooter>}
@@ -154,25 +154,26 @@ function MailboxForm({ slug, mailbox, onSaved }: { slug: string; mailbox: Mailbo
   const choose = (value: string) => { const next = value as Provider; setProvider(next); setResult(null);
     if (next !== 'other') { const p = PROVIDERS[next]; setForm(f => ({ ...f, host: p.host, port: String(p.port), smtp_host: p.smtp_host, smtp_port: String(p.smtp_port) })); } };
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<'test' | 'save' | null>(null);
+  const busy = pending !== null;
   // The outgoing server follows the IMAP server until it is edited.
   const set = (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) => { const value = event.target.value;
     setForm(f => ({ ...f, [field]: value, ...(field === 'host' && f.smtp_host === outgoingHost(f.host) ? { smtp_host: outgoingHost(value) } : {}) })); setResult(null); };
   const connection = () => ({ host: form.host.trim(), port: Number(form.port) || 993, username: form.username.trim(), password: form.password || null, folder: form.folder.trim() || 'INBOX',
     smtp_host: form.smtp_host.trim() || null, smtp_port: Number(form.smtp_port) || 465 });
   const test = async () => {
-    setBusy(true);
+    setPending('test');
     try { const outcome = await operations.testMailbox(slug, connection()); setResult(outcome.ok ? { ok: true, text: 'Connected. Dispatra can read and send from this mailbox.' } : { ok: false, text: outcome.error ?? 'Could not connect.' }); }
     catch (error) { setResult({ ok: false, text: message(error, 'Could not connect.') }); }
-    finally { setBusy(false); }
+    finally { setPending(null); }
   };
   const save = async (event: React.FormEvent) => {
-    event.preventDefault(); setBusy(true);
+    event.preventDefault(); setPending('save');
     try {
       await operations.saveMailbox(slug, { ...connection(), enabled: form.enabled, version: mailbox?.version ?? null });
       setResult({ ok: true, text: 'Mailbox saved. New emails are read about once a minute.' }); onSaved();
     } catch (error) { setResult({ ok: false, text: message(error, 'Could not save the mailbox.') }); }
-    finally { setBusy(false); }
+    finally { setPending(null); }
   };
   return <form onSubmit={save} className="max-w-2xl space-y-5">
     <div>
@@ -200,8 +201,8 @@ function MailboxForm({ slug, mailbox, onSaved }: { slug: string; mailbox: Mailbo
     </fieldset>
     {result && <p role={result.ok ? 'status' : 'alert'} className={`text-sm ${result.ok ? 'text-emerald-700' : 'text-rose-700'}`}>{result.text}</p>}
     <div className="flex flex-wrap justify-end gap-2">
-      <Button loading={!!busy} type="button" variant="outline" disabled={busy || !form.host || !form.username || (!mailbox && !form.password)} onClick={test}>Test connection</Button>
-      <Button type="submit" disabled={busy}>{mailbox ? 'Save mailbox' : 'Connect mailbox'}</Button>
+      <Button loading={pending === 'test'} type="button" variant="outline" disabled={busy || !form.host || !form.username || (!mailbox && !form.password)} onClick={test}>Test connection</Button>
+      <Button loading={pending === 'save'} type="submit" disabled={busy}>{mailbox ? 'Save mailbox' : 'Connect mailbox'}</Button>
     </div>
   </form>;
 }

@@ -1,3 +1,4 @@
+import { ShipperDraftCompletion } from './ShipperDraftCompletion';
 import { useChatInbox } from '../chat/api';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,7 +43,7 @@ function newOrderInput(ctx: PricingContext, shipper: Shipper): PricingOrderInput
   }) };
 }
 
-export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: string; open: boolean; onClose: () => void; onNavigate: (href: string) => void }) {
+export function ShipperOrders({ slug, open, onClose, onNavigate, draftId }: { draftId?: string | null; slug: string; open: boolean; onClose: () => void; onNavigate: (href: string) => void }) {
   const cache = useQueryClient();
   const profile = useQuery({ queryKey: ['shipper-profile', slug], queryFn: () => operations.ownShipper(slug) });
   const options = useQuery({ queryKey: ['booking-options', slug], queryFn: () => operations.bookingOptions(slug) });
@@ -170,6 +171,8 @@ export function ShipperOrders({ slug, open, onClose, onNavigate }: { slug: strin
       </DialogFooter>
     </Dialog>}
 
+    {draftId && ctx && profile.data && <ShipperDraftCompletion slug={slug} id={draftId} ctx={ctx} drivers={drivers.data ?? []} rateCardName={profile.data.rate_card_name ?? null}
+      onClose={() => onNavigate(`/${slug}/shipper`)} onSubmitted={() => { setMessage('Details sent to your dispatcher for review.'); onNavigate(`/${slug}/shipper`); }} />}
     {ctx && profile.data && (open || editing) && <ShipperOrderDialog key={editing?.id ?? 'new'} slug={slug} ctx={ctx} editing={editing ?? undefined} onClose={closeForm} onSaved={saved}
       drivers={drivers.data ?? []} rateCardName={profile.data.rate_card_name ?? null}
       initial={editingJob?.pricingInput ? normalizeOrderInput({ ...structuredClone(editingJob.pricingInput), taxCalculation: 'COMPANY' }) : newOrderInput(ctx, profile.data)} />}

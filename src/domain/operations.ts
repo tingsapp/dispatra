@@ -20,6 +20,8 @@ export interface TruckRoutingMeasurements {
   lengthM: number; widthM: number; heightM: number; grossWeightKg: number; axleWeightKg?: number;
 }
 export interface VehicleOperations extends AuditFields {
+  parkingAddress?: string;
+  parkingAddressCoordinates?: import('../components/ui/AddressAutocomplete').SelectedAddress;
   truckRouting?: TruckRoutingMeasurements;
   recordStatus?: 'ACTIVE' | 'INACTIVE'; availability?: 'AVAILABLE' | 'IN_USE' | 'UNAVAILABLE'; vehicleTypeId?: string;
   plateProvince?: string; maxStops?: number; cargoLengthCm?: number; cargoWidthCm?: number; cargoHeightCm?: number; cargoVolumeM3?: number;

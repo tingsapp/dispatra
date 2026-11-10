@@ -1,3 +1,4 @@
+import { ActionButton } from '../ui/button';
 import { Trash2 } from 'lucide-react';
 import { loadBillingConfig } from '../../lib/billingStorage';
 import { formatWeight, toDisplayDistanceRate } from '../../lib/units';
@@ -32,7 +33,7 @@ export function VehicleTable({ vehicles, drivers, vehicleTypes, onDetails, onDel
             <td className="px-4 py-3.5 whitespace-nowrap"><div>{formatWeight(vehicle.payloadCapacityKg, units)}</div><div className="mt-0.5 text-xs text-slate-500">{vehicle.palletCapacity} pallets{vehicle.cargoVolumeM3 != null ? ` · ${vehicle.cargoVolumeM3.toFixed(2)} m³` : ''}{vehicle.maxStops != null ? ` · ${vehicle.maxStops} stops max` : ''}</div></td>
             <td className="px-4 py-3.5">{drivers.find(driver => driver.id === vehicle.currentDriverId)?.name || vehicle.currentDriverName || 'Unassigned'}</td>
             <td className="px-4 py-3.5 max-w-52"><span className="block truncate" title={equipment.join(', ')}>{equipment.join(', ') || 'None recorded'}</span></td>
-            <td className="px-4 py-3.5 text-right whitespace-nowrap"><button type="button" aria-label={`Details for ${vehicle.unitNumber}`} onClick={event => { event.stopPropagation(); onDetails(vehicle); }} className="rounded-md px-2 py-1.5 font-medium text-slate-700 hover:bg-slate-100">Details</button>{onDelete && <button type="button" aria-label={`Delete ${vehicle.unitNumber}`} title="Delete vehicle" onClick={event => { event.stopPropagation(); onDelete(vehicle); }} className="ml-1 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>}</td>
+            <td className="px-4 py-3.5 text-right whitespace-nowrap"><button type="button" aria-label={`Details for ${vehicle.unitNumber}`} onClick={event => { event.stopPropagation(); onDetails(vehicle); }} className="rounded-md px-2 py-1.5 font-medium text-slate-700 hover:bg-slate-100">Details</button>{onDelete && <ActionButton type="button" aria-label={`Delete ${vehicle.unitNumber}`} title="Delete vehicle" onClick={event => { event.stopPropagation(); return onDelete(vehicle); }} className="ml-1 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"><Trash2 className="w-3.5 h-3.5" /></ActionButton>}</td>
           </tr>;
         })}
       </tbody>

@@ -60,7 +60,7 @@ export function GoogleOverlayMarker({ position, label, children, onSelect, id, t
 
   return createPortal(<div id={id} role={onSelect ? 'button' : 'img'} tabIndex={onSelect ? 0 : undefined}
     aria-label={label} aria-current={current || undefined} aria-expanded={expanded} aria-describedby={descriptionId}
-    title={title} className={`cursor-pointer select-none ${className}`} onFocus={onFocus} onBlur={onBlur}
+    title={title} className={`font-sans text-sm cursor-pointer select-none ${className}`} onFocus={onFocus} onBlur={onBlur}
     onClick={event => { event.stopPropagation(); if (onSelect) { event.currentTarget.focus({ preventScroll: true }); onSelect(); } }}
     onKeyDown={event => {
       if (event.key === 'Escape' && onDismiss) { event.preventDefault(); event.stopPropagation(); onDismiss(); return; }

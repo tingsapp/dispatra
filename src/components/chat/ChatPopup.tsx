@@ -8,6 +8,7 @@ import { useEntityDialog } from '../entities/useEntityDialog';
 
 /** Presentation only: the server still determines participants and send permissions. */
 export function counterpartRole(channel: ChatChannel, role: Account['role'], company: string) {
+  if (channel.kind === 'ADMIN_DISPATCHER') return role === 'DISPATCHER' ? 'Admin' : 'Dispatcher';
   if (role === 'DISPATCHER') return channel.kind === 'DISPATCH_DRIVER' ? 'Driver'
     : channel.kind === 'DISPATCH_SHIPPER' ? 'Shipper' : 'Driver · Shipper';
   if (role === 'SHIPPER') return channel.kind === 'DRIVER_SHIPPER' ? 'Driver' : company;

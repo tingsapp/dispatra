@@ -1,3 +1,4 @@
+import { ActionButton } from '../ui/button';
 import { type CSSProperties, useEffect, useId, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 import { SearchInput } from '../ui/SearchInput';
@@ -6,7 +7,7 @@ import { OrderMapCheckbox, type OrderMapVisibilityProps } from './OrderMapCheckb
 import { clockTime, dateTime } from '../../lib/dateTimeFormat';
 import type { Driver, Job, NeedsAttentionItem } from '../../types';
 import { lifecycleLabel, orderAttention, orderLifecycle } from '../../domain/validation';
-import { companyDay, todaysPlan } from './todaysPlan';
+import { companyDay, todaysPlan } from './todaysPlanData';
 import { OrderMapFocusButton } from './OrderMapFocusButton';
 
 interface TodaysPlanProps extends OrderMapVisibilityProps {
@@ -64,7 +65,7 @@ export function TodaysPlan({ attentionItems = [], onLocateOrder, onAssignOrder, 
       {!loading && !error && <div role="tablist" aria-label="Filter today’s orders" className="flex gap-0.5 overflow-x-auto border-b border-slate-100 px-3 pb-3">
         {([['all', 'All'], ['unassigned', 'New'], ['assigned', 'Assigned'], ['in_progress', 'In progress'], ['completed', 'Completed'], ['attention', 'At risk']] as const).map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={filter === key} onClick={() => setFilter(key)} className={`shrink-0 whitespace-nowrap rounded-lg px-1.5 py-1.5 text-[13px] font-medium focus-visible:outline-2 focus-visible:outline-slate-500 ${filter === key ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>)}
       </div>}
-      {error ? <div role="alert" className="px-4 pb-3 text-xs text-app-muted">Today’s plan is unavailable. <button type="button" className="underline" onClick={onRetry}>Try again</button></div>
+      {error ? <div role="alert" className="px-4 pb-3 text-xs text-app-muted">Today’s plan is unavailable. <ActionButton type="button" className="underline" onClick={onRetry}>Try again</ActionButton></div>
         : loading ? <p role="status" className="px-4 pb-3 text-xs text-app-muted">Loading today’s orders…</p>
         : <>
           {groups.all.length === 0 ? <p className="px-4 pb-4 pt-1 text-xs text-app-muted">No orders created today.</p> :

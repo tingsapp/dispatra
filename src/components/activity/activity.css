@@ -123,9 +123,7 @@
   line-height: 24px;
 }
 .company-activity-panel .public-chat-composer .public-chat-send {
-  width: 30px;
-  height: 30px;
-  min-height: 30px;
+  --chat-send-size: 30px;
 }
 
 .company-activity-panel .public-chat-composer[data-multiline="true"] .public-chat-input { font-size: 13px; }

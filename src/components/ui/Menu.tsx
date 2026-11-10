@@ -1,16 +1,17 @@
+import { ActionButton } from './button';
 import type { ComponentProps, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 /** A command row, distinct from a select option or a navigation tab. */
 export function MenuItem({ icon: Icon, trailing, selected, className, children, ...props }:
-  ComponentProps<'button'> & { icon?: LucideIcon; trailing?: ReactNode; selected?: boolean }) {
-  return <button {...props} type="button" data-menu-item data-active={selected || undefined}
+  ComponentProps<typeof ActionButton> & { icon?: LucideIcon; trailing?: ReactNode; selected?: boolean }) {
+  return <ActionButton {...props} type="button" data-menu-item data-active={selected || undefined}
     className={cn('app-menu-item disabled:opacity-50', className)}>
     {Icon && <Icon aria-hidden="true" />}
     <span className="min-w-0 flex-1">{children}</span>
     {trailing}
-  </button>;
+  </ActionButton>;
 }
 
 export function MenuSeparator() {

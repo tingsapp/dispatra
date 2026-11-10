@@ -2075,6 +2075,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/email-intake/messages/{identity}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Draft */
+        put: operations["save_draft_api_v1_companies__slug__email_intake_messages__identity__draft_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{slug}/email-intake/messages/{identity}/request-details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Draft Details */
+        post: operations["request_draft_details_api_v1_companies__slug__email_intake_messages__identity__request_details_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{slug}/email-intake/drafts/{identity}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shipper Draft */
+        get: operations["shipper_draft_api_v1_companies__slug__email_intake_drafts__identity__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{slug}/email-intake/drafts/{identity}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Shipper Draft */
+        post: operations["submit_shipper_draft_api_v1_companies__slug__email_intake_drafts__identity__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/orders/{identity}/dispatch-suggestions": {
         parameters: {
             query?: never;
@@ -3675,13 +3743,6 @@ export interface components {
             order_version: number;
             route: components["schemas"]["RouteView"];
         };
-        /** AssistantQuestion */
-        AssistantQuestion: {
-            /** Message */
-            message: string;
-            /** History */
-            history?: components["schemas"]["AssistantTurn"][];
-        };
         /** AssistantReference */
         AssistantReference: {
             /** Key */
@@ -4008,8 +4069,11 @@ export interface components {
              * @description Straight-line distance from the driver to the first pickup
              */
             deadhead_km: number | null;
-            /** Position */
-            position: ("GPS" | "HOME") | null;
+            /**
+             * Position
+             * @description GPS or vehicle parking address; HOME is retained only for historical decisions
+             */
+            position: ("GPS" | "PARKING" | "HOME") | null;
             /**
              * Route Orders
              * @description Orders already on the planned Route this Order would join
@@ -5147,6 +5211,258 @@ export interface components {
             /** Active Session Count */
             active_session_count: number;
         };
+        /** DraftAddress */
+        DraftAddress: {
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * City
+             * @default
+             */
+            city: string;
+            /**
+             * Province
+             * @default
+             */
+            province: string;
+            /**
+             * Postal Code
+             * @default
+             */
+            postal_code: string;
+            /**
+             * Country
+             * @default CA
+             * @constant
+             */
+            country: "CA";
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
+        };
+        /** DraftBooking */
+        DraftBooking: {
+            /** Service Id */
+            service_id?: string | null;
+            /** Vehicle Type Id */
+            vehicle_type_id?: string | null;
+            /** Preferred Driver Id */
+            preferred_driver_id?: string | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Stops */
+            stops?: components["schemas"]["DraftStop"][];
+            /** Items */
+            items?: components["schemas"]["DraftItem-Input"][];
+            /** Accessorials */
+            accessorials?: components["schemas"]["AccessorialSelection-Input"][];
+            /**
+             * External Reference
+             * @default
+             */
+            external_reference: string;
+            /** Shipper Id */
+            shipper_id?: string | null;
+            /** Billing Shipper Id */
+            billing_shipper_id?: string | null;
+            /** Rate Card Id */
+            rate_card_id?: string | null;
+            /** Distance Km */
+            distance_km?: number | string | null;
+            /** Estimated Minutes */
+            estimated_minutes?: number | null;
+            /** Adjustments */
+            adjustments?: components["schemas"]["Adjustment-Input"][];
+            /**
+             * Internal Notes
+             * @default
+             */
+            internal_notes: string;
+            /** Imported Total */
+            imported_total?: number | string | null;
+            /** Imported Tax */
+            imported_tax?: number | string | null;
+        };
+        /** DraftItem */
+        "DraftItem-Input": {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Pickup Id */
+            pickup_id?: string | null;
+            /** Delivery Id */
+            delivery_id?: string | null;
+            /** Quantity */
+            quantity?: number | null;
+            /** Weight Kg */
+            weight_kg?: number | string | null;
+            /** Length Cm */
+            length_cm?: number | string | null;
+            /** Width Cm */
+            width_cm?: number | string | null;
+            /** Height Cm */
+            height_cm?: number | string | null;
+            /**
+             * Pallets
+             * @default 0
+             */
+            pallets: number;
+            /**
+             * Fragile
+             * @default false
+             */
+            fragile: boolean;
+            /**
+             * Dangerous Goods
+             * @default false
+             */
+            dangerous_goods: boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** DraftItem */
+        "DraftItem-Output": {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Pickup Id */
+            pickup_id?: string | null;
+            /** Delivery Id */
+            delivery_id?: string | null;
+            /** Quantity */
+            quantity?: number | null;
+            /** Weight Kg */
+            weight_kg?: string | null;
+            /** Length Cm */
+            length_cm?: string | null;
+            /** Width Cm */
+            width_cm?: string | null;
+            /** Height Cm */
+            height_cm?: string | null;
+            /**
+             * Pallets
+             * @default 0
+             */
+            pallets: number;
+            /**
+             * Fragile
+             * @default false
+             */
+            fragile: boolean;
+            /**
+             * Dangerous Goods
+             * @default false
+             */
+            dangerous_goods: boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** DraftShipment */
+        "DraftShipment-Input": {
+            /** Service Id */
+            service_id?: string | null;
+            /** Vehicle Type Id */
+            vehicle_type_id?: string | null;
+            /** Preferred Driver Id */
+            preferred_driver_id?: string | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Stops */
+            stops?: components["schemas"]["DraftStop"][];
+            /** Items */
+            items?: components["schemas"]["DraftItem-Input"][];
+            /** Accessorials */
+            accessorials?: components["schemas"]["AccessorialSelection-Input"][];
+            /**
+             * External Reference
+             * @default
+             */
+            external_reference: string;
+        };
+        /** DraftShipment */
+        "DraftShipment-Output": {
+            /** Service Id */
+            service_id?: string | null;
+            /** Vehicle Type Id */
+            vehicle_type_id?: string | null;
+            /** Preferred Driver Id */
+            preferred_driver_id?: string | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Stops */
+            stops?: components["schemas"]["DraftStop"][];
+            /** Items */
+            items?: components["schemas"]["DraftItem-Output"][];
+            /** Accessorials */
+            accessorials?: components["schemas"]["AccessorialSelection-Output"][];
+            /**
+             * External Reference
+             * @default
+             */
+            external_reference: string;
+        };
+        /** DraftStop */
+        DraftStop: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "PICKUP" | "DROPOFF";
+            address?: components["schemas"]["DraftAddress"] | null;
+            /**
+             * Contact Name
+             * @default
+             */
+            contact_name: string;
+            /**
+             * Phone
+             * @default
+             */
+            phone: string;
+            /**
+             * Instructions
+             * @default
+             */
+            instructions: string;
+            /** Window Start */
+            window_start?: string | null;
+            /** Window End */
+            window_end?: string | null;
+            /**
+             * Service Minutes
+             * @default 10
+             */
+            service_minutes: number;
+            /**
+             * Unattended Allowed
+             * @default false
+             */
+            unattended_allowed: boolean;
+            /**
+             * Photo Required
+             * @default false
+             */
+            photo_required: boolean;
+        };
         /** DriverActivityView */
         DriverActivityView: {
             /** Completed Orders */
@@ -5477,6 +5793,8 @@ export interface components {
             created_at: string;
             /** Quote Id */
             quote_id: string | null;
+            /** Intake Id */
+            intake_id?: string | null;
             /** Notification Id */
             notification_id?: string | null;
             /**
@@ -5765,6 +6083,10 @@ export interface components {
             order_number?: string | null;
             /** Error Code */
             error_code: string | null;
+            /** Completion Requested At */
+            completion_requested_at?: string | null;
+            /** Completion Submitted At */
+            completion_submitted_at?: string | null;
             /**
              * Draft
              * @description Booking body the Order agent built; incomplete values are null
@@ -5841,6 +6163,10 @@ export interface components {
             order_number?: string | null;
             /** Error Code */
             error_code: string | null;
+            /** Completion Requested At */
+            completion_requested_at?: string | null;
+            /** Completion Submitted At */
+            completion_submitted_at?: string | null;
             /**
              * Draft
              * @description Booking body the Order agent built; incomplete values are null
@@ -6755,10 +7081,29 @@ export interface components {
             /** Connected Dispatchers */
             connected_dispatchers: number;
         };
+        /** PublicAssistantQuestion */
+        PublicAssistantQuestion: {
+            /** Message */
+            message: string;
+            /** History */
+            history?: components["schemas"]["AssistantTurn"][];
+            /**
+             * Conversation Id
+             * Format: uuid
+             */
+            conversation_id?: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id?: string;
+        };
         /** PublicAssistantReply */
         PublicAssistantReply: {
             /** Message */
             message: string;
+            /** Ticket Number */
+            ticket_number?: string | null;
         };
         /** PushDeviceInput */
         PushDeviceInput: {
@@ -7256,6 +7601,12 @@ export interface components {
             };
             stop: components["schemas"]["StopInput"];
         };
+        /** SaveEmailDraft */
+        SaveEmailDraft: {
+            /** Version */
+            version: number;
+            draft: components["schemas"]["DraftBooking"];
+        };
         /** SessionRevocation */
         SessionRevocation: {
             /** Revoked */
@@ -7562,6 +7913,19 @@ export interface components {
              */
             email_updates: boolean;
         };
+        /** ShipperDraftView */
+        ShipperDraftView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            draft: components["schemas"]["DraftShipment-Output"];
+            /** Submitted At */
+            submitted_at: string | null;
+        };
         /** ShipperProfileUpdate */
         ShipperProfileUpdate: {
             /** Version */
@@ -7723,6 +8087,12 @@ export interface components {
              * @default false
              */
             photo_required: boolean;
+        };
+        /** SubmitShipperDraft */
+        SubmitShipperDraft: {
+            /** Version */
+            version: number;
+            draft: components["schemas"]["DraftShipment-Input"];
         };
         /**
          * SubscriptionEnrollmentRequest
@@ -8321,6 +8691,7 @@ export interface components {
         "VehicleData-Input": {
             /** Name */
             name: string;
+            parking_address?: components["schemas"]["Address"] | null;
             /**
              * Unit Number
              * @default
@@ -8397,6 +8768,7 @@ export interface components {
         "VehicleData-Output": {
             /** Name */
             name: string;
+            parking_address?: components["schemas"]["Address"] | null;
             /**
              * Unit Number
              * @default
@@ -22616,6 +22988,404 @@ export interface operations {
             };
         };
     };
+    save_draft_api_v1_companies__slug__email_intake_messages__identity__draft_put: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveEmailDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    request_draft_details_api_v1_companies__slug__email_intake_messages__identity__request_details_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntakeVersion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailDeliveryView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    shipper_draft_api_v1_companies__slug__email_intake_drafts__identity__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipperDraftView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    submit_shipper_draft_api_v1_companies__slug__email_intake_drafts__identity__submit_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitShipperDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipperDraftView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     suggest_api_v1_companies__slug__orders__identity__dispatch_suggestions_post: {
         parameters: {
             query?: {
@@ -29115,7 +29885,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AssistantQuestion"];
+                "application/json": components["schemas"]["PublicAssistantQuestion"];
             };
         };
         responses: {

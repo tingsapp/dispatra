@@ -1,9 +1,10 @@
 import { shipperAssignment } from './shipperAssignment';
 import type { Job } from '../types';
-import type { PricingOrderInput, PricingSnapshot, ChargeLine } from '../types/pricing';
-import type { Order, Shipper, RateCard, CatalogItem, Booking, EmailIntake } from './api';
+import type { PricingOrderInput, PricingSnapshot, ChargeLine, PricingPackageInput } from '../types/pricing';
+import type { Order, Shipper, RateCard, CatalogItem, Booking, EmailIntake, DraftBooking, DraftShipment } from './api';
 import { canadianAddress } from './adapters';
 import { bookingInstant } from './time';
+import { fromDisplayDimension, fromDisplayWeight, type Units } from '../lib/units';
 
 const amount = (value: number | string | null | undefined) => Number(value ?? 0);
 const validStatus = (status: string): Job['lifecycleStatus'] =>
@@ -27,6 +28,7 @@ export function orderToInput(order: Order): PricingOrderInput {
     packages: facts.items.map(item => ({ id: item.id, quantity: item.quantity, weightKg: Number(item.weight_kg),
       lengthCm: Number(item.length_cm), widthCm: Number(item.width_cm), heightCm: Number(item.height_cm),
       declaredValue: 0, description: item.description, fragile: item.fragile, pickupStopId: item.pickup_id, deliveryStopId: item.delivery_id,
+      handlingUnit: item.pallets > 0 ? 'PALLET' : undefined, palletsPerUnit: item.pallets,
       handlingTags: item.dangerous_goods ? ['DANGEROUS_GOODS'] : [],
     })),
     accessorials: facts.accessorials.map(a => ({ accessorialId: a.id, quantity: Number(a.quantity) })),
@@ -39,14 +41,42 @@ export function orderToInput(order: Order): PricingOrderInput {
 }
 
 /** An Order agent draft (possibly incomplete) as order-form input; missing values stay blank for the dispatcher to fill. */
-export function draftToInput(draft: Record<string, unknown>): PricingOrderInput {
-  const facts = draft as Partial<Booking> & { stops?: Array<Record<string, unknown>>; items?: Array<Record<string, unknown>> };
-  const blank = { text: '', city: '', province: '', postal_code: '', country: 'CA' };
-  const stops = (facts.stops ?? []).map(stop => ({ ...stop, address: stop.address ?? blank, contact_name: stop.contact_name ?? '', phone: stop.phone ?? '', instructions: stop.instructions ?? '' }));
-  const items = (facts.items ?? []).map(item => ({ ...item, quantity: item.quantity ?? 1, weight_kg: item.weight_kg ?? 0, length_cm: item.length_cm ?? 0, width_cm: item.width_cm ?? 0, height_cm: item.height_cm ?? 0 }));
-  const order = { booking: {}, facts: { accessorials: [], adjustments: [], external_reference: '', ...facts, stops, items }, shipper_id: facts.shipper_id, billing_shipper_id: facts.shipper_id,
+export function draftToInput(draft: Record<string, unknown>, extraction?: Record<string, unknown> | null, units?: Units): PricingOrderInput {
+  const facts = draft as unknown as Partial<DraftBooking>;
+  const blank = { text: '', city: '', province: '', postal_code: '', country: 'CA' as const };
+  const extractedStops = extraction?.stops as Array<{ address?: { street?: string; city?: string; province?: string; postal_code?: string } }> | undefined;
+  const stops = (facts.stops ?? []).map((stop, index) => {
+    const original = extractedStops?.[index]?.address;
+    const recovered = !stop.address && original ? { text: [original.street, original.city, original.province, original.postal_code].filter(Boolean).join(', '), city: original.city ?? '', province: original.province ?? '', postal_code: original.postal_code ?? '' } : {};
+    return { ...stop, id: stop.id || crypto.randomUUID(), address: { ...blank, ...recovered, ...stop.address }, contact_name: stop.contact_name ?? '', phone: stop.phone ?? '', instructions: stop.instructions ?? '' };
+  });
+  for (const kind of ['PICKUP', 'DROPOFF'] as const) {
+    if (!stops.some(stop => stop.kind === kind)) stops.push({ id: crypto.randomUUID(), kind, address: blank, contact_name: '', phone: '', instructions: '', service_minutes: 10, unattended_allowed: false, photo_required: false });
+  }
+  const extractedItems = extraction?.items as Array<Record<string, unknown>> | undefined;
+  const rawItems = (facts.items?.length ? facts.items : [{ id: crypto.randomUUID() }]).map((item, index) => {
+    // Older agent drafts omitted stated numbers when their units were missing. Recover only
+    // before the first manual save, which always stores internal_notes (including an empty value).
+    const original = !('internal_notes' in draft) ? extractedItems?.[index] : undefined;
+    if (!original || !units) return item;
+    const recovered = { ...item };
+    const measurementUnits: Units = { ...units, weightUnit: original.weight_unit === 'kg' || original.weight_unit === 'lb' ? original.weight_unit : units.weightUnit,
+      dimensionUnit: original.dimension_unit === 'cm' || original.dimension_unit === 'in' ? original.dimension_unit : units.dimensionUnit };
+    for (const [field, source, convert] of [['weight_kg', 'weight_each', fromDisplayWeight], ['length_cm', 'length', fromDisplayDimension], ['width_cm', 'width', fromDisplayDimension], ['height_cm', 'height', fromDisplayDimension]] as const) {
+      const number = original[source];
+      if (recovered[field] == null && typeof number === 'number' && number > 0) recovered[field] = Number(convert(number, measurementUnits).toFixed(2));
+    }
+    if (recovered.quantity == null && typeof original.quantity === 'number' && original.quantity > 0) recovered.quantity = original.quantity;
+    return recovered;
+  });
+  const fields = { quantity: 'quantity', weightKg: 'weight_kg', lengthCm: 'length_cm', widthCm: 'width_cm', heightCm: 'height_cm' } as const;
+  const items = rawItems.map(item => ({ ...item, quantity: item.quantity ?? 0, weight_kg: item.weight_kg ?? 0, length_cm: item.length_cm ?? 0, width_cm: item.width_cm ?? 0, height_cm: item.height_cm ?? 0 }));
+  const order = { booking: {}, facts: { accessorials: [], adjustments: [], external_reference: '', ...facts, stops, items }, shipper_id: facts.shipper_id ?? null, billing_shipper_id: facts.billing_shipper_id ?? facts.shipper_id ?? null,
     service_id: facts.service_id ?? '', scheduled_at: facts.scheduled_at ?? '', source: 'EMAIL', pricing: { stage: 'ESTIMATE' } } as unknown as Order;
-  return orderToInput(order);
+  const input = orderToInput(order);
+  input.stops = input.stops.map(stop => stop.type === 'PICKUP' && !stop.windowStart && input.scheduledAt && stop.id === input.stops.find(s => s.type === 'PICKUP')?.id ? { ...stop, windowStart: input.scheduledAt } : stop);
+  input.packages = input.packages.map((item, index) => ({ ...item, missingFields: (Object.keys(fields) as Array<keyof typeof fields>).filter(field => rawItems[index][fields[field]] == null) }));
+  return input;
 }
 
 /** An Order agent draft as an Orders-list row: the same columns as an Order, blank wherever the email left a fact out. */
@@ -120,21 +150,33 @@ export function inputToBooking(input: PricingOrderInput, notes = '', timeZone = 
   if (!input.scheduledAt || Number.isNaN(new Date(input.scheduledAt).getTime())) throw new Error('Choose a valid pickup date and time.');
   if (!input.serviceId) throw new Error('Choose a service level.');
   if (input.stops.filter(stop => stop.type === 'PICKUP').length === 0 || input.stops.filter(stop => stop.type === 'DROPOFF').length === 0) throw new Error('Add a pickup and delivery stop.');
+  const missing = input.packages.flatMap((item, index) => (item.missingFields ?? []).map(field => `Package ${index + 1}: ${field === 'weightKg' ? 'weight' : field.replace('Cm', '')}`));
+  if (missing.length) throw new Error(`Complete the missing details: ${missing.join(', ')}.`);
+  return serializeBooking(input, notes, timeZone, false) as Booking;
+}
+
+export function inputToDraftBooking(input: PricingOrderInput, notes = '', timeZone = 'America/Vancouver'): DraftBooking {
+  return serializeBooking(input, notes, timeZone, true) as DraftBooking;
+}
+
+function serializeBooking(input: PricingOrderInput, notes: string, timeZone: string, partial: boolean) {
+  const instant = (value: string | null | undefined) => value ? bookingInstant(value, timeZone) : null;
+  const packageValue = (item: PricingPackageInput, key: NonNullable<PricingPackageInput['missingFields']>[number]) => partial && item.missingFields?.includes(key) ? null : item[key];
   const stopIds = new Map(input.stops.map(stop => [stop.id, /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(stop.id) ? stop.id : crypto.randomUUID()]));
   const pickups = input.stops.filter(stop => stop.type === 'PICKUP');
   const drops = input.stops.filter(stop => stop.type === 'DROPOFF');
   return {
     shipper_id: input.customerId, billing_shipper_id: input.billingCustomerId ?? input.customerId,
-    rate_card_id: input.rateCardOverrideId, service_id: input.serviceId, vehicle_type_id: input.vehicleId, preferred_driver_id: input.preferredDriverId ?? null,
-    scheduled_at: bookingInstant(input.scheduledAt, timeZone),
-    stops: input.stops.map(stop => ({ id: stopIds.get(stop.id)!, kind: stop.type, address: canadianAddress(stop.label ?? '', undefined, { latitude: stop.latitude ?? null, longitude: stop.longitude ?? null, city: stop.city, province: stop.provinceCode, postalCode: stop.postalCode, country: stop.countryCode }),
+    rate_card_id: input.rateCardOverrideId, service_id: input.serviceId || null, vehicle_type_id: input.vehicleId, preferred_driver_id: input.preferredDriverId ?? null,
+    scheduled_at: instant(input.scheduledAt),
+    stops: input.stops.map(stop => ({ id: stopIds.get(stop.id)!, kind: stop.type, address: partial ? { text: stop.label ?? '', city: stop.city ?? '', province: stop.provinceCode ?? '', postal_code: stop.postalCode ?? '', country: 'CA' as const, latitude: stop.latitude ?? null, longitude: stop.longitude ?? null } : canadianAddress(stop.label ?? '', undefined, { latitude: stop.latitude ?? null, longitude: stop.longitude ?? null, city: stop.city, province: stop.provinceCode, postalCode: stop.postalCode, country: stop.countryCode }),
       contact_name: stop.contactName ?? '', phone: stop.contactPhone ?? '', instructions: stop.instructions ?? '',
       window_start: stop.windowStart ? bookingInstant(stop.windowStart, timeZone) : null, window_end: stop.windowEnd ? bookingInstant(stop.windowEnd, timeZone) : null,
       service_minutes: stop.handlingMinutes ?? 10, unattended_allowed: false, photo_required: stop.podRequirement === 'PHOTO' || stop.podRequirement === 'PHOTO_AND_SIGNATURE' })),
     items: input.packages.map(item => ({ id: /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(item.id) ? item.id : crypto.randomUUID(),
-      pickup_id: stopIds.get(item.pickupStopId ?? pickups[0]?.id)!, delivery_id: stopIds.get(item.deliveryStopId ?? drops[0]?.id)!,
-      quantity: item.quantity, weight_kg: item.weightKg, length_cm: item.lengthCm, width_cm: item.widthCm, height_cm: item.heightCm,
-      pallets: item.handlingUnit === 'PALLET' ? item.quantity : 0, fragile: item.fragile ?? false,
+      pickup_id: stopIds.get(item.pickupStopId ?? (pickups.length === 1 ? pickups[0].id : '')) ?? null, delivery_id: stopIds.get(item.deliveryStopId ?? (drops.length === 1 ? drops[0].id : '')) ?? null,
+      quantity: packageValue(item, 'quantity'), weight_kg: packageValue(item, 'weightKg'), length_cm: packageValue(item, 'lengthCm'), width_cm: packageValue(item, 'widthCm'), height_cm: packageValue(item, 'heightCm'),
+      pallets: item.palletsPerUnit ?? (item.handlingUnit === 'PALLET' ? 1 : 0), fragile: item.fragile ?? false,
       dangerous_goods: item.handlingTags?.includes('DANGEROUS_GOODS') ?? false, description: item.description ?? '' })),
     accessorials: input.accessorials.map(a => ({ id: a.accessorialId, quantity: a.quantity })),
     distance_km: input.routeKm, estimated_minutes: input.estimatedMinutes,
@@ -148,4 +190,10 @@ export function inputToBooking(input: PricingOrderInput, notes = '', timeZone = 
 export function inputToShipperBooking(input: PricingOrderInput, timeZone: string): Booking {
   return { ...inputToBooking({ ...input, customerId: null, billingCustomerId: null, rateCardOverrideId: null, adjustments: [], routeKm: null, importedPrice: null, importedTaxAmount: null }, '', timeZone),
     shipper_id: null, billing_shipper_id: null };
+}
+
+/** Shippers may submit shipment facts, never dispatcher commercial settings or internal notes. */
+export function inputToDraftShipment(input: PricingOrderInput, timeZone: string): DraftShipment {
+  const { service_id, vehicle_type_id, preferred_driver_id, scheduled_at, stops, items, accessorials, external_reference } = inputToDraftBooking(input, '', timeZone);
+  return { service_id, vehicle_type_id, preferred_driver_id, scheduled_at, stops, items, accessorials, external_reference };
 }

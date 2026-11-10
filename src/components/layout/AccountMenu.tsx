@@ -3,10 +3,11 @@ import { CreditCard, HelpCircle, LogOut, Plug, Settings, User } from 'lucide-rea
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/DropdownMenu';
 
 export function AccountMenu({ open, onOpenChange, trigger, activeTab, modal = false, collapsed = false,
-  onProfile, onPricing, onSubscription, onIntegration, onHelp, onLogout }: {
+  loggingOut = false, onProfile, onPricing, onSubscription, onIntegration, onHelp, onLogout }: {
   open: boolean; onOpenChange: (open: boolean) => void; trigger: ReactElement;
   activeTab: string;
   modal?: boolean;
+  loggingOut?: boolean;
   collapsed?: boolean;
   onProfile: () => void; onPricing?: () => void;
   onSubscription?: () => void; onIntegration?: () => void;
@@ -20,7 +21,7 @@ export function AccountMenu({ open, onOpenChange, trigger, activeTab, modal = fa
       {onSubscription && <DropdownMenuItem icon={CreditCard} selected={activeTab === 'subscription'} onSelect={onSubscription}>Subscription</DropdownMenuItem>}
       {onIntegration && <DropdownMenuItem icon={Plug} selected={activeTab === 'integrations'} onSelect={onIntegration}>Integration</DropdownMenuItem>}
       {onHelp && <DropdownMenuItem icon={HelpCircle} selected={activeTab === 'help'} onSelect={onHelp}>Help</DropdownMenuItem>}
-      <DropdownMenuItem icon={LogOut} onSelect={onLogout}>Logout</DropdownMenuItem>
+      <DropdownMenuItem icon={LogOut} loading={loggingOut} disabled={loggingOut} onSelect={event => { event.preventDefault(); onLogout(); }}>Logout</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>;
 }

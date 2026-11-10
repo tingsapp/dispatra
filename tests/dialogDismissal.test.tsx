@@ -143,6 +143,30 @@ test('driver selection is pending until Confirm and closing discards it', async 
   assert.deepEqual(calls, [INITIAL_DRIVERS[0].id]);
 });
 
+test('order completion shows a spinner until settled, blocks repeats and can be retried', async () => {
+  const { OrderDetailsDialog } = await import('../src/components/orders/OrderDetailsDialog');
+  const { INITIAL_JOBS, INITIAL_DRIVERS } = await import('../src/data/mockData');
+  const { loadPricingContext } = await import('../src/lib/orderPricing');
+  let finish!: () => void;
+  let calls = 0;
+  render(<OrderDetailsDialog job={{ ...INITIAL_JOBS[0], lifecycleStatus: 'ASSIGNED' }} ctx={loadPricingContext()} drivers={INITIAL_DRIVERS}
+    onClose={() => {}} onReassign={() => {}} onComplete={() => { calls++; return new Promise<void>(resolve => { finish = resolve; }); }} />);
+  const user = userEvent.setup({ document });
+  const button = screen.getByRole('button', { name: 'Complete order' }) as HTMLButtonElement;
+  await user.click(button);
+  assert.equal(button.disabled, true);
+  assert.equal(button.getAttribute('aria-busy'), 'true');
+  assert.ok(button.querySelector('[data-button-spinner]'));
+  await user.click(button);
+  assert.equal(calls, 1);
+  await act(async () => { finish(); });
+  assert.equal(button.disabled, false);
+  assert.equal(button.querySelector('[data-button-spinner]'), null);
+  await user.click(button);
+  assert.equal(calls, 2);
+  await act(async () => { finish(); });
+});
+
 test('assignment errors render as red inline alerts', async () => {
   const { Dialog } = await import('../src/components/ui/Dialog');
   const { showPopupFeedback } = await import('../src/components/ui/popupFeedback');

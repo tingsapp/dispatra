@@ -1,3 +1,4 @@
+import { ActionButton } from '../ui/button';
 import { clockText } from '../../lib/dateTimeFormat';
 import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { confirmDialog } from '../ui/ConfirmDialog';
@@ -107,8 +108,8 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       </>}
       {section === 'services' && <td className="px-4 py-3 text-slate-600 tabular-nums">{(item as DeliveryService).additionalCharge == null ? 'Set charge' : `$${(item as DeliveryService).additionalCharge!.toFixed(2)}`}</td>}
       <td className="px-4 py-3"><div className="inline-flex items-center gap-1">
-        {section === 'services' && item.id !== defaultId && <button type="button" aria-label={`Set ${item.name} as default`} title="Set as default" onClick={() => void makeDefault(item)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Star aria-hidden="true" className="h-3.5 w-3.5" /></button>}
-        <button type="button" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} onClick={() => void deleteItem(item)} className="rounded p-1.5 text-rose-700 hover:bg-rose-50"><Trash2 aria-hidden="true" className="h-3.5 w-3.5" /></button>
+        {section === 'services' && item.id !== defaultId && <ActionButton type="button" aria-label={`Set ${item.name} as default`} title="Set as default" onClick={() => makeDefault(item)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Star aria-hidden="true" className="h-3.5 w-3.5" /></ActionButton>}
+        <ActionButton type="button" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} onClick={() => deleteItem(item)} className="rounded p-1.5 text-rose-700 hover:bg-rose-50"><Trash2 aria-hidden="true" className="h-3.5 w-3.5" /></ActionButton>
         <button type="button" aria-label={`Edit ${item.name}`} onClick={() => setEditing(item)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Pencil className="w-3.5 h-3.5" /></button>
       </div></td>
     </tr>)}{!items.length && <tr><td colSpan={section === 'accessorials' ? 4 : 5} className="p-6 text-center text-slate-500">{search ? 'No matches. Try a different search.' : `No ${title.toLowerCase()} yet.`}</td></tr>}</tbody></table></div>

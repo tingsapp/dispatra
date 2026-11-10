@@ -13,7 +13,7 @@ export default function LegalPage({ policy }: { policy: keyof typeof legalPolici
       </nav>
       <article>
         <header className="mb-10">
-          <p className="home-eyebrow">Updated <time dateTime="2026-10-15">October 15, 2026</time></p>
+          <p className="home-eyebrow">Updated <time dateTime="2026-11-09">November 9, 2026</time></p>
           <h1 className="mt-4 text-3xl font-medium tracking-tight sm:text-4xl">{content.title}</h1>
           <p className="mt-4 text-base leading-7 text-app-muted">{content.introduction}</p>
         </header>
@@ -23,8 +23,8 @@ export default function LegalPage({ policy }: { policy: keyof typeof legalPolici
             <p className="mt-3 text-sm leading-7 text-app-muted">{section.text}</p>
           </section>)}
           <section aria-labelledby="policy-contact">
-            <h2 id="policy-contact" className="text-lg font-medium">17. {policy === 'privacy' ? 'Privacy contact' : 'Contact'}</h2>
-            <p className="mt-3 text-sm leading-7 text-app-muted">For {policy === 'privacy' ? 'privacy questions, complaints or personal-information requests' : 'questions about these Terms or your Dispatra agreement'}, contact Tingsapp Inc. at <a href="mailto:contact@dispatra.com" className="break-words underline underline-offset-4">contact@dispatra.com</a>. Include Dispatra and your company workspace in the subject so we can direct your request. Please do not email passwords or full payment-card details.</p>
+            <h2 id="policy-contact" className="text-lg font-medium">{content.sections.length + 1}. {policy === 'privacy' ? 'Privacy contact' : 'Contact'}</h2>
+            <p className="mt-3 text-sm leading-7 text-app-muted">For {policy === 'privacy' ? 'privacy questions, complaints or personal-information requests' : 'questions about these Terms or your Dispatra agreement'}, contact Tingsapp Inc. at <a href="mailto:contact@dispatra.com" className="break-words underline underline-offset-4">contact@dispatra.com</a>. Include Dispatra and, if applicable, your company workspace in the subject so we can direct your request. You do not need an account to make a privacy request. Please do not email passwords or full payment-card details.</p>
           </section>
         </div>
         <p className="mt-10 text-sm leading-7 text-app-muted">Read our <a href={policy === 'terms' ? '/privacy' : '/terms'} className="underline underline-offset-4">{policy === 'terms' ? 'Privacy Policy' : 'Terms and Conditions'}</a> together with this {policy === 'terms' ? 'agreement' : 'Policy'}.</p>

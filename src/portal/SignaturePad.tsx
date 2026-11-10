@@ -30,7 +30,7 @@ export function SignaturePad({ disabled, onSave }: { disabled?: boolean; onSave:
     const [x, y] = point(event); context.lineTo(x, y); context.stroke();
   };
   const end = () => { drawing.current = false; };
-  const save = () => { const data = canvas.current?.toDataURL('image/png').split(',')[1]; if (data) void onSave(data); };
+  const save = () => { const data = canvas.current?.toDataURL('image/png').split(',')[1]; if (data) return onSave(data); };
   return <div className="space-y-2">
     <canvas ref={canvas} aria-label="Signature pad" role="img" className="h-44 w-full touch-none rounded-lg border border-dashed border-slate-300 bg-white"
       onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end} onPointerCancel={end} />

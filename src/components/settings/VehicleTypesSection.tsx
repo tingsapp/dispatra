@@ -1,3 +1,4 @@
+import { ActionButton } from '../ui/button';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
@@ -65,7 +66,7 @@ export function VehicleTypesSection({ onNotification, onChanged }: { onNotificat
       <td className="px-4 py-3 text-slate-600 tabular-nums">{dimension(type.cargoLengthCm)} × {dimension(type.cargoWidthCm)} × {dimension(type.cargoHeightCm)}</td>
       <td className="px-4 py-3 text-slate-600 tabular-nums">${type.baseSurcharge.toFixed(2)}</td>
       <td className="px-4 py-3"><div className="inline-flex items-center gap-1">
-        <button type="button" aria-label={`Delete ${type.name}`} title={`Delete ${type.name}`} onClick={() => void remove(type)} className="rounded p-1.5 text-rose-700 hover:bg-rose-50"><Trash2 aria-hidden="true" className="h-3.5 w-3.5" /></button>
+        <ActionButton type="button" aria-label={`Delete ${type.name}`} title={`Delete ${type.name}`} onClick={() => remove(type)} className="rounded p-1.5 text-rose-700 hover:bg-rose-50"><Trash2 aria-hidden="true" className="h-3.5 w-3.5" /></ActionButton>
         <button type="button" aria-label={`Edit ${type.name}`} onClick={() => setEditing(type)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Pencil className="w-3.5 h-3.5" /></button>
       </div></td>
     </tr>)}{!types.length && !(slug && catalogQuery.isPending) && <tr><td colSpan={6} className="p-6 text-center text-slate-500">No vehicle types yet.</td></tr>}</tbody></table></div>

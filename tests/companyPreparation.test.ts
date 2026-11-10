@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { cityFromAddress, cityAreaId } from '../src/lib/driverCity';
+import { cityFromAddress } from '../src/lib/driverCity';
 import { companySlugForPath, pageForPath, pathForPage, PAGE_PATHS, RESERVED_SLUGS } from '../src/lib/pageRoutes';
 import { scopedStorageKey } from '../src/lib/scopedStorage';
 import { canonicalPortalPath, parsePortal, roleHome } from '../src/portal/PortalApp';
@@ -49,14 +49,14 @@ test('local demo keys are company-scoped and never inherit old global records', 
   assert.equal(scopedStorageKey('orders','/prototype/orders'), 'orders');
 });
 
-test('driver coverage follows address city, including edits', () => {
+test('residential address edits do not constrain driver pickup eligibility', () => {
   assert.equal(cityFromAddress('100 Main St, Vancouver, BC V6A 2S5, Canada'), 'Vancouver');
   assert.equal(cityFromAddress('20 King St, Toronto, Ontario M5V 1A1'), 'Toronto');
   assert.equal(cityFromAddress('100 Main St, BC V6A 2S5'), null);
   const driver = syncDriver({ ...normalizeDriver(INITIAL_DRIVERS[0]), phone:'6041234567', email:'driver@example.ca', address:'100 Main St, Vancouver, BC V6A 2S5' });
-  assert.deepEqual(driver.serviceAreaIds, [cityAreaId('Vancouver')]);
-  assert.deepEqual(syncDriver({ ...driver, address:'20 Main St, Surrey, BC V3T 1X1' }).serviceAreaIds, ['surrey']);
+  assert.deepEqual(driver.serviceAreaIds, []);
+  assert.deepEqual(syncDriver({ ...driver, address:'20 Main St, Surrey, BC V3T 1X1' }).serviceAreaIds, []);
   assert.match(validateDriver({ ...driver, email:'' }, []).join(' '), /email/);
   assert.deepEqual(validateOperationalAssignment({ pickupAddress:'100 Main St, Vancouver, BC V6A 2S5' }, driver, []), []);
-  assert.match(validateOperationalAssignment({ pickupAddress:'20 Main St, Surrey, BC V3T 1X1' }, driver, []).join(' '), /pickup city/);
+  assert.deepEqual(validateOperationalAssignment({ pickupAddress:'20 Main St, Surrey, BC V3T 1X1' }, driver, []), []);
 });

@@ -4,12 +4,14 @@ import { useRef, useState } from 'react';
 export function usePendingAction() {
   const [pending, setPending] = useState(false);
   const running = useRef(false);
-  const run = async <T,>(action: () => T | Promise<T>): Promise<T | undefined> => {
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const run = async <T,>(action: () => T | Promise<T>, key?: string): Promise<T | undefined> => {
     if (running.current) return;
     running.current = true;
     setPending(true);
+    setPendingKey(key ?? null);
     try { return await action(); }
-    finally { running.current = false; setPending(false); }
+    finally { running.current = false; setPending(false); setPendingKey(null); }
   };
-  return { pending, run };
+  return { pending, pendingKey, run };
 }

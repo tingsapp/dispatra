@@ -1,3 +1,4 @@
+import { ActionButton } from '../components/ui/button';
 import { usePendingAction } from '../components/ui/usePendingAction';
 import { dateTime } from '../lib/dateTimeFormat';
 import { ORDER_LIFECYCLE_LABELS } from '../domain/operations';
@@ -419,7 +420,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button
+                          <ActionButton
                             type="button"
                             onClick={() => handleDeleteCustomer(customer.id, customer.name)}
                             className="app-icon-button"
@@ -427,7 +428,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                             aria-label={`Delete ${customer.name}`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </ActionButton>
                         </div>
                       </td>
                     </tr>
@@ -538,22 +539,22 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         <Dialog size="form" onClose={() => setIsModalOpen(false)}>
           <DialogHeader onClose={() => setIsModalOpen(false)} title={editingCustomer ? 'Edit Shipper' : 'New Shipper'} />
           <DialogBody>
-            <form id="shipper-form" onSubmit={handleSaveCustomer} className="space-y-6">
+            <form id="shipper-form" onSubmit={handleSaveCustomer} className="space-y-5">
               <FormSection title="Shipper">
                 <label className="block"><span className="app-label">Shipper name</span><input type="text" required placeholder="e.g. Alex Morgan" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="app-input w-full" /></label>
                 <div><span className="app-label">Shipper type</span><Select aria-label="Shipper type" className="w-full" value={formData.customerType ?? 'BUSINESS'} onValueChange={(v) => setFormData({ ...formData, customerType: v as Customer['customerType'] })} options={[{ value: 'BUSINESS', label: 'Business' }, { value: 'INDIVIDUAL', label: 'Individual' }]} /></div>
                 {formData.customerType !== 'INDIVIDUAL' && <label className="block sm:col-span-2"><span className="app-label">Company name</span><input type="text" required placeholder="e.g. Pacific Fresh Logistics" value={formData.legalName || ''} onChange={(e) => setFormData({ ...formData, legalName: e.target.value })} className="app-input w-full" /></label>}
                 <label className="block"><span className="app-label">Phone</span><ContactInput type="tel" placeholder="(604) 555-0100" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="app-input w-full" /></label>
-                <label className="block"><span className="app-label">Email</span><ContactInput type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Used for portal login, quotes and delivery updates.</span></label>
+                <label className="block"><span className="app-label">Email</span><ContactInput type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Portal login, quotes & updates.</span></label>
                 {editingCustomer && <div><span className="app-label">Status</span><Select aria-label="Shipper status" className="w-full" value={formData.status || 'Active'} onValueChange={(v) => setFormData({ ...formData, status: v as Customer['status'] })} options={[{ value: 'Active', label: 'Active' }, { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }]} /></div>}
               </FormSection>
 
               <FormSection title="Location">
-                <div className="sm:col-span-2"><label htmlFor="shipper-warehouse-address" className="app-label">Warehouse Address</label><AddressAutocomplete id="shipper-warehouse-address" aria-label="Warehouse Address" placeholder="e.g. 1420 Derwent Way, Delta, BC V3M 6M7" value={formData.address || ''} includeCoordinates onChange={(address, selected) => { setFormData(current => ({ ...current, address })); setWarehouseCoordinates(selected); }} className="app-input w-full" /><span className="mt-1 block text-xs text-slate-500">Include street, city, province and postal code. Used as the default pickup address.</span></div>
+                <div className="sm:col-span-2"><label htmlFor="shipper-warehouse-address" className="app-label">Warehouse Address</label><AddressAutocomplete id="shipper-warehouse-address" aria-label="Warehouse Address" placeholder="e.g. 1420 Derwent Way, Delta, BC V3M 6M7" value={formData.address || ''} includeCoordinates onChange={(address, selected) => { setFormData(current => ({ ...current, address })); setWarehouseCoordinates(selected); }} className="app-input w-full" /><span className="mt-1 block text-xs text-slate-500">Default pickup: street, city, province & postal code.</span></div>
               </FormSection>
 
               <FormSection title="Billing">
-                <div><span className="app-label">Shipper rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.filter(c => !importedCardIds.has(c.id) || c.id === formData.rateCardId).map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">New orders start on it; dispatch can change it per order.</span></div>
+                <div className="sm:col-span-2"><span className="app-label">Rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.filter(c => !importedCardIds.has(c.id) || c.id === formData.rateCardId).map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">Default for new orders. Editable per order.</span></div>
               </FormSection>
 
               <FormSection title="Driver assignment">
@@ -565,9 +566,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     options={[{ value: '', label: 'No assigned driver' }, ...driverOptions,
                       ...(formData.assignedDriverId && !driverOptions.some(d => d.value === formData.assignedDriverId)
                         ? [{ value: formData.assignedDriverId, label: `${formData.assignedDriverName ?? 'Saved driver'} (unavailable)` }] : [])]} />
-                  <p className="mt-1 text-xs text-slate-500">New orders require this driver. Auto dispatch waits until they are available. Existing orders keep their saved assignment.</p>
+                  <p className="mt-1 text-xs text-slate-500">Required for new orders; auto dispatch waits for availability. Existing orders stay unchanged.</p>
                   {slug && driverQuery.isPending && <p role="status" className="mt-1 text-xs text-slate-500">Loading drivers…</p>}
-                  {slug && driverQuery.error && <p role="alert" className="mt-1 text-xs text-rose-700">Could not load drivers. <button type="button" className="underline" onClick={() => void driverQuery.refetch()}>Retry</button></p>}
+                  {slug && driverQuery.error && <p role="alert" className="mt-1 text-xs text-rose-700">Could not load drivers. <ActionButton type="button" className="underline" onClick={() => driverQuery.refetch()}>Retry</ActionButton></p>}
                 </div>
               </FormSection>
 
@@ -578,7 +579,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
               <section className="space-y-3">
                 <h4 className="app-section-title">Instructions</h4>
-                <label className="block"><span className="app-label">Dispatch & Receiving Instructions</span><textarea rows={3} placeholder="Gate instructions, required paperwork, security clearance..." value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="app-input w-full" /></label>
+                <label className="block"><span className="app-label">Pickup & delivery notes</span><textarea rows={3} placeholder="Gate access, paperwork or receiving details…" value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="app-input w-full" /></label>
               </section>
             </form>
           </DialogBody>

@@ -26,8 +26,8 @@ export function TmsReview({ slug }: { slug: string }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div><p className="text-sm font-medium">TMS order {row.external_id}</p><p className="text-xs text-app-muted">Received {dateTime(row.received_at)}</p></div>
         <div className="flex gap-2">
-          <Button loading={!!busy} type="button" variant="outline" size="sm" disabled={!!busy} aria-label={`Retry TMS order ${row.external_id}`} onClick={() => act(row.id, () => operations.retryTmsOrder(slug, row.id))}>Retry</Button>
-          <Button loading={!!busy} type="button" variant="outline" size="sm" disabled={!!busy} aria-label={`Dismiss TMS order ${row.external_id}`} onClick={() => act(row.id, () => operations.dismissTmsOrder(slug, row.id))}>Dismiss</Button>
+          <Button type="button" variant="outline" size="sm" disabled={!!busy} aria-label={`Retry TMS order ${row.external_id}`} onClick={() => act(row.id, () => operations.retryTmsOrder(slug, row.id))}>Retry</Button>
+          <Button type="button" variant="outline" size="sm" disabled={!!busy} aria-label={`Dismiss TMS order ${row.external_id}`} onClick={() => act(row.id, () => operations.dismissTmsOrder(slug, row.id))}>Dismiss</Button>
         </div>
       </div>
       <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-app-muted">{(row.missing.length ? row.missing : ['Could not be processed. Retry, or check the TMS data.']).map(reason => <li key={reason}>{reason}</li>)}</ul>

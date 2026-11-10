@@ -83,8 +83,8 @@ export const QuotationMenu: React.FC<QuotationMenuProps> = ({ buildQuotation, on
         {canEmail ? <p className="text-sm text-slate-600 truncate">{to}</p> : <p role="alert" className="text-xs text-rose-700">No email on file for this shipper. Add one on the Shipper form to email the quote.</p>}
       </div>}
       <div className="flex items-center gap-2">
-        <Button loading={!!busy} type="button" size="sm" className="flex-1" onClick={email} disabled={!canEmail || busy}><Mail /> Email</Button>
-        <Button loading={!!busy} type="button" size="sm" variant="outline" className="flex-1" onClick={download} disabled={busy}><Download /> Download</Button>
+        <Button type="button" size="sm" className="flex-1" onClick={email} disabled={!canEmail || busy}><Mail /> Email</Button>
+        <Button type="button" size="sm" variant="outline" className="flex-1" onClick={download} disabled={busy}><Download /> Download</Button>
       </div>
       {!sendEmail && <p className="text-xs text-slate-500">Email saves the PDF quotation and opens your mail app, attach the saved file before sending.</p>}
     </div>}

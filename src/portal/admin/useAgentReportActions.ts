@@ -16,5 +16,5 @@ export function useAgentReportActions(accountId: string) {
         : 'The Technical agent will retry the mailbox connection with the saved settings. Incoming emails continue through the normal Order agent workflow.', confirmLabel: 'Approve repair',
     } : { title: 'Dismiss this report?', message: 'This marks the current report as reviewed. A new occurrence or changed task can produce a fresh report.', confirmLabel: 'Dismiss report' })) repair.mutate({ row, approve });
   };
-  return { pending: repair.isPending || acknowledge.isPending, error: repair.error ?? acknowledge.error, decide, acknowledge: acknowledge.mutate };
+  return { repairPending: repair.isPending ? repair.variables : undefined, acknowledgePendingId: acknowledge.isPending ? acknowledge.variables?.id : undefined, pending: repair.isPending || acknowledge.isPending, error: repair.error ?? acknowledge.error, decide, acknowledge: acknowledge.mutate };
 }

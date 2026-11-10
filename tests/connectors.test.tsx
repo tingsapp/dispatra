@@ -156,9 +156,12 @@ test('connector popups use only the header X and retain the pending connection l
  await act(async()=>finish({connector:{...row,status:'CONNECTED'},authorization_url:null}));
  assert.equal(saved,1);assert.equal(closed,1);
 });
-test('unavailable connector shows a disabled test action and its X dismisses it',async()=>{
+test('unavailable connector keeps Submit separate from contact help and its X dismisses it',async()=>{
  let closed=0;const user=mount(<ConnectorDialog slug="acme" connector={rows[0]} onSaved={()=>{}} onClose={()=>closed++} />);
- assert.equal((screen.getByRole('button',{name:'Test connection'}) as HTMLButtonElement).disabled,true);
+ assert.ok(screen.getByRole('button',{name:'Contact for help'}));
+ assert.equal(screen.getByRole('button',{name:'Contact for help'}).getAttribute('type'),'button');
+ assert.equal(screen.getByRole('button',{name:'Submit'}).getAttribute('type'),'submit');
+ assert.equal(screen.queryByRole('button',{name:'Test connection'}),null);
  await user.click(screen.getByRole('button',{name:'Close dialog'}));assert.equal(closed,1);
 });
 const dispatcher={id:'dispatcher-1',role:'DISPATCHER',login_id:'dispatcher@example.com',display_name:'Dispatcher',tms_workspace:false,organization:{id:'company-1',slug:'acme',name:'Acme',active:true}} as Account;
@@ -456,7 +459,7 @@ test('unconfigured CartonCloud shows its credential fields without claiming a wo
  mount(<ConnectorDialog slug="acme" connector={row} onSaved={()=>{}} onClose={()=>{}}/>);
  assert.equal((screen.getByLabelText('CartonCloud API URL') as HTMLInputElement).value,'https://api.cartoncloud.com');
  assert.ok(screen.getByLabelText('CartonCloud Tenant ID'));assert.ok(screen.getByLabelText('CartonCloud Client ID'));assert.ok(screen.getByLabelText('CartonCloud Client Secret'));
- assert.ok(screen.getByText(/Connection testing is unavailable/));assert.equal((screen.getByRole('button',{name:'Test connection'}) as HTMLButtonElement).disabled,true);
+ assert.equal(screen.queryByText(/Connection testing is unavailable/),null);assert.ok(screen.getByRole('button',{name:'Contact for help'}));assert.equal((screen.getByRole('button',{name:'Submit'}) as HTMLButtonElement).disabled,true);
 });
 
 test('Samsara tests a token without saving, then connects after verification and clears secrets',async()=>{
@@ -481,4 +484,49 @@ test('editing a verified Samsara token requires a new test and rejection never e
  await user.type(screen.getByLabelText('Samsara API token'),'changed');assert.equal(screen.queryByText(/Token verified/),null);
  const save=screen.getByRole('button',{name:/^Connect$/});assert.equal((save as HTMLButtonElement).disabled,true);
  await user.click(screen.getByRole('button',{name:/^Test connection$/}));assert.ok(await screen.findByRole('alert'));assert.equal((save as HTMLButtonElement).disabled,true);
+});
+
+
+test('connector help opens Contact with only the connector name and clears entered credentials', async () => {
+ const row={...rows[0],credential_fields:[{key:'client_secret',label:'Client Secret',secret:true}]};
+ let destination='',closed=0,calls=0;
+ connectors.connect=async()=>{calls++;throw Error('Must not connect');};
+ connectors.test=async()=>{calls++;throw Error('Must not test');};
+ const user=mount(<ConnectorDialog slug="private-company" connector={row} onSaved={()=>{}} onClose={()=>closed++} navigate={url=>destination=url}/>);
+ await user.type(screen.getByLabelText('Client Secret'),'private-test-secret');
+ await user.click(screen.getByRole('button',{name:'Contact for help'}));
+ const url=new URL(destination,'http://localhost');
+ assert.equal(url.pathname,'/contact');assert.deepEqual([...url.searchParams],[['connector','Rose Rocket']]);
+ assert.equal(closed,1);assert.equal(calls,0);
+ assert.equal((screen.getByLabelText('Client Secret') as HTMLInputElement).value,'');
+ assert.equal(localStorage.length,0);
+});
+
+test('Tailwind Submit sends filled details, blocks duplicate Enter, and keeps failed inputs for retry', async () => {
+ const row={...rows[3],credential_fields:[{key:'base_url',label:'Tailwind TMS API URL',secret:false},{key:'api_key',label:'Tailwind TMS API token',secret:true}]};
+ const calls:{body:unknown;key:string}[]=[];let reject:(reason:Error)=>void=()=>{};let saved=0,closed=0,navigated=0;
+ connectors.connect=async(slug,provider,body,key)=>{
+  assert.equal(slug,'acme');assert.equal(provider,'tailwind');calls.push({body,key});
+  if(calls.length===1)return new Promise((_resolve,fail)=>{reject=fail;});
+  return {connector:{...row,status:'CONNECTED'},authorization_url:null};
+ };
+ const user=mount(<ConnectorDialog slug="acme" connector={row} onSaved={()=>saved++} onClose={()=>closed++} navigate={()=>navigated++}/>);
+ const submit=screen.getByRole('button',{name:'Submit'}) as HTMLButtonElement;
+ assert.equal(submit.disabled,true);
+ await user.type(screen.getByLabelText('Tailwind TMS API URL'),'https://tms.example.test');
+ assert.equal(submit.disabled,true);
+ const token=screen.getByLabelText('Tailwind TMS API token') as HTMLInputElement;
+ await user.type(token,'private-test-token');assert.equal(submit.disabled,false);
+ await user.keyboard('{Enter}');
+ assert.equal(calls.length,1);assert.equal(submit.disabled,true);assert.equal(submit.getAttribute('aria-busy'),'true');
+ assert.ok(submit.querySelector('[data-button-spinner]'));
+ assert.equal((screen.getByRole('button',{name:'Contact for help'}) as HTMLButtonElement).disabled,true);
+ await user.keyboard('{Enter}');await user.click(submit);assert.equal(calls.length,1);
+ await act(async()=>reject(Error('This connector needs activation by Dispatra before it can connect.')));
+ assert.match((await screen.findByRole('alert')).textContent!,/needs activation/);
+ assert.equal(token.value,'private-test-token');assert.equal(navigated,0);assert.equal(saved,0);assert.equal(closed,0);
+ await user.click(submit);await waitFor(()=>assert.equal(saved,1));
+ assert.deepEqual(calls[0].body,{version:null,credentials:{base_url:'https://tms.example.test',api_key:'private-test-token'}});
+ assert.equal(calls[0].key,calls[1].key);assert.equal(closed,1);assert.equal(token.value,'');
+ assert.equal(localStorage.length,0);assert.ok(!JSON.stringify(cache.getQueryCache().getAll()).includes('private-test-token'));
 });

@@ -1,3 +1,4 @@
+import { ActionButton } from '../../components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { Terminal } from 'lucide-react';
 import { api, type MachineTelemetry } from '../api';
@@ -25,7 +26,7 @@ export function MachineStream({ accountId, demo, step, machine }: { accountId: s
         </li>)}</ol>
         {machine.activity.length > 8 && <p className="machine-stream-limit">Latest 8 events from the last 24 hours.{machine.activity_truncated && ' Activity is busy; this is a bounded recent view.'}</p>}
       </> : query.isPending ? <p role="status" className="machine-stream-empty">Loading recorded activity…</p>
-      : query.isError ? <p role="alert" className="machine-stream-empty">{query.data ? 'Latest activity refresh failed. Showing saved events.' : 'Activity unavailable.'} <button type="button" onClick={() => query.refetch()}>Retry activity</button></p>
+      : query.isError ? <p role="alert" className="machine-stream-empty">{query.data ? 'Latest activity refresh failed. Showing saved events.' : 'Activity unavailable.'} <ActionButton type="button" onClick={() => query.refetch()}>Retry activity</ActionButton></p>
       : !query.data?.items.length ? <p className="machine-stream-empty">Waiting for live machine telemetry. No transfers are being simulated.</p> : null}
     {!demo && !machine && !!query.data?.items.length && <ol aria-label="Recent processing events">{query.data.items.map(entry => <li key={entry.id}>
       <time dateTime={entry.created_at}>{clockTime(entry.created_at)}</time><span className={`machine-event-level level-${entry.level.toLowerCase()}`}>{entry.level}</span>

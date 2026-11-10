@@ -12,14 +12,15 @@ export interface ConfirmOptions {
   /** `danger` styles the confirm button red for destructive actions. */
   tone?: 'default' | 'danger';
 }
-interface Request { options: ConfirmOptions; resolve: (ok: boolean) => void }
+interface Request { options: ConfirmOptions; resolve: (ok: boolean) => void; returnFocus: HTMLElement | null }
 
 let host: ((request: Request | null) => void) | null = null;
 
 /** Ask the user to confirm. Resolves true on confirm, false on cancel/Escape. Falls back to the browser dialog when no host is mounted. */
 export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
   if (!host) return Promise.resolve(window.confirm(options.message));
-  return new Promise(resolve => host!({ options, resolve }));
+  const returnFocus = document.activeElement as HTMLElement | null;
+  return new Promise(resolve => host!({ options, resolve, returnFocus }));
 }
 
 /** Mount once near the app root. Renders the pending confirmation as an accessible alert dialog. */
@@ -31,7 +32,7 @@ export function ConfirmDialogHost() {
   useEffect(() => { host = setRequest; return () => { host = null; }; }, []);
   useEffect(() => {
     if (!request) return;
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = request.returnFocus;
     (cancelRef.current ?? closeRef.current)?.focus();
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); settle(false); }
@@ -43,7 +44,14 @@ export function ConfirmDialogHost() {
       }
     };
     document.addEventListener('keydown', keydown);
-    return () => { document.removeEventListener('keydown', keydown); previous?.focus(); };
+    return () => {
+      document.removeEventListener('keydown', keydown);
+      if (previous?.isConnected && !previous.matches(':disabled')) { previous.focus(); return; }
+      // Let the caller release its pending button before returning keyboard focus.
+      window.requestAnimationFrame(() => {
+        if (previous?.isConnected && document.activeElement === document.body) previous.focus();
+      });
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request]);
   if (!request) return null;
