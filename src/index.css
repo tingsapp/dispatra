@@ -15,6 +15,7 @@
 @import "./portal/admin/agent-report-log.css";
 @import "./portal/admin/machine-monitor.css";
 @import "./styles/dispatcher-monitor.css";
+@import "./styles/brand-v1.css";
 
 /* Use the hand cursor consistently for enabled interactive controls. */
 @layer base {
@@ -103,3 +104,4 @@
 .animate-radar-ping-fast {
   animation: markerRadarPing 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+
