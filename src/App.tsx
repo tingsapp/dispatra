@@ -77,7 +77,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     const id = new URLSearchParams(location.search).get('conversation');
     return id ? { conversationId: id } : null;
   });
-  useSync(slug, 'DISPATCHER');
   // Record changes arrive through /sync; only driver locations and time-based attention still need a Monitor refresh.
   const liveRefresh = activeTab === 'monitor' ? 30_000 : false;
   const driverQuery = useQuery({ queryKey: ['operations', slug, 'drivers'], queryFn: () => allOperations.drivers(slug!), enabled: !!slug, refetchInterval: liveRefresh });
@@ -164,27 +163,14 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const [showNotificationPopover, setShowNotificationPopover] = useState<boolean>(false);
   const [showActivityPopover, setShowActivityPopover] = useState(true);
   const [planFocusVersion, setPlanFocusVersion] = useState(0);
-  const knownIncomingRecords = useRef<{ orderIds: Set<string>; draftIds: Set<string> } | null>(null);
+  const focusIncomingDispatchWork = useCallback(() => {
+    setShowActivityPopover(false);
+    setPlanFocusVersion(version => version + 1);
+  }, []);
+  useSync(slug, 'DISPATCHER', focusIncomingDispatchWork);
   useEffect(() => {
     if (activeTab !== 'monitor') setShowActivityPopover(false);
   }, [activeTab]);
-  useEffect(() => {
-    if (!slug || !orderQuery.isSuccess || !review.drafts.isSuccess) return;
-    const current = {
-      orderIds: new Set((orderQuery.data ?? []).map(order => order.id)),
-      draftIds: new Set((review.drafts.data ?? []).map(draft => draft.id)),
-    };
-    const known = knownIncomingRecords.current;
-    knownIncomingRecords.current = current;
-    // The initial query establishes the baseline. Only records that arrive in a
-    // later synchronized update should interrupt the dispatcher's chat.
-    if (!known) return;
-    const hasIncomingOrder = [...current.orderIds].some(id => !known.orderIds.has(id));
-    const hasIncomingDraft = [...current.draftIds].some(id => !known.draftIds.has(id));
-    if (!hasIncomingOrder && !hasIncomingDraft) return;
-    setShowActivityPopover(false);
-    setPlanFocusVersion(version => version + 1);
-  }, [slug, orderQuery.isSuccess, orderQuery.dataUpdatedAt, review.drafts.isSuccess, review.drafts.dataUpdatedAt]);
   const [showAccountPopover, setShowAccountPopover] = useState<boolean>(false);
   const [showDriverPopover, setShowDriverPopover] = useState<boolean>(false);
   const [showDriverActions, setShowDriverActions] = useState<boolean>(false);

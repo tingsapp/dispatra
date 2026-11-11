@@ -11,7 +11,7 @@ configure({ asyncUtilTimeout: 5000 });
 const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { operations } = await import('../src/operations/api');
-const { syncInvalidations, retryDelay, syncKey, useSync } = await import('../src/portal/sync');
+const { hasIncomingDispatcherWork, syncInvalidations, retryDelay, syncKey, useSync } = await import('../src/portal/sync');
 const { NotificationPanel, notificationAge } = await import('../src/portal/Notifications');
 const { enableNotificationSound, notificationTone } = await import('../src/portal/notificationSound');
 const originalWebSocket = globalThis.WebSocket;
@@ -39,6 +39,13 @@ test('changes invalidate only the reads each role uses, once per key', () => {
   assert.equal(notificationTone('INFO'), 'normal');
   assert.equal(notificationTone('WARNING'), 'attention');
   assert.equal(notificationTone('CRITICAL'), 'attention');
+});
+
+test('identifies newly received orders and drafts as dispatcher work', () => {
+  assert.equal(hasIncomingDispatcherWork([change('order', 'order.created', 'o1')]), true);
+  assert.equal(hasIncomingDispatcherWork([change('intake', 'intake.needs_review')]), true);
+  assert.equal(hasIncomingDispatcherWork([change('intake', 'intake.draft_saved')]), false);
+  assert.equal(hasIncomingDispatcherWork([change('order', 'order.assigned', 'o1')]), false);
 });
 
 test('sound activation remains safe when browser audio is unavailable', async () => {
@@ -82,11 +89,13 @@ test('sync loop starts at the server cursor, invalidates changed reads and store
   Object.assign(operations, { sync: async (_slug: string, cursor?: string) => { cursors.push(cursor); return views[Math.min(cursors.length - 1, 1)]; } });
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   let fetched = 0;
+  let incoming = 0;
   await cache.prefetchQuery({ queryKey: ['operations', 'acme', 'orders'], queryFn: () => ++fetched });
-  function Probe() { useSync('acme', 'DISPATCHER'); return null; }
+  function Probe() { useSync('acme', 'DISPATCHER', () => { incoming++; }); return null; }
   const view = render(React.createElement(QueryClientProvider, { client: cache }, React.createElement(Probe)));
   await waitFor(() => assert.deepEqual(cursors, [undefined, '10-0']));
   await waitFor(() => assert.deepEqual(cache.getQueryData(syncKey('acme')), { unread: 2, unread_messages: 3 }));
   assert.equal(cache.getQueryState(['operations', 'acme', 'orders'])?.isInvalidated, true);
+  assert.equal(incoming, 1);
   view.unmount();
 });

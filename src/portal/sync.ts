@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { operations, type SyncChange } from '../operations/api';
 import { streamSync } from './streamSync';
@@ -12,6 +12,12 @@ export const syncKey = (slug: string) => ['sync', slug] as const;
 export type SyncSummary = { unread: number; unread_messages: number };
 /** Order chat queries (inbox, per-order channels, threads) share this prefix. */
 const chatKey = (slug: string) => ['chat', slug];
+
+/** A newly arrived email request needs the dispatcher’s attention before it becomes an order. */
+export function hasIncomingDispatcherWork(changes: SyncChange[]) {
+  return changes.some(change => change.type === 'order.created'
+    || ['intake.received', 'intake.needs_review', 'intake.unknown_sender', 'intake.failed'].includes(change.type));
+}
 
 function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
   const ops = (...rest: string[]) => ['operations', slug, ...rest];
@@ -79,8 +85,10 @@ export const retryDelay = (failures: number) => Math.min(60_000, 5_000 * 2 ** Ma
  * One recoverable WebSocket feed per signed-in workspace, with HTTP polling fallback.
  * Events invalidate queries; operational data always comes from authorized reads.
  */
-export function useSync(slug: string | null | undefined, role: SyncRole) {
+export function useSync(slug: string | null | undefined, role: SyncRole, onIncomingWork?: () => void) {
   const cache = useQueryClient();
+  const incomingWork = useRef(onIncomingWork);
+  incomingWork.current = onIncomingWork;
   useEffect(() => {
     if (!slug) return;
     // The summary must outlive bells that mount and unmount (the portal cache uses gcTime 0).
@@ -88,6 +96,9 @@ export function useSync(slug: string | null | undefined, role: SyncRole) {
     const feed = streamSync(slug, {
       read: cursor => operations.sync(slug, cursor),
       apply: async view => {
+        // The feed starts at the server's current cursor, so this only runs for work
+        // that arrived after the dispatcher opened the workspace—not old history.
+        if (role === 'DISPATCHER' && hasIncomingDispatcherWork(view.changes)) incomingWork.current?.();
         if (view.reset) await cache.invalidateQueries();
         else await Promise.all(syncInvalidations(role, slug, view.changes).map(queryKey => cache.invalidateQueries({ queryKey })));
         cache.setQueryData<SyncSummary>(syncKey(slug), { unread: view.unread, unread_messages: view.unread_messages });
