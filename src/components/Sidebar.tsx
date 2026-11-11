@@ -12,6 +12,7 @@ import React, { useEffect, useState } from 'react';
 import { Switch } from './ui/Switch';
 import { AccountMenu } from './layout/AccountMenu';
 import { SidebarHeader } from './layout/SidebarHeader';
+import { WorkspaceIcon } from './layout/WorkspaceIcon';
 import { useSidebarDrawer } from './layout/useSidebarDrawer';
 import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
 import { loadUserProfile, USER_PROFILE_UPDATED_EVENT } from '../lib/profileStorage';
@@ -159,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   title={collapsed ? item.label : undefined}
                   className="app-nav-item relative"
                 >
-                  <Icon className="w-4.5 h-4.5 shrink-0 text-current" strokeWidth={1.75} />
+                  <WorkspaceIcon label={item.label} fallback={Icon} />
                   <span className={collapsed ? 'sr-only' : undefined}>{item.label}</span>
                   {item.id === 'messages' && unreadMessages > 0 && <span aria-hidden className={collapsed ? 'absolute right-1 top-1 size-2 rounded-full bg-rose-500' : 'ml-auto rounded-full bg-rose-100 px-1.5 text-xs text-rose-700'}>{!collapsed && unreadMessages}</span>}
                 </button>
@@ -229,3 +230,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </div>
   );
 };
+
