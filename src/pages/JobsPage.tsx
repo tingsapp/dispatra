@@ -28,7 +28,7 @@ import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { allOperations, operations, type CatalogItem } from '../operations/api';
 import { catalogFromUi } from '../operations/pricingAdapters';
 import { assignableRoute, assignToDriver } from '../operations/assignment';
-import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking } from '../operations/orderAdapters';
+import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking, withMatchedZones } from '../operations/orderAdapters';
 import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
 import { EMAIL_DRAFT_STATUSES } from '../components/orders/EmailIntake';
 import { EmailDraftSection } from '../components/orders/EmailDraftSection';
@@ -192,7 +192,7 @@ export function JobsPage({
   const openEmailDraft = (email: EmailIntakeDetail) => {
     if (!livePricingCtx) { onNotification('Pricing data is still loading. Try again in a moment.'); return; }
     setCreateMode('order'); setEditingOrder(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null; setPricingCtx(livePricingCtx);
-    setNewOrderInput(normalizeOrderInput({ ...draftToInput({ ...email.draft, shipper_id: email.draft?.shipper_id ?? email.shipper_id }, email.extraction, livePricingCtx.billing.general), taxCalculation: 'COMPANY' }));
+    setNewOrderInput(normalizeOrderInput({ ...withMatchedZones(draftToInput({ ...email.draft, shipper_id: email.draft?.shipper_id ?? email.shipper_id }, email.extraction, livePricingCtx.billing.general), livePricingCtx.pricing.zones), taxCalculation: 'COMPANY' }));
     setNewInstructions(String(email.draft?.internal_notes ?? '')); setNewDriverId('unassigned'); setEmailSource(email); setDraftMessage(''); setShowCreateModal(true);
   };
 
@@ -217,7 +217,7 @@ export function JobsPage({
     try {
       const saved = await operations.saveEmailDraft(slug, emailSource, inputToDraftBooking(newOrderInput, newInstructions, pricingCtx.billing.general.timeZone));
       setEmailSource(saved);
-      setNewOrderInput(normalizeOrderInput({ ...draftToInput(saved.draft ?? {}), taxCalculation: 'COMPANY' }));
+      setNewOrderInput(normalizeOrderInput({ ...withMatchedZones(draftToInput(saved.draft ?? {}), pricingCtx.pricing.zones), taxCalculation: 'COMPANY' }));
       if (request) {
         await operations.requestEmailDraftDetails(slug, saved);
         setEmailSource(await operations.emailIntake(slug, saved.id));

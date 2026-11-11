@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking } from '../src/operations/orderAdapters';
+import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking, withMatchedZones } from '../src/operations/orderAdapters';
 import { EMAIL_DRAFT_STATUSES } from '../src/components/orders/EmailIntake';
 import type { CatalogItem, EmailIntake, Shipper } from '../src/operations/api';
 import { syncInvalidations } from '../src/portal/sync';
@@ -82,6 +82,12 @@ test('old incomplete-address drafts recover supplied address text from the extra
   assert.equal(input.stops[1].label, '456 Lougheed hiway, Burnaby');
   assert.equal(input.stops[1].postalCode, '');
   assert.equal(input.stops[1].contactName, 'Bob');
+});
+
+test('email drafts match an existing zone as soon as their verified address is opened', () => {
+  const input = draftToInput({ ...draft, stops: [draft.stops[0], { ...draft.stops[1], address: { ...warehouse, text: '4567 Lougheed Highway, Burnaby, BC V5C 3Z6, Canada', city: 'Burnaby', postal_code: 'V5C 3Z6' } }] });
+  const matched = withMatchedZones(input, [{ id: 'zone_2', code: 'ZONE2', name: 'Zone 2', postalCodes: ['V5C'] }]);
+  assert.equal(matched.stops[1].zoneId, 'zone_2');
 });
 
 

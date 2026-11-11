@@ -1,14 +1,20 @@
 import { shipperAssignment } from './shipperAssignment';
 import type { Job } from '../types';
-import type { PricingOrderInput, PricingSnapshot, ChargeLine, PricingPackageInput } from '../types/pricing';
+import type { PricingOrderInput, PricingSnapshot, ChargeLine, PricingPackageInput, Zone } from '../types/pricing';
 import type { Order, Shipper, RateCard, CatalogItem, Booking, EmailIntake, DraftBooking, DraftShipment } from './api';
 import { canadianAddress } from './adapters';
 import { bookingInstant } from './time';
 import { fromDisplayDimension, fromDisplayWeight, type Units } from '../lib/units';
+import { zoneForAddress } from '../lib/zoneAddress';
 
 const amount = (value: number | string | null | undefined) => Number(value ?? 0);
 const validStatus = (status: string): Job['lifecycleStatus'] =>
   status === 'INVOICED' ? 'COMPLETED' : ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status) ? status as Job['lifecycleStatus'] : 'NEW';
+
+/** Email drafts already carry verified postal codes; initialize their zone match before the first edit. */
+export function withMatchedZones(input: PricingOrderInput, zones: Zone[]): PricingOrderInput {
+  return { ...input, stops: input.stops.map(stop => ({ ...stop, zoneId: zoneForAddress(stop.label ?? '', zones) })) };
+}
 
 export function orderToInput(order: Order): PricingOrderInput {
   const facts = order.facts;
