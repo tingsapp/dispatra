@@ -31,7 +31,7 @@ import { assignableRoute, assignToDriver } from '../operations/assignment';
 import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking, withMatchedZones } from '../operations/orderAdapters';
 import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
 import { EMAIL_DRAFT_STATUSES } from '../components/orders/EmailIntake';
-import { EmailDraftSection } from '../components/orders/EmailDraftSection';
+import { EmailDraftSection, OriginalEmail } from '../components/orders/EmailDraftSection';
 import type { EmailIntakeDetail } from '../operations/api';
 import { useCompanyPricingContext, useOrderAssignment, useOrderCompletion } from '../components/orders/useOrderDetails';
 import { useOrderPreview } from '../components/orders/useOrderPreview';
@@ -804,7 +804,7 @@ export function JobsPage({
                   </div>}
                 </div>
 
-                <div className="lg:col-span-5 lg:sticky lg:top-0">
+                <div className="space-y-4 lg:col-span-5 lg:sticky lg:top-0">
                   {estimateNeedsAttention ? <section className="overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm" aria-label="Order needs attention">
                     <div className="bg-amber-50 px-6 py-5 text-amber-950">
                       <div className="flex items-center gap-2 text-sm font-semibold"><AlertTriangle className="size-4" />Needs attention</div>
@@ -817,6 +817,7 @@ export function JobsPage({
                     showPricingDetail={false}
                     rateRows={[...companyRateRows(pricingCtx.billing), ...(newOrderSnapshot.status === 'PRICED' ? travelRows(newOrderSnapshot, pricingCtx.billing.general) : [])]}
                   />}
+                  {emailSource && <OriginalEmail email={emailSource} timeZone={pricingCtx.billing.general.timeZone} />}
                 </div>
               </div>
               {emailSource && <EmailDraftSection email={emailSource} timeZone={pricingCtx.billing.general.timeZone} actions={<>
