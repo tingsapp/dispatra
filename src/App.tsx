@@ -163,9 +163,28 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const [showNeedsAttentionPopover, setShowNeedsAttentionPopover] = useState<boolean>(false);
   const [showNotificationPopover, setShowNotificationPopover] = useState<boolean>(false);
   const [showActivityPopover, setShowActivityPopover] = useState(true);
+  const [planFocusVersion, setPlanFocusVersion] = useState(0);
+  const knownIncomingRecords = useRef<{ orderIds: Set<string>; draftIds: Set<string> } | null>(null);
   useEffect(() => {
     if (activeTab !== 'monitor') setShowActivityPopover(false);
   }, [activeTab]);
+  useEffect(() => {
+    if (!slug || !orderQuery.isSuccess || !review.drafts.isSuccess) return;
+    const current = {
+      orderIds: new Set((orderQuery.data ?? []).map(order => order.id)),
+      draftIds: new Set((review.drafts.data ?? []).map(draft => draft.id)),
+    };
+    const known = knownIncomingRecords.current;
+    knownIncomingRecords.current = current;
+    // The initial query establishes the baseline. Only records that arrive in a
+    // later synchronized update should interrupt the dispatcher's chat.
+    if (!known) return;
+    const hasIncomingOrder = [...current.orderIds].some(id => !known.orderIds.has(id));
+    const hasIncomingDraft = [...current.draftIds].some(id => !known.draftIds.has(id));
+    if (!hasIncomingOrder && !hasIncomingDraft) return;
+    setShowActivityPopover(false);
+    setPlanFocusVersion(version => version + 1);
+  }, [slug, orderQuery.isSuccess, orderQuery.dataUpdatedAt, review.drafts.isSuccess, review.drafts.dataUpdatedAt]);
   const [showAccountPopover, setShowAccountPopover] = useState<boolean>(false);
   const [showDriverPopover, setShowDriverPopover] = useState<boolean>(false);
   const [showDriverActions, setShowDriverActions] = useState<boolean>(false);
@@ -701,7 +720,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
             />
 
             {activeTab === 'monitor' && <>
-            <TodaysPlan reviewNotice={slug ? <MonitorReviewNotice review={review} onOpen={() => setReviewOpen(true)} /> : undefined} attentionItems={needsAttentionItems} drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
+            <TodaysPlan reviewNotice={slug ? <MonitorReviewNotice review={review} onOpen={() => setReviewOpen(true)} /> : undefined} attentionItems={needsAttentionItems} drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} focusVersion={planFocusVersion} jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
               attentionIds={new Set(jobs.filter(job => needsAttentionItems.some(item => item.jobNumber === job.jobNumber)).map(job => job.id))}
               loading={!!slug && (orderQuery.isPending || settingsQuery.isPending || monitorQuery.isPending)}
               error={!!slug && (orderQuery.isError || settingsQuery.isError || monitorQuery.isError)}

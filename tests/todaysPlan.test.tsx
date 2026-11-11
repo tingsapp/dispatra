@@ -109,6 +109,17 @@ test('collapses for chat, restores afterward, and respects intentional hiding', 
 });
 
 
+test('an incoming order or draft focus request reopens a manually collapsed plan', () => {
+  const props = { jobs: [], attentionIds: new Set<string>(), timeZone: zone, onRetry: () => {}, onSelectOrder: () => {} };
+  const view = render(<TodaysPlan {...props} />);
+  const toggle = () => screen.getByRole('button', { name: /Today’s plan/ });
+  fireEvent.click(toggle());
+  assert.equal(toggle().getAttribute('aria-expanded'), 'false');
+  view.rerender(<TodaysPlan {...props} focusVersion={1} />);
+  assert.equal(toggle().getAttribute('aria-expanded'), 'true');
+});
+
+
 test('sorts newest first without mutating the source and searches the filtered list', () => {
   const today = companyDay(new Date(), zone);
   const older = order('older', 'NEW', `${today}T09:00`);

@@ -17,6 +17,8 @@ interface TodaysPlanProps extends OrderMapVisibilityProps {
   onAssignOrder?: (job: Job, anchor: HTMLButtonElement) => void;
   chatOpen?: boolean;
   onCloseChat?: () => void;
+  /** Advances when a new incoming order or review draft should take focus. */
+  focusVersion?: number;
   jobs: Job[];
   drivers?: Driver[];
   attentionIds: ReadonlySet<string>;
@@ -27,13 +29,16 @@ interface TodaysPlanProps extends OrderMapVisibilityProps {
   onSelectOrder: (job: Job) => void;
 }
 
-export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, onAssignOrder, drivers = [], hiddenOrderIds, onOrderVisibilityChange, chatOpen = false, onCloseChat, jobs, attentionIds, timeZone, loading, error, onRetry, onSelectOrder }: TodaysPlanProps) {
+export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, onAssignOrder, drivers = [], hiddenOrderIds, onOrderVisibilityChange, chatOpen = false, onCloseChat, focusVersion = 0, jobs, attentionIds, timeZone, loading, error, onRetry, onSelectOrder }: TodaysPlanProps) {
   const [filter, setFilter] = useState<'all' | 'assigned' | 'unassigned' | 'in_progress' | 'completed' | 'attention'>('all');
   const [warningId, setWarningId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [hidden, setHidden] = useState(false);
   const contentId = useId();
   const expanded = !hidden && !chatOpen;
+  useEffect(() => {
+    if (focusVersion > 0) setHidden(false);
+  }, [focusVersion]);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
