@@ -313,6 +313,12 @@ export function JobsPage({
   const handleCreateSubmit = async (e: React.FormEvent) => {
     return handleCreateSubmitAction.run(async () => {
     e.preventDefault();
+    if (emailSource?.missing.length) {
+      const message = 'Complete the items listed in “Needed before this can become an order” before creating this order.';
+      setFormErrors([message]);
+      onNotification(message);
+      return;
+    }
     if (!editingOrder) {
       const scheduleErrors = validateBookingSchedule(newOrderInput, pricingCtx.billing.general.timeZone);
       if (scheduleErrors.length) { setFormErrors(scheduleErrors); onNotification(scheduleErrors.join(' ')); return; }
@@ -812,7 +818,7 @@ export function JobsPage({
                 ? newOrderSnapshot.status === 'PRICED' && !!newOrderInput.rateCardOverrideId
                   ? <QuotationMenu buildQuotation={() => buildQuotation(newOrderInput, newOrderSnapshot, pricingCtx)} sendEmail={slug ? sendLiveQuote : undefined} onNotification={onNotification} triggerLabel="Send Quote" prominent allowRecipientEntry />
                   : <Button type="button" disabled>Send Quote</Button>
-                : <Button disabled={!!emailAction} loading={handleCreateSubmitAction.pending} type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
+                : <Button disabled={!!emailAction || !!emailSource?.missing.length} loading={handleCreateSubmitAction.pending} type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
             </DialogFooter>
         </Dialog>
       )}
