@@ -41,6 +41,8 @@ import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
 import { AccessorialModal } from '../components/pricing/AccessorialModal';
 import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
 import { withSurchargeRows } from '../lib/surchargeRows';
+import { estimateAttention } from '../lib/estimateAttention';
+import { reviewMessages } from '../lib/emailDraftReview';
 import { resolveFuelPercent } from '../lib/billingEngine';
 import { QuotationMenu } from '../components/pricing/QuotationMenu';
 import { buildQuotation } from '../lib/quotation';
@@ -134,6 +136,8 @@ export function JobsPage({
   const pricingCtx = livePricingCtx ?? localPricingCtx;
   const [newOrderInput, setNewOrderInput] = useState<PricingOrderInput>(() => createBookingInput(pricingCtx));
   const newOrderSnapshot = useOrderPreview({ slug, input: newOrderInput, ctx: pricingCtx, enabled: showCreateModal, toBooking: input => inputToBooking(input, '', pricingCtx.billing.general.timeZone), rates: rateQuery.data });
+  const estimateAttentionMessages = estimateAttention(newOrderSnapshot, emailSource ? reviewMessages(emailSource.missing, emailSource.shipper_id) : []);
+  const estimateNeedsAttention = estimateAttentionMessages.length > 0;
   const pendingQuote = useRef<{ key: string; quote: Awaited<ReturnType<typeof operations.createQuote>> } | null>(null);
   const selectedCustomer = pricingCtx.customers.find((c) => c.id === newOrderInput.customerId);
   const closeCreateModal = () => { if (emailAction) return; setShowAddAccessorial(false); setShowCreateModal(false); };
@@ -314,6 +318,12 @@ export function JobsPage({
     e.preventDefault();
     if (emailSource?.missing.length) {
       const message = 'Complete the items listed in “Needed before this can become an order” before creating this order.';
+      setFormErrors([message]);
+      onNotification(message);
+      return;
+    }
+    if (estimateNeedsAttention) {
+      const message = 'Resolve the items in Needs attention before creating this order.';
       setFormErrors([message]);
       onNotification(message);
       return;
@@ -795,12 +805,18 @@ export function JobsPage({
                 </div>
 
                 <div className="lg:col-span-5 lg:sticky lg:top-0">
-                  <PriceBreakdown
+                  {estimateNeedsAttention ? <section className="overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm" aria-label="Order needs attention">
+                    <div className="bg-amber-50 px-6 py-5 text-amber-950">
+                      <div className="flex items-center gap-2 text-sm font-semibold"><AlertTriangle className="size-4" />Needs attention</div>
+                      <p className="mt-2 text-xs text-amber-900">Resolve these items to calculate a live estimate and create the order.</p>
+                    </div>
+                    <ul className="space-y-3 px-6 py-5 text-sm text-slate-700">{estimateAttentionMessages.map(message => <li key={message} className="flex items-start gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" /><span>{message}</span></li>)}</ul>
+                  </section> : <PriceBreakdown
                     snapshot={withSurchargeRows(newOrderSnapshot, pricingCtx.pricing.rateCards.find(card => card.id === newOrderSnapshot.rateCard?.id), resolveFuelPercent(pricingCtx.billing), pricingCtx.catalogue.vehicles.find(vehicle => vehicle.id === newOrderInput.vehicleId)?.name)}
                     title={createMode === 'quote' ? 'Live quote' : 'Live estimate'}
                     showPricingDetail={false}
                     rateRows={[...companyRateRows(pricingCtx.billing), ...(newOrderSnapshot.status === 'PRICED' ? travelRows(newOrderSnapshot, pricingCtx.billing.general) : [])]}
-                  />
+                  />}
                 </div>
               </div>
               {emailSource && <EmailDraftSection email={emailSource} timeZone={pricingCtx.billing.general.timeZone} actions={<>
@@ -817,7 +833,7 @@ export function JobsPage({
                 ? newOrderSnapshot.status === 'PRICED' && !!newOrderInput.rateCardOverrideId
                   ? <QuotationMenu buildQuotation={() => buildQuotation(newOrderInput, newOrderSnapshot, pricingCtx)} sendEmail={slug ? sendLiveQuote : undefined} onNotification={onNotification} triggerLabel="Send Quote" prominent allowRecipientEntry />
                   : <Button type="button" disabled>Send Quote</Button>
-                : <Button disabled={!!emailAction || !!emailSource?.missing.length} loading={handleCreateSubmitAction.pending} type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
+                : <Button disabled={!!emailAction || estimateNeedsAttention} loading={handleCreateSubmitAction.pending} type="button" onClick={(e) => handleCreateSubmit(e as unknown as React.FormEvent)}>{editingOrder ? 'Save Order' : 'Create Order'}</Button>}
             </DialogFooter>
         </Dialog>
       )}
