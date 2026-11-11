@@ -42,7 +42,7 @@ import { AccessorialModal } from '../components/pricing/AccessorialModal';
 import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
 import { withSurchargeRows } from '../lib/surchargeRows';
 import { estimateAttention } from '../lib/estimateAttention';
-import { reviewMessages } from '../lib/emailDraftReview';
+import { actionableReviewMessages } from '../lib/emailDraftReview';
 import { resolveFuelPercent } from '../lib/billingEngine';
 import { QuotationMenu } from '../components/pricing/QuotationMenu';
 import { buildQuotation } from '../lib/quotation';
@@ -136,7 +136,8 @@ export function JobsPage({
   const pricingCtx = livePricingCtx ?? localPricingCtx;
   const [newOrderInput, setNewOrderInput] = useState<PricingOrderInput>(() => createBookingInput(pricingCtx));
   const newOrderSnapshot = useOrderPreview({ slug, input: newOrderInput, ctx: pricingCtx, enabled: showCreateModal, toBooking: input => inputToBooking(input, '', pricingCtx.billing.general.timeZone), rates: rateQuery.data });
-  const estimateAttentionMessages = estimateAttention(newOrderSnapshot, emailSource ? reviewMessages(emailSource.missing, emailSource.shipper_id) : []);
+  const draftReviewMessages = emailSource ? actionableReviewMessages(emailSource.missing, emailSource.shipper_id, newOrderInput.stops) : [];
+  const estimateAttentionMessages = estimateAttention(newOrderSnapshot, draftReviewMessages);
   const estimateNeedsAttention = estimateAttentionMessages.length > 0;
   const pendingQuote = useRef<{ key: string; quote: Awaited<ReturnType<typeof operations.createQuote>> } | null>(null);
   const selectedCustomer = pricingCtx.customers.find((c) => c.id === newOrderInput.customerId);
@@ -316,7 +317,7 @@ export function JobsPage({
   const handleCreateSubmit = async (e: React.FormEvent) => {
     return handleCreateSubmitAction.run(async () => {
     e.preventDefault();
-    if (emailSource?.missing.length) {
+    if (draftReviewMessages.length) {
       const message = 'Complete the items listed in “Needed before this can become an order” before creating this order.';
       setFormErrors([message]);
       onNotification(message);
