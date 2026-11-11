@@ -570,20 +570,20 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 }
 
 /* Portal navigation follows the compact, neutral reference menu. */
-.app-workspace-sidebar { --spacing-sidebar: 204px; font-family: var(--font-sans); --color-app-sidebar: #fafafa; --color-app-hover: #efefef; --color-app-selected: #efefef; }
+.app-workspace-sidebar { --spacing-sidebar: 205px; font-family: var(--font-sans); --color-app-sidebar: #fafafa; --color-app-hover: #efefef; --color-app-selected: #efefef; }
 .app-workspace-sidebar .app-nav-item {
-  min-height: 36px;
-  padding: 8px 10px;
-  gap: 8px;
+  min-height: 38px;
+  padding: 9px 10px;
+  gap: 11px;
   border-radius: 8px;
-  font-size: var(--text-sm);
+  font-size: 14px;
   line-height: 20px;
   font-weight: 400;
   letter-spacing: normal;
-  color: #424242;
+  color: #171717;
 }
-.app-workspace-sidebar .app-nav-item[aria-current="page"] { font-weight: 400; color: #212121; }
-.app-workspace-sidebar .app-brand-logo { width: 112px; height: 30px; }
+.app-workspace-sidebar .app-nav-item[aria-current="page"] { font-weight: 500; color: var(--color-app-accent); background: var(--color-app-accent-soft); }
+.app-workspace-sidebar .app-brand-logo { width: 86.4px; height: 23.2px; }
 .app-workspace-sidebar .app-brand-wordmark { display: block; }
 .app-workspace-sidebar .app-brand-fallback { display: none; }
 .app-workspace-sidebar .app-account-name { font-size: var(--text-sm); line-height: 20px; font-weight: 400; color: #212121; }
@@ -686,3 +686,4 @@ button[aria-busy="true"], .app-button[aria-busy="true"] { cursor: wait; }
 
 /* Driver selection rows use regular list corners. */
 button.app-assignment-driver-row { border-radius: 8px !important; }
+
