@@ -14,7 +14,7 @@ import { AnimatePresence,motion } from 'motion/react';
 import { lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from './lib/pageRoutes';
-import { allOperations, operations, type AssistantReference } from './operations/api';
+import { allOperations, operations } from './operations/api';
 import { changeAssignment } from './operations/assignment';
 import { driverToUi } from './operations/adapters';
 import { vehicleMapLocations } from './components/monitor/mapLocations';
@@ -25,6 +25,7 @@ import { useWorkspaceTransition } from './components/layout/WorkspaceTransition'
 import { orderToUi } from './operations/orderAdapters';
 import { MonitorActions } from './components/MonitorActions';
 import { DetailModalDialog } from './components/DetailModalDialog';
+import { MonitorReviewNotice, MonitorReviewDialog, useMonitorReview } from './components/monitor/MonitorReview';
 import { MonitorOrderDetails } from './components/orders/MonitorOrderDetails';
 import { DriverPopover } from './components/DriverPopover';
 import { JobDetailPopover } from './components/JobDetailPopover';
@@ -122,6 +123,21 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const activeOrders = jobs.filter(isActiveMonitorOrder);
   const mapOrders = activeOrders.filter(job => !hiddenOrderIds.has(job.id));
   const [dossierJob, setDossierJob] = useState<Job | null>(null);
+  const review = useMonitorReview(slug);
+  const reviewAttention = {
+    reviewCount: (review.drafts.data?.length ?? 0) + (review.imports.data?.length ?? 0),
+    reviewCapped: (review.drafts.data?.length ?? 0) >= 200 || (review.imports.data?.length ?? 0) >= 50,
+    reviewPending: !!slug && (review.drafts.isPending || review.imports.isPending),
+    reviewFailed: !!slug && (review.drafts.isError || review.imports.isError),
+  };
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [recordOverlay, setRecordOverlay] = useState<{ kind: 'draft' | 'order' | 'driver' | 'vehicle' | 'shipper'; id?: string; key: number } | null>(null);
+  const openRecordOverlay = (kind: NonNullable<typeof recordOverlay>['kind'], id: string) => {
+    setReviewOpen(false); setDossierJob(null); setShowJobDetail(false); setShowDriverPopover(false);
+    setRecordOverlay({ kind, id, key: Date.now() });
+  };
+  const recordOpened = () => setRecordOverlay(current => current?.key === recordOverlay?.key && current ? { ...current, id: undefined } : current);
+  useEffect(() => { setRecordOverlay(null); setReviewOpen(false); }, [activeTab]);
 
 
   useEffect(() => { if (!slug) try { saveOrders(localJobs); } catch { showToast('Order changes could not be saved in this browser. Keep this session open and free storage before reloading.'); } }, [localJobs, slug]);
@@ -146,7 +162,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const [showAvailableDriversMenu, setShowAvailableDriversMenu] = useState<boolean>(false);
   const [showNeedsAttentionPopover, setShowNeedsAttentionPopover] = useState<boolean>(false);
   const [showNotificationPopover, setShowNotificationPopover] = useState<boolean>(false);
-  const [assistantEntity, setAssistantEntity] = useState<AssistantReference | null>(null);
   const [showActivityPopover, setShowActivityPopover] = useState(true);
   useEffect(() => {
     if (activeTab !== 'monitor') setShowActivityPopover(false);
@@ -339,7 +354,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   }, []);
 
   // Modal dialog triggers
-  // Monitor opens the same order details dialog as the Orders list; Edit continues on the Orders page.
+  // Monitor reuses the list pages’ record dialogs while keeping the map mounted.
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [openDriverId, setOpenDriverId] = useState<string | null>(null);
   const handleOpenJobDossier = (job?: Job) => {
@@ -623,8 +638,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
           />
         ) : activeTab === 'customers' ? (
           <CustomersPage
-            openCustomerId={assistantEntity?.kind === 'SHIPPER' ? assistantEntity.id : undefined}
-            onOpenHandled={() => setAssistantEntity(null)}
             jobs={jobs}
             onBackToMonitor={() => setActiveTab('monitor')}
             onNotification={showToast}
@@ -655,8 +668,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
           />
         ) : activeTab === 'vehicles' ? (
           <VehiclesPage
-            openVehicleId={assistantEntity?.kind === 'VEHICLE' ? assistantEntity.id : undefined}
-            onOpenHandled={() => setAssistantEntity(null)}
             drivers={drivers}
             onSelectDriver={handleLocateDriverOnMap}
             onNotification={showToast}
@@ -673,8 +684,9 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               mapInstanceRef={mapRef}
               drivers={drivers}
               jobs={mapOrders}
+              routes={slug ? routeQuery.data ?? [] : undefined}
               vehicles={slug ? vehicleMapLocations(vehicleQuery.data ?? [], driverQuery.data ?? [], monitorQuery.isError ? [] : monitorQuery.data?.drivers ?? []) : undefined}
-              onOpenVehicle={id => { setAssistantEntity({ key: `vehicle:${id}`, kind: 'VEHICLE', id, label: 'Vehicle', detail: '' }); setActiveTab('vehicles'); }}
+              onOpenVehicle={id => openRecordOverlay('vehicle', id)}
               selectedDriverId={selectedDriverId}
               selectedJobId={selectedJobId}
               layerConfig={layerConfig}
@@ -689,7 +701,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
             />
 
             {activeTab === 'monitor' && <>
-            <TodaysPlan attentionItems={needsAttentionItems} drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
+            <TodaysPlan reviewNotice={slug ? <MonitorReviewNotice review={review} onOpen={() => setReviewOpen(true)} /> : undefined} attentionItems={needsAttentionItems} drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
               attentionIds={new Set(jobs.filter(job => needsAttentionItems.some(item => item.jobNumber === job.jobNumber)).map(job => job.id))}
               loading={!!slug && (orderQuery.isPending || settingsQuery.isPending || monitorQuery.isPending)}
               error={!!slug && (orderQuery.isError || settingsQuery.isError || monitorQuery.isError)}
@@ -757,6 +769,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
             <MonitorActions
               active={activeTab === 'monitor'}
               metrics={activeTab === 'monitor' && <TopMetrics
+                {...reviewAttention}
+                onOpenReview={() => setReviewOpen(true)}
                 drivers={drivers}
                 availableDriversCount={availableDriversCount}
                 needsAttentionCount={needsAttentionItems.length}
@@ -781,20 +795,18 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   else if (slug) void operations.getOrder(slug, reference.id).then(row => setDossierJob(orderToUi(row, shipperQuery.data ?? [], catalogQuery.data ?? [], rateQuery.data ?? []))).catch(error => showToast(error instanceof Error ? error.message : 'Order details are unavailable.'));
                 } else if (reference.kind === 'DRIVER') {
                   if (drivers.some(driver => driver.id === reference.id)) handleSelectDriver(reference.id);
-                  else { setOpenDriverId(reference.id); setActiveTab('drivers'); }
+                  else openRecordOverlay('driver', reference.id);
                 }
-                else if (reference.kind === 'VEHICLE') { setAssistantEntity(reference); setActiveTab('vehicles'); }
-                else { setAssistantEntity(reference); setActiveTab('customers'); }
+                else if (reference.kind === 'VEHICLE') openRecordOverlay('vehicle', reference.id);
+                else if (reference.kind === 'SHIPPER') openRecordOverlay('shipper', reference.id);
               }}
               timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
               showActivityPopover={showActivityPopover}
               setShowActivityPopover={setShowActivityPopover}
               showNotificationPopover={showNotificationPopover}
               setShowNotificationPopover={setShowNotificationPopover}
-              onSelectJob={(jobNum) => {
-                handleSelectJob(jobNum);
-              }}
-              onOpenEmailDrafts={() => setActiveTab('jobs')}
+              onSelectJob={jobNum => { const job = jobs.find(row => row.jobNumber === jobNum); if (job) handleOpenJobDossier(job); }}
+              onOpenEmailDrafts={() => setReviewOpen(true)}
               onActionNotification={showToast}
               jobs={jobs}
             />
@@ -819,8 +831,25 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
       </main>
 
       {dossierJob && <MonitorOrderDetails job={dossierJob} jobs={jobs} drivers={drivers} onClose={() => setDossierJob(null)}
-        onEdit={job => { setDossierJob(null); setEditJobId(job.id); setActiveTab('jobs'); }} onUpdateJob={handleUpdateJob} onNotification={showToast} />}
+        onEdit={job => { setDossierJob(null); if (activeTab === 'monitor') openRecordOverlay('order', job.id); else { setEditJobId(job.id); setActiveTab('jobs'); } }} onUpdateJob={handleUpdateJob} onNotification={showToast} />}
 
+
+      {activeTab === 'monitor' && slug && reviewOpen && <MonitorReviewDialog slug={slug} review={review} timeZone={settingsQuery.data?.data.time_zone}
+        onClose={() => setReviewOpen(false)} onOpenDraft={id => openRecordOverlay('draft', id)} />}
+      {activeTab === 'monitor' && recordOverlay && <div key={recordOverlay.key} className="contents">
+        {(['draft', 'order'] as string[]).includes(recordOverlay.kind) && <JobsPage dialogsOnly onDialogsClose={() => setRecordOverlay(null)}
+          jobs={jobs} drivers={drivers} onSelectJob={handleLocateJobOnMap} onUpdateJob={handleUpdateJob} onCreateJob={handleCreateJob} onNotification={showToast}
+          draftId={recordOverlay.kind === 'draft' ? recordOverlay.id : undefined} onDraftHandled={recordOpened}
+          editJobId={recordOverlay.kind === 'order' ? recordOverlay.id : undefined} onEditHandled={recordOpened} />}
+        {recordOverlay.kind === 'vehicle' && <VehiclesPage dialogsOnly onDialogsClose={() => setRecordOverlay(null)} drivers={drivers} onNotification={showToast}
+          openVehicleId={recordOverlay.id} onOpenHandled={recordOpened} onSelectDriver={handleSelectDriver} />}
+        {recordOverlay.kind === 'shipper' && <CustomersPage dialogsOnly onDialogsClose={() => setRecordOverlay(null)} jobs={jobs} onNotification={showToast}
+          openCustomerId={recordOverlay.id} onOpenHandled={recordOpened} onBackToMonitor={() => setRecordOverlay(null)}
+          onSelectJob={number => { setRecordOverlay(null); const job = jobs.find(row => row.jobNumber === number); if (job) handleOpenJobDossier(job); }} />}
+        {recordOverlay.kind === 'driver' && <DriversPage dialogsOnly onDialogsClose={() => setRecordOverlay(null)} drivers={drivers} jobs={jobs} onNotification={showToast}
+          openDriverId={recordOverlay.id} onOpenHandled={recordOpened} onSelectDriver={handleSelectDriver}
+          onUpdateDriver={handleUpdateDriver} onCreateDriver={handleCreateDriver} onDeleteDriver={handleDeleteDriver} />}
+      </div>}
 
       {/* FULL CLOSABLE DETAIL MODAL DIALOG (Z-[100] PORTAL OVERLAY) */}
       <DetailModalDialog
@@ -831,9 +860,11 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         hiddenOrderIds={hiddenOrderIds}
         onOrderVisibilityChange={handleOrderVisibilityChange}
         needsAttentionItems={needsAttentionItems}
+        {...reviewAttention}
+        onOpenReview={() => setReviewOpen(true)}
         timeZone={slug ? settingsQuery.data?.data.time_zone : undefined}
         onMessageDriver={slug ? driver => openDispatcherChat({ driverId: driver.id }) : undefined}
-        onEditDriver={driver => { handleCloseModal(); setOpenDriverId(driver.id); setActiveTab('drivers'); }}
+        onEditDriver={driver => { handleCloseModal(); if (activeTab === 'monitor') openRecordOverlay('driver', driver.id); else { setOpenDriverId(driver.id); setActiveTab('drivers'); } }}
         onSelectJob={(jobNum) => {
           handleCloseModal();
           handleSelectJob(jobNum);

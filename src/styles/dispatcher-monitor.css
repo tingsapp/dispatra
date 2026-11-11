@@ -130,6 +130,11 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   outline-offset: 2px;
 }
 .dispatcher-monitor .app-nav-item:focus-visible { outline-offset: -2px; }
+/* The rounded composer owns input focus, not the rectangular textarea inside it. */
+.dispatcher-monitor .company-activity-panel .public-chat-composer:focus-within {
+  border-color: var(--app-input-focus-color);
+}
+.dispatcher-monitor .public-chat-composer .public-chat-input:focus-visible { outline: none; }
 
 @media (pointer: fine) and (min-width: 768px) {
   .dispatcher-monitor .app-metric { height: 36px; border-radius: 12px; }
@@ -189,4 +194,9 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   .dispatcher-monitor :is(.app-workspace-sidebar aside, [aria-label="Today’s plan"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),
   body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { background: Canvas; border: 1px solid CanvasText; box-shadow: none; backdrop-filter: none; }
   .dispatcher-monitor :is(button, a, textarea, [tabindex="0"]):focus-visible { outline-color: Highlight; }
+  .dispatcher-monitor .company-activity-panel .public-chat-composer:focus-within {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
 }

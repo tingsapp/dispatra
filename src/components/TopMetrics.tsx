@@ -11,8 +11,9 @@ import {
 } from 'lucide-react';
 import { Driver, NeedsAttentionItem } from '../types';
 import { MonitorBadge } from './monitor/MonitorBadge';
+import { ReviewAttentionItem, hasReviewAttention, type ReviewAttentionProps } from './monitor/ReviewAttentionItem';
 
-interface TopMetricsProps {
+interface TopMetricsProps extends ReviewAttentionProps {
   drivers: Driver[];
   availableDriversCount: number;
   needsAttentionCount: number;
@@ -27,6 +28,7 @@ interface TopMetricsProps {
 }
 
 export const TopMetrics: React.FC<TopMetricsProps> = ({
+  reviewCount = 0, reviewCapped = false, reviewPending = false, reviewFailed = false, onOpenReview,
   drivers,
   availableDriversCount,
   needsAttentionCount,
@@ -177,7 +179,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
 
       <FloatingPanel open={showNeedsAttentionPopover} onOpenChange={changeNeedsAttention}
         label="Needs Attention menu" role="region" size="rich" className="app-map-menu p-3"
-        trigger={<MetricTrigger data-tone="warning" icon={AlertTriangle} count={needsAttentionCount} label="Needs Attention" title="Click to view Needs Attention items" />}>
+        trigger={<MetricTrigger data-tone="warning" icon={AlertTriangle} count={`${needsAttentionCount + reviewCount}${reviewCapped ? '+' : ''}`} label="Needs Attention" title="Click to view Needs Attention items" />}>
               {/* Header with Close Icon */}
               <div className="flex items-center justify-between pb-3">
                 <div className="flex items-center gap-2">
@@ -185,7 +187,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     <AlertTriangle className="w-3.5 h-3.5 stroke-[2.5]" />
                   </div>
                   <span className="font-medium text-slate-900 text-sm">Needs Attention</span>
-                  <MonitorBadge>{needsAttentionItems.length}</MonitorBadge>
+                  <MonitorBadge>{needsAttentionItems.length + reviewCount}{reviewCapped ? '+' : ''}</MonitorBadge>
                 </div>
                 <button
                   onClick={() => setShowNeedsAttentionPopover(false)}
@@ -196,6 +198,9 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                 </button>
               </div>
 
+              <ReviewAttentionItem reviewCount={reviewCount} reviewCapped={reviewCapped} reviewPending={reviewPending} reviewFailed={reviewFailed}
+                onOpenReview={() => { setShowNeedsAttentionPopover(false); onOpenReview?.(); }} />
+              {!needsAttentionItems.length && !hasReviewAttention({ reviewCount, reviewPending, reviewFailed }) && <p className="py-4 text-center text-xs text-slate-500">No alerts requiring attention.</p>}
               {/* Items List */}
               <div className="">
                 {needsAttentionItems.map((item) => (

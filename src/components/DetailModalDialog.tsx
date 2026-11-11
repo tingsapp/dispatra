@@ -18,10 +18,11 @@ import { formatPhone } from '../lib/phone';
 import { OrderMapCheckbox, type OrderMapVisibilityProps } from './monitor/OrderMapCheckbox';
 import { isActiveMonitorOrder } from './monitor/orderVisibility';
 import { MonitorBadge } from './monitor/MonitorBadge';
+import { ReviewAttentionItem, hasReviewAttention, type ReviewAttentionProps } from './monitor/ReviewAttentionItem';
 import { DialogHeader, DialogBody } from './ui/Dialog';
 import { useEntityDialog } from './entities/useEntityDialog';
 
-interface DetailModalDialogProps extends OrderMapVisibilityProps {
+interface DetailModalDialogProps extends OrderMapVisibilityProps, ReviewAttentionProps {
   isOpen?: boolean;
   type?: ModalDialogType | null;
   data?: any;
@@ -172,6 +173,8 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
           {effectiveType === 'all_exceptions' && (
             <AllExceptionsView
               exceptions={effectiveExceptions}
+              reviewCount={props.reviewCount} reviewCapped={props.reviewCapped} reviewPending={props.reviewPending} reviewFailed={props.reviewFailed}
+              onOpenReview={() => { onClose(); props.onOpenReview?.(); }}
               onClose={onClose}
               onSelectJob={onSelectJob}
               onApproveAiFix={effectiveApproveAi}
@@ -388,7 +391,7 @@ const AllDriversRosterView: React.FC<{
 /* -------------------------------------------------------------------------- */
 /* SUB-VIEW 5: ALL OPERATIONAL EXCEPTIONS (NEEDS ATTENTION)                    */
 /* -------------------------------------------------------------------------- */
-const AllExceptionsView: React.FC<{
+const AllExceptionsView: React.FC<ReviewAttentionProps & {
   exceptions: NeedsAttentionItem[];
   onClose: () => void;
   onSelectJob?: (jobNumber: string) => void;
@@ -399,15 +402,18 @@ const AllExceptionsView: React.FC<{
   onClose,
   onSelectJob,
   onApproveAiFix,
-  onActionNotification
+  onActionNotification,
+  ...review
 }) => {
+  const count = exceptions.length + (review.reviewCount ?? 0);
   return (
     <>
-      <DialogHeader title="Needs Attention" description={`${exceptions.length} ${exceptions.length === 1 ? 'alert' : 'alerts'}`} onClose={onClose} />
+      <DialogHeader title="Needs Attention" description={`${count}${review.reviewCapped ? '+' : ''} ${count === 1 ? 'alert' : 'alerts'}`} onClose={onClose} />
 
       <DialogBody>
         <ul aria-label="Alerts requiring attention" className="divide-y divide-slate-100">
-          {exceptions.length === 0 && <li className="py-8 text-center text-sm text-slate-500">No alerts requiring attention.</li>}
+          {hasReviewAttention(review) && <li><ReviewAttentionItem {...review} /></li>}
+          {exceptions.length === 0 && !hasReviewAttention(review) && <li className="py-8 text-center text-sm text-slate-500">No alerts requiring attention.</li>}
           {exceptions.map(item => <li key={item.id} className="flex flex-col gap-3 px-2 py-4 first:pt-2 last:pb-2 sm:flex-row sm:items-start sm:gap-6 text-[13px] leading-5">
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">

@@ -373,19 +373,23 @@ test('vehicle table opens the vehicle editor with status and equipment details',
   render(React.createElement(VehiclesPage,{ drivers:[], onNotification:()=>{} }));
   assert.ok(screen.getByRole('table',{name:'Vehicles'})); const details=screen.getByRole('button',{name:`Details for ${vehicle.unitNumber}`}); await user.click(details); assert.ok(screen.getByRole('combobox',{name:'Availability'})); assert.ok(screen.getByRole('checkbox',{name:'Liftgate'})); await user.keyboard('{Escape}'); assert.equal(screen.queryByRole('combobox',{name:'Availability'}),null); assert.equal(document.activeElement,details);
 });
-test('postal-code zone matching accepts full codes and a configured FSA without guessing ambiguous zones', async()=>{
+test('postal-code zone matching uses configured FSAs without guessing ambiguous zones', async()=>{
   const { zoneForAddress } = await import('../src/lib/zoneAddress');
   const zones = [
-    { id: 'full', code: 'FULL', name: 'Full', postalCodes: ['V5Y 1V4'] },
+    { id: 'v5y', code: 'V5Y', name: 'V5Y', postalCodes: ['V5Y'] },
     { id: 'fsa', code: 'FSA', name: 'FSA', postalCodes: ['V6A'] },
-    { id: 'zip', code: 'ZIP', name: 'ZIP', postalCodes: ['00501'] },
   ];
-  assert.equal(zoneForAddress('200 Broadway, Vancouver BC V5Y 1V4', zones), 'full');
-  assert.equal(zoneForAddress('200 Broadway, Vancouver BC V5Y 1V4', [...zones, { id: 'broad', code: 'BROAD', name: 'Broad', postalCodes: ['V5Y'] }]), 'full');
+  assert.equal(zoneForAddress('200 Broadway, Vancouver BC V5Y 1V4', zones), 'v5y');
+  assert.equal(zoneForAddress('200 Broadway, Vancouver BC V5Y 1V4', [...zones, { id: 'duplicate', code: 'DUP', name: 'Duplicate', postalCodes: ['V5Y 1V4'] }]), null);
   assert.equal(zoneForAddress('100 Main St, Vancouver BC V6A 2S5', zones), 'fsa');
-  assert.equal(zoneForAddress('New York NY 00501', zones), 'zip');
   assert.equal(zoneForAddress('No postal code', zones), null);
-  assert.equal(zoneForAddress('200 Broadway, Vancouver BC V5Y 1V4', [...zones, { id: 'duplicate', code: 'DUP', name: 'Duplicate', postalCodes: ['V5Y1V4'] }]), null);
+});
+
+test('zone postal input canonicalizes full Canadian codes and flags invalid areas', async()=>{
+  const { parseZonePostalCodes, hasInvalidZonePostalCodes } = await import('../src/lib/zonePostalCodes');
+  const areas = parseZonePostalCodes('v6a 1e9, V5Y');
+  assert.deepEqual(areas, ['V6A', 'V5Y']);
+  assert.equal(hasInvalidZonePostalCodes(parseZonePostalCodes('not a postal code')), true);
 });
 
 test('zone-priced orders infer destination zones from postal codes without zone selectors', async()=>{

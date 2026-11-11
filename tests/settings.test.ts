@@ -40,7 +40,7 @@ function seedCard(overrides: Parameters<typeof createEmptyRateCard>[0] = {}) {
   if (overrides.pricingMethod === 'ZONE') config.zones = [
     ['van', 'Vancouver'], ['bby', 'Burnaby / New West'], ['rmd', 'Richmond / YVR'],
     ['sry', 'Surrey / Delta'], ['nsh', 'North Shore'], ['tri', 'Tri-Cities']
-  ].map(([id, name], i) => ({ id: `zone_${id}`, code: id.toUpperCase(), name, postalCodes: [`1000${i}`] }));
+  ].map(([id, name], i) => ({ id: `zone_${id}`, code: id.toUpperCase(), name, postalCodes: [`V6${String.fromCharCode(65 + i)}`] }));
   savePricingConfig(config); return card;
 }
 async function select(user: ReturnType<typeof userEvent.setup>, label: string, option: string) {
@@ -666,7 +666,7 @@ test('adding a destination zone expands the single matrix without changing anoth
   const ba = { id: 'ba', originZoneId: 'b', destinationZoneId: 'a', serviceId: null, amount: 70 };
   seedCard({ pricingMethod: 'ZONE', zoneRates: [ab, ba] });
   const config = loadPricingConfig();
-  config.zones = [{ id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['001'] }, { id: 'b', code: 'B', name: 'Zone 2', postalCodes: ['002'] }];
+  config.zones = [{ id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['V6A'] }, { id: 'b', code: 'B', name: 'Zone 2', postalCodes: ['V6B'] }];
   config.rateCards.push(createEmptyRateCard({ id: 'other-zone', name: 'Other zone card', pricingMethod: 'ZONE', zoneRates: [ab] }));
   savePricingConfig(config);
   const beforeOther = loadPricingConfig().rateCards[1];
@@ -676,7 +676,7 @@ test('adding a destination zone expands the single matrix without changing anoth
   await user.click(screen.getByRole('button', { name: 'Add' }));
   const name = screen.getAllByLabelText('Zone name: New Zone')[0];
   await user.clear(name); await user.type(name, 'Airport');
-  await user.type(screen.getByRole('textbox', { name: 'ZIP / postal codes for Airport' }), '003');
+  await user.type(screen.getByRole('textbox', { name: 'Postal areas for Airport' }), 'V6A');
   assert.equal(within(matrix).getAllByRole('columnheader').length, 6);
   assert.equal((screen.getByLabelText('Airport price') as HTMLInputElement).value, '');
   await user.type(screen.getByLabelText('Airport price'), '50');
@@ -1054,31 +1054,33 @@ test('subtotal and tax equations show an applied minimum and both configured tax
   assert.match(calculation, /Total = \$500\.00 \+ \$[\d.]+ = \$[\d.]+/);
 });
 
-test('Zone cards start with a 0–99 Zone 1 price of $20 and migrate empty active cards once', async () => {
+test('Zone cards start with three FSA-based areas and a 0–99 $20 price for each', async () => {
   const { PRICING_STORAGE_KEY } = await import('../src/lib/pricingStorage');
   const config = loadPricingConfig();
-  assert.deepEqual(config.zones.map(z => [z.name, z.postalCodes]), [['Zone 1', ['V5Y 1V4']], ['Zone 2', ['V5G 1M2']], ['Zone 3', ['V3T 1V8']]]);
+  assert.deepEqual(config.zones.map(z => [z.name, z.postalCodes?.every(code => /^[A-Z]\d[A-Z]$/.test(code))]), [['Zone 1', true], ['Zone 2', true], ['Zone 3', true]]);
+  assert.equal(config.zones[0].postalCodes?.length, 31);
+  assert.deepEqual(config.zones[1].postalCodes, ['V5A', 'V5B', 'V5C', 'V5E', 'V5G', 'V5H', 'V5J']);
+  assert.deepEqual(config.zones[2].postalCodes, ['V6V', 'V6W', 'V6X', 'V6Y', 'V7A', 'V7B', 'V7C', 'V7E']);
   assert.deepEqual(config.zoneRates, []);
   const starter = config.rateCards.find(card => card.pricingMethod === 'ZONE')!.zoneRates!;
-  assert.equal(starter.length, 1);
-  assert.equal(starter[0].destinationZoneId, 'zone_1');
-  assert.equal(starter[0].amount, 20);
-  assert.equal(starter[0].weightBands![0].amount, 20);
-  assert.ok(Math.abs(starter[0].weightBands![0].maxWeightKg! - 99 * 0.45359237) < 1e-8);
+  assert.equal(starter.length, 3);
+  assert.deepEqual(starter.map(rate => rate.destinationZoneId), ['zone_1', 'zone_2', 'zone_3']);
+  assert.ok(starter.every(rate => rate.amount === 20 && rate.weightBands![0].amount === 20));
+  assert.ok(starter.every(rate => Math.abs(rate.weightBands![0].maxWeightKg! - 99 * 0.45359237) < 1e-8));
 
   const oldPrice = { id: 'old-price', originZoneId: '__central_pickup__', destinationZoneId: 'zone_1', serviceId: null, amount: 99,
     weightBands: [{ id: 'old-band', maxWeightKg: 500, amount: 99 }] };
   const active = { ...config.rateCards.find(card => card.pricingMethod === 'ZONE')!, zoneRates: [oldPrice] };
   const archived = { ...active, id: 'archived-zone', status: 'ARCHIVED' as const, zoneRates: [oldPrice] };
-  const custom = { id: 'zone_custom', code: 'CUSTOM', name: 'Custom', postalCodes: ['V6B 1A1'] };
+  const custom = { id: 'zone_custom', code: 'CUSTOM', name: 'Custom', postalCodes: ['V6B'] };
   localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify({ ...config, zones: [...config.zones, custom], zoneRates: [oldPrice],
     rateCards: [config.rateCards[0], active, archived], schemaVersion: 12 }));
   const migrated = loadPricingConfig();
   assert.deepEqual(migrated.zones.map(zone => zone.id), ['zone_1', 'zone_2', 'zone_3', 'zone_custom']);
   assert.deepEqual(migrated.zoneRates, []);
   const migratedRates = migrated.rateCards.find(card => card.id === active.id)!.zoneRates!;
-  assert.equal(migratedRates.length, 1);
-  assert.equal(migratedRates[0].amount, 20);
+  assert.equal(migratedRates.length, 3);
+  assert.ok(migratedRates.every(rate => rate.amount === 20));
   assert.deepEqual(migrated.rateCards.find(card => card.id === archived.id)!.zoneRates, [oldPrice]);
   assert.equal(migrated.rateCards.find(card => card.id === active.id)!.version, active.version + 1);
   const saved = localStorage.getItem(PRICING_STORAGE_KEY)!;
@@ -1094,14 +1096,15 @@ test('Zone cards start with a 0–99 Zone 1 price of $20 and migrate empty activ
   assert.equal((screen.getByLabelText('Weight from (lb)') as HTMLInputElement).value, '0');
   assert.equal((screen.getByLabelText('Weight to (lb)') as HTMLInputElement).value, '99');
   assert.equal((screen.getByLabelText('Zone 1 price') as HTMLInputElement).value, '20');
-  for (const label of ['Zone 2 price', 'Zone 3 price', 'Custom price']) assert.equal((screen.getByLabelText(label) as HTMLInputElement).value, '');
+  for (const label of ['Zone 2 price', 'Zone 3 price']) assert.equal((screen.getByLabelText(label) as HTMLInputElement).value, '20');
+  assert.equal((screen.getByLabelText('Custom price') as HTMLInputElement).value, '');
   assert.equal((screen.getByRole('button', { name: 'Add weight range' }) as HTMLButtonElement).disabled, false);
   await user.click(screen.getByRole('button', { name: 'Add card' }));
   await select(user, 'Pricing method', 'Zone to zone');
   assert.equal((screen.getByLabelText('Weight from (lb)') as HTMLInputElement).value, '0');
   assert.equal((screen.getByLabelText('Weight to (lb)') as HTMLInputElement).value, '99');
   assert.equal((screen.getByLabelText('Zone 1 price') as HTMLInputElement).value, '20');
-  assert.equal((screen.getByLabelText('Zone 2 price') as HTMLInputElement).value, '');
+  assert.equal((screen.getByLabelText('Zone 2 price') as HTMLInputElement).value, '20');
 });
 
 test('Zone starter uses company units, preserves existing prices, and restores an empty saved card', async () => {
@@ -1120,10 +1123,9 @@ test('Zone starter uses company units, preserves existing prices, and restores a
   const cleared = { ...migrated, rateCards: migrated.rateCards.map(item => item.id === card.id ? { ...item, zoneRates: [] } : item) };
   savePricingConfig(cleared);
   const restored = loadPricingConfig().rateCards.find(item => item.id === card.id)!.zoneRates!;
-  assert.equal(restored.length, 1);
-  assert.equal(restored[0].destinationZoneId, 'zone_1');
-  assert.equal(restored[0].weightBands![0].maxWeightKg, 99);
-  assert.equal(restored[0].weightBands![0].amount, 20);
+  assert.equal(restored.length, 3);
+  assert.deepEqual(restored.map(rate => rate.destinationZoneId), ['zone_1', 'zone_2', 'zone_3']);
+  assert.ok(restored.every(rate => rate.weightBands![0].maxWeightKg === 99 && rate.weightBands![0].amount === 20));
 });
 
 test('a current-schema empty Zone to zone card shows the starter fields and formula', async () => {
@@ -1186,7 +1188,7 @@ test('custom confirm dialog replaces the browser confirm: archive, discard-chang
   assert.ok(await screen.findByRole('alertdialog', { name: 'Plain?' })); await user.click(screen.getByRole('button', { name: 'Confirm' })); assert.equal(await pending, true);
 });
 
-test('zone postal-code lists replace descriptions, preserve zeros and spaces, and survive remounts', async () => {
+test('zone validation appears above Save Card instead of in a snackbar and FSA lists survive remounts', async () => {
   useMetricCompany();
   const starter = loadPricingConfig(); savePricingConfig({ ...starter, zones: [], zoneRates: [], rateCards: starter.rateCards.map(c => ({ ...c, zoneRates: [] })) });
   const user = userEvent.setup({ document }); const notices: string[] = [];
@@ -1201,24 +1203,27 @@ test('zone postal-code lists replace descriptions, preserve zeros and spaces, an
   assertFieldIssue('Zone name: Unnamed zone', 'Zone name required');
   await user.type(nameField, 'Zone 1');
   assertFieldIssue('Zone name: Zone 1', null);
-  assertFieldIssue('ZIP / postal codes for Zone 1', 'Postal codes required');
+  assertFieldIssue('Postal areas for Zone 1', 'At least one postal area is required');
   await user.click(screen.getByRole('button', { name: 'Save Card' }));
-  assert.match(notices.at(-1)!, /at least one ZIP/);
-  const codes = screen.getByRole('textbox', { name: 'ZIP / postal codes for Zone 1' });
-  await user.type(codes, '00501, 10001, v6b 1a1; V6B1A1, 00501');
+  assert.match(screen.getByRole('alert').textContent!, /at least one Canadian postal area/i);
+  assert.equal(notices.length, 0);
+  const codes = screen.getByRole('textbox', { name: 'Postal areas for Zone 1' });
+  await user.type(codes, 'v6b 1a1; V6B1A1');
   await user.tab();
-  assert.deepEqual(loadPricingConfig().zones[0].postalCodes, ['00501', '10001', 'V6B 1A1']);
+  assert.deepEqual(loadPricingConfig().zones[0].postalCodes, ['V6B']);
   await user.clear(screen.getByRole('spinbutton', { name: 'Weight to (kg)' }));
   await user.type(screen.getByRole('spinbutton', { name: 'Weight to (kg)' }), '500');
   await user.type(screen.getByRole('spinbutton', { name: 'Zone 1 price' }), '25');
   await user.click(screen.getByRole('button', { name: 'Save Card' }));
   cleanup(); render(React.createElement(RateCardsPage, {}));
   await user.click(screen.getByRole('button', { name: 'Zone to zone' }));
-  const reopened = screen.getByRole('textbox', { name: 'ZIP / postal codes for Zone 1' });
-  assert.equal((reopened as HTMLInputElement).value, '00501, 10001, V6B 1A1');
-  await user.clear(reopened); await user.type(reopened, '10002');
+  const reopened = screen.getByRole('textbox', { name: 'Postal areas for Zone 1' });
+  assert.equal((reopened as HTMLInputElement).value, 'V6B');
+  await user.clear(reopened); await user.type(reopened, 'not a postal area');
+  await user.click(screen.getByRole('button', { name: 'Save Card' }));
+  assert.match(screen.getByRole('alert').textContent!, /Use Canadian three-character postal areas/i);
   await user.keyboard('{Escape}');
-  assert.deepEqual(loadPricingConfig().zones[0].postalCodes, ['10002']);
+  assert.deepEqual(loadPricingConfig().zones[0].postalCodes, ['NOT A POSTAL AREA']);
   assert.equal((screen.getByRole('spinbutton', { name: 'Zone 1 price' }) as HTMLInputElement).value, '25');
 });
 
@@ -1228,7 +1233,7 @@ test('untouched legacy preset zones retire while active cards receive the starte
   config.zones = [
     { id: 'zone_van', code: 'VAN', name: 'Vancouver', description: 'City of Vancouver & UBC' },
     { id: 'zone_bby', code: 'BBY', name: 'My Zone', description: 'Burnaby and New Westminster' },
-    { id: 'mine', code: 'MINE', name: 'Mine', postalCodes: ['00501'] }
+    { id: 'mine', code: 'MINE', name: 'Mine', postalCodes: ['V6A'] }
   ];
   const oldPrice = { id: 'old', originZoneId: 'zone_van', destinationZoneId: 'zone_bby', serviceId: null, amount: 45 };
   const ownPrice = { ...oldPrice, id: 'own', originZoneId: 'mine', amount: 22 };
@@ -1340,8 +1345,8 @@ test('single matrix shows saved weight ranges in saved order without a blank row
   seedCard({ pricingMethod: 'ZONE', zoneRates: [{ id: 'ab', originZoneId: 'a', destinationZoneId: 'b', serviceId: null, amount: 40,
     weightBands: [{ id: 'large', maxWeightKg: 500, amount: 40 }, { id: 'small', maxWeightKg: 200, amount: 25 }] }] });
   const config = loadPricingConfig(); config.zones = [
-    { id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['001'] },
-    { id: 'b', code: 'B', name: 'Zone 2', postalCodes: ['002'] },
+    { id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['V6A'] },
+    { id: 'b', code: 'B', name: 'Zone 2', postalCodes: ['V6B'] },
   ]; savePricingConfig(config);
   render(React.createElement(RateCardsPage, {}));
   const matrix = screen.getByRole('table', { name: 'Zone prices by weight' });
@@ -1363,8 +1368,8 @@ test('Add weight range creates an empty row with a trailing delete icon', async 
       weightBands: [{ id: 'b99', maxWeightKg: 99, amount: 25 }] },
   ] });
   const config = loadPricingConfig(); config.zones = [
-    { id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['001'] },
-    { id: 'b', code: 'B', name: 'Zone 2', postalCodes: ['002'] },
+    { id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['V6A'] },
+    { id: 'b', code: 'B', name: 'Zone 2', postalCodes: ['V6B'] },
   ]; savePricingConfig(config);
   render(React.createElement(RateCardsPage, {}));
   const matrix = screen.getByRole('table', { name: 'Zone prices by weight' });
@@ -1391,7 +1396,7 @@ test('Add weight range creates an empty row with a trailing delete icon', async 
 test('ten destination zones appear as columns in one matrix', () => {
   seedCard({ pricingMethod: 'ZONE' });
   const config = loadPricingConfig();
-  config.zones = Array.from({ length: 10 }, (_, index) => ({ id: `z${index}`, code: `Z${index}`, name: `Area ${index + 1}`, postalCodes: [`00${index}`] }));
+  config.zones = Array.from({ length: 10 }, (_, index) => ({ id: `z${index}`, code: `Z${index}`, name: `Area ${index + 1}`, postalCodes: [`V6${String.fromCharCode(65 + index)}`] }));
   config.rateCards[0].zoneRates = config.zones.map((destination, index) => ({ id: `c${index}`, originZoneId: '__central_pickup__', destinationZoneId: destination.id,
     serviceId: null, amount: index, weightBands: [{ id: `b${index}`, maxWeightKg: 500, amount: index }] }));
   savePricingConfig(config);
@@ -1403,33 +1408,33 @@ test('ten destination zones appear as columns in one matrix', () => {
   for (let index = 0; index < 10; index++) assert.equal((screen.getByLabelText(`Area ${index + 1} price`) as HTMLInputElement).value, String(index));
 });
 
-test('postal fields edit directly with keyboard, retain separators and parse multiline paste', async () => {
+test('postal area fields edit directly with keyboard, retain separators and reduce full codes to FSAs', async () => {
   const user = userEvent.setup({ document });
   seedCard({ pricingMethod: 'ZONE' });
   const config = loadPricingConfig();
-  config.zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['001'] }]; savePricingConfig(config);
+  config.zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['V6A'] }]; savePricingConfig(config);
   render(React.createElement(RateCardsPage, {}));
   screen.getByLabelText('Zone name: Central').focus();
   await user.tab();
-  const codes = screen.getByRole('textbox', { name: 'ZIP / postal codes for Central' }) as HTMLInputElement;
+  const codes = screen.getByRole('textbox', { name: 'Postal areas for Central' }) as HTMLInputElement;
   assert.equal(document.activeElement, codes);
-  assert.equal(screen.queryByRole('button', { name: /ZIP \/ postal codes/ }), null);
+  assert.equal(screen.queryByRole('button', { name: /Postal areas/ }), null);
   assert.equal(screen.queryByRole('dialog'), null);
   assert.equal(screen.getByRole('table', { name: 'Zones' }).querySelector('.lucide-map-pin'), null);
-  await user.clear(codes); await user.type(codes, '00501, ');
-  assert.equal(codes.value, '00501, ', 'Typing must preserve the delimiter for the next code');
-  await user.type(codes, 'v6b 1a1, V6B1A1; 00501');
-  assert.deepEqual(loadPricingConfig().zones[0].postalCodes, ['00501', 'V6B 1A1']);
+  await user.clear(codes); await user.type(codes, 'V6A, ');
+  assert.equal(codes.value, 'V6A, ', 'Typing must preserve the delimiter for the next postal area');
+  await user.type(codes, 'v6b 1a1, V6B1A1; V6A');
+  assert.deepEqual(loadPricingConfig().zones[0].postalCodes, ['V6A', 'V6B']);
   await user.tab();
-  assert.equal(codes.value, '00501, V6B 1A1');
+  assert.equal(codes.value, 'V6A, V6B');
   assert.equal(document.activeElement, screen.getByRole('button', { name: 'Remove zone Central' }));
   await user.clear(codes);
-  await user.paste('00501\nv6b 1a1\r\nV6B1A1; 00501\n10001');
-  assert.deepEqual(loadPricingConfig().zones[0].postalCodes, ['00501', 'V6B 1A1', '10001']);
+  await user.paste('V6A\nv6b 1a1\r\nV6B1A1; V6A\nV5K');
+  assert.deepEqual(loadPricingConfig().zones[0].postalCodes, ['V6A', 'V6B', 'V5K']);
   await user.tab();
-  assert.equal(codes.value, '00501, V6B 1A1, 10001');
+  assert.equal(codes.value, 'V6A, V6B, V5K');
   await user.clear(codes);
-  assertFieldIssue('ZIP / postal codes for Central', 'Postal codes required');
+  assertFieldIssue('Postal areas for Central', 'At least one postal area is required');
   assert.deepEqual(loadPricingConfig().zones[0].postalCodes, []);
   assert.equal(loadPricingConfig().zones.length, 1);
 });
@@ -1438,7 +1443,7 @@ test('band fields validate positive weights and nonnegative prices', async () =>
   useMetricCompany();
   const user = userEvent.setup({ document });
   seedCard({ pricingMethod: 'ZONE', zoneRates: [] });
-  const config = loadPricingConfig(); config.zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['001'] }]; savePricingConfig(config);
+  const config = loadPricingConfig(); config.zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['V6A'] }]; savePricingConfig(config);
   const notices: string[] = [];
   render(React.createElement(RateCardsPage, { onNotification: message => notices.push(message) }));
   await user.clear(screen.getByLabelText('Weight to (kg)'));
@@ -1450,7 +1455,8 @@ test('band fields validate positive weights and nonnegative prices', async () =>
   assertFieldIssue('Weight to (kg)', null);
   assertFieldIssue('Central price', 'Enter a price of zero or more');
   await user.click(screen.getByRole('button', { name: 'Save Card' }));
-  assert.match(notices.at(-1)!, /Enter a price of zero or more/);
+  assert.match(screen.getByRole('alert').textContent!, /Enter a price of zero or more/);
+  assert.equal(notices.length, 0);
   assert.deepEqual(loadPricingConfig().rateCards[0].zoneRates, []);
   await user.clear(screen.getByLabelText('Central price')); await user.type(screen.getByLabelText('Central price'), '50');
   assertFieldIssue('Central price', null);
@@ -1468,19 +1474,19 @@ test('zone postal fields update shared codes and preserve directional prices aft
   ];
   seedCard({ pricingMethod: 'ZONE', zoneRates: rates });
   const config = loadPricingConfig();
-  config.zones = [{ id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['001'] }, { id: 'b', code: 'B', name: 'Zone 2', postalCodes: ['002'] }];
+  config.zones = [{ id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['V6A'] }, { id: 'b', code: 'B', name: 'Zone 2', postalCodes: ['V5K'] }];
   savePricingConfig(config);
   const page = render(React.createElement(RateCardsPage, {}));
-  for (const [name, value] of [['Zone 1', '00501\nv6b 1a1, V6B1A1'], ['Zone 2', '00990, 00990\nx0a 1b2']]) {
-    const codes = screen.getByRole('textbox', { name: `ZIP / postal codes for ${name}` });
+  for (const [name, value] of [['Zone 1', 'V6A\nv6b 1a1, V6B1A1'], ['Zone 2', 'V5K, V5K\nv6v 1b2']]) {
+    const codes = screen.getByRole('textbox', { name: `Postal areas for ${name}` });
     await user.clear(codes); await user.paste(value);
     await user.tab();
   }
-  assert.deepEqual(loadPricingConfig().zones.map(zone => zone.postalCodes), [['00501', 'V6B 1A1'], ['00990', 'X0A 1B2']]);
+  assert.deepEqual(loadPricingConfig().zones.map(zone => zone.postalCodes), [['V6A', 'V6B'], ['V5K', 'V6V']]);
   assert.deepEqual(loadPricingConfig().rateCards[0].zoneRates, rates);
   page.unmount(); render(React.createElement(RateCardsPage, {}));
-  for (const [name, value] of [['Zone 1', '00501\nV6B 1A1'], ['Zone 2', '00990\nX0A 1B2']]) {
-    const codes = screen.getByRole('textbox', { name: `ZIP / postal codes for ${name}` });
+  for (const [name, value] of [['Zone 1', 'V6A\nV6B'], ['Zone 2', 'V5K\nV6V']]) {
+    const codes = screen.getByRole('textbox', { name: `Postal areas for ${name}` });
     assert.equal((codes as HTMLInputElement).value, value.replaceAll('\n', ', '));
   }
   assert.equal((screen.getByLabelText('Zone 2 price') as HTMLInputElement).value, '45');
@@ -1496,7 +1502,7 @@ test('removing a shared zone confirms, shrinks both matrix axes and preserves dr
   ];
   seedCard({ pricingMethod: 'ZONE', zoneRates: rates });
   const config = loadPricingConfig();
-  config.zones = ['a', 'b', 'c'].map((id, i) => ({ id, code: id.toUpperCase(), name: `Zone ${i + 1}`, postalCodes: [`00${i}`] }));
+  config.zones = ['a', 'b', 'c'].map((id, i) => ({ id, code: id.toUpperCase(), name: `Zone ${i + 1}`, postalCodes: [`V6${String.fromCharCode(65 + i)}`] }));
   config.zoneRates = rates;
   config.rateCards.push(createEmptyRateCard({ id: 'other', name: 'Other', pricingMethod: 'ZONE', zoneRates: rates }));
   config.rateCards.push(createEmptyRateCard({ id: 'archived', name: 'Archived', status: 'ARCHIVED', pricingMethod: 'ZONE', zoneRates: rates }));
@@ -1543,7 +1549,7 @@ test('company weight setting controls matrix entry and reload without changing s
   const user = userEvent.setup({ document });
   assert.equal(loadBillingConfig().general.weightUnit, 'kg');
   seedCard({ pricingMethod: 'ZONE', zoneRates: [] });
-  const config = loadPricingConfig(); config.zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['001'] }]; savePricingConfig(config);
+  const config = loadPricingConfig(); config.zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['V6A'] }]; savePricingConfig(config);
   let company = render(React.createElement(PreferencesPage, {}));
   await select(user, 'Weight unit', 'lb, Pounds');
   await user.click(screen.getByRole('button', { name: 'Save Preferences' }));
@@ -1821,7 +1827,7 @@ test('editing a weight limit through an existing limit keeps both price rows edi
       amount: [20, 30, 40, 50][index] + zoneIndex * (index ? 10 : 5) })),
   })) });
   const config = loadPricingConfig();
-  config.zones = ['a', 'b', 'c'].map((id, index) => ({ id, code: id.toUpperCase(), name: `Zone ${index + 1}`, postalCodes: ['001'] }));
+  config.zones = ['a', 'b', 'c'].map((id, index) => ({ id, code: id.toUpperCase(), name: `Zone ${index + 1}`, postalCodes: [`V6${String.fromCharCode(65 + index)}`] }));
   savePricingConfig(config);
   const notices: string[] = [];
   render(React.createElement(RateCardsPage, { onNotification: message => notices.push(message) }));
@@ -1859,7 +1865,7 @@ test('sparse destination prices display only the exact bands sent in the save pa
       weightBands: [{ id: 'b200', maxWeightKg: 200, amount: 40 }] },
   ] });
   const config = loadPricingConfig();
-  config.zones = ['a', 'b'].map((id, i) => ({ id, code: id.toUpperCase(), name: `Zone ${i + 1}`, postalCodes: ['001'] }));
+  config.zones = ['a', 'b'].map((id, i) => ({ id, code: id.toUpperCase(), name: `Zone ${i + 1}`, postalCodes: [`V6${String.fromCharCode(65 + i)}`] }));
   savePricingConfig(config);
   render(React.createElement(RateCardsPage, {}));
   assert.equal((screen.getByLabelText('Zone 2 price') as HTMLInputElement).value, '');
@@ -1876,7 +1882,7 @@ test('duplicate weight limits stay visible, validate, and can be corrected witho
   const { fireEvent } = await import('@testing-library/react');
   const { ZoneMatrixEditor } = await import('../src/components/pricing/ZoneMatrixEditor');
   const { zoneRateIssue } = await import('../src/lib/zoneWeightBands');
-  const zones = [{ id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['001'] }];
+  const zones = [{ id: 'a', code: 'A', name: 'Zone 1', postalCodes: ['V6A'] }];
   const initial = [{ id: 'c1', originZoneId: '__central_pickup__', destinationZoneId: 'a', serviceId: null, amount: 30,
     weightBands: [{ id: 'same', maxWeightKg: 200, amount: 30 }, { id: 'same', maxWeightKg: 200, amount: null }] }];
   let current = initial as import('../src/types/pricing').ZoneRate[];

@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { ChevronDown, type LucideIcon } from 'lucide-react';
 
 export function MetricTrigger({ icon: Icon, count, label, ...props }:
-  ComponentProps<'button'> & { icon: LucideIcon; count: number; label: string }) {
+  ComponentProps<'button'> & { icon: LucideIcon; count: number | string; label: string }) {
   return <button {...props} type="button" className="app-metric group">
     <span className="app-metric-icon"><Icon aria-hidden="true" /></span>
     <span className="text-sm font-medium text-slate-900">{count}</span>

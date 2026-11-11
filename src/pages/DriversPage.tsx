@@ -1,3 +1,4 @@
+import { RecordDialogBoundary } from '../components/monitor/RecordDialogBoundary';
 import { openDispatcherChat } from '../chat/navigation';
 import { ActionButton } from '../components/ui/button';
 import { usePendingAction } from '../components/ui/usePendingAction';
@@ -36,6 +37,9 @@ import { Driver,Job } from '../types';
 import { formatPhone } from '../lib/phone';
 
 interface DriversPageProps {
+  /** Render shared record dialogs over the Monitor without the list page. */
+  dialogsOnly?: boolean;
+  onDialogsClose?: () => void;
   drivers: Driver[];
   jobs: Job[];
   onSelectDriver: (driverId: string) => void;
@@ -49,6 +53,7 @@ interface DriversPageProps {
 }
 
 export function DriversPage({
+  dialogsOnly = false, onDialogsClose,
   drivers: suppliedDrivers,
   jobs,
   onSelectDriver,
@@ -170,7 +175,9 @@ export function DriversPage({
   useEntityDialog(showVehicleModal, () => setShowVehicleModal(false));
 
   return (
-    <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
+    <div className={dialogsOnly ? "contents" : "app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans"}>
+      {dialogsOnly && <RecordDialogBoundary open={!!activeDriverDrawer || showAddModal || !!initialCredential} pending={!!slug && driverQuery.isPending} error={driverQuery.error} onRetry={() => driverQuery.refetch()} onClose={() => onDialogsClose?.()} />}
+      {!dialogsOnly && <>
       <PageHeader title="Drivers" description="Driver profiles, contact details and attached vehicles." actions={<>
         <Button
           type="button"
@@ -341,6 +348,8 @@ export function DriversPage({
           )}
         </div>
       </div>
+
+      </>}
 
       {/* DRIVER PROFILE DIALOG */}
       {activeDriverDrawer && (

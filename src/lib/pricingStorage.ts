@@ -2,6 +2,7 @@ import { scopedStorageKey } from './scopedStorage';
 import { loadBillingConfig } from './billingStorage';
 import { CENTRAL_PICKUP_ZONE_ID } from './centralZoneRates';
 import { fromDisplayWeight, Units } from './units';
+import { postalFsa } from './zonePostalCodes';
 import { Discount, PricingConfig, RateCard, Zone, ZoneRate } from '../types/pricing';
 
 export const PRICING_STORAGE_KEY = 'dispatra_pricing_v1';
@@ -107,17 +108,17 @@ const LEGACY_PRESET_ZONES: Zone[] = [
 
 /** Metro Vancouver starter zones; one verified example postal code each. Dispatch extends the lists. */
 export const INITIAL_ZONES: Zone[] = [
-  { id: 'zone_1', code: 'ZONE1', name: 'Zone 1', postalCodes: ['V5Y 1V4'] },
-  { id: 'zone_2', code: 'ZONE2', name: 'Zone 2', postalCodes: ['V5G 1M2'] },
-  { id: 'zone_3', code: 'ZONE3', name: 'Zone 3', postalCodes: ['V3T 1V8'] }
+  { id: 'zone_1', code: 'ZONE1', name: 'Zone 1', postalCodes: ['V5K', 'V5L', 'V5M', 'V5N', 'V5P', 'V5R', 'V5S', 'V5T', 'V5V', 'V5W', 'V5X', 'V5Y', 'V5Z', 'V6A', 'V6B', 'V6C', 'V6E', 'V6G', 'V6H', 'V6J', 'V6K', 'V6L', 'V6M', 'V6N', 'V6P', 'V6R', 'V6S', 'V6T', 'V6Z', 'V7X', 'V7Y'] },
+  { id: 'zone_2', code: 'ZONE2', name: 'Zone 2', postalCodes: ['V5A', 'V5B', 'V5C', 'V5E', 'V5G', 'V5H', 'V5J'] },
+  { id: 'zone_3', code: 'ZONE3', name: 'Zone 3', postalCodes: ['V6V', 'V6W', 'V6X', 'V6Y', 'V7A', 'V7B', 'V7C', 'V7E'] }
 ];
 
-/** The first Zone row starts at zero, ends at 99 company weight units, and prices Zone 1 only. */
+/** The first Zone row starts at zero, ends at 99 company weight units, and prices every starter destination. */
 export const initialZoneOneRates = (cardId: string, zones: Zone[], units: Units): ZoneRate[] => {
-  const zoneOne = zones.find(zone => zone.id === 'zone_1') ?? zones.find(zone => zone.name.trim().toLowerCase() === 'zone 1');
-  if (!zoneOne) return [];
-  return [{ id: `${cardId}_central_zone_1`, originZoneId: CENTRAL_PICKUP_ZONE_ID, destinationZoneId: zoneOne.id,
-    serviceId: null, amount: 20, weightBands: [{ id: `${cardId}_zone_1_first_band`, maxWeightKg: fromDisplayWeight(99, units), amount: 20 }] }];
+  const starterIds = new Set(['zone_1', 'zone_2', 'zone_3']);
+  const targets = zones.filter(zone => starterIds.has(zone.id));
+  return (targets.length ? targets : zones.slice(0, 1)).map(zone => ({ id: `${cardId}_central_${zone.id}`, originZoneId: CENTRAL_PICKUP_ZONE_ID, destinationZoneId: zone.id,
+    serviceId: null, amount: 20, weightBands: [{ id: `${cardId}_${zone.id}_first_band`, maxWeightKg: fromDisplayWeight(99, units), amount: 20 }] }));
 };
 
 const PRESET_CARD_NAMES: Record<string, { previous: string; name: string }> = {
@@ -247,7 +248,8 @@ export const loadPricingConfig = (): PricingConfig => {
         !zone.postalCodes?.length && LEGACY_PRESET_ZONES.some(seed => seed.id === zone.id && seed.name === zone.name && seed.code === zone.code && seed.description === zone.description)
       ).map(zone => zone.id) : []);
       const keepRate = (rate: ZoneRate) => !retired.has(rate.originZoneId) && !retired.has(rate.destinationZoneId);
-      const zones: Zone[] = storedZones.filter(zone => !retired.has(zone.id)).map(zone => ({ ...zone, postalCodes: zone.postalCodes ?? [] }));
+      const zones: Zone[] = storedZones.filter(zone => !retired.has(zone.id)).map(zone => ({ ...zone,
+        postalCodes: (zone.postalCodes ?? []).flatMap(code => postalFsa(code) ? [postalFsa(code)!] : []) }));
       // Add missing starter zones once. An older zone that only shares a starter name is replaced.
       const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
       const seedStarter = (parsed.schemaVersion ?? 0) < 11 && INITIAL_ZONES.some(seed => !zones.some(zone => zone.id === seed.id) || zones.some(zone => zone.id !== seed.id && sameName(zone.name, seed.name)));

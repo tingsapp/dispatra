@@ -3,13 +3,11 @@ import { useChatComposer } from '../chat/useChatComposer';
 import type { ReactNode } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useMutation } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, SquarePen } from 'lucide-react';
+import { ArrowDown, ArrowUp, AudioWaveform, SquarePen } from 'lucide-react';
 import { api } from '../../portal/api';
 import { Button } from '../ui/button';
 import { usePublicChatScroll } from './usePublicChatScroll';
 import { usePublicChatTyping } from './usePublicChatTyping';
-import { usePublicVoice } from './usePublicVoice';
-import { PublicVoicePanel, VoiceWaveIcon } from './PublicVoicePanel';
 
 type Turn = { role: 'user' | 'assistant'; content: string };
 type Props = { contactCard?: ReactNode; initialMessage?: string };
@@ -25,11 +23,10 @@ export function PublicChatAssistant(props: Props) {
 }
 
 function ChatContent({ contactCard, initialMessage = '' }: Props) {
-  const voice = usePublicVoice();
   const conversation = useRef(crypto.randomUUID());
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState(initialMessage);
-  const started = turns.length > 0 || voice.active;
+  const started = turns.length > 0;
   const contact = useRef<HTMLDivElement>(null);
   const shell = useRef<HTMLElement>(null);
   const [contactOverflow, setContactOverflow] = useState(0);
@@ -44,13 +41,8 @@ function ChatContent({ contactCard, initialMessage = '' }: Props) {
   }, [started, contactCard]);
   const controller = useRef<AbortController | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
-  const wasVoiceActive = useRef(false);
-  useEffect(() => {
-    if (wasVoiceActive.current && !voice.active) input.current?.focus({ preventScroll: true });
-    wasVoiceActive.current = voice.active;
-  }, [voice.active]);
   useEffect(() => () => controller.current?.abort(), []);
-  useChatComposer(input, draft, voice.active);
+  useChatComposer(input, draft);
   const ask = useMutation({
     mutationFn: (body: Parameters<typeof api.publicAssistant>[0]) => {
       controller.current = new AbortController();
@@ -61,10 +53,10 @@ function ChatContent({ contactCard, initialMessage = '' }: Props) {
   const latest = turns.at(-1);
   const typing = usePublicChatTyping(latest?.role === 'assistant' ? latest : undefined);
   const busy = ask.isPending || typing.isTyping;
-  const scrolling = usePublicChatScroll(started && !voice.active, turns, ask.status, typing.text.length);
+  const scrolling = usePublicChatScroll(started, turns, ask.status, typing.text.length);
   function send() {
     const message = draft.trim();
-    if (!message || busy || ask.isError || voice.active) return;
+    if (!message || busy || ask.isError) return;
     scrolling.followLatest();
     input.current?.focus({ preventScroll: true });
     const history = boundedHistory(turns);
@@ -72,15 +64,15 @@ function ChatContent({ contactCard, initialMessage = '' }: Props) {
     setDraft('');
     ask.mutate({ message, history, conversation_id: conversation.current, request_id: crypto.randomUUID() });
   }
-  function clear() { conversation.current = crypto.randomUUID(); voice.stop(); scrolling.followLatest(); setTurns([]); setDraft(''); ask.reset(); input.current?.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
-  return <section ref={shell} style={{ marginBottom: contactOverflow }} aria-labelledby="dispatra-chat-title" className={`public-chat-shell ${started ? 'public-chat-shell--started' : ''} ${contactCard ? 'public-chat-shell--contact' : ''} ${voice.active ? 'public-chat-shell--voice' : ''}`}>
+  function clear() { conversation.current = crypto.randomUUID(); scrolling.followLatest(); setTurns([]); setDraft(''); ask.reset(); input.current?.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
+  return <section ref={shell} style={{ marginBottom: contactOverflow }} aria-labelledby="dispatra-chat-title" className={`public-chat-shell ${started ? 'public-chat-shell--started' : ''} ${contactCard ? 'public-chat-shell--contact' : ''}`}>
     <div className="mx-auto flex h-12 w-full max-w-4xl shrink-0 items-center justify-end gap-4 px-5 sm:px-8">
       <h2 id="dispatra-chat-title" className="sr-only">Dispatra</h2>
       {started && <button type="button" onClick={clear} disabled={ask.isPending} aria-label="New chat" title="New chat" className="flex size-10 items-center justify-center rounded-full text-app-muted hover:bg-slate-100 hover:text-app-text disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-app-accent"><SquarePen className="size-4" aria-hidden="true" /></button>}
     </div>
     <div className={`public-chat-body ${started ? 'public-chat-body--started' : ''}`}>
       <h1 className={started ? 'sr-only' : 'mb-8 text-center text-[30px] font-medium leading-tight tracking-tight sm:mb-9 sm:text-4xl'}>How can I help you?</h1>
-      {started && !voice.active && <div role="log" aria-label="Dispatra conversation" aria-live="polite" aria-busy={busy} aria-relevant="additions text" className="public-chat-transcript space-y-8">
+      {started && <div role="log" aria-label="Dispatra conversation" aria-live="polite" aria-busy={busy} aria-relevant="additions text" className="public-chat-transcript space-y-8">
         {turns.map((turn, index) => <div key={index} className={turn.role === 'user' ? 'ml-auto w-fit max-w-[85%] rounded-3xl bg-[#f4f4f4] px-5 py-3' : 'max-w-full py-1'}>
           <span className="sr-only">{turn.role === 'user' ? 'You' : 'Dispatra'}: </span><p className="whitespace-pre-wrap break-words text-[15px] leading-7 sm:text-base">{turn === latest && turn.role === 'assistant' ? typing.text : turn.content}{turn === latest && typing.isTyping && <span className="public-chat-typing-cursor" aria-hidden="true" />}</p>
         </div>)}
@@ -89,22 +81,20 @@ function ChatContent({ contactCard, initialMessage = '' }: Props) {
       {started && <div ref={scrolling.end} aria-hidden="true" className="h-px shrink-0" />}
       <div ref={scrolling.dock} className="public-chat-dock">
       <div className="public-chat-dock-content">
-      {scrolling.showLatest && !voice.active && <button type="button" onClick={scrolling.jumpToLatest} aria-label="Jump to latest" title="Jump to latest" className="public-chat-latest"><ArrowDown className="size-4" aria-hidden="true" /></button>}
+      {scrolling.showLatest && <button type="button" onClick={scrolling.jumpToLatest} aria-label="Jump to latest" title="Jump to latest" className="public-chat-latest"><ArrowDown className="size-4" aria-hidden="true" /></button>}
       {ask.isError && <div role="alert" className="mb-4 shrink-0 px-1 text-sm leading-6 text-app-muted">
         <p>{ask.error.message || 'Chat is unavailable. Please try again or email our team.'}</p>
         <ActionButton loading={ask.isPending} type="button" className="mt-2 rounded font-medium text-app-text underline underline-offset-4" onClick={() => ask.variables && ask.mutate(ask.variables)}>Try again</ActionButton>
         <span className="px-2" aria-hidden="true">·</span><a href="mailto:contact@dispatra.com" className="rounded underline underline-offset-4">Email our team instead</a>
       </div>}
-      {(voice.error || voice.notice) && <p role={voice.error ? 'alert' : 'status'} className="mb-3 px-2 text-sm leading-6 text-app-muted">{voice.error || voice.notice}</p>}
-      {voice.active && <PublicVoicePanel status={voice.status} muted={voice.muted} onMute={voice.toggleMute} onEnd={voice.stop} />}
-      {!voice.active && <form onSubmit={event => { event.preventDefault(); send(); }} className="public-chat-composer">
+      <form onSubmit={event => { event.preventDefault(); send(); }} className="public-chat-composer">
         <label htmlFor="public-chat-question" className="sr-only">Message Dispatra</label>
-        <textarea ref={input} id="public-chat-question" rows={1} maxLength={2000} value={draft} autoFocus={!!initialMessage} disabled={ask.isError || voice.active} onChange={event => setDraft(event.target.value)}
+        <textarea ref={input} id="public-chat-question" rows={1} maxLength={2000} value={draft} autoFocus={!!initialMessage} disabled={ask.isError} onChange={event => setDraft(event.target.value)}
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(); } }}
           placeholder="Ask Dispatra..." className="public-chat-input" />
-        <Button type="button" size="icon" variant="ghost" aria-label="Start voice chat" title="Start voice chat" onClick={() => voice.start()} disabled={voice.active || busy} className="public-chat-mic"><VoiceWaveIcon className="size-5" /></Button>
-        <Button loading={ask.isPending} type="submit" size="icon" aria-label="Send question" disabled={!draft.trim() || busy || ask.isError || voice.active} className="public-chat-send"><ArrowUp className="size-[18px]" aria-hidden="true" /></Button>
-      </form>}
+        <Button type="button" size="icon" variant="ghost" aria-label="Voice chat coming soon" title="Voice chat coming soon" disabled className="public-chat-mic"><AudioWaveform className="size-5" aria-hidden="true" /></Button>
+        <Button loading={ask.isPending} type="submit" size="icon" aria-label="Send question" disabled={!draft.trim() || busy || ask.isError} className="public-chat-send"><ArrowUp className="size-[18px]" aria-hidden="true" /></Button>
+      </form>
       {!started && contactCard && <div ref={contact} className="public-chat-initial-contact">{contactCard}</div>}
       </div>
       </div>

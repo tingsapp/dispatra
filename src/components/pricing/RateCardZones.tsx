@@ -22,8 +22,8 @@ function ZonePostalCodesField({ zone, patchZone }: { zone: Zone; patchZone: Zone
   };
   const missing = !zone.postalCodes?.length;
   return <>
-    <input type="text" className="app-table-input w-full" aria-label={`ZIP / postal codes for ${zone.name || 'Unnamed zone'}`}
-      aria-invalid={missing} aria-describedby={`${id}-hint`} placeholder="ZIP / postal codes, separated by commas"
+    <input type="text" className="app-table-input w-full" aria-label={`Postal areas for ${zone.name || 'Unnamed zone'}`}
+      aria-invalid={missing} aria-describedby={`${id}-hint`} placeholder="Postal areas (e.g. V6A), separated by commas"
       value={draft ?? (zone.postalCodes ?? []).join(', ')} onChange={event => update(event.target.value)}
       onBlur={() => setDraft(null)} onPaste={event => {
         const pasted = event.clipboardData.getData('text');
@@ -38,7 +38,7 @@ function ZonePostalCodesField({ zone, patchZone }: { zone: Zone; patchZone: Zone
         window.requestAnimationFrame(() => input.setSelectionRange(start + text.length, start + text.length));
       }} />
     <span id={`${id}-hint`} className="sr-only">
-      {missing ? 'Postal codes required. ' : ''}Separate codes with commas.
+      {missing ? 'At least one postal area is required. ' : ''}Enter Canadian three-character postal areas, separated with commas. A full postal code is reduced to its first three characters.
     </span>
   </>;
 }
@@ -62,7 +62,7 @@ export function RateCardZones({ zones, addZone, patchZone, deleteZone }: { zones
     <div className="flex items-center justify-between gap-3">
       <div className="min-w-0">
         <h3 className="app-section-title app-zone-section-title">Zones</h3>
-        <p className="mt-0.5 text-xs text-slate-500">Zone names and postal codes save automatically across cards. Use Save Card for prices.</p>
+        <p className="mt-0.5 text-xs text-slate-500">Zone names and three-character postal areas save automatically across cards. Use Save Card for prices.</p>
       </div>
       <Button ref={addButton} type="button" size="sm" className="app-zone-add" onClick={() => setNewZoneId(addZone())}><Plus aria-hidden="true" />Add</Button>
     </div>
@@ -70,7 +70,7 @@ export function RateCardZones({ zones, addZone, patchZone, deleteZone }: { zones
     <div className="app-table-shell max-w-full overflow-x-auto">
       <table className="app-table app-table-editable app-zone-table app-zone-directory min-w-[380px]" aria-label="Zones">
         <colgroup><col style={{ width: '32%' }} /><col /><col style={{ width: '2.5rem' }} /></colgroup>
-        <thead className="sr-only"><tr><th scope="col" className="text-left">Zone name</th><th scope="col" className="text-left">ZIP / postal codes</th><th scope="col" className="text-right">Actions</th></tr></thead>
+        <thead className="sr-only"><tr><th scope="col" className="text-left">Zone name</th><th scope="col" className="text-left">Postal areas</th><th scope="col" className="text-right">Actions</th></tr></thead>
         <tbody>{zones.map(zone => <tr key={zone.id}>
           <td><input aria-label={`Zone name: ${zone.name || 'Unnamed zone'}`} className="app-table-input w-full" data-zone-name={zone.id}
             aria-invalid={!zone.name.trim()} aria-describedby={!zone.name.trim() ? nameErrorId : undefined}

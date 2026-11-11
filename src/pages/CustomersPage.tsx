@@ -1,3 +1,4 @@
+import { RecordDialogBoundary } from '../components/monitor/RecordDialogBoundary';
 import { ActionButton } from '../components/ui/button';
 import { usePendingAction } from '../components/ui/usePendingAction';
 import { dateTime } from '../lib/dateTimeFormat';
@@ -43,6 +44,9 @@ import { INITIAL_DRIVERS } from '../data/mockData';
 import { DirectoryPasswordForm } from '../components/entities/DirectoryPasswordForm';
 
 interface CustomersPageProps {
+  /** Render shared record dialogs over the Monitor without the list page. */
+  dialogsOnly?: boolean;
+  onDialogsClose?: () => void;
   jobs?: Job[];
   onBackToMonitor: () => void;
   onNotification?: (msg: string) => void;
@@ -52,6 +56,7 @@ interface CustomersPageProps {
 }
 
 export const CustomersPage: React.FC<CustomersPageProps> = ({
+  dialogsOnly = false, onDialogsClose,
   jobs = [],
   onBackToMonitor,
   onNotification,
@@ -273,8 +278,10 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   useEntityDialog(!!selectedCustomerForView || isModalOpen, () => { setSelectedCustomerForView(null); setIsModalOpen(false); });
 
   return (
-    <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
+    <div className={dialogsOnly ? "contents" : "app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans"}>
       {/* HEADER BAR */}
+      {dialogsOnly && <RecordDialogBoundary open={!!selectedCustomerForView || isModalOpen || !!initialCredential} pending={!!slug && shipperQuery.isPending} error={shipperQuery.error} onRetry={() => shipperQuery.refetch()} onClose={() => onDialogsClose?.()} />}
+      {!dialogsOnly && <>
       <PageHeader title="Shippers" description="Shipper accounts, contacts and the rate card each one is priced on." actions={<>
           <Button
             type="button"
@@ -440,6 +447,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         </div>
       </div>
 
+
+      </>}
 
       {/* SHIPPER DETAILS DIALOG */}
       {selectedCustomerForView && (

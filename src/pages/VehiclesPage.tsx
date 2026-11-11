@@ -1,3 +1,4 @@
+import { RecordDialogBoundary } from '../components/monitor/RecordDialogBoundary';
 import { usePendingAction } from '../components/ui/usePendingAction';
 import { ListSummary } from '../components/layout/ListSummary';
 import { Button } from '../components/ui/button';
@@ -27,6 +28,9 @@ import { VehicleAsset,loadVehicles,saveVehicles,saveVehicleProfile,archiveVehicl
 import { Driver } from '../types';
 
 interface VehiclesPageProps {
+  /** Render shared record dialogs over the Monitor without the list page. */
+  dialogsOnly?: boolean;
+  onDialogsClose?: () => void;
   drivers: Driver[];
   onNotification: (message: string) => void;
   openVehicleId?: string;
@@ -35,6 +39,7 @@ interface VehiclesPageProps {
 }
 
 export function VehiclesPage({
+  dialogsOnly = false, onDialogsClose,
   drivers,
   onNotification,
   onSelectDriver,
@@ -131,8 +136,10 @@ export function VehiclesPage({
   useEntityDialog(!!activeVehicleDrawer || showRegisterModal, () => { setActiveVehicleDrawer(null); setShowRegisterModal(false); });
 
   return (
-    <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
+    <div className={dialogsOnly ? "contents" : "app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans"}>
       {/* HEADER BAR */}
+      {dialogsOnly && <RecordDialogBoundary open={!!activeVehicleDrawer || showRegisterModal} pending={!!slug && (fleetQuery.isPending || catalogQuery.isPending)} error={fleetQuery.error || catalogQuery.error} onRetry={() => Promise.all([fleetQuery.refetch(), catalogQuery.refetch()])} onClose={() => onDialogsClose?.()} />}
+      {!dialogsOnly && <>
       <PageHeader title="Vehicles" description="Manage fleet vehicles, capacity, pricing and availability." actions={<>
           <Button type="button" onClick={() => setShowRegisterModal(true)}><Plus /> Register Vehicle</Button>
       </>} />
@@ -209,6 +216,8 @@ export function VehiclesPage({
             </div>
         </div>
       </div>
+
+      </>}
 
       {/* VEHICLE DOSSIER DIALOG */}
       {activeVehicleDrawer && (

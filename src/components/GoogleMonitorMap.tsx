@@ -4,7 +4,8 @@ import { APIProvider, Map, Polyline, useMap } from '@vis.gl/react-google-maps';
 import { Plane, Truck } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { operations } from '../operations/api';
+import { operations, type Route } from '../operations/api';
+import { useRouteApproaches } from './monitor/useRouteApproaches';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { BLUE_ROUTE_WAYPOINTS, GREEN_ROUTE_WAYPOINTS, ORANGE_ROUTE_WAYPOINTS, INITIAL_DRIVERS, INITIAL_JOBS } from '../data/mockData';
 import type { Driver, Job, MapLayerConfig } from '../types';
@@ -42,6 +43,7 @@ interface GoogleMonitorMapProps {
   drivers?: Driver[];
   jobs?: Job[];
   vehicles?: MapVehicle[];
+  routes?: Route[];
   onOpenVehicle?: (id: string) => void;
   selectedDriverId?: string | null;
   selectedJobId?: string | null;
@@ -226,7 +228,11 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     const points = pathQueries[index]?.data?.points;
     return points ? [[job.id, points.map(([lat, lng]) => ({ lat, lng }))]] : [];
   }));
-  const routeAttribution = [...new Set(pathQueries.flatMap(query => query.data?.points.length && query.data.attribution ? [query.data.attribution] : []))].join(' · ');
+  const approaches = useRouteApproaches(slug, props.routes ?? [], visibleJobs.map(({ job }) => job), props.vehicles ?? [], props.active !== false);
+  const routeAttribution = [...new Set([
+    ...pathQueries.flatMap(query => query.data?.points.length && query.data.attribution ? [query.data.attribution] : []),
+    ...approaches.paths.flatMap(path => path.attribution ? [path.attribution] : []),
+  ])].join(' · ');
   const hasPreview = pathQueries.some(query => query.data?.preview && query.data.points.length > 1);
   const failedPaths = pathQueries.filter(query => query.isError).length;
   const locatedDrivers = (props.demo === false && props.vehicles === undefined ? props.drivers ?? [] : [])
@@ -234,6 +240,7 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
   const allPoints: [number, number][] = [
     ...visibleJobs.flatMap(({ job, stops }) => stops.length ? stops.map(stop => [stop.lng, stop.lat] as [number, number]) : [[job.lng, job.lat] as [number, number]]),
     ...Object.values(roadPaths).flatMap(points => points.map(({ lng, lat }) => [lng, lat] as [number, number])),
+    ...approaches.paths.flatMap(path => path.points.map(([lat, lng]) => [lng, lat] as [number, number])),
     ...locatedDrivers.map(driver => [driver.lng, driver.lat] as [number, number]),
     ...(props.vehicles ?? []).map(vehicle => [vehicle.lng, vehicle.lat] as [number, number]),
   ];
@@ -251,11 +258,12 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
       <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-slate-900" />Drop-off</span>
       <span className="flex items-center gap-1"><Truck className="size-3.5" />Vehicle · P = parking</span>
     </div>
-    {(routeAttribution || hasPreview || failedPaths > 0) &&
+    {(routeAttribution || hasPreview || failedPaths > 0 || approaches.failed > 0) &&
       <div className="absolute bottom-8 right-16 z-10 max-w-[calc(100%-5rem)] rounded bg-white/95 px-2 py-1 text-[10px] text-slate-600" aria-label="Route information">
         {hasPreview && <div>Road preview · no vehicle assigned</div>}
         {routeAttribution && <div aria-label="Route data attribution">Routes {routeAttribution}</div>}
         {failedPaths > 0 && <div role="status">Route unavailable for {failedPaths} {failedPaths === 1 ? 'order' : 'orders'}</div>}
+        {approaches.failed > 0 && <div role="status">Vehicle approach unavailable for {approaches.failed} {approaches.failed === 1 ? 'route' : 'routes'}</div>}
       </div>}
     {props.demo !== false && <>
     {visibleJobs.some(({ job }) => job.assignedDriverId === 'D14') && <><Polyline path={BLUE_PATH} strokeColor={APP_ACCENT} strokeOpacity={0.8} strokeWeight={7} clickable={false} />
@@ -271,6 +279,7 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
       </div>
     </GoogleOverlayMarker>
     </>}
+    {approaches.paths.map(path => <GoogleRoundedRoute key={path.id} radius={24} id={`approach-${path.id}`} points={path.points} selected={true} />)}
     {visibleJobs.map(({ job, stops }) => {
       const path = roadPaths[job.id];
       return <Fragment key={job.id}>

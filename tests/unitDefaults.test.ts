@@ -112,7 +112,7 @@ test('zone weight fields use default pounds and preserve weight-price pairing in
   const { ZoneMatrixEditor } = await import('../src/components/pricing/ZoneMatrixEditor');
   const { CENTRAL_PICKUP_ZONE_ID } = await import('../src/lib/centralZoneRates');
   const units = loadBillingConfig().general;
-  const zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['00501'] }];
+  const zones = [{ id: 'a', code: 'A', name: 'Central', postalCodes: ['V6A'] }];
   const initial = [{ id: 'aa', originZoneId: 'a', destinationZoneId: 'a', serviceId: null, amount: 40, weightBands: [{ id: 'band', maxWeightKg: 45.359237, amount: 40 }] }];
   let rates = initial;
   function Form() {

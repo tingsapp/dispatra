@@ -11,6 +11,7 @@ import { companyDay, todaysPlan } from './todaysPlanData';
 import { OrderMapFocusButton } from './OrderMapFocusButton';
 
 interface TodaysPlanProps extends OrderMapVisibilityProps {
+  reviewNotice?: React.ReactNode;
   attentionItems?: NeedsAttentionItem[];
   onLocateOrder?: (job: Job) => void;
   onAssignOrder?: (job: Job, anchor: HTMLButtonElement) => void;
@@ -26,7 +27,7 @@ interface TodaysPlanProps extends OrderMapVisibilityProps {
   onSelectOrder: (job: Job) => void;
 }
 
-export function TodaysPlan({ attentionItems = [], onLocateOrder, onAssignOrder, drivers = [], hiddenOrderIds, onOrderVisibilityChange, chatOpen = false, onCloseChat, jobs, attentionIds, timeZone, loading, error, onRetry, onSelectOrder }: TodaysPlanProps) {
+export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, onAssignOrder, drivers = [], hiddenOrderIds, onOrderVisibilityChange, chatOpen = false, onCloseChat, jobs, attentionIds, timeZone, loading, error, onRetry, onSelectOrder }: TodaysPlanProps) {
   const [filter, setFilter] = useState<'all' | 'assigned' | 'unassigned' | 'in_progress' | 'completed' | 'attention'>('all');
   const [warningId, setWarningId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -60,6 +61,7 @@ export function TodaysPlan({ attentionItems = [], onLocateOrder, onAssignOrder, 
       </button>
       <p className="mt-1 text-[11px] text-app-muted">{new Intl.DateTimeFormat('en-CA', { timeZone, month: 'short', day: 'numeric' }).format(now)} · Created today{!loading && !error && groups.unassigned.length > 0 && ` · ${groups.unassigned.length} unassigned`}</p>
     </header>
+    {reviewNotice}
     {expanded && <div id={contentId}>
       {!loading && !error && groups.all.length > 0 && <div className="px-4 pb-3"><SearchInput value={search} onChange={setSearch} placeholder="Search orders, shippers or addresses..." aria-label="Search today’s orders" /></div>}
       {!loading && !error && <div role="tablist" aria-label="Filter today’s orders" className="flex gap-0.5 overflow-x-auto border-b border-slate-100 px-3 pb-3">

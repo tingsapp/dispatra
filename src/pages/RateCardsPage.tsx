@@ -3,6 +3,7 @@ import { usePendingAction } from '../components/ui/usePendingAction';
 import { hasDimensionalWeightSetting } from '../lib/dimensionalWeight';
 import { isSettingsRateCard, SETTINGS_PRICING_METHODS } from '../lib/rateCardSettings';
 import { zoneRateIssue } from '../lib/zoneWeightBands';
+import { hasInvalidZonePostalCodes } from '../lib/zonePostalCodes';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
@@ -65,6 +66,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
   const [methodFilter, setMethodFilter] = useState('');
   const [draft, setDraft] = useState<RateCard | null>(() => config.rateCards.find(isSettingsRateCard) ?? null);
   const [isSaved, setIsSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const editorRef = useRef<HTMLElement>(null);
   const focusedCardId = useRef(draft?.id);
   useEffect(() => {
@@ -92,11 +94,13 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     setIsNew(false);
     setDraft({ ...card });
     setIsSaved(false);
+    setSaveError(null);
   };
 
   const patchDraft = (changes: Partial<RateCard>) => {
     setDraft((prev) => (prev ? { ...prev, ...changes } : prev));
     setIsSaved(false);
+    setSaveError(null);
   };
 
   const addCard = async () => {
@@ -105,16 +109,21 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     setDraft(card);
     setIsNew(true);
     setIsSaved(false);
+    setSaveError(null);
   };
 
   const saveCard = async () => {
     if (!draft) return;
     if (!draft.name.trim()) {
-      onNotification?.('Rate Card needs a name.');
+      setSaveError('Rate Card needs a name.');
       return;
     }
     if (draft.pricingMethod === 'ZONE' && config.zones.some(zone => !zone.name.trim() || !zone.postalCodes?.length)) {
-      onNotification?.('Give every zone a name and at least one ZIP / postal code before saving its prices.');
+      setSaveError('Give every zone a name and at least one Canadian postal area, such as V6A, before saving its prices.');
+      return;
+    }
+    if (draft.pricingMethod === 'ZONE' && config.zones.some(zone => hasInvalidZonePostalCodes(zone.postalCodes))) {
+      setSaveError('Use Canadian three-character postal areas, such as V6A. A full postal code is automatically shortened to its first three characters.');
       return;
     }
     if (draft.pricingMethod === 'ZONE') {
@@ -122,12 +131,12 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
       if (invalid) {
         const origin = config.zones.find(zone => zone.id === invalid.originZoneId)?.name ?? 'Pickup';
         const destination = config.zones.find(zone => zone.id === invalid.destinationZoneId)?.name ?? 'Delivery';
-        onNotification?.(`${origin} → ${destination}: ${zoneRateIssue(invalid)}`);
+        setSaveError(`${origin} → ${destination}: ${zoneRateIssue(invalid)}`);
         return;
       }
     }
     if (hasDimensionalWeightSetting(draft.pricingMethod) && (!Number.isFinite(draft.dimensionalDivisor) || (draft.dimensionalDivisor ?? 0) <= 0)) {
-      onNotification?.('Enter a dimensional divisor greater than zero.');
+      setSaveError('Enter a dimensional divisor greater than zero.');
       return;
     }
     const exists = config.rateCards.some((c) => c.id === draft.id);
@@ -147,9 +156,9 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
           ? await operations.updateRate(slug, previous, rateFromUi(saved, config.zones), saved.scope === 'ORGANIZATION')
           : await operations.createRate(slug, saved.code, rateFromUi(saved, config.zones), saved.scope === 'ORGANIZATION');
         await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] });
-        setDraft(rateToUi(result)); setIsNew(false); setIsSaved(true);
+        setDraft(rateToUi(result)); setIsNew(false); setIsSaved(true); setSaveError(null);
         onNotification?.(`Saved "${result.data.name}" (v${result.version}).`);
-      } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save rate card.'); }
+      } catch (error) { setSaveError(error instanceof Error ? error.message : 'Could not save rate card.'); }
       return;
     }
     persist({
@@ -159,6 +168,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     setDraft(saved);
     setIsNew(false);
     setIsSaved(true);
+    setSaveError(null);
     onNotification?.(`Saved "${saved.name}" (v${saved.version}).`);
     setTimeout(() => setIsSaved(false), 2500);
   };
@@ -205,10 +215,13 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
   const addZone = () => {
     const zone: Zone = { id: `zone_${crypto.randomUUID()}`, code: zoneCode('New Zone'), name: 'New Zone', postalCodes: [] };
     persist({ ...config, zones: [...config.zones, zone] });
+    setSaveError(null);
     return zone.id;
   };
-  const patchZone = (id: string, changes: Partial<Zone>) =>
+  const patchZone = (id: string, changes: Partial<Zone>) => {
+    setSaveError(null);
     persist({ ...config, zones: config.zones.map((z) => (z.id === id ? { ...z, ...changes } : z)) });
+  };
   const deleteZone = async (id: string) => {
     const zone = config.zones.find(z => z.id === id);
     if (!zone || !(await confirmDialog({ title: `Remove zone "${zone.name}"?`, message: 'This removes the zone and its prices from every active zone-based card. Previously priced orders stay unchanged.', confirmLabel: 'Remove zone', tone: 'danger' }))) return false;
@@ -216,6 +229,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     const rateCards = config.rateCards.map(card => card.status === 'ACTIVE' && card.zoneRates?.some(rate => !keepRate(rate))
       ? stamp(card, { zoneRates: card.zoneRates.filter(keepRate) }) : card);
     persist({ ...config, zones: config.zones.filter(z => z.id !== id), zoneRates: config.zoneRates.filter(keepRate), rateCards });
+    setSaveError(null);
     setDraft(current => {
       if (!current) return current;
       const saved = rateCards.find(card => card.id === current.id);
@@ -230,6 +244,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     if (dirty && !(await confirmDialog(DISCARD_CHANGES))) return;
     setDraft(config.rateCards.find(isSettingsRateCard) ?? null);
     setIsNew(false);
+    setSaveError(null);
   };
   const refreshDefaults = (message: string) => { setRevision(value => value + 1); onNotification?.(message); };
   const zoneActions = { addZone, patchZone, deleteZone };
@@ -248,10 +263,13 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
             </div>
           </div>
           <fieldset disabled={action.pending} className="min-w-0"><RateCardEditor key={draft.id} {...{ draft, isNew, config, catalogue, billing, patchDraft, zoneActions }} /></fieldset>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-col items-end gap-2">
+            {saveError && <p role="alert" className="w-full text-right text-sm font-medium text-red-600" aria-live="polite">{saveError}</p>}
+            <div className="flex flex-wrap items-center justify-end gap-2">
             {isNew && <Button type="button" variant="outline" disabled={action.pending} onClick={closeEditor}>Cancel</Button>}
             {!isNew && !isDefault(draft) && <Button type="button" variant="outline" loading={action.pendingKey === 'archive'} disabled={action.pending} onClick={() => action.run(() => archiveCard(draft), 'archive')} className="text-rose-700">Archive</Button>}
             <Button type="button" loading={action.pendingKey === 'save'} disabled={action.pending} onClick={() => action.run(saveCard, 'save')}>{action.pendingKey === 'save' ? 'Saving…' : isSaved && !dirty ? 'Saved' : 'Save Card'}</Button>
+            </div>
           </div>
         </section> : <div className="space-y-5"><div className="flex justify-end">{methodFilterControl}</div><div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">Select a rate card or add one to set your prices.</div></div>}
       </div>

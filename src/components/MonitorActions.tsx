@@ -25,7 +25,7 @@ interface MonitorActionsProps {
   showNotificationPopover?: boolean;
   setShowNotificationPopover?: React.Dispatch<React.SetStateAction<boolean>>;
   onSelectJob?: (jobNumber: string) => void;
-  /** Order agent notifications open Orders, where emails needing details are listed as drafts. */
+  /** Intake notifications open the persistent review queue over the map. */
   onOpenEmailDrafts?: () => void;
   onActionNotification: (msg: string) => void;
   jobs?: Job[];
@@ -136,8 +136,8 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
         {slug ? isNotificationOpen && <NotificationPanel slug={slug} onClose={() => setIsNotificationOpen(false)} onOpen={row => {
           const job = jobs.find(item => item.id === row.order_id);
           if (row.conversation_id) openDispatcherChat({ conversationId: row.conversation_id });
-          else if (/^(intake|mailbox)\./.test(row.kind)) onOpenEmailDrafts?.();
           else if (job) onSelectJob?.(job.jobNumber);
+          else if (/^(intake|mailbox|tms)\./.test(row.kind)) onOpenEmailDrafts?.();
           setIsNotificationOpen(false);
         }} /> : <>
 

@@ -1,3 +1,4 @@
+import { RecordDialogBoundary } from '../components/monitor/RecordDialogBoundary';
 import { usePendingAction } from '../components/ui/usePendingAction';
 import { clockText } from '../lib/dateTimeFormat';
 import { DriverAvatar } from '../components/DriverAvatar';
@@ -68,6 +69,9 @@ import { formatWhen } from '../components/orders/OrderDossierSections';
 import { OrderTrackingDialog, trackable } from '../components/orders/OrderTracking';
 
 interface JobsPageProps {
+  /** Render shared record dialogs over the Monitor without the list page. */
+  dialogsOnly?: boolean;
+  onDialogsClose?: () => void;
   jobs: Job[];
   drivers: Driver[];
   onSelectJob: (jobNumber: string) => void;
@@ -76,6 +80,8 @@ interface JobsPageProps {
   onNotification: (message: string) => void;
   /** Opens this order's edit form once data is ready (e.g. "Edit order" from the Monitor). */
   editJobId?: string | null;
+  draftId?: string | null;
+  onDraftHandled?: () => void;
   onEditHandled?: () => void;
 }
 
@@ -88,12 +94,14 @@ const scheduleText = (value: string | undefined, timeZone: string) => {
 };
 const nextJobNumber = (jobs: Job[]) => `#${jobs.reduce((max, job) => Math.max(max, Number(job.jobNumber.replace(/\D/g, '')) || 0), 1000) + 1}`;
 export function JobsPage({
+  dialogsOnly = false, onDialogsClose,
   jobs,
   drivers,
   onSelectJob,
   onUpdateJob,
   onCreateJob,
   onNotification,
+  draftId, onDraftHandled,
   editJobId,
   onEditHandled
 }: JobsPageProps) {
@@ -176,6 +184,8 @@ export function JobsPage({
 
   // Order emails the agent could not book yet are listed as Draft orders in this same Orders list; other emails are ignored.
   const emailQuery = useQuery({ queryKey: ['operations', slug, 'email-intakes', 'drafts'], queryFn: () => operations.emailIntakes(slug!, EMAIL_DRAFT_STATUSES), enabled: !!slug });
+  const lastDraftId = useRef<string | null>(null);
+  const [draftOpenError, setDraftOpenError] = useState<Error | null>(null);
   const [openingEmailId, setOpeningEmailId] = useState<string | null>(null);
   const [emailAction, setEmailAction] = useState<'save' | 'request' | 'discard' | 'retry' | null>(null);
   const [draftMessage, setDraftMessage] = useState('');
@@ -189,14 +199,19 @@ export function JobsPage({
 
   const openDraft = async (id: string) => {
     if (!slug || openingEmailId) return;
-    setOpeningEmailId(id);
+    lastDraftId.current = id; setDraftOpenError(null); setOpeningEmailId(id);
     try {
       const email = await operations.emailIntake(slug, id);
-      if (!EMAIL_DRAFT_STATUSES.includes(email.status)) throw new Error('This draft is no longer available. Refresh the Orders list.');
+      if (!EMAIL_DRAFT_STATUSES.includes(email.status)) throw new Error('This draft is no longer available. It may have been completed or discarded.');
       openEmailDraft(email);
-    } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not open draft.'); }
+    } catch (error) { setDraftOpenError(error instanceof Error ? error : new Error('Could not open draft.')); onNotification(error instanceof Error ? error.message : 'Could not open draft.'); }
     finally { setOpeningEmailId(null); }
   };
+  useEffect(() => {
+    if (!draftId || !livePricingCtx) return;
+    void openDraft(draftId).finally(() => onDraftHandled?.());
+  }, [draftId, !!livePricingCtx]);
+
   const saveEmailDraft = async (request = false) => {
     if (!slug || !emailSource || emailAction) return;
     setEmailAction(request ? 'request' : 'save'); setFormErrors([]); setDraftMessage('');
@@ -424,7 +439,11 @@ export function JobsPage({
   useEntityDialog(!!activeJobDossier || showCreateModal, () => { setActiveJobDossier(null); closeCreateModal(); });
 
   return (
-    <div className="app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans">
+    <div className={dialogsOnly ? "contents" : "app-page app-list-page h-full w-full flex flex-col overflow-hidden font-sans"}>
+      {dialogsOnly && <RecordDialogBoundary open={showCreateModal || !!activeJobDossier} pending={!!openingEmailId || (!!slug && (settingsQuery.isPending || catalogQuery.isPending || rateQuery.isPending || shipperQuery.isPending || orderQuery.isPending))}
+        error={draftOpenError || settingsQuery.error || catalogQuery.error || rateQuery.error || shipperQuery.error || orderQuery.error}
+        onRetry={() => draftOpenError && lastDraftId.current ? openDraft(lastDraftId.current) : Promise.all([settingsQuery.refetch(), catalogQuery.refetch(), rateQuery.refetch(), shipperQuery.refetch(), orderQuery.refetch()])} onClose={() => onDialogsClose?.()} />}
+      {!dialogsOnly && <>
       {/* HEADER BAR */}
       <PageHeader title="Orders" description="Order details, shipper pricing, time windows and assignments." actions={<>
           <Button type="button" variant="outline" onClick={() => openCreateModal('quote')} className="app-action app-secondary"><Plus className="w-3.5 h-3.5" />New Quote</Button>
@@ -703,7 +722,9 @@ export function JobsPage({
         </div>
       </div>
 
-      {openingEmailId && <p role="status" className="text-sm text-slate-500">Opening draft…</p>}
+      </>}
+
+      {!dialogsOnly && openingEmailId && <p role="status" className="text-sm text-slate-500">Opening draft…</p>}
 
       {/* ORDER DETAILS DIALOG */}
       {activeJobDossier && <OrderDetailsDialog job={jobs.find(row => row.id === activeJobDossier.id) ?? activeJobDossier} ctx={pricingCtx} drivers={drivers} onClose={() => setActiveJobDossier(null)}

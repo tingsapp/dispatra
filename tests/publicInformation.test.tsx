@@ -68,13 +68,12 @@ test('information pages and clean footer expose reachable pages and general app 
  }
 });
 
-test('voice entry is available without sending a text question',async()=>{
+test('the retained wave button is disabled while voice chat is unavailable',async()=>{
  let requests=0;api.publicAssistant=async()=>{requests++;return {message:'Text reply'};};
  render(<PublicChatAssistant />);
- const button=screen.getByRole('button',{name:'Start voice chat'});
- assert.equal(button.hasAttribute('disabled'),false);
+ const button=screen.getByRole('button',{name:'Voice chat coming soon'});
+ assert.equal(button.hasAttribute('disabled'),true);
  fireEvent.click(button);
- assert.match((await screen.findByRole('alert')).textContent!,/microphone support/);
  assert.equal(requests,0);
 });
 
@@ -89,8 +88,8 @@ test('chat screen keeps the composer available while awaiting an answer and prev
  fireEvent.change(field,{target:{value:'How do I start?'}});
  fireEvent.keyDown(field,{key:'Enter'});
  await screen.findByRole('status');
- assert.equal(screen.getByRole('button',{name:'Start voice chat'}).hasAttribute('disabled'),true);
- fireEvent.click(screen.getByRole('button',{name:'Start voice chat'}));
+ assert.equal(screen.getByRole('button',{name:'Voice chat coming soon'}).hasAttribute('disabled'),true);
+ fireEvent.click(screen.getByRole('button',{name:'Voice chat coming soon'}));
  assert.equal(field.hasAttribute('disabled'),false);
  assert.equal(screen.getByRole('button',{name:'Send question'}).hasAttribute('disabled'),true);
  fireEvent.change(field,{target:{value:'And pricing?'}});
@@ -99,7 +98,7 @@ test('chat screen keeps the composer available while awaiting an answer and prev
  assert.equal(screen.getByRole('button',{name:'New chat'}).hasAttribute('disabled'),true);
  finish({message:'Start at /plans.'});await screen.findByText('Start at /plans.');
  assert.equal((field as HTMLTextAreaElement).value,'And pricing?');
- assert.equal(screen.getByRole('button',{name:'Start voice chat'}).hasAttribute('disabled'),false);
+ assert.equal(screen.getByRole('button',{name:'Voice chat coming soon'}).hasAttribute('disabled'),true);
  fireEvent.click(screen.getByRole('button',{name:'New chat'}));
  assert.ok(screen.queryByRole('log') === null, 'expected element to be absent');
  assert.equal((field as HTMLTextAreaElement).value,'');

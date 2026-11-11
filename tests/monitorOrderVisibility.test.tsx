@@ -244,3 +244,54 @@ test('located pickups and intermediate stops remain visible without a final drop
   assert.ok(screen.getByRole('button', { name: 'Vehicle V1, Parking address' }));
   await waitFor(() => assert.ok(screen.getByText('Route unavailable for 1 order')));
 });
+
+test('assigned route draws one vehicle approach, refreshes for GPS and route progress, and respects visibility', async () => {
+  const calls: string[] = [];
+  let origin: [number, number] = [49.1, -123.4];
+  operations.orderRoadPath = async () => ({points:[[49.2,-123.1],[49.3,-123.2]],provider:'GOOGLE',preview:false,truck_profile_applied:false,attribution:''});
+  operations.routeApproach = async (_slug, id) => {
+    calls.push(id);
+    return {points:[origin,[49.2,-123.1]],provider:'GOOGLE',preview:false,truck_profile_applied:false,attribution:''};
+  };
+  const baseRoute = {id:'r1',version:1,generation:1,vehicle_id:'v1',status:'PLANNED',stops:[
+    {stop_id:'p',position:0,status:'PENDING'},{stop_id:'d',position:1,status:'PENDING'},
+  ]} as import('../src/operations/api').Route;
+  const vehicle: import('../src/components/monitor/mapLocations').MapVehicle = {id:'v1',label:'V1',lat:49.1,lng:-123.4,source:'PARKING',unavailable:false};
+  const props = {demo:false,jobs:[orders[0]],vehicles:[vehicle],routes:[baseRoute],onSelectJob:()=>{},onSelectDriver:()=>{},layerConfig:{mode:'map' as const,traffic:false,labels:true}};
+  const view = render(tree(<MonitorMapContent {...props} routes={[]}/>));
+  const redraw = (next: Partial<typeof props>) => view.rerender(<QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><MonitorMapContent {...props} {...next}/></APIProviderContext.Provider></QueryClientProvider>);
+  await waitFor(() => assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length, 1));
+  assert.deepEqual(calls, []);
+  redraw({routes:[baseRoute]});
+  await waitFor(() => assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length, 2));
+  assert.deepEqual(calls, ['r1']);
+  const parkingPath = pane.querySelector('svg[data-shipper-route="approach-r1"] path')?.getAttribute('d');
+  assert.ok(parkingPath);
+  await waitFor(() => assert.ok(fits.some(points => points.some(p => p.lat === origin[0] && p.lng === origin[1]))));
+  origin = [49.15, -123.35];
+  redraw({vehicles:[{...vehicle,lat:origin[0],lng:origin[1],source:'GPS'}]});
+  await waitFor(() => assert.equal(calls.length, 2));
+  await waitFor(() => assert.notEqual(pane.querySelector('svg[data-shipper-route="approach-r1"] path')?.getAttribute('d'), parkingPath));
+  await waitFor(() => assert.ok(fits.some(points => points.some(p => p.lat === origin[0] && p.lng === origin[1]))));
+  redraw({routes:[{...baseRoute,version:2,status:'IN_PROGRESS',stops:baseRoute.stops.map((stop,i) => ({...stop,status:i===0?'COMPLETED':'PENDING'}))}]});
+  await waitFor(() => assert.equal(calls.length, 3));
+  redraw({jobs:[]});
+  await waitFor(() => assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length, 0));
+  redraw({routes:[{...baseRoute,status:'CANCELLED'}]});
+  await waitFor(() => assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length, 1));
+  assert.equal(calls.length, 3);
+  redraw({routes:[{...baseRoute,id:'r2',vehicle_id:'v2'}]});
+  await waitFor(() => assert.deepEqual(calls, ['r1','r1','r1','r2']));
+  await waitFor(() => assert.ok(pane.querySelector('svg[data-shipper-route="approach-r2"]')));
+  assert.equal(pane.querySelector('svg[data-shipper-route="approach-r1"]'), null);
+});
+
+test('failed vehicle approach remains explicit while the order road path and stops remain visible', async () => {
+  operations.orderRoadPath = async () => ({points:[[49.2,-123.1],[49.3,-123.2]],provider:'GOOGLE',preview:false,truck_profile_applied:false,attribution:''});
+  operations.routeApproach = async () => { throw new Error('Road provider unavailable'); };
+  const route = {id:'r1',version:1,generation:1,vehicle_id:'v1',status:'PLANNED',stops:[{stop_id:'p',position:0,status:'PENDING'}]} as import('../src/operations/api').Route;
+  render(tree(<MonitorMapContent demo={false} jobs={[orders[0]]} routes={[route]} onSelectJob={()=>{}} onSelectDriver={()=>{}} layerConfig={{mode:'map',traffic:false,labels:true}}/>));
+  await waitFor(() => assert.ok(screen.getByText('Vehicle approach unavailable for 1 route')));
+  assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length, 1);
+  assert.equal(screen.getAllByRole('button',{name:/^Order #100,/}).length, 2);
+});
