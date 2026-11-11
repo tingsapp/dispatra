@@ -13,6 +13,7 @@ const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query
 const { operations } = await import('../src/operations/api');
 const { syncInvalidations, retryDelay, syncKey, useSync } = await import('../src/portal/sync');
 const { NotificationPanel, notificationAge } = await import('../src/portal/Notifications');
+const { notificationTone } = await import('../src/portal/notificationSound');
 const originalWebSocket = globalThis.WebSocket;
 afterEach(() => { cleanup(); Object.defineProperty(globalThis, 'WebSocket', { configurable:true, writable:true, value:originalWebSocket }); });
 
@@ -35,6 +36,9 @@ test('changes invalidate only the reads each role uses, once per key', () => {
   assert.deepEqual([1, 2, 3, 4, 5, 9].map(retryDelay), [5_000, 10_000, 20_000, 40_000, 60_000, 60_000]);
   const now = Date.parse('2026-10-05T12:00:00Z');
   assert.deepEqual(['2026-10-05T11:59:40Z', '2026-10-05T11:55:00Z', '2026-10-05T09:00:00Z'].map(at => notificationAge(at, now)), ['Just now', '5m ago', '3h ago']);
+  assert.equal(notificationTone('INFO'), 'normal');
+  assert.equal(notificationTone('WARNING'), 'attention');
+  assert.equal(notificationTone('CRITICAL'), 'attention');
 });
 
 const row = (id: string, severity: 'INFO' | 'WARNING' | 'CRITICAL', read_at: string | null) => ({ id, version: 1, created_at: new Date().toISOString(), kind: 'order.assigned', severity,

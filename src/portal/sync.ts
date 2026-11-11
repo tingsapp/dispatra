@@ -3,6 +3,7 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { operations, type SyncChange } from '../operations/api';
 import { streamSync } from './streamSync';
 import { companySettingsKey } from './WorkspaceAccount';
+import { enableNotificationSound, notificationTone, playNotificationSound } from './notificationSound';
 
 export type SyncRole = 'DISPATCHER' | 'SHIPPER' | 'DRIVER';
 export const notificationsKey = (slug: string) => ['notifications', slug] as const;
@@ -90,12 +91,26 @@ export function useSync(slug: string | null | undefined, role: SyncRole) {
         if (view.reset) await cache.invalidateQueries();
         else await Promise.all(syncInvalidations(role, slug, view.changes).map(queryKey => cache.invalidateQueries({ queryKey })));
         cache.setQueryData<SyncSummary>(syncKey(slug), { unread: view.unread, unread_messages: view.unread_messages });
+        const notificationIds = view.changes.filter(change => change.entity === 'notification' && change.type === 'notification.created').map(change => change.entity_id);
+        if (notificationIds.length) {
+          try {
+            const rows = await operations.notifications(slug);
+            const tones = rows.filter(row => notificationIds.includes(row.id) && !row.read_at).map(row => notificationTone(row.severity));
+            // One sound per sync frame prevents a single email intake from producing a noisy sequence.
+            if (tones.length) playNotificationSound(tones.includes('attention') ? 'attention' : 'normal');
+          } catch {
+            // A failed optional sound lookup must never interrupt the authoritative sync feed.
+          }
+        }
       },
       expired: () => { void cache.invalidateQueries({ queryKey: ['account'] }); },
     });
     const now = () => { if (document.visibilityState === 'visible') feed.recover(); };
+    const enableSound = () => enableNotificationSound();
     document.addEventListener('visibilitychange', now);
     window.addEventListener('online', now);
-    return () => { feed.stop(); document.removeEventListener('visibilitychange', now); window.removeEventListener('online', now); };
+    window.addEventListener('pointerdown', enableSound, { once: true });
+    window.addEventListener('keydown', enableSound, { once: true });
+    return () => { feed.stop(); document.removeEventListener('visibilitychange', now); window.removeEventListener('online', now); window.removeEventListener('pointerdown', enableSound); window.removeEventListener('keydown', enableSound); };
   }, [slug, role, cache]);
 }
