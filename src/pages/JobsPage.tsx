@@ -52,7 +52,6 @@ import { lifecycleLabel,orderAttention,orderEditable,orderLifecycle,validateOrde
 import { ORDER_LIFECYCLES, ORDER_LIFECYCLE_LABELS } from '../domain/operations';
 import {
 createBookingInput,
-createDefaultOrderInput,
 describePrice,
 loadPricingContext,
 priceOrder
@@ -133,7 +132,7 @@ export function JobsPage({
   // Pricing context is read fresh each time the modal opens so settings edits apply.
   const [localPricingCtx, setPricingCtx] = useState(() => loadPricingContext());
   const pricingCtx = livePricingCtx ?? localPricingCtx;
-  const [newOrderInput, setNewOrderInput] = useState<PricingOrderInput>(() => createDefaultOrderInput(pricingCtx));
+  const [newOrderInput, setNewOrderInput] = useState<PricingOrderInput>(() => createBookingInput(pricingCtx));
   const newOrderSnapshot = useOrderPreview({ slug, input: newOrderInput, ctx: pricingCtx, enabled: showCreateModal, toBooking: input => inputToBooking(input, '', pricingCtx.billing.general.timeZone), rates: rateQuery.data });
   const pendingQuote = useRef<{ key: string; quote: Awaited<ReturnType<typeof operations.createQuote>> } | null>(null);
   const selectedCustomer = pricingCtx.customers.find((c) => c.id === newOrderInput.customerId);

@@ -84,9 +84,9 @@ test('shipper bookings strip dispatcher-only commercial fields', () => {
   assert.equal(booking.stops.length, 2); assert.equal(booking.items.length, 1);
 });
 
-test('self mode shows the dispatcher form without shipper, rate card or vehicle choices', () => {
+test('self mode shows a blank package and no shipper, rate card or vehicle choices', () => {
   const ctx = shipperPricingContext(preferences, options, shipper);
-  const value = createDefaultOrderInput(ctx);
+  const value = createBookingInput(ctx);
   render(React.createElement(OrderPricingForm, { value, ctx, snapshot: priceOrder(value, ctx), onChange: () => {}, customerMode: 'self', showVehicleSelection: false, showStopAddresses: true }));
   assert.equal(screen.queryByLabelText('Shipper'), null);
   assert.equal(screen.queryByLabelText('Rate Card'), null);
@@ -95,6 +95,9 @@ test('self mode shows the dispatcher form without shipper, rate card or vehicle 
   assert.ok(screen.getByRole('button', { name: '+ Pickup' }));
   assert.ok(screen.getByRole('table', { name: 'Packages' }));
   assert.ok(screen.getByText(/Accessorials/));
+  for (const field of ['quantity', 'weight', 'length', 'width', 'height']) {
+    assert.equal((screen.getByLabelText(`Package 1 ${field}`) as HTMLInputElement).value, '');
+  }
 });
 
 test('shipper sidebar uses the dispatcher account card with Profile and Logout', async () => {
@@ -125,6 +128,12 @@ test('dispatcher and shipper order forms get the same catalogue order and a vehi
   assert.equal(blank.serviceId, '11111111-1111-4111-8111-111111111111');
   assert.equal(blank.vehicleId, null); assert.equal(blank.customerId, null); assert.equal(blank.rateCardOverrideId, null);
   assert.ok(blank.stops.every(stop => stop.zoneId === null));
+  assert.deepEqual(blank.packages[0].missingFields, ['quantity', 'weightKg', 'lengthCm', 'widthCm', 'heightCm']);
+  assert.equal(blank.packages[0].quantity, 0);
+  assert.equal(blank.packages[0].weightKg, 0);
+  assert.equal(blank.packages[0].lengthCm, 0);
+  assert.equal(blank.packages[0].widthCm, 0);
+  assert.equal(blank.packages[0].heightCm, 0);
 });
 
 const driverA = { id: '66666666-6666-4666-8666-666666666666', name: 'Dana Driver' };

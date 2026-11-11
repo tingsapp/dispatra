@@ -72,10 +72,20 @@ export const createDefaultOrderInput = (ctx: PricingContext): PricingOrderInput 
   stage: 'ESTIMATE'
 });
 
-/** Blank booking shared by the dispatcher and shipper New Order forms: no shipper, vehicle (it follows the assigned driver), rate card or zone guesses. */
+/** Blank booking shared by the dispatcher and shipper New Order forms: no shipper, vehicle (it follows the assigned driver), rate card, zone or package-measurement guesses. */
 export const createBookingInput = (ctx: PricingContext): PricingOrderInput => {
   const initial = createDefaultOrderInput(ctx);
-  return { ...initial, customerId: null, vehicleId: null, rateCardOverrideId: null, stops: initial.stops.map(stop => ({ ...stop, zoneId: null })) };
+  return {
+    ...initial,
+    customerId: null,
+    vehicleId: null,
+    rateCardOverrideId: null,
+    stops: initial.stops.map(stop => ({ ...stop, zoneId: null })),
+    packages: [{
+      id: uid('pkg'), quantity: 0, weightKg: 0, lengthCm: 0, widthCm: 0, heightCm: 0, declaredValue: 0,
+      missingFields: ['quantity', 'weightKg', 'lengthCm', 'widthCm', 'heightCm']
+    }]
+  };
 };
 
 export const priceOrder = (input: PricingOrderInput, ctx: PricingContext = loadPricingContext()): PricingSnapshot =>

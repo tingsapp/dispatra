@@ -50,7 +50,8 @@ const checkbox = 'app-checkbox';
 
 const newPackage = (): PricingPackageInput => ({
   id: `pkg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-  quantity: 1, weightKg: 10, lengthCm: 40, widthCm: 30, heightCm: 30, declaredValue: 0
+  quantity: 0, weightKg: 0, lengthCm: 0, widthCm: 0, heightCm: 0, declaredValue: 0,
+  missingFields: ['quantity', 'weightKg', 'lengthCm', 'widthCm', 'heightCm']
 });
 
 /** Keep a typed decimal intact until blur; display stored package measurements to one decimal. */
@@ -243,7 +244,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
       <div className={sectionClass}>
         <div className="flex items-center justify-between mb-3">
           <h4 className={sectionTitle}><Package className="w-3.5 h-3.5 text-slate-700" /><span>Packages</span></h4>
-          <button type="button" onClick={() => patch({ packages: [...value.packages, { ...newPackage(), ...(value.source === 'EMAIL' ? { quantity: 0, weightKg: 0, lengthCm: 0, widthCm: 0, heightCm: 0, missingFields: ['quantity', 'weightKg', 'lengthCm', 'widthCm', 'heightCm'] as PricingPackageInput['missingFields'] } : {}), pickupStopId: pickups.length === 1 ? pickups[0].id : undefined, deliveryStopId: drops.length === 1 ? drops[0].id : undefined }] })} className={smallBtn}>+ Package</button>
+          <button type="button" onClick={() => patch({ packages: [...value.packages, { ...newPackage(), pickupStopId: pickups.length === 1 ? pickups[0].id : undefined, deliveryStopId: drops.length === 1 ? drops[0].id : undefined }] })} className={smallBtn}>+ Package</button>
         </div>
         <div className="app-package-table-shell rounded-lg border border-slate-200 p-3">
           <table aria-label="Packages" className="app-table app-table-editable app-table-plain app-package-table w-full">
@@ -259,10 +260,10 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             </tr></thead>
             <tbody>
               {value.packages.map((p, index) => <tr key={p.id}>
-                <td className="package-qty"><input type="number" min={1} step={1} value={p.missingFields?.includes('quantity') ? '' : p.quantity} onChange={(e) => updateMeasurement(p, 'quantity', value.source === 'EMAIL' && !e.target.value ? null : Math.max(1, Math.round(Number(e.target.value) || 1)))} className={fieldClass} aria-label={`Package ${index + 1} quantity`} /></td>
-                <td className="package-weight"><PackageMeasurementInput key={units.weightUnit} value={p.weightKg} missing={p.missingFields?.includes('weightKg')} allowBlank={value.source === 'EMAIL'} units={units} kind="weight" label={`Package ${index + 1} weight`}
+                <td className="package-qty"><input type="number" min={1} step={1} value={p.missingFields?.includes('quantity') ? '' : p.quantity} onChange={(e) => updateMeasurement(p, 'quantity', !e.target.value ? null : Math.max(1, Math.round(Number(e.target.value) || 1)))} className={fieldClass} aria-label={`Package ${index + 1} quantity`} /></td>
+                <td className="package-weight"><PackageMeasurementInput key={units.weightUnit} value={p.weightKg} missing={p.missingFields?.includes('weightKg')} allowBlank units={units} kind="weight" label={`Package ${index + 1} weight`}
                   onChange={weightKg => updateMeasurement(p, 'weightKg', weightKg)} /></td>
-                <td className="package-dimensions"><div className="flex items-center gap-1">{(['lengthCm', 'widthCm', 'heightCm'] as const).map((k, d) => <React.Fragment key={`${k}-${units.dimensionUnit}`}>{d > 0 && <span className="text-slate-400">×</span>}<PackageMeasurementInput value={p[k]} missing={p.missingFields?.includes(k)} allowBlank={value.source === 'EMAIL'} units={units} kind="dimension" onChange={dimension => updateMeasurement(p, k, dimension)} label={`Package ${index + 1} ${k === 'lengthCm' ? 'length' : k === 'widthCm' ? 'width' : 'height'}`} /></React.Fragment>)}</div></td>
+                <td className="package-dimensions"><div className="flex items-center gap-1">{(['lengthCm', 'widthCm', 'heightCm'] as const).map((k, d) => <React.Fragment key={`${k}-${units.dimensionUnit}`}>{d > 0 && <span className="text-slate-400">×</span>}<PackageMeasurementInput value={p[k]} missing={p.missingFields?.includes(k)} allowBlank units={units} kind="dimension" onChange={dimension => updateMeasurement(p, k, dimension)} label={`Package ${index + 1} ${k === 'lengthCm' ? 'length' : k === 'widthCm' ? 'width' : 'height'}`} /></React.Fragment>)}</div></td>
                 {pickups.length > 1 && <td className="package-stop"><Select aria-label={`Package ${index + 1} pickup`} className="package-stop-select" value={p.pickupStopId ?? ''} onValueChange={pickupStopId => updatePackage(p.id, { pickupStopId: pickupStopId || undefined })} options={[{ value: '', label: 'Pickup…' }, ...pickups.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
                 {drops.length > 1 && <td className="package-stop"><Select aria-label={`Package ${index + 1} delivery`} className="package-stop-select" value={p.deliveryStopId ?? ''} onValueChange={deliveryStopId => updatePackage(p.id, { deliveryStopId: deliveryStopId || undefined })} options={[{ value: '', label: 'Delivery…' }, ...drops.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
                 <td className="package-flag text-center"><input type="checkbox" aria-label={`Package ${index + 1} fragile`} checked={packageHasCharge(p, 'FRAGILE')} onChange={(e) => setPackageFlag(p.id, 'FRAGILE', e.target.checked)} className={checkbox} /></td>
