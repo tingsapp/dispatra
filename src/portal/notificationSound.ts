@@ -13,9 +13,16 @@ function audioContext() {
 }
 
 /** Browsers require one user gesture before background notification sounds can play. */
-export function enableNotificationSound() {
+export async function enableNotificationSound() {
   const audio = audioContext();
-  if (audio?.state === 'suspended') void audio.resume().catch(() => undefined);
+  if (!audio) return false;
+  if (audio.state === 'running') return true;
+  try {
+    await audio.resume();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** A short, two-note chime for routine updates and a sharper three-note alert for attention items. */

@@ -13,7 +13,7 @@ const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query
 const { operations } = await import('../src/operations/api');
 const { syncInvalidations, retryDelay, syncKey, useSync } = await import('../src/portal/sync');
 const { NotificationPanel, notificationAge } = await import('../src/portal/Notifications');
-const { notificationTone } = await import('../src/portal/notificationSound');
+const { enableNotificationSound, notificationTone } = await import('../src/portal/notificationSound');
 const originalWebSocket = globalThis.WebSocket;
 afterEach(() => { cleanup(); Object.defineProperty(globalThis, 'WebSocket', { configurable:true, writable:true, value:originalWebSocket }); });
 
@@ -39,6 +39,10 @@ test('changes invalidate only the reads each role uses, once per key', () => {
   assert.equal(notificationTone('INFO'), 'normal');
   assert.equal(notificationTone('WARNING'), 'attention');
   assert.equal(notificationTone('CRITICAL'), 'attention');
+});
+
+test('sound activation remains safe when browser audio is unavailable', async () => {
+  assert.equal(await enableNotificationSound(), false);
 });
 
 const row = (id: string, severity: 'INFO' | 'WARNING' | 'CRITICAL', read_at: string | null) => ({ id, version: 1, created_at: new Date().toISOString(), kind: 'order.assigned', severity,

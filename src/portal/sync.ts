@@ -106,11 +106,20 @@ export function useSync(slug: string | null | undefined, role: SyncRole) {
       expired: () => { void cache.invalidateQueries({ queryKey: ['account'] }); },
     });
     const now = () => { if (document.visibilityState === 'visible') feed.recover(); };
-    const enableSound = () => enableNotificationSound();
+    const enableSound = () => {
+      void enableNotificationSound().then(enabled => {
+        // Keep listening until the browser accepts a trusted gesture. A first interaction can
+        // be rejected when a restored tab is still being activated.
+        if (enabled) {
+          window.removeEventListener('pointerdown', enableSound);
+          window.removeEventListener('keydown', enableSound);
+        }
+      });
+    };
     document.addEventListener('visibilitychange', now);
     window.addEventListener('online', now);
-    window.addEventListener('pointerdown', enableSound, { once: true });
-    window.addEventListener('keydown', enableSound, { once: true });
+    window.addEventListener('pointerdown', enableSound);
+    window.addEventListener('keydown', enableSound);
     return () => { feed.stop(); document.removeEventListener('visibilitychange', now); window.removeEventListener('online', now); window.removeEventListener('pointerdown', enableSound); window.removeEventListener('keydown', enableSound); };
   }, [slug, role, cache]);
 }
