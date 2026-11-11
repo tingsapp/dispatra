@@ -9,7 +9,7 @@ export function EmailDraftSection({ email, timeZone, actions }: { email: EmailIn
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">Draft</span>
         {email.sender_verified ? <span className="inline-flex items-center gap-1 text-slate-600"><ShieldCheck className="size-4" />Sender verified</span>
-          : <span className="inline-flex items-center gap-1 text-amber-700"><ShieldAlert className="size-4" />Sender not verified</span>}
+          : !email.shipper_id && <span className="inline-flex items-center gap-1 text-amber-700"><ShieldAlert className="size-4" />Sender not verified</span>}
       </div>
       {email.summary && <p className="text-sm text-slate-700">{email.summary}</p>}
       {!!email.missing.length && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">

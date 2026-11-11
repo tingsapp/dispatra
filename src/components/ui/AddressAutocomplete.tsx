@@ -175,7 +175,7 @@ export function AddressAutocomplete({ value, onChange, onSelectionStateChange, i
         if (event.key === 'Enter' && activeIndex >= 0) { event.preventDefault(); void select(suggestions[activeIndex]); }
       }} />
     {status === 'unavailable' && <span role="status" className="mt-1 block text-xs text-slate-500">Address search unavailable. You can enter the address manually.</span>}
-    {status === 'selection-failed' && <span role="alert" className="mt-1 block text-xs text-rose-700">Could not load the selected address details. Select the suggestion again.</span>}
+    {status === 'selection-failed' && <span role="alert" className="mt-1 block text-xs text-rose-700">We could not confirm that as a complete Canadian address. Choose a full street address from the suggestions, including its street number.</span>}
     {status === 'resolving' && <span role="status" className="mt-1 block text-xs text-slate-500">Loading selected address details…</span>}
     {status === 'loading' && <span role="status" className="sr-only">Searching addresses…</span>}
     {open && suggestions.length > 0 && placement && createPortal(

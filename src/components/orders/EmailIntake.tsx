@@ -63,7 +63,7 @@ export function IntakeDialog({ slug, id, onClose, onChanged, onNotification, onC
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <EmailStatusBadge status={row.status} />
           {row.sender_verified ? <span className="inline-flex items-center gap-1 text-emerald-700"><ShieldCheck className="size-4" /> Sender verified</span>
-            : <span className="inline-flex items-center gap-1 text-amber-700"><ShieldAlert className="size-4" /> Sender not verified</span>}
+            : !row.shipper_id && <span className="inline-flex items-center gap-1 text-amber-700"><ShieldAlert className="size-4" /> Sender not verified</span>}
           {row.shipper_name && <span className="text-slate-600">· Shipper: <span className="font-medium text-slate-900">{row.shipper_name}</span></span>}
           {row.order_number && <span className="text-slate-600">· Order {row.order_number}</span>}
         </div>
