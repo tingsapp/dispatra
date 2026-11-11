@@ -4,7 +4,7 @@ import type { EmailIntakeDetail } from '../../operations/api';
 import { dateTime } from '../../lib/dateTimeFormat';
 import { reviewMessages } from '../../lib/emailDraftReview';
 
-export function EmailDraftSection({ email, timeZone, actions }: { email: EmailIntakeDetail; timeZone: string; actions?: ReactNode }) {
+export function EmailDraftSection({ email, timeZone, actions, showMissing = true }: { email: EmailIntakeDetail; timeZone: string; actions?: ReactNode; showMissing?: boolean }) {
   const missing = reviewMessages(email.missing, email.shipper_id);
   return <div className="mt-5">
     <section className="app-panel space-y-3" aria-label="Draft review">
@@ -14,7 +14,7 @@ export function EmailDraftSection({ email, timeZone, actions }: { email: EmailIn
           : !email.shipper_id && <span className="inline-flex items-center gap-1 text-amber-700"><ShieldAlert className="size-4" />Sender not verified</span>}
       </div>
       {email.summary && <p className="text-sm text-slate-700">{email.summary}</p>}
-      {!!missing.length && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+      {showMissing && !!missing.length && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
         <h4 className="font-medium">Needed before this can become an order</h4>
         <ul className="mt-1 list-disc pl-5">{missing.map(item => <li key={item}>{item}</li>)}</ul>
       </div>}

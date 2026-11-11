@@ -817,13 +817,13 @@ export function JobsPage({
                     showPricingDetail={false}
                     rateRows={[...companyRateRows(pricingCtx.billing), ...(newOrderSnapshot.status === 'PRICED' ? travelRows(newOrderSnapshot, pricingCtx.billing.general) : [])]}
                   />}
+                  {emailSource && <EmailDraftSection email={emailSource} timeZone={pricingCtx.billing.general.timeZone} showMissing={false} actions={<>
+                    <Button variant="outline" disabled={!!emailAction || handleCreateSubmitAction.pending} loading={emailAction === 'discard'} onClick={() => manageEmailDraft('discard')}>Discard</Button>
+                    <Button variant="outline" disabled={!!emailAction || handleCreateSubmitAction.pending} loading={emailAction === 'retry'} onClick={() => manageEmailDraft('retry')}>Read again</Button>
+                  </>} />}
                   {emailSource && <OriginalEmail email={emailSource} timeZone={pricingCtx.billing.general.timeZone} />}
                 </div>
               </div>
-              {emailSource && <EmailDraftSection email={emailSource} timeZone={pricingCtx.billing.general.timeZone} actions={<>
-                <Button variant="outline" disabled={!!emailAction || handleCreateSubmitAction.pending} loading={emailAction === 'discard'} onClick={() => manageEmailDraft('discard')}>Discard</Button>
-                <Button variant="outline" disabled={!!emailAction || handleCreateSubmitAction.pending} loading={emailAction === 'retry'} onClick={() => manageEmailDraft('retry')}>Read again</Button>
-              </>} />}
               {emailSource && draftMessage && <p role="status" className="mt-3 text-sm text-slate-600">{draftMessage}</p>}
               </fieldset>
             </form>
