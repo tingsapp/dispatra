@@ -9,7 +9,7 @@ import { openDispatcherChat, type ChatTarget } from './chat/navigation';
 import { NotificationBell } from './portal/Notifications';
 import { changeDispatchMode } from './operations/changeDispatchMode';
 import { dateTime } from './lib/dateTimeFormat';
-import { PanelLeft,} from 'lucide-react';
+import { SidebarToggleIcon } from './components/layout/WorkspaceIcon';
 import { AnimatePresence,motion } from 'motion/react';
 import { lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -592,7 +592,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               : 'top-4 left-3 w-9 h-9 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-app-hover'
             } ${sidebarOpen ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-100 translate-x-0'}`}
         >
-          <PanelLeft className="w-4.5 h-4.5" strokeWidth={1.5} />
+          <SidebarToggleIcon className="w-4.5 h-4.5" strokeWidth={1.5} aria-hidden="true" />
         </button>
 
         {slug && <DispatcherChatPopup key={slug} slug={slug} timeZone={settingsQuery.data?.data.time_zone} />}
@@ -848,3 +848,4 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     </div>
   );
 }
+
