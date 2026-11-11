@@ -8,6 +8,7 @@ import { Select } from '../ui/Select';
 import { Switch } from '../ui/Switch';
 import { PasswordInput } from '../ui/PasswordInput';
 import { allOperations, operations, type EmailIntakeStatus, type Mailbox } from '../../operations/api';
+import { reviewMessages } from '../../lib/emailDraftReview';
 
 /** An Order agent draft handed to the order form; saving it links the new Order to the email. */
 export type EmailDraft = { intake: { id: string; version: number }; draft: Record<string, unknown> };
@@ -69,9 +70,9 @@ export function IntakeDialog({ slug, id, onClose, onChanged, onNotification, onC
         </div>
         {row.summary && <p className="text-sm text-slate-700">{row.summary}</p>}
         {row.error_code && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{ERRORS[row.error_code] ?? row.error_code}</p>}
-        {row.missing.length > 0 && <section className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+        {reviewMessages(row.missing, row.shipper_id).length > 0 && <section className="rounded-lg border border-amber-200 bg-amber-50 p-3">
           <h3 className="text-sm font-medium text-amber-900">Needed before this can become an Order</h3>
-          <ul className="mt-1 list-disc pl-5 text-sm text-amber-900">{row.missing.map(item => <li key={item}>{item}</li>)}</ul>
+          <ul className="mt-1 list-disc pl-5 text-sm text-amber-900">{reviewMessages(row.missing, row.shipper_id).map(item => <li key={item}>{item}</li>)}</ul>
         </section>}
         {row.status === 'UNKNOWN_SENDER' && <section className="space-y-2">
           <h3 className="text-sm font-medium text-slate-900">Which Shipper sent this?</h3>

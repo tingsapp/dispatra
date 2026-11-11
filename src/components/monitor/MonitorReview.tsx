@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { operations } from '../../operations/api';
 import { dateTime } from '../../lib/dateTimeFormat';
+import { reviewMessages } from '../../lib/emailDraftReview';
 import { EMAIL_DRAFT_STATUSES } from '../orders/EmailIntake';
 import { TmsReview } from '../integrations/TmsReview';
 import { useEntityDialog } from '../entities/useEntityDialog';
@@ -52,7 +53,7 @@ export function MonitorReviewDialog({ slug, review, timeZone, onClose, onOpenDra
           <button type="button" aria-haspopup="dialog" onClick={() => onOpenDraft(row.id)} className="w-full rounded-xl border border-app-border p-3 text-left hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-app-accent">
             <span className="flex items-center justify-between gap-3"><span className="font-medium">{row.shipper_name || row.from_name || row.from_address}</span><ChevronRight className="size-4 shrink-0" /></span>
             <span className="mt-1 block text-xs text-app-muted">Email · {dateTime(row.received_at, timeZone)} · {row.subject || 'No subject'}</span>
-            <span className="mt-2 block text-xs text-amber-800">{row.status === 'UNKNOWN_SENDER' ? 'Shipper needs confirmation. ' : ''}{row.missing.join(' · ') || row.summary || 'Details need review.'}</span>
+            <span className="mt-2 block text-xs text-amber-800">{row.status === 'UNKNOWN_SENDER' ? 'Shipper needs confirmation. ' : ''}{reviewMessages(row.missing, row.shipper_id).join(' · ') || row.summary || 'Details need review.'}</span>
             {row.completion_requested_at && <span className="mt-1 block text-xs text-app-muted">{row.completion_submitted_at ? 'Shipper supplied details — ready for review' : 'Waiting for shipper details'}</span>}
           </button>
         </li>)}</ul>

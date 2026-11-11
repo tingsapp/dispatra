@@ -2,8 +2,10 @@ import type { ReactNode } from 'react';
 import { ChevronDown, Mail, ShieldAlert, ShieldCheck } from 'lucide-react';
 import type { EmailIntakeDetail } from '../../operations/api';
 import { dateTime } from '../../lib/dateTimeFormat';
+import { reviewMessages } from '../../lib/emailDraftReview';
 
 export function EmailDraftSection({ email, timeZone, actions }: { email: EmailIntakeDetail; timeZone: string; actions?: ReactNode }) {
+  const missing = reviewMessages(email.missing, email.shipper_id);
   return <div className="mt-5 space-y-4">
     <section className="app-panel space-y-3" aria-label="Draft review">
       <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -12,9 +14,9 @@ export function EmailDraftSection({ email, timeZone, actions }: { email: EmailIn
           : !email.shipper_id && <span className="inline-flex items-center gap-1 text-amber-700"><ShieldAlert className="size-4" />Sender not verified</span>}
       </div>
       {email.summary && <p className="text-sm text-slate-700">{email.summary}</p>}
-      {!!email.missing.length && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+      {!!missing.length && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
         <h4 className="font-medium">Needed before this can become an order</h4>
-        <ul className="mt-1 list-disc pl-5">{email.missing.map(item => <li key={item}>{item}</li>)}</ul>
+        <ul className="mt-1 list-disc pl-5">{missing.map(item => <li key={item}>{item}</li>)}</ul>
       </div>}
       {email.completion_submitted_at && <p className="text-xs text-slate-600">The shipper has submitted their details for your review.</p>}
       {actions && <div className="flex flex-wrap justify-end gap-2">{actions}</div>}
