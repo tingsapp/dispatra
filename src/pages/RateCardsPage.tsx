@@ -35,6 +35,7 @@ import { BillingSettingsForm } from '../components/settings/BillingSettingsForm'
 import { CatalogueSection } from '../components/settings/CatalogueSection';
 import { PricingTabs } from '../components/pricing/PricingTabs';
 import { VehicleTypesSection } from '../components/settings/VehicleTypesSection';
+import { PackageTypesSection } from '../components/settings/PackageTypesSection';
 import { PreferencesEditor, TaxEditor } from '../portal/CompanySettingsEditors';
 import { MailboxSettings } from '../components/orders/EmailIntake';
 import { SettingsLayout, SettingsPageProps } from '../components/settings/SettingsLayout';
@@ -279,6 +280,8 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
       { id: 'fuel', label: 'Fuel Surcharge', content: <BillingSettingsForm section="fuel" onNotification={refreshDefaults} /> },
       { id: 'taxes', label: 'Taxes', content: workspace ? <TaxEditor /> : <BillingSettingsForm section="taxes" onNotification={refreshDefaults} /> },
       { id: 'vehicle-types', label: 'Vehicle Types', content: <VehicleTypesSection onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
+      // Package Types are API catalogue entries, so /prototype has no Package Types tab.
+      ...(slug ? [{ id: 'package-types', label: 'Package Types', content: <PackageTypesSection onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> }] : []),
       { id: 'preferences', label: 'Preferences', content: workspace ? <PreferencesEditor /> : <BillingSettingsForm section="preferences" onNotification={refreshDefaults} /> },
       // The Order agent's IMAP mailbox is API-only, so /prototype has no Mailbox tab.
       ...(workspace && slug ? [{ id: 'mailbox', label: 'Mailbox', content: <MailboxSettings slug={slug} /> }] : []),

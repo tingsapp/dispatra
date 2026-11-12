@@ -144,8 +144,8 @@ export function apiResources(slug: string): ApiResource[] {
     { id: 'shippers', title: 'Shippers API', description: 'Manage shippers.', endpoints: crud(`${base}/shippers`, 'shipper') },
     { id: 'drivers', title: 'Drivers API', description: 'Manage drivers.', endpoints: crud(`${base}/drivers`, 'driver') },
     { id: 'vehicles', title: 'Vehicles API', description: 'Manage vehicles.', endpoints: crud(`${base}/vehicles`, 'vehicle') },
-    { id: 'catalog', title: 'Services & vehicle types API', description: 'Read services, accessorials and vehicle types.', endpoints: [
-      { method: 'GET', path: `${base}/catalog`, label: 'List services, accessorials and vehicle types' }] },
+    { id: 'catalog', title: 'Services & vehicle types API', description: 'Read services, accessorials, vehicle types and package types.', endpoints: [
+      { method: 'GET', path: `${base}/catalog`, label: 'List services, accessorials, vehicle types and package types' }] },
   ];
 }
 /** The company's TMS webhook address on this Dispatra origin (the API is served under `/api`). */

@@ -195,6 +195,8 @@ export interface PricingPackageInput extends ItemOperations {
   /** Physical pallet count per unit, preserved from imported/email bookings. */
   palletsPerUnit?: number;
   id: string;
+  /** Company Package Type; describes the item and never changes price. */
+  packageTypeId?: string | null;
   /** Missing email facts stay blank; numeric placeholders never become booking values. */
   missingFields?: Array<'quantity' | 'weightKg' | 'lengthCm' | 'widthCm' | 'heightCm'>;
   quantity: number;

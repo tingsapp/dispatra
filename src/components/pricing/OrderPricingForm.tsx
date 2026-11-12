@@ -15,6 +15,7 @@ import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 import { ContactInput } from '../ui/ContactInput';
 import { packageHasCharge, setPackageCharge, syncPackageAccessorials, type PackageChargeCode } from '../../lib/packageAccessorials';
 import { organizationTime } from '../../lib/organizationWorkflows';
+import { applyPackageType, packageTypeOptions } from '../../lib/packageTypes';
 
 /**
  * Order-facts editor for Order creation. It only edits a `PricingOrderInput`; the caller runs
@@ -55,18 +56,18 @@ const newPackage = (): PricingPackageInput => ({
 });
 
 /** Keep a typed decimal intact until blur; display stored package measurements to one decimal. */
-function PackageMeasurementInput({ value, units, kind, label, missing = false, allowBlank = false, onChange }: {
+function PackageMeasurementInput({ value, units, kind, label, missing = false, allowBlank = false, className = 'app-input', onChange }: {
   value: number;
   units: Units;
   kind: 'weight' | 'dimension';
   label: string;
-  missing?: boolean; allowBlank?: boolean;
+  missing?: boolean; allowBlank?: boolean; className?: string;
   onChange: (canonicalValue: number | null) => void;
 }) {
   const [draft, setDraft] = React.useState<string | null>(null);
   const display = kind === 'weight' ? toDisplayWeight : toDisplayDimension;
   const canonical = kind === 'weight' ? fromDisplayWeight : fromDisplayDimension;
-  return <input type="number" min={0} step="any" aria-label={label} className="app-input"
+  return <input type="number" min={0} step="any" aria-label={label} className={className}
     value={draft ?? (missing ? '' : display(value, units).toFixed(1))}
     onChange={event => {
       setDraft(event.target.value);
@@ -83,6 +84,10 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   const activeServices = catalogue.services.filter((s) => s.active);
   const activeVehicles = listedVehicleTypes(catalogue.vehicles);
   const activeAccessorials = catalogue.accessorials.filter((a) => a.active);
+  const pieces = value.packages.reduce((sum, p) => sum + (p.missingFields?.includes('quantity') ? 0 : p.quantity), 0);
+  const weightText = (kg: number) => `${toDisplayWeight(kg, units).toFixed(1)} ${units.weightUnit}`;
+  const weightFree = snapshot.method === 'FIXED' || snapshot.method === 'HOURLY' || (snapshot.method === 'BASE_PLUS_DISTANCE' && snapshot.context?.distanceWeightMode === 'NONE');
+  const showPackageType = packageTypeOptions(catalogue.packageTypes).length > 0 || value.packages.some(p => p.packageTypeId);
   const customer = customers.find(c => c.id === value.customerId);
   const card = pricing.rateCards.find(c => c.id === value.rateCardOverrideId && c.status === 'ACTIVE')
     ?? pricing.rateCards.find(c => c.id === customer?.rateCardId && c.status === 'ACTIVE')
@@ -91,6 +96,16 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   const centralPickup = zonePriced && hasCentralZoneRates(card.zoneRates ?? []);
   const pickups = value.stops.filter(s => s.type === 'PICKUP');
   const drops = value.stops.filter(s => s.type === 'DROPOFF');
+  /** One row per package only when every column fits; otherwise each package wraps onto labelled lines. Never a sideways scroll. */
+  const packageColumns = [showPackageType && 'minmax(6.5rem, 8.5rem)', '3.5rem', '5rem', 'minmax(8.5rem, 1fr)', pickups.length > 1 && '5.5rem', drops.length > 1 && '5.5rem', '2.5rem 2.5rem', '2rem'].filter(Boolean).join(' ');
+  const packageRowMinRem = (showPackageType ? 7 : 0) + 4 + 5.5 + 9 + (pickups.length > 1 ? 6 : 0) + (drops.length > 1 ? 6 : 0) + 6 + 2;
+  const packageGrid = React.useRef<HTMLDivElement>(null);
+  const [packagesCompact, setPackagesCompact] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const grid = packageGrid.current; if (!grid || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setPackagesCompact(grid.clientWidth < packageRowMinRem * parseFloat(getComputedStyle(document.documentElement).fontSize || '16'));
+    measure(); const observer = new ResizeObserver(measure); observer.observe(grid); return () => observer.disconnect();
+  }, [packageRowMinRem]);
 
   const patch = (changes: Partial<PricingOrderInput>) => onChange({ ...value, ...changes });
   /** Stop edits; pickup ready times and delivery deadlines also set the order's schedule. */
@@ -246,43 +261,40 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
           <h4 className={sectionTitle}><Package className="w-3.5 h-3.5 text-slate-700" /><span>Packages</span></h4>
           <button type="button" onClick={() => patch({ packages: [...value.packages, { ...newPackage(), pickupStopId: pickups.length === 1 ? pickups[0].id : undefined, deliveryStopId: drops.length === 1 ? drops[0].id : undefined }] })} className={smallBtn}>+ Package</button>
         </div>
-        <div className="app-package-table-shell rounded-lg border border-slate-200 p-3">
-          <table aria-label="Packages" className="app-table app-table-editable app-table-plain app-package-table w-full">
-            <thead><tr>
-              <th scope="col" className="text-left">Qty</th>
-              <th scope="col" className="text-left">Weight ({units.weightUnit})</th>
-              <th scope="col" className="text-left">L × W × H ({units.dimensionUnit})</th>
-              {pickups.length > 1 && <th scope="col" className="text-left">From</th>}
-              {drops.length > 1 && <th scope="col" className="text-left">To</th>}
-              <th scope="col" className="text-center">Fragile</th>
-              <th scope="col" className="text-center"><abbr title="Dangerous goods">DG</abbr></th>
-              <th scope="col"><span className="sr-only">Remove</span></th>
-            </tr></thead>
-            <tbody>
-              {value.packages.map((p, index) => <tr key={p.id}>
-                <td className="package-qty"><input type="number" min={1} step={1} value={p.missingFields?.includes('quantity') ? '' : p.quantity} onChange={(e) => updateMeasurement(p, 'quantity', !e.target.value ? null : Math.max(1, Math.round(Number(e.target.value) || 1)))} className={fieldClass} aria-label={`Package ${index + 1} quantity`} /></td>
-                <td className="package-weight"><PackageMeasurementInput key={units.weightUnit} value={p.weightKg} missing={p.missingFields?.includes('weightKg')} allowBlank units={units} kind="weight" label={`Package ${index + 1} weight`}
-                  onChange={weightKg => updateMeasurement(p, 'weightKg', weightKg)} /></td>
-                <td className="package-dimensions"><div className="flex items-center gap-1">{(['lengthCm', 'widthCm', 'heightCm'] as const).map((k, d) => <React.Fragment key={`${k}-${units.dimensionUnit}`}>{d > 0 && <span className="text-slate-400">×</span>}<PackageMeasurementInput value={p[k]} missing={p.missingFields?.includes(k)} allowBlank units={units} kind="dimension" onChange={dimension => updateMeasurement(p, k, dimension)} label={`Package ${index + 1} ${k === 'lengthCm' ? 'length' : k === 'widthCm' ? 'width' : 'height'}`} /></React.Fragment>)}</div></td>
-                {pickups.length > 1 && <td className="package-stop"><Select aria-label={`Package ${index + 1} pickup`} className="package-stop-select" value={p.pickupStopId ?? ''} onValueChange={pickupStopId => updatePackage(p.id, { pickupStopId: pickupStopId || undefined })} options={[{ value: '', label: 'Pickup…' }, ...pickups.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
-                {drops.length > 1 && <td className="package-stop"><Select aria-label={`Package ${index + 1} delivery`} className="package-stop-select" value={p.deliveryStopId ?? ''} onValueChange={deliveryStopId => updatePackage(p.id, { deliveryStopId: deliveryStopId || undefined })} options={[{ value: '', label: 'Delivery…' }, ...drops.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></td>}
-                <td className="package-flag text-center"><input type="checkbox" aria-label={`Package ${index + 1} fragile`} checked={packageHasCharge(p, 'FRAGILE')} onChange={(e) => setPackageFlag(p.id, 'FRAGILE', e.target.checked)} className={checkbox} /></td>
-                <td className="package-flag text-center"><input type="checkbox" aria-label={`Package ${index + 1} dangerous goods`} checked={packageHasCharge(p, 'DG')} onChange={(e) => setPackageFlag(p.id, 'DG', e.target.checked)} className={checkbox} /></td>
-                <td className="package-remove text-right"><button type="button" disabled={value.packages.length <= 1} onClick={() => { const packages = value.packages.filter(x => x.id !== p.id); patch({ packages, accessorials: syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials) }); }} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30" title="Remove package" aria-label={`Remove package ${index + 1}`}><Trash2 className="w-4 h-4" /></button></td>
-              </tr>)}
-            </tbody>
-          </table>
+        <div ref={packageGrid} role="group" aria-label="Packages" className={`app-package-grid${packagesCompact ? ' is-compact' : ''}`} style={{ '--package-columns': packageColumns } as React.CSSProperties}>
+          <div aria-hidden="true" className="package-head">
+            {showPackageType && <span>Type</span>}
+            <span className="text-right">Qty</span>
+            <span className="text-right">Weight <span className="package-unit">{units.weightUnit}</span></span>
+            <span>L × W × H <span className="package-unit">{units.dimensionUnit}</span></span>
+            {pickups.length > 1 && <span>From</span>}
+            {drops.length > 1 && <span>To</span>}
+            <span className="text-center">Fragile</span>
+            <span className="text-center"><abbr title="Dangerous goods">DG</abbr></span>
+            <span />
+          </div>
+          {value.packages.map((p, index) => <div key={p.id} className="package-row">
+            {showPackageType && <div className="package-cell package-cell-type"><span aria-hidden="true" className="package-field-label">Type</span><Select aria-label={`Package ${index + 1} type`} className="package-select" value={p.packageTypeId ?? ''} onValueChange={typeId => patch({ packages: value.packages.map(pkg => pkg.id === p.id ? applyPackageType(pkg, typeId || null, catalogue.packageTypes) : pkg) })} options={[{ value: '', label: 'Type…' }, ...packageTypeOptions(catalogue.packageTypes, p.packageTypeId).map(type => ({ value: type.id, label: type.name }))]} /></div>}
+            <div className="package-cell package-cell-qty"><span aria-hidden="true" className="package-field-label">Qty</span><input type="number" min={1} step={1} value={p.missingFields?.includes('quantity') ? '' : p.quantity} onChange={(e) => updateMeasurement(p, 'quantity', !e.target.value ? null : Math.max(1, Math.round(Number(e.target.value) || 1)))} className={fieldClass} aria-label={`Package ${index + 1} quantity`} /></div>
+            <div className="package-cell package-cell-weight"><span aria-hidden="true" className="package-field-label">Weight ({units.weightUnit})</span><PackageMeasurementInput key={units.weightUnit} value={p.weightKg} missing={p.missingFields?.includes('weightKg')} allowBlank units={units} kind="weight" label={`Package ${index + 1} weight`}
+              onChange={weightKg => updateMeasurement(p, 'weightKg', weightKg)} /></div>
+            <div className="package-cell package-cell-size"><span aria-hidden="true" className="package-field-label">L × W × H ({units.dimensionUnit})</span><div className="app-input app-input-group package-dimension-group">{(['lengthCm', 'widthCm', 'heightCm'] as const).map((k, d) => <React.Fragment key={`${k}-${units.dimensionUnit}`}>{d > 0 && <span aria-hidden="true" className="package-dimension-times">×</span>}<PackageMeasurementInput value={p[k]} missing={p.missingFields?.includes(k)} allowBlank units={units} kind="dimension" className="app-input-group-control" onChange={dimension => updateMeasurement(p, k, dimension)} label={`Package ${index + 1} ${k === 'lengthCm' ? 'length' : k === 'widthCm' ? 'width' : 'height'}`} /></React.Fragment>)}</div></div>
+            {pickups.length > 1 && <div className="package-cell package-cell-from"><span aria-hidden="true" className="package-field-label">From</span><Select aria-label={`Package ${index + 1} pickup`} className="package-select" value={p.pickupStopId ?? ''} onValueChange={pickupStopId => updatePackage(p.id, { pickupStopId: pickupStopId || undefined })} options={[{ value: '', label: 'Pickup…' }, ...pickups.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></div>}
+            {drops.length > 1 && <div className="package-cell package-cell-to"><span aria-hidden="true" className="package-field-label">To</span><Select aria-label={`Package ${index + 1} delivery`} className="package-select" value={p.deliveryStopId ?? ''} onValueChange={deliveryStopId => updatePackage(p.id, { deliveryStopId: deliveryStopId || undefined })} options={[{ value: '', label: 'Delivery…' }, ...drops.map(s => ({ value: s.id, label: `Stop ${value.stops.indexOf(s) + 1}` }))]} /></div>}
+            <div className="package-cell package-cell-flags">
+              <label><input type="checkbox" aria-label={`Package ${index + 1} fragile`} checked={packageHasCharge(p, 'FRAGILE')} onChange={(e) => setPackageFlag(p.id, 'FRAGILE', e.target.checked)} className={checkbox} /><span aria-hidden="true" className="package-field-label">Fragile</span></label>
+              <label><input type="checkbox" aria-label={`Package ${index + 1} dangerous goods`} checked={packageHasCharge(p, 'DG')} onChange={(e) => setPackageFlag(p.id, 'DG', e.target.checked)} className={checkbox} /><span aria-hidden="true" className="package-field-label">DG</span></label>
+            </div>
+            <div className="package-cell package-cell-remove"><button type="button" disabled={value.packages.length <= 1} onClick={() => { const packages = value.packages.filter(x => x.id !== p.id); patch({ packages, accessorials: syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials) }); }} className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:invisible" title="Remove package" aria-label={`Remove package ${index + 1}`}><Trash2 className="w-4 h-4" /></button></div>
+          </div>)}
         </div>
-        <p className="mt-3 text-xs text-slate-500">
-          Actual {toDisplayWeight(snapshot.inputs.actualWeightKg, units).toFixed(1)} {units.weightUnit}
-          {snapshot.inputs.dimensionalPricingEnabled && <> · dimensional {toDisplayWeight(snapshot.inputs.dimensionalWeightKg, units).toFixed(1)} {units.weightUnit}</>}
-          {(snapshot.method === 'ZONE' || snapshot.inputs.dimensionalPricingEnabled) && <> · <span className="font-medium text-slate-700">chargeable {toDisplayWeight(snapshot.inputs.chargeableWeightKg, units).toFixed(1)} {units.weightUnit}</span></>}
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          {snapshot.method === 'FIXED' || snapshot.method === 'HOURLY' || (snapshot.method === 'BASE_PLUS_DISTANCE' && snapshot.context?.distanceWeightMode === 'NONE')
-            ? 'Package weight and dimensions do not change this rate card’s base price.'
-            : 'Chargeable weight is the larger of actual and dimensional weight, so the heavier value is used for pricing.'}
-        </p>
+        <div className="app-package-summary">
+          {pieces > 0 && snapshot.inputs.actualWeightKg > 0
+            ? <span>{pieces} {pieces === 1 ? 'piece' : 'pieces'} · {weightText(snapshot.inputs.actualWeightKg)}{snapshot.inputs.dimensionalPricingEnabled && <> · dimensional {weightText(snapshot.inputs.dimensionalWeightKg)}</>}</span>
+            : <span>Enter quantity and weight for each package.</span>}
+          {weightFree ? <span>Weight doesn’t change this rate card’s price.</span>
+            : (snapshot.method === 'ZONE' || snapshot.inputs.dimensionalPricingEnabled) && snapshot.inputs.chargeableWeightKg > 0 && <span title="The larger of actual and dimensional weight is used for pricing." className="font-medium text-slate-700">Chargeable {weightText(snapshot.inputs.chargeableWeightKg)}</span>}
+        </div>
       </div>
 
       {/* Accessorials */}

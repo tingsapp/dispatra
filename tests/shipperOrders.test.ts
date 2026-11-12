@@ -93,7 +93,7 @@ test('self mode shows a blank package and no shipper, rate card or vehicle choic
   assert.equal(screen.queryByLabelText('Vehicle'), null);
   assert.ok(screen.getByLabelText('Service'));
   assert.ok(screen.getByRole('button', { name: '+ Pickup' }));
-  assert.ok(screen.getByRole('table', { name: 'Packages' }));
+  assert.ok(screen.getByRole('group', { name: 'Packages' }));
   assert.ok(screen.getByText(/Accessorials/));
   for (const field of ['quantity', 'weight', 'length', 'width', 'height']) {
     assert.equal((screen.getByLabelText(`Package 1 ${field}`) as HTMLInputElement).value, '');

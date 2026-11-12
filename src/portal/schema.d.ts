@@ -4164,7 +4164,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "SERVICE" | "ACCESSORIAL" | "VEHICLE_TYPE";
+            kind: "SERVICE" | "ACCESSORIAL" | "VEHICLE_TYPE" | "PACKAGE_TYPE";
             /** Code */
             code: string;
             data: components["schemas"]["CatalogData-Input"];
@@ -4210,6 +4210,11 @@ export interface components {
             width_cm?: number | string | null;
             /** Height Cm */
             height_cm?: number | string | null;
+            /**
+             * Default Weight Kg
+             * @description Package Type only: per-piece weight that prefills a new package; its length, width and height prefill the dimensions.
+             */
+            default_weight_kg?: number | string | null;
             /**
              * Pallet Capacity
              * @default 0
@@ -4266,6 +4271,11 @@ export interface components {
             width_cm?: string | null;
             /** Height Cm */
             height_cm?: string | null;
+            /**
+             * Default Weight Kg
+             * @description Package Type only: per-piece weight that prefills a new package; its length, width and height prefill the dimensions.
+             */
+            default_weight_kg?: string | null;
             /**
              * Pallet Capacity
              * @default 0
@@ -5377,6 +5387,11 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Package Type Id
+             * @description Company Package Type (Envelope, Parcel, Pallet, Oversized…). Describes the item; it does not change price.
+             */
+            package_type_id?: string | null;
         };
         /** DraftItem */
         "DraftItem-Output": {
@@ -5419,6 +5434,11 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Package Type Id
+             * @description Company Package Type (Envelope, Parcel, Pallet, Oversized…). Describes the item; it does not change price.
+             */
+            package_type_id?: string | null;
         };
         /** DraftShipment */
         "DraftShipment-Input": {
@@ -6320,6 +6340,11 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Package Type Id
+             * @description Company Package Type (Envelope, Parcel, Pallet, Oversized…). Describes the item; it does not change price.
+             */
+            package_type_id?: string | null;
         };
         /** ItemInput */
         "ItemInput-Output": {
@@ -6368,6 +6393,11 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Package Type Id
+             * @description Company Package Type (Envelope, Parcel, Pallet, Oversized…). Describes the item; it does not change price.
+             */
+            package_type_id?: string | null;
         };
         /** Login */
         Login: {

@@ -4,7 +4,7 @@ import { INITIAL_BILLING_CONFIG } from '../lib/billingStorage';
 import { CENTRAL_PICKUP_ZONE_ID } from '../lib/centralZoneRates';
 import type { PricingContext } from '../lib/pricingEngine';
 import type { RateCard as UiRateCard, ZoneRate } from '../types/pricing';
-import type { AccessorialItem, DeliveryService } from '../types/simplePricing';
+import type { AccessorialItem, DeliveryService, PackageType } from '../types/simplePricing';
 import type { CatalogItem, RateCard, RateInput, Shipper } from './api';
 import { catalogToVehicleType, shipperToCustomer } from './adapters';
 import type { components } from '../portal/schema';
@@ -68,11 +68,22 @@ export function catalogToAccessorial(row: CatalogItem): AccessorialItem {
     fuelEligible: row.data.fuel_eligible, taxable: row.data.taxable, autoRule: 'NONE', active: row.active };
 }
 
+const measure = (value: number | string | null | undefined) => value == null ? null : Number(value);
+export function catalogToPackageType(row: CatalogItem): PackageType {
+  return { id: row.id, code: row.code, name: row.data.name, description: row.data.description, defaultWeightKg: measure(row.data.default_weight_kg),
+    lengthCm: measure(row.data.length_cm), widthCm: measure(row.data.width_cm), heightCm: measure(row.data.height_cm), active: row.active };
+}
+export function packageTypeToCatalog(type: PackageType, previous?: CatalogItem): CatalogInput {
+  return { name: type.name, description: type.description, amount: 0, taxable: previous?.data.taxable ?? true, fuel_eligible: false, exclusive_vehicle: false,
+    default_weight_kg: type.defaultWeightKg, length_cm: type.lengthCm, width_cm: type.widthCm, height_cm: type.heightCm,
+    payload_kg: null, volume_m3: null, pallet_capacity: 0, equipment: [], required_equipment: [], required_crew: 1 };
+}
+
 /** Every catalogue consumer (dispatcher and shipper order forms, settings) sees one order: company setup order, then code. */
 const catalogOrder = (a: CatalogItem, b: CatalogItem) => a.created_at.localeCompare(b.created_at) || a.code.localeCompare(b.code);
 export function catalogueFromApi(items: CatalogItem[], defaultServiceId?: string | null): PricingContext['catalogue'] {
   const of = (kind: string) => items.filter(item => item.kind === kind).sort(catalogOrder);
-  return { services: of('SERVICE').map(row => ({ ...catalogToService(row), isDefault: row.id === defaultServiceId })), accessorials: of('ACCESSORIAL').map(catalogToAccessorial), vehicles: of('VEHICLE_TYPE').map(catalogToVehicleType) };
+  return { services: of('SERVICE').map(row => ({ ...catalogToService(row), isDefault: row.id === defaultServiceId })), accessorials: of('ACCESSORIAL').map(catalogToAccessorial), vehicles: of('VEHICLE_TYPE').map(catalogToVehicleType), packageTypes: of('PACKAGE_TYPE').map(catalogToPackageType) };
 }
 
 /** Builds the same context shape the existing controls expect, using only API-owned operational records. */

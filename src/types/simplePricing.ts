@@ -91,8 +91,24 @@ export interface VehicleType {
   active: boolean;
 }
 
+/** Describes what an item is (Envelope, Parcel, Pallet, Oversized). Its defaults prefill a package; it never changes price. */
+export interface PackageType {
+  id: string;
+  code: string; // "ENVELOPE", "PALLET"
+  name: string;
+  description: string;
+  /** Per-piece defaults in kg and cm; null leaves the package value for the booker. */
+  defaultWeightKg: number | null;
+  lengthCm: number | null;
+  widthCm: number | null;
+  heightCm: number | null;
+  active: boolean;
+}
+
 export interface SimplePricingConfig {
   services: DeliveryService[];
   vehicles: VehicleType[];
   accessorials: AccessorialItem[];
+  /** API workspaces only; the local prototype has no Package Types. */
+  packageTypes?: PackageType[];
 }
