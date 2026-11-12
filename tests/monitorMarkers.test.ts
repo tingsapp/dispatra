@@ -65,6 +65,8 @@ test('all stop circles select their order at the clicked location with mouse, En
       assert.match(marker.getAttribute('aria-label')!, new RegExp(stop.label));
       assert.equal(marker.tabIndex, 0);
       assert.ok(marker.querySelector('svg > circle'));
+      assert.equal(marker.querySelector('svg > circle')!.getAttribute('fill'), '#171717', 'Pickup and drop-off circles are black');
+      assert.equal(!!marker.querySelector('svg svg.lucide-package'), stop.type === 'PICKUP', 'Only pickups show the package icon');
       assert.match(marker.title, /Pickup|Drop-off/);
       fireEvent.click(marker);
       fireEvent.keyDown(marker, { key: 'Enter' });
@@ -168,6 +170,7 @@ test('shared vehicle parking opens every vehicle, supports keyboard dismissal an
   const wrap = (rows: typeof vehicles | Array<Omit<typeof vehicles[number], 'source'> & { source: 'GPS' }>) => React.createElement(APIProviderContext.Provider, { value: context }, React.createElement(GoogleVehicleMarkers, { vehicles: rows, onOpenVehicle: id => opened.push(id) }));
   const view = render(wrap(vehicles));
   const marker = screen.getByRole('button', { name: '2 vehicles at this location' });
+  assert.ok(marker.querySelector('.rounded-full.bg-app-accent.border-white svg.lucide-truck'), 'Vehicles use a blue circle with a white border and a centered truck');
   fireEvent.keyDown(marker, { key: 'Enter' });
   await waitFor(() => assert.equal(screen.getByRole('dialog', { name: 'Vehicle location details' }).querySelectorAll('button').length, 3));
   fireEvent.click(screen.getAllByRole('button', { name: 'View vehicle' })[1]);
@@ -176,5 +179,6 @@ test('shared vehicle parking opens every vehicle, supports keyboard dismissal an
   fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
   assert.equal(screen.queryByRole('dialog'), null);
   view.rerender(wrap([{ ...vehicles[0], source: 'GPS' }]));
-  assert.ok(screen.getByRole('button', { name: 'Vehicle V1, Live GPS' }));
+  const live = screen.getByRole('button', { name: 'Vehicle V1, Live GPS' });
+  assert.equal(live.querySelector('.rounded-full span'), null, 'A single live vehicle has no badge');
 });

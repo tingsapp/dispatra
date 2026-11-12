@@ -1,10 +1,11 @@
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
 import { useCallback, useEffect, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { LocateFixed, Maximize, Minus, Plus, Truck } from 'lucide-react';
+import { LocateFixed, Maximize, Minus, Plus } from 'lucide-react';
 import { operations, type Address, type Order } from '../../operations/api';
 import { GoogleOverlayMarker } from '../monitor/GoogleOverlayMarker';
 import { GoogleRoundedRoute } from '../map/GoogleRoundedRoute';
+import { VehicleMarkerCircle } from '../map/VehicleMarkerCircle';
 import { ShipperStopMarker } from './ShipperStopMarker';
 import { useShipperMapCamera } from './useShipperMapCamera';
 import type { Tracking } from './trackingPresentation';
@@ -57,7 +58,7 @@ function TrackingMapContent({ slug, tracking, orders, selectedOrderId, onSelect,
       contactName={stop.contact_name}
       selected={stop.orderId === selectedOrderId} onSelect={() => onSelect(stop.orderId)} />)}
     {liveTracking?.live && liveTracking.location && <GoogleOverlayMarker position={{ lat: liveTracking.location.latitude, lng: liveTracking.location.longitude }} label={`Driver ${liveTracking.driver?.first_name ?? ''}`} zIndex={30}>
-      <span className="grid size-9 place-items-center rounded-xl border-2 border-white bg-app-accent text-white shadow-md"><Truck size={18} /></span>
+      <VehicleMarkerCircle />
     </GoogleOverlayMarker>}
     <div className="shipper-map-controls" aria-label="Map controls">
       <button type="button" className="app-metric app-map-icon" onClick={focusHome} aria-label="Focus warehouse or fallback location" title="Your location"><LocateFixed size={18} /></button>

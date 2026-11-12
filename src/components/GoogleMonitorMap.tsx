@@ -12,6 +12,7 @@ import type { Driver, Job, MapLayerConfig } from '../types';
 import { GoogleOverlayMarker } from './monitor/GoogleOverlayMarker';
 import { GoogleOrderMarkers } from './monitor/GoogleOrderMarkers';
 import { GoogleVehicleMarkers } from './monitor/GoogleVehicleMarkers';
+import { VehicleMarkerCircle } from './map/VehicleMarkerCircle';
 import { locatedOrderStops, separateStopMarkers, validMapPoint, type MapVehicle } from './monitor/mapLocations';
 import { MONITOR_CAMERA } from './monitor/mapScene';
 import { isActiveMonitorOrder } from './monitor/orderVisibility';
@@ -281,7 +282,7 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
       <div className="relative group flex items-center justify-center w-[46px] h-[46px]">
         <div className="absolute inset-0 rounded-full bg-app-accent/25 animate-radar-ping pointer-events-none" />
         <div className="absolute inset-1.5 rounded-full bg-app-accent/20 animate-radar-ping-fast pointer-events-none" />
-        <div className="relative w-9 h-9 rounded-full bg-app-accent text-white shadow-lg ring-2 ring-white grid place-items-center group-hover:scale-110 transition-transform"><Truck className="w-5 h-5" style={{ transform: `rotate(${movingDriver.heading - 90}deg)` }} /></div>
+        <VehicleMarkerCircle heading={movingDriver.heading} className="group-hover:scale-110 transition-transform" />
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none">D14 • Arles</div>
       </div>
     </GoogleOverlayMarker>

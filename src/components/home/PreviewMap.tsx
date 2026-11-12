@@ -41,7 +41,7 @@ export function PreviewMap({ completed = false, viewBox = '0 0 700 500', fit = '
     <StopMarkerCircle kind="PICKUP" cx={225} cy={385} />
     <StopMarkerCircle kind="DROPOFF" cx={465} cy={93} />
     <g data-preview-driver="true" transform="translate(465 150)">
-      <rect x="-18" y="-18" width="36" height="36" rx="10" fill={completed ? '#16a34a' : APP_ACCENT} stroke="white" strokeWidth="2" />
+      <circle r="18" fill={completed ? '#16a34a' : APP_ACCENT} stroke="white" strokeWidth="2" />
       <Truck x="-8" y="-8" width="16" height="16" color="white" />
     </g>
   </svg>;
