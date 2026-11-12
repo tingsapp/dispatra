@@ -16,13 +16,14 @@ const { operations } = await import('../src/operations/api');
 const { MonitorActions } = await import('../src/components/MonitorActions');
 const { ActivityLog } = await import('../src/components/activity/ActivityLog');
 const { activityKey } = await import('../src/components/activity/useActivity');
-const { syncKey } = await import('../src/portal/sync');
+const { syncKey, syncInvalidations } = await import('../src/portal/sync');
+const { BRIEFING_QUESTIONS } = await import('../src/components/activity/BriefingCard');
 import type { CompanyActivityEntry } from '../src/operations/api';
 const original = { ...operations };
 let cache: InstanceType<typeof QueryClient>;
 const entry = (id: string, title: string): CompanyActivityEntry => ({ id, title, source: 'AGENT', agent: 'ORDER', actor: 'AGENT', kind: 'agent.step', level: 'INFO', created_at: '2026-10-13T09:00:00Z', order_id: null, order_number: null });
 const page = (items: CompanyActivityEntry[], next_before: string | null = null) => ({ items, next_before, observed_at: '2026-10-13T09:00:00Z', time_zone: 'America/Vancouver' });
-beforeEach(() => { reduced = false; Object.defineProperty(document, 'hidden', { configurable: true, value: false }); operations.activity = async () => page([entry('AGENT:1', 'Reading the order queue.')]); operations.vehicles = async () => []; operations.notifications = async () => []; });
+beforeEach(() => { reduced = false; Object.defineProperty(document, 'hidden', { configurable: true, value: false }); operations.activity = async () => page([entry('AGENT:1', 'Reading the order queue.')]); operations.vehicles = async () => []; operations.notifications = async () => []; operations.briefing = async () => { throw new Error('briefing totals not mocked'); }; });
 afterEach(() => { cleanup(); cache?.clear(); Object.assign(operations, original); });
 after(() => dom.window.close());
 function Actions({ active }: { active: boolean }) {
@@ -46,8 +47,10 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
   assert.deepEqual(requests, ['BRIEFING']);
   assert.equal(screen.getByRole('dialog', {name:'Dispatra'}).getAttribute('data-view'),'briefing');
   assert.ok(screen.getByText('2 open issues to review'));
+  assert.equal(screen.queryByRole('heading', { name: 'Dispatra' }), null);
+  assert.equal(screen.queryByRole('button', { name: 'Show unassigned' }), null);
   const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
-  await user.click(screen.getByRole('button', { name: 'Show unassigned' }));
+  await user.click(screen.getByRole('button', { name: 'List all new orders.' }));
   await screen.findByText('Your orders are ready.');
   assert.equal(screen.getByRole('dialog', {name:'Dispatra'}).getAttribute('data-view'),'conversation');
   assert.deepEqual(requests, ['BRIEFING', 'CHAT']);
@@ -65,6 +68,23 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
   mount();
   await screen.findByLabelText('Daily briefing');
   assert.deepEqual(requests, ['BRIEFING', 'CHAT', 'CHAT', 'BRIEFING']);
+});
+
+test('the open briefing follows workspace changes and drops commentary written for older totals', async () => {
+  const opening = { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 1, unassigned: 1, assigned: 0, in_progress: 0, completed: 0, open_incidents: 0 };
+  let totals = opening;
+  operations.assistant = async () => ({ message: 'Assign the waiting order.', references: [], mode: 'AI', observed_at: '2026-11-04T17:00:00Z', limited: false, briefing: opening });
+  operations.briefing = async () => ({ briefing: totals, observed_at: new Date().toISOString() });
+  mount();
+  await screen.findByText('Assign the waiting order.');
+  const count = (label: string) => within(screen.getByLabelText('Status of orders received today')).getByText(label).nextElementSibling?.textContent;
+  totals = { ...opening, received: 2, unassigned: 1, assigned: 1, open_incidents: 1 };
+  await act(() => cache.invalidateQueries({ queryKey: syncInvalidations('DISPATCHER', 'acme', [{ entity: 'route', type: 'route.assigned' } as never]).find(key => key.includes('briefing')) }));
+  await screen.findByText('1 open issue to review');
+  assert.equal(count('Assigned'), '1');
+  assert.ok(screen.getByText('orders received today').parentElement?.textContent?.startsWith('2'));
+  assert.equal(screen.queryByText('Assign the waiting order.'), null);
+  assert.deepEqual(BRIEFING_QUESTIONS.map(question => screen.getByRole('button', { name: question }).textContent), BRIEFING_QUESTIONS);
 });
 
 test('opening rows and new records slide upward once in chronological order; reduced motion respects visibility', async () => {

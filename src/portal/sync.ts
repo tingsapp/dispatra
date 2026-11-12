@@ -23,8 +23,8 @@ function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
   const ops = (...rest: string[]) => ['operations', slug, ...rest];
   const order = change.order_id ? [['tracking', slug, change.order_id], ['delivery-proof', slug, change.order_id]] : [];
   switch (change.entity) {
-    case 'order': case 'stop': case 'evidence': case 'issue': return [ops('orders'), ops('routes'), ops('monitor'), ops('analytics'), ...order];
-    case 'route': return [ops('routes'), ops('orders'), ops('monitor'), ops('drivers'), ...order];
+    case 'order': case 'stop': case 'evidence': case 'issue': return [ops('orders'), ops('routes'), ops('monitor'), ops('analytics'), ops('briefing'), ...order];
+    case 'route': return [ops('routes'), ops('orders'), ops('monitor'), ops('drivers'), ops('briefing'), ...order];
     case 'driver': case 'duty': return [ops('drivers'), ops('monitor'), ops('driver-activity')];
     case 'vehicle': return [ops('vehicles'), ops('drivers'), ops('monitor')];
     case 'shipper': return [ops('shippers'), ['customers', slug]];
@@ -34,7 +34,8 @@ function dispatcherKeys(slug: string, change: SyncChange): QueryKey[] {
     case 'mailbox': return [ops('mailbox')];
     // Dispatch agent decisions change Needs Attention; the assignment itself arrives as order/route changes.
     case 'dispatch': return [ops('monitor')];
-    case 'watch': return [ops('monitor')];
+    // Operational incidents feed the chat briefing's open-issue line.
+    case 'watch': return [ops('monitor'), ops('briefing')];
     case 'rate': return [ops('rates')];
     case 'catalog': return [ops('catalog')];
     case 'settings': case 'organization': return [['account'], companySettingsKey(slug), ops('settings'), ops('catalog'), ops('rates')];

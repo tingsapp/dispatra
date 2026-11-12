@@ -22,6 +22,7 @@ export type AppNotification = components['schemas']['NotificationView'];
 export type CompanyActivityEntry = components['schemas']['CompanyActivityEntry'];
 export type AssistantQuestion = components['schemas']['WorkspaceAssistantQuestion'];
 export type AssistantReply = components['schemas']['AssistantReply'];
+export type BriefingTotals = components['schemas']['BriefingTotals'];
 export type AssistantReference = components['schemas']['AssistantReference'];
 export type Mailbox = components['schemas']['MailboxView'];
 export type MailboxInput = components['schemas']['MailboxInput'];
@@ -47,6 +48,7 @@ const mutation = () => ({ 'Idempotency-Key': key() });
 /** Operational records are always read from the tenant API. A page can request subsequent UUID pages without local fixtures. */
 export const operations = {
   assistant: async (slug: string, body: AssistantQuestion, signal?: AbortSignal) => unwrap(await client.POST('/api/v1/companies/{slug}/assistant/messages', { body, signal, params: { path: company(slug) } })),
+  briefing: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/assistant/briefing', { params: { path: company(slug) } })),
   sync: async (slug: string, cursor?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/sync', { params: { path: company(slug), query: { cursor } } })),
   notifications: async (slug: string, before?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/notifications', { params: { path: company(slug), query: { limit: 50, before } } })),
   readNotification: async (slug: string, row: AppNotification) => unwrap(await client.POST('/api/v1/companies/{slug}/notifications/{identity}/read', { body: { version: row.version }, params: { path: entity(slug, row.id), header: mutation() } })),

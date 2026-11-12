@@ -74,9 +74,10 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) {
   -webkit-backdrop-filter: blur(24px) saturate(115%);
 }
 body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { font-family: var(--font-sans); border-radius: 16px; }
+/* Today’s plan, the map toolbar and the assistant share the sidebar's inset so their top and bottom edges line up. */
 .dispatcher-monitor [aria-label="Today’s plan"] {
   left: var(--monitor-content-left);
-  top: 16px;
+  top: var(--monitor-inset);
   width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 76px));
   max-width: none;
   max-height: calc(100dvh - 48px);
@@ -92,7 +93,7 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
 
 .dispatcher-monitor .monitor-assistant-dock {
   left: var(--monitor-content-left);
-  bottom: 24px;
+  bottom: var(--monitor-inset);
   width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 76px));
 }
 .dispatcher-monitor .company-activity-panel,
@@ -103,18 +104,15 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   max-height: calc(100dvh - 132px);
 }
 .dispatcher-monitor .company-activity-panel[data-view="briefing"] .assistant-panel-content { animation: none; }
-.dispatcher-monitor .company-activity-panel h3 { font-size: 13px; color: #303238; }
 .dispatcher-monitor .briefing-overview { background: rgb(239 240 243 / 74%); border-radius: 14px; }
 .dispatcher-monitor .briefing-guidance { background: rgb(245 245 247 / 80%); border-radius: 12px; }
 .dispatcher-monitor .briefing-total strong { font-size: 32px; font-weight: 500; }
 .dispatcher-monitor .briefing-counts dd { font-size: 20px; font-weight: 400; }
-.dispatcher-monitor .briefing-actions button { background: rgb(255 255 255 / 65%); border-color: rgb(30 35 42 / 9%); font-weight: 400; }
-.dispatcher-monitor .briefing-actions button:hover { background: var(--monitor-hover); }
 .dispatcher-monitor .public-chat-composer { background: rgb(255 255 255 / 90%); border-color: rgb(30 35 42 / 12%); box-shadow: inset 0 1px 2px rgb(30 35 42 / 3%); }
 .dispatcher-monitor .company-activity-panel[data-expanded="false"] .public-chat-composer { box-shadow: var(--monitor-shadow); backdrop-filter: blur(24px); }
 .dispatcher-monitor .company-activity-panel .public-chat-input { font-family: var(--font-sans); font-size: 12px; }
 
-.dispatcher-monitor .app-map-toolbar { top: 16px; right: 16px; gap: 8px; }
+.dispatcher-monitor .app-map-toolbar { top: var(--monitor-inset); right: 16px; gap: 8px; }
 .dispatcher-monitor .app-metric { border-radius: 12px; color: #42454c; font-size: 12px; font-weight: 400; }
 .dispatcher-monitor .app-metric svg { stroke-width: 1.65; }
 .dispatcher-monitor .app-metric .text-sm { font-size: 12px; }
@@ -157,7 +155,7 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   .dispatcher-monitor [aria-label="Open menu"] { top: 12px; left: 12px; border-radius: 12px; background: var(--monitor-glass); box-shadow: var(--monitor-shadow); backdrop-filter: blur(24px); }
   .dispatcher-monitor .app-map-toolbar { top: 12px; right: 12px; }
   .dispatcher-monitor [aria-label="Today’s plan"] { top: 68px; width: calc(100% - 80px); max-height: calc(100dvh - 92px); }
-  .dispatcher-monitor .monitor-assistant-dock { bottom: 20px; width: calc(100% - 80px); }
+  .dispatcher-monitor .monitor-assistant-dock { width: calc(100% - 80px); }
   .dispatcher-monitor .company-activity-panel[data-expanded="true"] { padding: 10px; max-height: calc(100dvh - 178px); border-radius: 18px; }
   .dispatcher-monitor .monitor-map-controls { right: 12px; bottom: 32px; }
   .dispatcher-monitor .briefing-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -166,8 +164,6 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   .dispatcher-monitor .briefing-total > div { gap: 4px; }
   .dispatcher-monitor .briefing-total span { font-size: 11px; }
   .dispatcher-monitor .briefing-total .briefing-order-icon { width: 28px; height: 28px; border-radius: 8px; }
-  .dispatcher-monitor .briefing-actions { gap: 5px; }
-  .dispatcher-monitor .briefing-actions button { font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dispatcher-monitor *, body:has(.dispatcher-monitor) .app-floating-panel { transition: none !important; animation: none !important; }

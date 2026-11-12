@@ -1,18 +1,22 @@
-import { ActionButton } from '../ui/button';
-import { ArrowUpRight, CircleCheck, CircleAlert, Package } from 'lucide-react';
+import { CircleCheck, CircleAlert, Package } from 'lucide-react';
 import type { AssistantReply } from '../../operations/api';
+import { useLiveBriefing } from './useLiveBriefing';
 
-export function BriefingCard({ reply, pending, onFollowUp }: { reply: AssistantReply; pending: boolean; onFollowUp?: (prompt: string) => void }) {
-  const data = reply.briefing;
-  if (!data) return null;
+/** Questions a dispatcher most often needs answered at the start of a shift; each is sent as a normal chat message. */
+export const BRIEFING_QUESTIONS = ['List all new orders.', 'Which orders need attention and why?'];
+
+export function BriefingCard({ slug, reply, pending, onFollowUp }: { slug?: string; reply: AssistantReply; pending: boolean; onFollowUp?: (prompt: string) => void }) {
+  const live = useLiveBriefing(slug, reply);
+  if (!live) return null;
+  const data = live.briefing;
   const attention = data.open_incidents > 0;
   const Icon = attention ? CircleAlert : CircleCheck;
-  const updated = new Intl.DateTimeFormat('en-CA', { timeZone: data.time_zone, hour: 'numeric', minute: '2-digit' }).format(new Date(reply.observed_at));
+  const updated = new Intl.DateTimeFormat('en-CA', { timeZone: data.time_zone, hour: 'numeric', minute: '2-digit' }).format(new Date(live.observed_at));
   return <div aria-label="Daily briefing" className="assistant-briefing">
     <div className="briefing-overview">
       <div className="briefing-heading">
         <h4>{data.evening ? 'Today’s summary' : 'Today so far'}</h4>
-        <time dateTime={reply.observed_at} title={`Updated in ${data.time_zone}`} aria-label={`Updated ${updated}`}>
+        <time dateTime={live.observed_at} title={`Updated in ${data.time_zone}`} aria-label={`Updated ${updated}`}>
           {updated}
         </time>
       </div>
@@ -26,8 +30,8 @@ export function BriefingCard({ reply, pending, onFollowUp }: { reply: AssistantR
     </dl>
     <div className="briefing-guidance">
       <p className={`briefing-issues ${attention ? 'text-amber-700' : 'text-slate-600'}`}><Icon size={15} className="shrink-0" aria-hidden="true" />{attention ? `${data.open_incidents} open ${data.open_incidents === 1 ? 'issue' : 'issues'} to review` : 'No open issues recorded'}<span className="sr-only"> across your workspace</span></p>
-      <p className="briefing-recommendation">{reply.message}</p>
+      {live.recommendation && <p className="briefing-recommendation">{live.recommendation}</p>}
     </div>
-    <div className="briefing-actions" aria-label="Briefing follow-ups">{[['Unassigned', 'Show unassigned', 'Show my unassigned orders.'], ['Review issues', 'Review issues', 'Which orders need attention and why?']].map(([label, accessibleLabel, prompt]) => <ActionButton key={label} type="button" aria-label={accessibleLabel} disabled={pending || !onFollowUp} onClick={() => onFollowUp?.(prompt)}>{label}<ArrowUpRight size={14} aria-hidden="true" /></ActionButton>)}</div>
+    <div className="briefing-questions" aria-label="Suggested questions">{BRIEFING_QUESTIONS.map(question => <button key={question} type="button" disabled={pending || !onFollowUp} onClick={() => onFollowUp?.(question)}>{question}</button>)}</div>
   </div>;
 }

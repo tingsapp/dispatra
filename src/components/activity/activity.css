@@ -55,17 +55,16 @@
 .briefing-guidance { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: #fafafa; }
 .briefing-issues { display: flex; align-items: center; gap: 7px; font-size: 12px; line-height: 18px; }
 .briefing-recommendation { font-size: 12px; line-height: 18px; color: #475569; overflow-wrap: anywhere; }
-.briefing-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.briefing-actions button { display: flex; justify-content: center; align-items: center; gap: 6px; min-height: 36px; padding: 7px 8px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 11px; font-weight: 500; color: #334155; }
-.briefing-actions button:hover { background: #f5f7fa; border-color: #cbd5e1; }
-.briefing-actions button:focus-visible { outline: 2px solid #475569; outline-offset: 2px; }
-.briefing-actions button:disabled { opacity: .5; }
+.briefing-questions { display: grid; justify-items: start; gap: 2px; padding: 0 4px; }
+.briefing-questions button { padding: 3px 0; font-size: 12px; line-height: 18px; text-align: left; color: #334155; }
+.briefing-questions button:hover { color: #0f172a; }
+.briefing-questions button:focus-visible { outline: 2px solid #475569; outline-offset: 2px; border-radius: 4px; }
+.briefing-questions button:disabled { opacity: .5; }
 @media (max-width: 380px) {
   .briefing-overview { padding: 12px; }
   .briefing-counts { gap: 3px; padding: 0; }
   .briefing-counts > div { padding: 0; }
   .briefing-guidance { padding: 10px; }
-  .briefing-actions button { padding-inline: 4px; gap: 4px; }
 }
 @media (max-height: 650px) {
   .assistant-briefing { gap: 8px; }
@@ -75,7 +74,7 @@
   .company-activity-panel[data-view="briefing"] .assistant-panel-content > :first-child { padding-bottom: 6px; }
 }
 @media (pointer: coarse) {
-  .briefing-actions button { min-height: 44px; }
+  .briefing-questions button { min-height: 32px; }
 }
 @keyframes assistant-panel-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .assistant-panel-content { animation: assistant-panel-enter 220ms ease both; display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }

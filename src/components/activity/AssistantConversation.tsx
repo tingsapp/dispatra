@@ -3,9 +3,9 @@ import type { AssistantReference } from '../../operations/api';
 import { BriefingCard } from './BriefingCard';
 import type { ChatMessage } from './useAssistantChat';
 
-export function AssistantConversation({ messages, pending, active, reducedMotion, onSelect, onFollowUp }: {
+export function AssistantConversation({ slug, messages, pending, active, reducedMotion, onSelect, onFollowUp }: {
   onFollowUp?: (prompt: string) => void;
-  messages: ChatMessage[]; pending: boolean; active: boolean; reducedMotion: boolean; onSelect?: (reference: AssistantReference) => void;
+  slug?: string; messages: ChatMessage[]; pending: boolean; active: boolean; reducedMotion: boolean; onSelect?: (reference: AssistantReference) => void;
 }) {
   const transcript = useRef<HTMLDivElement>(null);
   const seen = useRef(new Set(messages.map(message => message.id)));
@@ -39,7 +39,7 @@ export function AssistantConversation({ messages, pending, active, reducedMotion
     {messages.map(message => <article key={message.id} data-message-id={message.id} aria-label={message.role === 'user' ? 'Your message' : 'Dispatra message'}
       className={`assistant-message ${message.role === 'user' ? 'ml-auto w-fit max-w-[calc(100%-1.5rem)] rounded-2xl bg-slate-100 px-3 py-2' : ''}`}>
       {!message.reply?.briefing && <p className="mb-1 text-[10px] text-app-muted">{message.role === 'user' ? 'You' : 'Dispatra'}</p>}
-      {message.reply?.briefing ? <BriefingCard reply={message.reply} pending={pending} onFollowUp={onFollowUp} /> : <p className="whitespace-pre-wrap break-words text-[13px] leading-5">{message.content}</p>}
+      {message.reply?.briefing ? <BriefingCard slug={slug} reply={message.reply} pending={pending} onFollowUp={onFollowUp} /> : <p className="whitespace-pre-wrap break-words text-[13px] leading-5">{message.content}</p>}
       {!!message.reply?.references.length && message.reply.limited && <p className="mt-2 text-[11px] text-app-muted">Showing recent matches. Refine your question to narrow the results.</p>}
       {!!message.reply?.references.length && <ul aria-label="Matching workspace records" className="mt-2 space-y-1.5">
         {message.reply.references.map(reference => <li key={reference.key}><button type="button" onClick={() => onSelect?.(reference)}

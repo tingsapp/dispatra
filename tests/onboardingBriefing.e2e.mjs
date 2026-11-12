@@ -25,6 +25,8 @@ try {
   const entry = await (await context.request.get(origin + '/src/main.tsx')).text();
   const react = entry.match(/"([^"]*\/react\.js[^\"]*)"/)[1];
   const reactDom = entry.match(/"([^"]*\/react-dom_client\.js[^\"]*)"/)[1];
+  const liveBriefing = await (await context.request.get(origin + '/src/components/activity/useLiveBriefing.ts')).text();
+  const reactQuery = liveBriefing.match(/"([^"]*\/@tanstack_react-query\.js[^\"]*)"/)[1];
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
   page.on('pageerror', error => errors.push(error.message));
@@ -34,11 +36,14 @@ try {
       message:'Workspace response. '.repeat(160),references:[],mode:'AI',observed_at:new Date().toISOString(),limited:false,
     },
   }));
+  // The open card refetches deterministic totals; returning the opening facts keeps the commentary current.
+  await page.route('**/api/v1/companies/preview/assistant/briefing', route => route.fulfill({json: { briefing: reply.briefing, observed_at: reply.observed_at }}));
   await page.route(origin + '/__briefing-preview', route => route.fulfill({ contentType: 'text/html', body: `
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
     <body style="margin:0;background:#e8eef1"><div id="root"></div>${preamble}<script type="module">
     import React from '${react}';
     import ReactDOM from '${reactDom}';
+    import {QueryClient, QueryClientProvider} from '${reactQuery}';
     import {MonitorActivity} from '/src/components/activity/MonitorActivity.tsx';
     import '/src/index.css';
     function Preview() {
@@ -46,7 +51,7 @@ try {
       return React.createElement('div',{style:{position:'fixed',bottom:24,left:24}},
         React.createElement(MonitorActivity,{slug:'preview',open,active:true,onOpenChange:setOpen}));
     }
-    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Preview));
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(QueryClientProvider,{client:new QueryClient()},React.createElement(Preview)));
     </script></body></html>` }));
 
   const cases = [
@@ -72,11 +77,11 @@ try {
       assert.equal(measurements.scrollTop,0);
       assert.ok(measurements.top >= 0 && measurements.bottom <= height && measurements.left >= 0 && measurements.right <= width);
       assert.equal(await page.getByLabel('Message Dispatra').isVisible(),true);
-      assert.equal(await page.getByRole('button',{name:'Review issues',exact:true}).isVisible(),true);
+      assert.equal(await page.getByRole('button',{name:'Which orders need attention and why?',exact:true}).isVisible(),true);
       if (name === 'empty' && [503,320].includes(width)) await page.screenshot({path:`/tmp/dispatra-briefing-${width}.png`});
     }
   }
-  await page.getByRole('button',{name:'Show unassigned',exact:true}).click();
+  await page.getByRole('button',{name:'List all new orders.',exact:true}).click();
   await page.getByText('Workspace response.',{exact:false}).waitFor();
   await page.waitForFunction(()=>document.querySelector('.company-activity-panel')?.dataset.view==='conversation');
   assert.ok(await page.locator('.assistant-panel-body').evaluate(el=>el.scrollHeight>el.clientHeight),'Long conversations remain scrollable');

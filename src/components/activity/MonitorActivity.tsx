@@ -35,12 +35,11 @@ export function MonitorActivity({ slug, open, active, onOpenChange, onSelectRefe
   };
   return <section role={open ? 'dialog' : 'region'} aria-label="Dispatra" data-expanded={open} data-view={opening ? 'briefing' : 'conversation'} className="company-activity-panel">
     {open && <div id={contentId} className="assistant-panel-content">
-    <div className="flex shrink-0 items-center justify-between gap-3 pb-3">
-      <h3 className="text-sm font-medium">Dispatra</h3>
-      <button type="button" onClick={() => { inputRef.current?.blur(); onOpenChange(false); }} aria-label="Close Dispatra" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-app-muted hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-slate-500"><X size={14} /></button>
+    <div className="-mr-1 -mt-1 flex shrink-0 items-center justify-end pb-1">
+      <button type="button" onClick={() => { inputRef.current?.blur(); onOpenChange(false); }} aria-label="Close Dispatra" className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-app-muted hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-slate-500"><X size={14} /></button>
     </div>
     <div role="region" aria-label="Dispatra content" tabIndex={0} className="assistant-panel-body assistant-view-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-      <AssistantConversation messages={chat.messages} pending={chat.pending} active={open && active && visible} reducedMotion={reducedMotion} onSelect={onSelectReference} onFollowUp={prompt => chat.submit(false, false, prompt)} />
+      <AssistantConversation slug={slug} messages={chat.messages} pending={chat.pending} active={open && active && visible} reducedMotion={reducedMotion} onSelect={onSelectReference} onFollowUp={prompt => chat.submit(false, false, prompt)} />
     </div>
     </div>}
     <form className={`shrink-0 ${open ? 'mt-3' : ''}`} onSubmit={event => { event.preventDefault(); submit(); }}>

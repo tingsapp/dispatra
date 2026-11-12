@@ -253,11 +253,6 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />
     <GoogleVehicleMarkers vehicles={props.vehicles ?? []} onOpenVehicle={props.onOpenVehicle} />
-    <div aria-label="Map marker legend" className="absolute bottom-4 left-4 z-10 flex items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-[11px] text-slate-600 shadow-sm">
-      <span className="flex items-center gap-1"><span className="size-2.5 rounded-full border-2 border-slate-900 bg-white" />Pickup</span>
-      <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-slate-900" />Drop-off</span>
-      <span className="flex items-center gap-1"><Truck className="size-3.5" />Vehicle · P = parking</span>
-    </div>
     {(routeAttribution || hasPreview || failedPaths > 0 || approaches.failed > 0) &&
       <div className="absolute bottom-8 right-16 z-10 max-w-[calc(100%-5rem)] rounded bg-white/95 px-2 py-1 text-[10px] text-slate-600" aria-label="Route information">
         {hasPreview && <div>Road preview · no vehicle assigned</div>}
