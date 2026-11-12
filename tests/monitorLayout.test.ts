@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 import { fitMonitorPoints, monitorFitPadding } from '../src/components/monitor/useMonitorMapCamera';
 
 function fixture(width: number, floating = true) {
-  const dom = new JSDOM(`<div class="${floating ? 'dispatcher-monitor' : ''}"><aside aria-label="Main navigation"></aside><main><div id="map"></div><section aria-label="Today’s plan"></section></main></div>`);
+  const dom = new JSDOM(`<div class="${floating ? 'dispatcher-monitor' : ''}"><aside aria-label="Main navigation"></aside><main><div id="map"></div><section aria-label="Active orders"></section></main></div>`);
   const canvas = dom.window.document.getElementById('map')!;
   canvas.getBoundingClientRect = () => ({ left: 0, width } as DOMRect);
   const plan = dom.window.document.querySelector('section')!;

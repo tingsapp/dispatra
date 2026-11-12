@@ -56,12 +56,12 @@ export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, o
   const query = search.trim().toLowerCase();
   const visibleOrders = groups[filter].filter(job => [job.jobNumber, job.customerName, job.dropoffAddress, job.pickupAddress, job.driverName, drivers.find(driver => driver.id === job.assignedDriverId)?.name].some(value => value?.toLowerCase().includes(query)));
   const attention = new Set(groups.attention.map(job => job.id));
-  return <section aria-label="Today’s plan" className="absolute left-3 top-20 z-20 w-[min(26rem,calc(100vw_-_112px))] max-w-[calc(100%_-_1.5rem)] overflow-hidden app-map-menu rounded-2xl border border-app-border bg-white shadow-sm sm:left-6 lg:top-5">
+  return <section aria-label="Active orders" className="absolute left-3 top-20 z-20 w-[min(26rem,calc(100vw_-_112px))] max-w-[calc(100%_-_1.5rem)] overflow-hidden app-map-menu rounded-2xl border border-app-border bg-white shadow-sm sm:left-6 lg:top-5">
     <header className="px-4 pb-3 pt-4">
       <button type="button" aria-expanded={expanded} aria-controls={expanded ? contentId : undefined}
         onClick={() => { if (expanded) setHidden(true); else { setHidden(false); onCloseChat?.(); } }}
         className="flex w-full items-center justify-between gap-3 rounded text-left focus-visible:outline-2 focus-visible:outline-slate-500">
-        <span className="flex items-center gap-2"><span className="text-sm font-medium">Today’s plan</span>{!loading && !error && <MonitorBadge>{groups.all.length}</MonitorBadge>}</span>
+        <span className="flex items-center gap-2"><span className="text-sm font-medium">Active orders</span>{!loading && !error && <MonitorBadge>{groups.all.length}</MonitorBadge>}</span>
         {expanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
       </button>
       <p className="mt-1 text-[11px] text-app-muted">{new Intl.DateTimeFormat('en-CA', { timeZone, month: 'short', day: 'numeric' }).format(now)} · Created today{!loading && !error && groups.unassigned.length > 0 && ` · ${groups.unassigned.length} unassigned`}</p>
@@ -72,7 +72,7 @@ export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, o
       {!loading && !error && <div role="tablist" aria-label="Filter today’s orders" className="flex gap-0.5 overflow-x-auto border-b border-slate-100 px-3 pb-3">
         {([['all', 'All'], ['unassigned', 'New'], ['assigned', 'Assigned'], ['in_progress', 'In progress'], ['completed', 'Completed'], ['attention', 'At risk']] as const).map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={filter === key} onClick={() => setFilter(key)} className={`shrink-0 whitespace-nowrap rounded-lg px-1.5 py-1.5 text-[13px] font-medium focus-visible:outline-2 focus-visible:outline-slate-500 ${filter === key ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>)}
       </div>}
-      {error ? <div role="alert" className="px-4 pb-3 text-xs text-app-muted">Today’s plan is unavailable. <ActionButton type="button" className="underline" onClick={onRetry}>Try again</ActionButton></div>
+      {error ? <div role="alert" className="px-4 pb-3 text-xs text-app-muted">Active orders are unavailable. <ActionButton type="button" className="underline" onClick={onRetry}>Try again</ActionButton></div>
         : loading ? <p role="status" className="px-4 pb-3 text-xs text-app-muted">Loading today’s orders…</p>
         : <>
           {groups.all.length === 0 ? <p className="px-4 pb-4 pt-1 text-xs text-app-muted">No orders created today.</p> :

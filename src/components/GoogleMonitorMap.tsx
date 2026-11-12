@@ -229,10 +229,6 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     return points ? [[job.id, points.map(([lat, lng]) => ({ lat, lng }))]] : [];
   }));
   const approaches = useRouteApproaches(slug, props.routes ?? [], visibleJobs.map(({ job }) => job), props.vehicles ?? [], props.active !== false);
-  const routeAttribution = [...new Set([
-    ...pathQueries.flatMap(query => query.data?.points.length && query.data.attribution ? [query.data.attribution] : []),
-    ...approaches.paths.flatMap(path => path.attribution ? [path.attribution] : []),
-  ])].join(' · ');
   const hasPreview = pathQueries.some(query => query.data?.preview && query.data.points.length > 1);
   const failedPaths = pathQueries.filter(query => query.isError).length;
   const locatedDrivers = (props.demo === false && props.vehicles === undefined ? props.drivers ?? [] : [])
@@ -253,10 +249,9 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />
     <GoogleVehicleMarkers vehicles={props.vehicles ?? []} onOpenVehicle={props.onOpenVehicle} />
-    {(routeAttribution || hasPreview || failedPaths > 0 || approaches.failed > 0) &&
+    {(hasPreview || failedPaths > 0 || approaches.failed > 0) &&
       <div className="absolute bottom-8 right-16 z-10 max-w-[calc(100%-5rem)] rounded bg-white/95 px-2 py-1 text-[10px] text-slate-600" aria-label="Route information">
         {hasPreview && <div>Road preview · no vehicle assigned</div>}
-        {routeAttribution && <div aria-label="Route data attribution">Routes {routeAttribution}</div>}
         {failedPaths > 0 && <div role="status">Route unavailable for {failedPaths} {failedPaths === 1 ? 'order' : 'orders'}</div>}
         {approaches.failed > 0 && <div role="status">Vehicle approach unavailable for {approaches.failed} {approaches.failed === 1 ? 'route' : 'routes'}</div>}
       </div>}

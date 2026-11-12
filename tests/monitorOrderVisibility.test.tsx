@@ -77,7 +77,7 @@ test('checkboxes hide complete order markers and cached road paths without selec
   const beforeToggle = fits.length;
   await user.click(screen.getByRole('checkbox',{name:'Show #100 on map'}));
   await waitFor(() => assert.ok(fits.length > beforeToggle, 'Checkbox changes automatically fit the remaining visible work'));
-  assert.equal(screen.queryByRole('button',{name:/^Order #100,/}),null);assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,1);assert.deepEqual(selected,[]);assert.ok(screen.getByRole('region',{name:'Today’s plan'}));
+  assert.equal(screen.queryByRole('button',{name:/^Order #100,/}),null);assert.equal(pane.querySelectorAll('svg[data-shipper-route]').length,1);assert.deepEqual(selected,[]);assert.ok(screen.getByRole('region',{name:'Active orders'}));
   await user.type(screen.getByPlaceholderText('Search orders, shippers or addresses...'),'200');assert.equal(screen.queryByRole('checkbox',{name:'Show #100 on map'}),null);
   await user.clear(screen.getByPlaceholderText('Search orders, shippers or addresses...'));assert.equal((screen.getByRole('checkbox',{name:'Show #100 on map'}) as HTMLInputElement).checked,false);
   view.rerender(<QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><Harness rows={[{...orders[0],version:2},orders[1],job('new','#300')]} /></APIProviderContext.Provider></QueryClientProvider>);
@@ -185,7 +185,7 @@ test('bounds follow located drivers even when no orders are displayed', async ()
   assert.ok(screen.getByRole('button',{name:/^Driver /}));
 });
 
-test('unassigned previews draw road geometry and assignment refresh replaces them with TomTom attribution', async () => {
+test('unassigned previews draw road geometry and assignment refresh replaces them without provider attribution', async () => {
   operations.orderRoadPath = async () => ({ points:[[49.2,-123.1],[49.3,-123.2]],provider:'GOOGLE',preview:true,truck_profile_applied:false,attribution:'' });
   const props={demo:false,jobs:[orders[0]],drivers:[],onSelectJob:()=>{},onSelectDriver:()=>{},layerConfig:{mode:'map' as const,traffic:false,labels:true}};
   const view=render(tree(<MonitorMapContent {...props}/>));
@@ -193,8 +193,8 @@ test('unassigned previews draw road geometry and assignment refresh replaces the
   assert.ok(screen.getByText('Road preview · no vehicle assigned'));
   operations.orderRoadPath = async () => ({ points:[[49.2,-123.1],[49.25,-123.18],[49.3,-123.2]],provider:'TOMTOM',preview:false,truck_profile_applied:true,attribution:'© TomTom' });
   view.rerender(<QueryClientProvider client={cache}><APIProviderContext.Provider value={context}><MonitorMapContent {...props} jobs={[{...orders[0],version:2,assignedDriverId:'assigned'}]}/></APIProviderContext.Provider></QueryClientProvider>);
-  await waitFor(()=>assert.ok(screen.getByLabelText('Route data attribution').textContent?.includes('TomTom')));
-  assert.equal(screen.queryByText('Road preview · no vehicle assigned'),null);
+  await waitFor(()=>assert.equal(screen.queryByText('Road preview · no vehicle assigned'),null));
+  assert.equal(screen.queryByText(/TomTom/),null);
   await waitFor(()=>assert.ok(pane.querySelector('svg[data-shipper-route] path')?.getAttribute('d')?.includes('Q'), 'Refreshed three-point road geometry draws its rounded bend'));
 });
 

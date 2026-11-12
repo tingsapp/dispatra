@@ -65,7 +65,7 @@
 .dispatcher-monitor .dispatcher-nav-footer > div:last-child > span { font-size: 12px; color: #51535a; }
 
 /* One material recipe for floating surfaces, with an opaque fallback below. */
-.dispatcher-monitor :is([aria-label="Today’s plan"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),
+.dispatcher-monitor :is([aria-label="Active orders"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),
 body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) {
   border: 1px solid rgb(255 255 255 / 82%);
   background: rgb(255 255 255 / 88%);
@@ -74,8 +74,8 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) {
   -webkit-backdrop-filter: blur(24px) saturate(115%);
 }
 body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { font-family: var(--font-sans); border-radius: 16px; }
-/* Today’s plan, the map toolbar and the assistant share the sidebar's inset so their top and bottom edges line up. */
-.dispatcher-monitor [aria-label="Today’s plan"] {
+/* Active orders, the map toolbar and the assistant share the sidebar's inset so their top and bottom edges line up. */
+.dispatcher-monitor [aria-label="Active orders"] {
   left: var(--monitor-content-left);
   top: var(--monitor-inset);
   width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 76px));
@@ -85,11 +85,11 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   flex-direction: column;
   border-radius: 18px;
 }
-.dispatcher-monitor [aria-label="Today’s plan"] > header { padding: 14px 16px 12px; flex-shrink: 0; }
-.dispatcher-monitor [aria-label="Today’s plan"] > div { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.dispatcher-monitor [aria-label="Today’s plan"] [role="tab"][aria-selected="true"] { background: rgb(30 35 42 / 9%); color: #24262b; }
-.dispatcher-monitor [aria-label="Today’s plan"] [role="tab"] { font-weight: 400; }
-.dispatcher-monitor [aria-label="Today’s plan"] header button { color: #303238; }
+.dispatcher-monitor [aria-label="Active orders"] > header { padding: 14px 16px 12px; flex-shrink: 0; }
+.dispatcher-monitor [aria-label="Active orders"] > div { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.dispatcher-monitor [aria-label="Active orders"] [role="tab"][aria-selected="true"] { background: rgb(30 35 42 / 9%); color: #24262b; }
+.dispatcher-monitor [aria-label="Active orders"] [role="tab"] { font-weight: 400; }
+.dispatcher-monitor [aria-label="Active orders"] header button { color: #303238; }
 
 .dispatcher-monitor .monitor-assistant-dock {
   left: var(--monitor-content-left);
@@ -137,13 +137,18 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
 @media (pointer: fine) and (min-width: 768px) {
   .dispatcher-monitor .app-metric { height: 36px; border-radius: 12px; }
 }
+/* Tuck Google's bottom-left logo behind the floating sidebar (expanded or collapsed rail) and hide its bottom-right attribution strip. */
+.dispatcher-monitor [aria-label="Monitor map"] .gm-style :is(.gm-style-cc, .gmnoprint) { display: none; }
+@media (min-width: 640px) {
+  .dispatcher-monitor [aria-label="Monitor map"] .gm-style a[href*="maps.google.com/maps"] { transform: translate(8px, -16px); }
+}
 /* Keep plan and status controls separated on laptop and tablet widths. */
 @media (min-width: 640px) and (max-width: 1199px) {
   .dispatcher-monitor .app-map-metrics .app-metric-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .dispatcher-monitor [aria-label="Today’s plan"] { width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 256px)); }
+  .dispatcher-monitor [aria-label="Active orders"] { width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 256px)); }
 }
 @media (min-width: 640px) and (max-width: 959px) {
-  .dispatcher-monitor [aria-label="Today’s plan"] { top: 72px; width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 76px)); }
+  .dispatcher-monitor [aria-label="Active orders"] { top: 72px; width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 76px)); }
   .dispatcher-monitor .company-activity-panel[data-expanded="true"] { max-height: calc(100dvh - 188px); }
 }
 @media (max-width: 639px) {
@@ -154,7 +159,7 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   .dispatcher-monitor .app-nav-item { min-height: 44px; }
   .dispatcher-monitor [aria-label="Open menu"] { top: 12px; left: 12px; border-radius: 12px; background: var(--monitor-glass); box-shadow: var(--monitor-shadow); backdrop-filter: blur(24px); }
   .dispatcher-monitor .app-map-toolbar { top: 12px; right: 12px; }
-  .dispatcher-monitor [aria-label="Today’s plan"] { top: 68px; width: calc(100% - 80px); max-height: calc(100dvh - 92px); }
+  .dispatcher-monitor [aria-label="Active orders"] { top: 68px; width: calc(100% - 80px); max-height: calc(100dvh - 92px); }
   .dispatcher-monitor .monitor-assistant-dock { width: calc(100% - 80px); }
   .dispatcher-monitor .company-activity-panel[data-expanded="true"] { padding: 10px; max-height: calc(100dvh - 178px); border-radius: 18px; }
   .dispatcher-monitor .monitor-map-controls { right: 12px; bottom: 32px; }
@@ -179,15 +184,15 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   .dispatcher-monitor .company-activity-panel[data-expanded="true"] { max-height: calc(100dvh - 172px); }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .dispatcher-monitor :is(.app-workspace-sidebar aside, [aria-label="Today’s plan"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),
+  .dispatcher-monitor :is(.app-workspace-sidebar aside, [aria-label="Active orders"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),
   body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { background: #fafafb; backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 @supports not (backdrop-filter: blur(1px)) {
-  .dispatcher-monitor :is(.app-workspace-sidebar aside, [aria-label="Today’s plan"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),
+  .dispatcher-monitor :is(.app-workspace-sidebar aside, [aria-label="Active orders"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),
   body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { background: #fafafb; }
 }
 @media (forced-colors: active) {
-  .dispatcher-monitor :is(.app-workspace-sidebar aside, [aria-label="Today’s plan"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),
+  .dispatcher-monitor :is(.app-workspace-sidebar aside, [aria-label="Active orders"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),
   body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { background: Canvas; border: 1px solid CanvasText; box-shadow: none; backdrop-filter: none; }
   .dispatcher-monitor :is(button, a, textarea, [tabindex="0"]):focus-visible { outline-color: Highlight; }
   .dispatcher-monitor .company-activity-panel .public-chat-composer:focus-within {

@@ -653,8 +653,8 @@ button.app-account-card { border-radius: var(--app-radius-menu-item) !important;
   border-radius: 8px !important;
 }
 
-/* Today’s plan filters retain their original compact tab corners. */
-[aria-label="Today’s plan"] [role="tab"] {
+/* Active orders filters retain their original compact tab corners. */
+[aria-label="Active orders"] [role="tab"] {
   border-radius: 8px !important;
 }
 

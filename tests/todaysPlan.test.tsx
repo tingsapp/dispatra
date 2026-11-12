@@ -64,7 +64,7 @@ test('shows one direct order list with status and customer; a click opens detail
   assert.equal(screen.getAllByRole('list').length, 1);
   assert.equal(screen.getAllByRole('button').length, 4);
   assert.equal(screen.queryByRole('button', { name: 'Close matching orders' }), null);
-  assert.equal(screen.getByRole('button', { name: /Today’s plan/ }).getAttribute('aria-expanded'), 'true');
+  assert.equal(screen.getByRole('button', { name: /Active orders/ }).getAttribute('aria-expanded'), 'true');
 });
 
 test('loading and failure never present misleading zero counts; retry works', () => {
@@ -91,7 +91,7 @@ test('collapses for chat, restores afterward, and respects intentional hiding', 
   let closed = 0;
   const props = { jobs: [], attentionIds: new Set<string>(), timeZone: zone, onRetry: () => {}, onSelectOrder: () => {}, onCloseChat: () => { closed++; } };
   const view = render(<TodaysPlan {...props} />);
-  const toggle = () => screen.getByRole('button', { name: /Today’s plan/ });
+  const toggle = () => screen.getByRole('button', { name: /Active orders/ });
   assert.equal(toggle().getAttribute('aria-expanded'), 'true');
   view.rerender(<TodaysPlan {...props} chatOpen />);
   assert.equal(toggle().getAttribute('aria-expanded'), 'false');
@@ -112,7 +112,7 @@ test('collapses for chat, restores afterward, and respects intentional hiding', 
 test('an incoming order or draft focus request reopens a manually collapsed plan', () => {
   const props = { jobs: [], attentionIds: new Set<string>(), timeZone: zone, onRetry: () => {}, onSelectOrder: () => {} };
   const view = render(<TodaysPlan {...props} />);
-  const toggle = () => screen.getByRole('button', { name: /Today’s plan/ });
+  const toggle = () => screen.getByRole('button', { name: /Active orders/ });
   fireEvent.click(toggle());
   assert.equal(toggle().getAttribute('aria-expanded'), 'false');
   view.rerender(<TodaysPlan {...props} focusVersion={1} />);

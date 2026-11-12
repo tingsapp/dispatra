@@ -12,7 +12,7 @@ export function monitorFitPadding(canvas?: HTMLElement): google.maps.Padding {
   if (!workspace || !canvas) return FIT_PADDING;
   const bounds = canvas.getBoundingClientRect();
   if (bounds.width < 640) return FIT_PADDING;
-  const panel = workspace.querySelector('[aria-label="Today’s plan"]');
+  const panel = workspace.querySelector('[aria-label="Active orders"]');
   const sidebar = workspace.querySelector('[aria-label="Main navigation"]');
   const occupiedRight = Math.max(panel?.getBoundingClientRect().right ?? 0, sidebar?.getBoundingClientRect().right ?? 0);
   return { ...FIT_PADDING, left: Math.min(Math.round(bounds.width * .55), Math.max(40, occupiedRight - bounds.left + 24)) };
