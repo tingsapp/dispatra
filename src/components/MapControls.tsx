@@ -60,6 +60,10 @@ export const MapControls: React.FC<MapControlsProps> = ({
             </div>
           ))}
         </MenuList>
+        <div aria-label="Map marker legend" className="space-y-1 border-t border-app-border px-3 py-3 text-xs text-app-muted">
+          <p>Outlined circle: pickup. Filled circle: drop-off.</p>
+          <p>Vehicle markers show P when parked.</p>
+        </div>
       </FloatingPanel>
       <div className="monitor-map-zoom w-11 bg-white rounded-xl shadow-sm overflow-hidden flex flex-col">
         <button type="button" onClick={onZoomIn} className="w-full h-11 p-0 grid place-items-center text-slate-700 hover:bg-slate-50 transition-colors" title="Zoom In"><Plus size={18} /></button>

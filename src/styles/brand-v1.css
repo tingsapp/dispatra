@@ -1,0 +1,82 @@
+/* Dispatra V1: shared finishing rules for public pages and all web workspaces.
+   Surfaces have role-specific geometry; status colours and content stay intact. */
+:root {
+  --app-surface-shadow: 0 1px 3px rgb(20 24 35 / 3%), 0 8px 24px rgb(20 24 35 / 4%);
+  --app-glass: rgb(255 255 255 / 96%);
+}
+
+.app-workspace-sidebar .app-navigation-icon { width: 18px; height: 18px; stroke-width: 1.8; color: currentColor; }
+.app-sidebar-header { gap: 10px; }
+.app-sidebar-header > button:first-child { min-height: 40px; }
+.app-sidebar-toggle { flex-shrink: 0; color: #85858b; border-radius: 10px; }
+.app-sidebar-toggle:hover { color: #525258; }
+.app-sidebar-toggle svg { stroke-width: 1.5; }
+.app-workspace-sidebar nav { padding-inline: 9px; }
+.app-workspace-sidebar .app-nav-item { margin-bottom: 2px; }
+.app-workspace-sidebar .app-nav-item:focus-visible { outline: 2px solid var(--color-app-accent); outline-offset: -2px; }
+.app-workspace-sidebar .app-account-name { color: var(--color-app-text); }
+.app-sidebar-rail .app-nav-item { padding-inline: 0; }
+.app-sidebar-rail .app-nav-item[aria-current="page"] { background: var(--color-app-accent-soft); }
+
+.app-tab[aria-selected="true"], .app-tab[aria-pressed="true"] { color: var(--color-app-accent); background: var(--color-app-accent-soft); }
+.app-input[aria-invalid="true"], .app-combobox[aria-invalid="true"] { border-color: var(--color-rose-600); }
+.app-dialog-surface { border: 1px solid rgb(20 24 35 / 8%); }
+.app-dialog-surface > form:first-child { border-radius: inherit; }
+.app-dialog-close { color: #75757d; border-radius: 10px; }
+.app-page .app-panel:not(.app-panel-plain) { border-radius: var(--app-radius-card); }
+.app-list-summary > div { border-color: var(--color-app-border); border-radius: 12px; }
+.app-list-summary-icon { color: var(--color-app-accent); }
+.app-section-title { letter-spacing: -.015em; }
+.app-button[data-variant="link"] { color: var(--color-app-accent); }
+
+/* Map overlays transmit colour softly; labels themselves remain fully opaque. */
+.shipper-tracking-card { background: var(--app-glass); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: var(--app-surface-shadow); }
+.machine-monitor { border-radius: var(--app-radius-card); }
+.machine-mode button[aria-pressed="true"] { color: var(--color-app-accent); }
+.machine-telemetry { color: #60666f; }
+
+/* Marketing keeps its larger type, texture and animation choreography. */
+.public-site .home-text-link, .public-site .guide-section-links a { color: var(--public-brand); }
+.public-site .home-text-link:hover, .public-site .guide-section-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.public-site .home-eyebrow { color: #606066; }
+.public-site .home-plan-label svg, .public-site .why-dispatra-benefit-top > svg { color: var(--public-brand); stroke-width: 1.75; }
+.public-site :is(.home-plan, .home-team-screen, .why-dispatra-benefit) { border-radius: var(--app-radius-card); }
+.public-site :is(.home-plan, .public-plan-card, .public-auth-card) { box-shadow: var(--app-surface-shadow); }
+.public-site .why-dispatra-benefit { background: white; }
+.public-site .home-team-tabs > button[aria-selected="true"] { color: var(--public-brand); }
+.public-site .public-trial-panel { background: var(--color-app-accent-soft); border-color: #dce6fc; }
+.public-site .public-feature-icon { color: var(--public-brand); }
+.public-site .public-purpose-copy { max-width: 40rem; }
+.public-site .public-footer { color: #606066; }
+.public-site .public-footer a:hover { color: var(--public-brand); }
+.public-site .public-legal-main article > div p { color: #525258; line-height: 1.65; }
+.public-site :is(.home-faq-list, .guide-disclosure) summary { gap: 16px; }
+.public-site :is(.home-faq-list, .guide-disclosure) summary svg { color: #75757d; flex-shrink: 0; }
+.public-site :is(.home-faq-list, .guide-disclosure)[open] > summary svg,
+.public-site .home-faq-list details[open] > summary svg { color: var(--public-brand); }
+.public-site .guide-note, .public-site .guide-help { border-radius: var(--app-radius-card); }
+.public-site .guide-step-number { color: var(--public-brand); }
+.public-site .public-chat-composer { border-color: #dedee3; box-shadow: var(--app-surface-shadow); }
+.public-site .public-chat-composer:focus-within { border-color: var(--app-input-focus-color); }
+
+/* Subgrid aligns corresponding plan sections at every text zoom and width. */
+@media (min-width: 768px) {
+  .public-plan-grid { grid-template-rows: repeat(6, auto); row-gap: 0; }
+  .public-plan-card { display: grid; grid-template-rows: subgrid; grid-row: span 6; }
+  .public-site .home-plan-grid { grid-template-rows: repeat(5, auto); row-gap: 0; }
+  .home-plan { display: grid; grid-template-rows: subgrid; grid-row: span 5; }
+}
+@media (pointer: coarse) {
+  .app-workspace-sidebar .app-nav-item, .app-sidebar-toggle { min-height: 44px; }
+  .app-sidebar-toggle { min-width: 44px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .shipper-tracking-card { background: white; backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .shipper-tracking-card { background: white; }
+}
+@media (forced-colors: active) {
+  .shipper-tracking-card, .app-dialog-surface { background: Canvas; border-color: CanvasText; box-shadow: none; backdrop-filter: none; }
+  .app-workspace-sidebar .app-nav-item[aria-current="page"], .app-tab[aria-selected="true"] { outline: 1px solid Highlight; }
+}

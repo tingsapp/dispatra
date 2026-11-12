@@ -1,12 +1,12 @@
-const LOGO_SRC = '/dispatra-logo.png?v=57acf24c1581';
-const ICON_SRC = '/dispatra-icon.png?v=ff0debcf5328';
+const LOGO_SRC = '/dispatra-logo-v2.svg';
+const ICON_SRC = '/dispatra-icon-v2.svg';
 
 /** The full supplied logo already includes the Dispatra wordmark. */
 export function BrandLogo() {
   return <span className="app-brand-logo">
-    <img src={LOGO_SRC} alt="Dispatra" width={2048} height={546}
+    <img src={LOGO_SRC} alt="Dispatra" width={7236} height={1800}
       draggable={false} className="app-brand-wordmark" />
-    <img src={ICON_SRC} alt="Dispatra" width={2000} height={1912}
+    <img src={ICON_SRC} alt="Dispatra" width={2000} height={1800}
       draggable={false} className="app-brand-fallback" />
   </span>;
 }

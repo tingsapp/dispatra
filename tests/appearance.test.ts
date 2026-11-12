@@ -48,7 +48,7 @@ test('portal shell preserves form drafts while toggling navigation and exposes t
   assert.ok(screen.getByRole('navigation', { name: 'Portal navigation' }));
   assert.equal(screen.getByRole('complementary', { name: 'Workspace sidebar' }).getAttribute('data-collapsed'), 'true');
   const logo = screen.getByRole('button', { name: 'Expand menu' });
-  assert.equal(logo.querySelector('img')?.getAttribute('src')?.split('?')[0], '/dispatra-icon.png');
+  assert.equal(logo.querySelector('img')?.getAttribute('src')?.split('?')[0], '/dispatra-icon-v2.svg');
   assert.equal(logo.querySelector('img')?.getAttribute('width'), '32');
   assert.equal(logo.querySelector('img')?.getAttribute('height'), '32');
   assert.equal(logo.querySelector('svg'), null);
@@ -232,8 +232,8 @@ test('driver assignment uses the shared keyboard menu, restores focus and report
   function Example() {
     const [open, setOpen] = React.useState(false);
     return React.createElement(DriverAssignmentMenu, { open, onOpenChange: setOpen, onSelect: id => selected.push(id), drivers: [
-      { id: 'first', name: 'First Driver', avatar: '/dispatra-icon.png', statusLabel: 'Available' },
-      { id: 'second', name: 'Second Driver', avatar: '/dispatra-icon.png', statusLabel: 'Available' },
+      { id: 'first', name: 'First Driver', avatar: '/dispatra-icon-v2.svg', statusLabel: 'Available' },
+      { id: 'second', name: 'Second Driver', avatar: '/dispatra-icon-v2.svg', statusLabel: 'Available' },
     ] });
   }
   render(React.createElement(Example));

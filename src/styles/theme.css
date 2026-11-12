@@ -31,7 +31,7 @@
   --color-app-border: #e5e5e5;
   --color-app-accent: #1447e6;
   --color-app-accent-soft: #eff6ff;
-  --spacing-sidebar: 260px;
+  --spacing-sidebar: 205px;
   --spacing-sidebar-rail: 64px;
   /* Compact type scale; keep the rem baseline and control hit areas intact. */
   --text-xs: 0.75rem;
@@ -69,7 +69,7 @@
   --app-table-hover: #f5f5f5;
   --app-panel-padding: 1.5rem;
   --app-radius-card: 1rem;
-  --app-radius-dialog: 1.5rem;
+  --app-radius-dialog: 1rem;
   --app-menu-width: 17.5rem;
   --app-command-menu-width: 16rem;
   --app-menu-compact-width: 14rem;
@@ -77,10 +77,10 @@
   --app-dialog-width: 32rem;
   --app-control-height: 2.5rem;
   --app-control-height-compact: 2.25rem;
-  --app-radius-control: .75rem;
+  --app-radius-control: .625rem;
   --app-radius-action: 999px;
   --app-radius-menu-item: .625rem;
-  --app-focus-color: #8f8f8f;
+  --app-focus-color: var(--color-app-accent);
   --app-input-focus-color: #000000;
   --app-backdrop: #00000066;
   --app-action-height: 2.75rem;

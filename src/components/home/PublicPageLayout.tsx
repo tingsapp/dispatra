@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import { BrandLogo } from '../layout/AppBrand';
 import { Button } from '../ui/button';
 
@@ -16,7 +16,7 @@ export function PublicPageIntro({ eyebrow, title, description }: { eyebrow: stri
 }
 
 export function PublicPageCta({ help = false }: { help?: boolean }) {
-  return <section aria-labelledby="public-next-step" className="public-page-cta"><p className="home-eyebrow">Your next step</p><h2 id="public-next-step">{help ? 'Let’s talk about your dispatch' : 'Put AI to work on your dispatch'}</h2><p>{help ? 'Have another question? Let’s talk or contact our team.' : 'Explore automated dispatch with Dispatra’s workspace or alongside your existing TMS.'}</p><div><Button asChild><a href={help ? '/contact' : '/plans'}>{help ? 'Let’s talk' : 'Explore plans'}<ArrowRight size={15} aria-hidden="true" /></a></Button><a href={help ? '/plans' : '/contact'} className="home-text-link">{help ? 'View plans' : 'Contact our team'}<ArrowRight size={14} aria-hidden="true" /></a></div></section>;
+  return <section aria-labelledby="public-next-step" className="public-page-cta"><p className="home-eyebrow">Your next step</p><h2 id="public-next-step">{help ? 'Let’s talk about your dispatch' : 'Put AI to work on your dispatch'}</h2><p>{help ? 'Have another question? Let’s talk or contact our team.' : 'Explore automated dispatch with Dispatra’s workspace or alongside your existing TMS.'}</p><div><Button asChild className="hero-get-started"><a href={help ? '/contact' : '/plans'}><span>{help ? 'Let’s talk' : 'Explore plans'}</span><span className="hero-get-started-icon"><ArrowUpRight className="size-4" aria-hidden="true" /></span></a></Button><a href={help ? '/plans' : '/contact'} className="home-text-link">{help ? 'View plans' : 'Contact our team'}<ArrowRight size={14} aria-hidden="true" /></a></div></section>;
 }
 
 export function PublicHero({ labelledBy, children, centered = false }: { labelledBy: string; children: ReactNode; centered?: boolean }) {

@@ -409,7 +409,7 @@
 @media(max-width:767px) { .home-plans .home-plan { padding:26px; } .home-plans .home-plan h3 { font-size:25px; } .home-plans .home-plan-description { min-height:0; } }
 @media(max-width:389px) { .home-plans .home-plan { padding:22px; } }
 
-.home-closing { position:relative; isolation:isolate; overflow:hidden; border:0; color:white; background:radial-gradient(ellipse at 50% 115%,#234dbb,transparent 58%),radial-gradient(ellipse at 6% 100%,#061640,transparent 55%),linear-gradient(115deg,#09246b,#10359a 52%,#0a286f); }
+.home-closing { position:relative; isolation:isolate; overflow:hidden; border:0; color:white; background:radial-gradient(ellipse at 50% 115%,#1447e6,transparent 58%),radial-gradient(ellipse at 6% 100%,#071746,transparent 55%),linear-gradient(115deg,#0b287a,#123dbf 52%,#0c2d86); }
 .home-closing::before { content:""; position:absolute; inset:0; z-index:0; pointer-events:none; opacity:.52; mix-blend-mode:soft-light; background-size:512px 512px; background-image:url("/home/closing-grain.svg"); }
 .home-closing .home-section { position:relative; z-index:1; }
 .home-closing .home-section { min-height:760px; padding-block:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
