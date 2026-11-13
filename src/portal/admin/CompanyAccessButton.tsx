@@ -22,8 +22,8 @@ export function CompanyAccessButton({ company, disabled, onBusyChange }: {
   const change = async () => {
     mutation.reset();
     const ok = await confirmDialog(enabled
-      ? { title: `Suspend ${company.name}?`, message: 'Every dispatcher, shipper and driver is signed out immediately, open driver duty is ended, and nobody can sign in until the company is activated again. Orders and audit history are kept.', confirmLabel: 'Suspend', tone: 'danger' }
-      : { title: `Activate ${company.name}?`, message: 'Existing accounts can sign in again with their current passwords. A payment method is required after the free trial. Previous sessions are not restored.', confirmLabel: 'Activate' });
+      ? { title: `Suspend ${company.name}?`, message: 'Everyone is signed out and driver duty ends. No one can sign in until it’s activated again. Data is kept.', confirmLabel: 'Suspend', tone: 'danger' }
+      : { title: `Activate ${company.name}?`, message: 'Accounts can sign in again with their passwords. A card is needed after the free trial.', confirmLabel: 'Activate' });
     if (ok) mutation.mutate();
   };
   return <div className="space-y-2">

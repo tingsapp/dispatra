@@ -35,8 +35,8 @@ function SavedDispatchPlanningSettings({ workspace }: { workspace: NonNullable<R
   };
   return <section className="space-y-4 mt-8" aria-labelledby="dispatch-planning-heading">
     <h2 id="dispatch-planning-heading" className="app-section-title">Dispatch planning</h2>
-    <p className="text-sm text-slate-500">Orders are grouped by geography and balanced by work completed and remaining. Shared warehouses, different Shipper pickups and mixed routes are supported.</p>
-    <p className="text-sm text-slate-500">Optional dispatch zones use Canadian postal prefixes, such as V5Y. Unmatched addresses are grouped automatically. These zones do not change pricing.</p>
+    <p className="text-sm text-slate-500">Orders are grouped by area and balanced by each driver’s workload.</p>
+    <p className="text-sm text-slate-500">Optional zones use postal prefixes like V5Y. Other addresses are grouped automatically. Zones don’t affect price.</p>
     {zones.map((zone,index) => <fieldset key={index} disabled={busy} className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
       <input aria-label={`Zone ${index+1} name`} className="app-input" placeholder="Zone name" value={zone.name} onChange={e=>edit(zones.map((z,i)=>i===index?{...z,name:e.target.value}:z))} />
       <input aria-label={`Zone ${index+1} postal prefixes`} className="app-input" placeholder="V5Y, V5Z" value={zone.postal_codes.join(', ')} onChange={e=>edit(zones.map((z,i)=>i===index?{...z,postal_codes:e.target.value.split(',').map(v=>v.trim().toUpperCase())}:z))} />

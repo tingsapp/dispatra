@@ -11,7 +11,7 @@ export function TruckRoutingFields({ value, onChange, units }: {
 }) {
   const patch = (changes: Partial<TruckRoutingMeasurements>) => onChange({ ...value, ...changes });
   return <FormSection title="Outside dimensions & weight">
-    <p className="col-span-full text-xs text-slate-500">Use the truck’s full outside dimensions and total loaded weight, including any trailer and load. Shared by all vehicles of this type. All fields are required except axle weight.</p>
+    <p className="col-span-full text-xs text-slate-500">Full outside size and loaded weight, trailer and load included. Applies to all vehicles of this type. Axle weight is optional.</p>
     <div className="col-span-full grid grid-cols-2 items-end gap-3">
       <label className="block min-w-0"><span className="app-label">Loaded gross weight ({units.weightUnit})</span>
         <WeightInput label="Loaded gross weight" value={value.grossWeightKg || null} units={units} required min={1} className="app-input min-w-0 w-full"

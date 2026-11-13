@@ -74,7 +74,7 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
     if (item.id === defaultId) { onNotification?.('Set another service as Default before deleting this one.'); return; }
     if (!(await confirmDialog({
       title: `Delete ${singular.toLowerCase()} “${item.name}”?`,
-      message: 'This removes it from future order choices. Saved order prices stay unchanged, but orders using it may need a replacement before editing or repricing.',
+      message: 'It won’t be offered on new orders. Saved prices stay; orders using it may need a replacement when edited.',
       confirmLabel: `Delete ${singular.toLowerCase()}`,
       tone: 'danger'
     }))) return;

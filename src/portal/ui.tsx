@@ -36,7 +36,7 @@ export function CredentialCard({ value, onDismiss }: { value: Credentials; onDis
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<unknown>();
   const text = `Login: ${value.url}\nLogin ID: ${value.login}\nPassword: ${value.password}`;
-  return <Card title="Login details ready" description="Share these details directly with the account holder. The password is shown here only until you dismiss this card.">
+  return <Card title="Login details ready" description="Share these with the account holder. The password is shown only until you close this.">
     <div className="space-y-4"><label className="grid gap-2 text-sm">Login details<textarea aria-label="Login details" readOnly value={text} rows={4} className="app-input w-full font-mono" /></label>
     <Notice error={error} success={copied ? 'Login details copied.' : undefined} /><div className="flex gap-3"><Button onClick={async () => { try { await navigator.clipboard.writeText(text); setCopied(true); } catch { setError(new Error('Copy was unavailable. Select and copy the login details above.')); } }}>Copy login details</Button><Button variant="outline" onClick={onDismiss}>Done</Button></div></div>
   </Card>;

@@ -59,7 +59,7 @@ export function ConnectorDialog({ slug, connector, onClose, onSaved, navigate = 
                   onChange={event => { setValues(current => ({ ...current, [field.key]: event.target.value })); setTestedAccount(''); setError(''); }} />}
             </label>)}
           </div>}
-      {connector.id === 'samsara' && <p className="mt-4 text-sm text-app-muted">Create a Samsara API token with Read Org Information under Setup &amp; Administration. Account verification does not enable fleet imports.</p>}
+      {connector.id === 'samsara' && <p className="mt-4 text-sm text-app-muted">In Samsara, create an API token with Read Org Information (Setup &amp; Administration). This only verifies the account.</p>}
       {testedAccount && <p role="status" className="mt-4 text-sm text-emerald-700">Token verified for {testedAccount}. Select Connect to save the connection.</p>}
       {error && <p role="alert" className="mt-4 text-sm text-rose-700">{error}</p>}
     </DialogBody>

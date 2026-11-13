@@ -60,7 +60,7 @@ function PlanOptionsForm({ plan }: { plan: MonthlyPlan }) {
           <Switch aria-label="Enable free trial" checked={draft.trial_enabled} disabled={save.isPending || reload.isPending} onCheckedChange={trial_enabled => { setDraft(current => ({ ...current, trial_enabled })); save.reset(); }} />
         </div>
         <div className="max-w-xs"><Field label="Trial length (days)" type="number" required min={1} max={365} step={1} value={draft.trial_days} onChange={change('trial_days')} /></div>
-        <p className="text-sm text-app-muted">No credit card required during the trial. Companies authorize monthly billing at their saved price per registered vehicle to continue afterward.</p>
+        <p className="text-sm text-app-muted">No card needed during the trial. After it, companies add a card for monthly per-vehicle billing.</p>
         <p className="text-xs text-app-muted">Changes apply to new trials. Existing companies keep the trial dates or duration they already received.</p>
       </fieldset>
     </Card>

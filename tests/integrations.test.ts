@@ -197,7 +197,7 @@ test('TMS orders needing review show their reasons and can be retried or dismiss
   await user.click(await screen.findByRole('button', { name: 'Dismiss TMS order TMS-2' }));
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(screen.queryByRole('region', { name: 'Orders needing review' }), null);
-  assert.match(screen.getByText(/signs each request with HMAC-SHA256/).textContent!, /X-Signature/);
+  assert.match(screen.getByText(/Requests are signed with HMAC-SHA256/).textContent!, /X-Signature/);
 });
 
 test('polling validates HTTPS, the credential and the orders path, then discards the credential on save', async () => {

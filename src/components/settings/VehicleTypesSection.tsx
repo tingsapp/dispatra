@@ -41,7 +41,7 @@ export function VehicleTypesSection({ onNotification, onChanged }: { onNotificat
     } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save vehicle type.'); }
   };
   const remove = async (type: VehicleType) => {
-    if (!(await confirmDialog({ title: `Delete vehicle type “${type.name}”?`, message: 'It will no longer be offered when registering or editing vehicles. Vehicles already registered with it keep their details.', confirmLabel: 'Delete vehicle type', tone: 'danger' }))) return;
+    if (!(await confirmDialog({ title: `Delete vehicle type “${type.name}”?`, message: 'It won’t be offered for vehicles anymore. Existing vehicles keep it.', confirmLabel: 'Delete vehicle type', tone: 'danger' }))) return;
     try {
       if (slug) {
         const record = catalogQuery.data?.find(row => row.id === type.id); if (!record) return;

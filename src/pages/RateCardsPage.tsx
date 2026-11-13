@@ -225,7 +225,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
   };
   const deleteZone = async (id: string) => {
     const zone = config.zones.find(z => z.id === id);
-    if (!zone || !(await confirmDialog({ title: `Remove zone "${zone.name}"?`, message: 'This removes the zone and its prices from every active zone-based card. Previously priced orders stay unchanged.', confirmLabel: 'Remove zone', tone: 'danger' }))) return false;
+    if (!zone || !(await confirmDialog({ title: `Remove zone "${zone.name}"?`, message: 'Removes the zone and its prices from every zone card. Priced orders stay unchanged.', confirmLabel: 'Remove zone', tone: 'danger' }))) return false;
     const keepRate = (rate: { originZoneId: string; destinationZoneId: string }) => rate.originZoneId !== id && rate.destinationZoneId !== id;
     const rateCards = config.rateCards.map(card => card.status === 'ACTIVE' && card.zoneRates?.some(rate => !keepRate(rate))
       ? stamp(card, { zoneRates: card.zoneRates.filter(keepRate) }) : card);

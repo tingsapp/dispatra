@@ -61,7 +61,7 @@ export function CompanyPaymentMethod({ target }: { target: PaymentTarget }) {
         <p>{configured ? `${money(payment.monthly_price)} per registered vehicle per month.` : 'Contact Dispatra to set your subscription rate.'}</p>
         {configured && <p>{payment.vehicle_count} registered vehicles · {money(payment.monthly_total)} / month at the current fleet size.</p>}
         <p>Billing starts {payment.starts_at && new Date(payment.starts_at) > new Date() ? new Date(payment.starts_at).toLocaleString() : 'when you start your subscription'}. Your recorded free trial stays free. If the billing start date has arrived, Stripe attempts the first monthly payment when you subscribe.</p>
-        <p className="text-app-muted">Stripe charges the saved card automatically each month. Inactive registered vehicles are included; archived vehicles are excluded. Fleet and rate changes apply to the next renewal without mid-month charges. Zero vehicles cost zero.</p>
+        <p className="text-app-muted">Stripe charges this card monthly per registered vehicle (archived vehicles excluded). Changes apply at the next renewal.</p>
         <p className="capitalize">Subscription: {payment.subscription_status === 'PENDING' ? 'Starting subscription' : payment.subscription_status.replaceAll('_', ' ')}</p>
         {canEnroll && <p className="text-app-muted">Your card is saved. Authorize recurring billing below and start your subscription to use it for monthly payments.</p>}
         {payment.period_end && <p className="text-app-muted">Current period ends {new Date(payment.period_end).toLocaleDateString()}.</p>}

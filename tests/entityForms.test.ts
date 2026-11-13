@@ -357,7 +357,7 @@ test('drivers and vehicles can be deleted after confirmation, but not while assi
   const fleet=loadVehicles(); const attached={...fleet[0],currentDriverId:busy.id,currentDriverName:busy.name}; const free={...fleet[1],currentDriverId:undefined,currentDriverName:undefined}; saveVehicles([attached,free]);
   render(React.createElement(React.Fragment,null,React.createElement(ConfirmDialogHost),React.createElement(VehiclesPage,{drivers:[busy],onNotification:m=>notices.push(m)})));
   await user.click(screen.getByRole('button',{name:`Delete ${attached.unitNumber}`}));
-  assert.equal(screen.queryByRole('alertdialog'),null); assert.match(notices.at(-1)!,/attached to/); assert.equal(loadVehicles().length,2);
+  assert.equal(screen.queryByRole('alertdialog'),null); assert.match(notices.at(-1)!,/is with/); assert.equal(loadVehicles().length,2);
   await user.click(screen.getByRole('button',{name:`Delete ${free.unitNumber}`}));
   await user.click(screen.getByRole('button',{name:'Delete vehicle'}));
   assert.deepEqual(loadVehicles().map(v=>v.id),[attached.id]); assert.equal(screen.queryByRole('button',{name:`Delete ${free.unitNumber}`}),null);

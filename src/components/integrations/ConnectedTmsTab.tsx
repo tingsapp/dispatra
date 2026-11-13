@@ -87,7 +87,7 @@ export function ConnectedTmsTab({ saved, slug, importedRateCard, lastSync, statu
             <div className="flex h-5 items-center gap-1"><label htmlFor="tms-webhook-url">Webhook URL</label><FieldMapButton record="order" map={draft.fieldMaps.order} onMap={mapFields('order')} /></div>
             <input id="tms-webhook-url" readOnly value={webhookUrl} className="app-input w-full min-w-0 font-mono text-xs" /></div>
           <div className="pt-6"><CopyButton value={webhookUrl} label="Webhook URL" /></div>
-        </div><p className="text-xs text-app-muted">Add this URL and the secret to your TMS webhook settings. The TMS signs each request with HMAC-SHA256 of the body in the X-Signature header.</p></div>
+        </div><p className="text-xs text-app-muted">Add this URL and secret to your TMS webhooks. Requests are signed with HMAC-SHA256 in X-Signature.</p></div>
         <SecretField label="Webhook secret" value={secret} saved={draft.webhookSecretConfigured} generate onChange={value => { setSecret(value); patch({ webhookSecretConfigured: false }); }} />
       </> : <div className="grid gap-5 sm:grid-cols-2">
         <EndpointField label="Orders endpoint" record="order" value={draft.ordersEndpoint} map={draft.fieldMaps.order} placeholder="/orders" onChange={ordersEndpoint => patch({ ordersEndpoint })} onMap={mapFields('order')} />

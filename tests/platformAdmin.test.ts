@@ -470,7 +470,7 @@ test('Suspend/Activate is inside Overview only, updates the title badge and conf
   await user.click(screen.getByRole('tab', { name: 'Overview' }));
   await user.click(suspend);
   let confirm = await screen.findByRole('alertdialog');
-  assert.match(confirm.textContent!, /signed out immediately/);
+  assert.match(confirm.textContent!, /Everyone is signed out/);
   await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
   assert.deepEqual(changes, []);
   await user.click(suspend);

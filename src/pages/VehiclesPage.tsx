@@ -119,7 +119,7 @@ export function VehiclesPage({
   };
   const handleDeleteVehicle = async (vehicle: VehicleAsset) => {
     const driver = drivers.find(d => d.id === vehicle.currentDriverId) ?? (vehicle.currentDriverName ? { name: vehicle.currentDriverName } : null);
-    if (driver) { onNotification(`${vehicle.unitNumber} is attached to ${driver.name}. Release it on the driver profile before deleting.`); return; }
+    if (driver) { onNotification(`${vehicle.unitNumber} is with ${driver.name}. Release it from the driver first.`); return; }
     if (!(await confirmDialog({ title: `Delete vehicle "${vehicle.unitNumber}"?`, message: 'This removes the fleet record. Completed orders keep their history. This cannot be undone.', confirmLabel: 'Delete vehicle', tone: 'danger' }))) return;
     if (slug) {
       const record = fleetQuery.data?.find(row => row.id === vehicle.id);

@@ -13,7 +13,7 @@ export function assignableRoute(routes: Route[], driverId: string, vehicleId: st
   if (active.driver_id !== driverId || active.vehicle_id !== vehicleId)
     throw new Error('The driver or vehicle already belongs to another active route.');
   if (active.status === 'IN_PROGRESS') {
-    if (!active.plan?.live_updates_supported) throw new Error('This in-progress route requires driver review in an updated app before new work can be added.');
+    if (!active.plan?.live_updates_supported) throw new Error('Driver must update the app before work is added to this route.');
     if (active.plan?.requires_acknowledgement) throw new Error('The driver must review the latest route before more work is added.');
     return active;
   }

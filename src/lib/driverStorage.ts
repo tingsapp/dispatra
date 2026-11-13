@@ -35,9 +35,9 @@ export function saveDrivers(drivers: Driver[]): void { localStorage.setItem(scop
 export function bindDriverVehicle(driver: Driver): void {
   const fleet = loadVehicles();
   const selected = fleet.find(v => v.id === driver.currentVehicleId);
-  if (selected?.currentDriverId && selected.currentDriverId !== driver.id) throw new Error('Vehicle is linked to another driver. Release it on that driver profile first.');
+  if (selected?.currentDriverId && selected.currentDriverId !== driver.id) throw new Error('Vehicle belongs to another driver. Release it there first.');
   const old = fleet.find(v => v.currentDriverId === driver.id && v.id !== driver.currentVehicleId);
-  if (old?.availability === 'IN_USE') throw new Error('Finish the active vehicle assignment before changing this driver’s vehicle.');
+  if (old?.availability === 'IN_USE') throw new Error('Finish the active route before changing this vehicle.');
   const updated = fleet.map(v => v.id === driver.currentVehicleId ? { ...v, currentDriverId: driver.id, currentDriverName: driver.name } : v.currentDriverId === driver.id ? { ...v, currentDriverId: undefined, currentDriverName: undefined } : v);
   saveVehicles(updated);
 }

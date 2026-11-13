@@ -138,7 +138,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   useEffect(() => { setRecordOverlay(null); setReviewOpen(false); }, [activeTab]);
 
 
-  useEffect(() => { if (!slug) try { saveOrders(localJobs); } catch { showToast('Order changes could not be saved in this browser. Keep this session open and free storage before reloading.'); } }, [localJobs, slug]);
+  useEffect(() => { if (!slug) try { saveOrders(localJobs); } catch { showToast('Order changes weren’t saved in this browser. Free up storage before reloading.'); } }, [localJobs, slug]);
   const [operationalAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
   // Orders that could not be priced (no card, conflict, zone no-match, missing distance) join the list.
   const needsAttentionItems = slug ? (monitorQuery.data?.needs_attention ?? []).map(item => {
@@ -546,7 +546,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     // Remove #461 from Needs Attention
     setNeedsAttentionItems((prev) => prev.filter((item) => item.jobNumber !== '#461'));
 
-    showToast('AI Recommendation Approved: Job #461 reassigned to Maria Garcia (D09). ETA improved by 14m.');
+    showToast('Job #461 moved to Maria Garcia. ETA 14 min sooner.');
   };
 
   const handleKeepCurrent = () => {

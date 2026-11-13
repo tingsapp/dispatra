@@ -42,7 +42,7 @@ export function MonitorReviewDialog({ slug, review, timeZone, onClose, onOpenDra
   useEntityDialog(true, onClose);
   const rows = [...(review.drafts.data ?? [])].sort((a, b) => b.received_at.localeCompare(a.received_at));
   return <Dialog size="lg" onClose={onClose}>
-    <DialogHeader title="Requests needing review" description="These requests have not become orders. Review the missing details before dispatch." onClose={onClose} />
+    <DialogHeader title="Requests needing review" description="These aren’t orders yet. Add the missing details." onClose={onClose} />
     <DialogBody className="space-y-4">
       {(review.drafts.isPending || review.imports.isPending) && <p role="status">Loading requests…</p>}
       {(review.drafts.isError || review.imports.isError) && <div role="alert">Some requests could not be loaded. <Button variant="outline" onClick={() => Promise.all([review.drafts.refetch(), review.imports.refetch()])}>Try again</Button></div>}

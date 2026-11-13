@@ -537,7 +537,7 @@ export const calculatePricing = (order: PricingOrderInput, ctx: PricingContext):
           : Math.max(actualMovementWeight, dimensionalMovementWeight);
         const amount = zoneAmountForWeight(rate, movementWeight);
         if (amount == null) {
-          errors.push({ code: 'ZONE_NO_MATCH', message: `No matching weight band for ${pickup!.label || pickup!.id} → ${drop.label || drop.id}. Check package weights, dimensions and pickup/delivery links, or request a quote.` });
+          errors.push({ code: 'ZONE_NO_MATCH', message: `No matching weight band for ${pickup!.label || pickup!.id} → ${drop.label || drop.id}. Check package weights and stop links, or request a quote.` });
           break;
         }
         zoneLines.push(line({ key: `zone_${pickup!.id}_${drop.id}`, group: 'FREIGHT', label: 'Zone movement', detail: `${pickup!.label || pickup!.id} → ${drop.label || drop.id}; ${rate.weightBands ? `${round2(toDisplayWeight(movementWeight, billing.general))} ${billing.general.weightUnit} ${useDimensionalBands ? `chargeable weight (actual ${round2(toDisplayWeight(actualMovementWeight, billing.general))} ${billing.general.weightUnit}, dimensional ${round2(toDisplayWeight(dimensionalMovementWeight, billing.general))} ${billing.general.weightUnit})` : 'actual weight'}` : 'packages on this movement combined'}`, amount: round2(amount), fuelEligible: true }));

@@ -206,7 +206,7 @@ export function JobsPage({
     lastDraftId.current = id; setDraftOpenError(null); setOpeningEmailId(id);
     try {
       const email = await operations.emailIntake(slug, id);
-      if (!EMAIL_DRAFT_STATUSES.includes(email.status)) throw new Error('This draft is no longer available. It may have been completed or discarded.');
+      if (!EMAIL_DRAFT_STATUSES.includes(email.status)) throw new Error('This draft is gone. It was completed or discarded.');
       openEmailDraft(email);
     } catch (error) { setDraftOpenError(error instanceof Error ? error : new Error('Could not open draft.')); onNotification(error instanceof Error ? error.message : 'Could not open draft.'); }
     finally { setOpeningEmailId(null); }

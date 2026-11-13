@@ -58,7 +58,7 @@ export const QuotationMenu: React.FC<QuotationMenuProps> = ({ buildQuotation, on
     saveFile(quotationFileName(quote), pdfBlob(quotationPdf(quote, logo)));
   };
   const run = async (action: (quote: Quotation) => Promise<void>) => { if (!q || busy) return; setBusy(true); try { await action(q); setOpen(false); } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not send quote.'); } finally { setBusy(false); } };
-  const email = () => run(async quote => { if (!canEmail) return; if (sendEmail) { await sendEmail(to); return; } await savePdf(quote); openMail(quotationMailto(quote, to, greeting(quote))); onNotification(`${quotationFileName(quote)} saved, attach it to the email that just opened for ${to}`); });
+  const email = () => run(async quote => { if (!canEmail) return; if (sendEmail) { await sendEmail(to); return; } await savePdf(quote); openMail(quotationMailto(quote, to, greeting(quote))); onNotification(`${quotationFileName(quote)} saved. Attach it to the email to ${to}.`); });
   const download = () => run(async quote => { await savePdf(quote); onNotification(`${quotationFileName(quote)} downloaded`); });
   return <FloatingPanel open={open} onOpenChange={next => { if (next) setQuotation(buildQuotation()); setOpen(next); }} label={triggerLabel} size="rich" align="end" className="p-4"
     trigger={<Button type="button" variant={prominent ? "default" : "outline"} size={prominent ? "default" : "xs"}><Mail />{triggerLabel}</Button>}>
