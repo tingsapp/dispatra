@@ -10,7 +10,9 @@ import { NavBadge } from '../components/layout/NavBadge';
 const initials = (name: string) => name.trim().split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('') || '?';
 
 /** Presentational workspace shell. Authentication and customer data remain in PortalApp. */
-export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, titleBadge, headerActions, reading = false, map = false, canvas = false, footer, children }: {
+export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, titleBadge, headerActions, reading = false, map = false, canvas = false, monitorNav = true, footer, children }: {
+  /** Sidebar card styled like the dispatcher Monitor's; platform administration keeps its own. */
+  monitorNav?: boolean;
   /** Sidebar controls under the Logout card (or the account card), such as the driver's duty switch. */
   footer?: (collapsed: boolean) => ReactNode;
   description?: string; reading?: boolean; actions?: ReactNode; onNavigate?: (href: string) => void;
@@ -38,7 +40,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
   const PageHeading = headerActions && !canvas ? 'div' : 'header';
   const menuButton = <button type="button" className={hidden ? 'app-icon-button' : 'hidden'} aria-hidden={!hidden} tabIndex={hidden ? 0 : -1} aria-label="Open menu" onClick={() => setOpen(true)}><SidebarToggleIcon className="h-4.5 w-4.5" strokeWidth={1.5} aria-hidden="true" /></button>;
 
-  return <div className="app-workspace app-portal-workspace relative flex h-dvh overflow-hidden bg-app-canvas text-app-text" data-sidebar-open={open}>
+  return <div className={`app-workspace app-portal-workspace ${monitorNav ? 'app-monitor-nav' : ''} relative flex h-dvh overflow-hidden bg-app-canvas text-app-text`} data-sidebar-open={open}>
     {open && mobile && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/20 sm:hidden" onClick={() => setOpen(false)} />}
     <aside ref={panelRef} role={open && mobile ? 'dialog' : undefined} aria-modal={open && mobile ? true : undefined} aria-label="Workspace sidebar" aria-hidden={hidden} inert={hidden} data-collapsed={collapsed}
       className={`app-workspace-sidebar app-portal-sidebar border-r border-app-border fixed inset-y-0 left-0 z-50 md:sticky md:top-0 transition-[width] duration-300 ${hidden ? 'hidden' : collapsed ? 'app-sidebar-rail' : ''}`}>

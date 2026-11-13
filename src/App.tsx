@@ -1,6 +1,7 @@
 import { ActionButton } from './components/ui/button';
 import { showPopupFeedback } from './components/ui/popupFeedback';
 import { ChatWorkspace } from './components/chat/ChatWorkspace';
+import { PageHeader } from './components/layout/PageHeader';
 import { DispatcherChatPopup } from './components/chat/DispatcherChatPopup';
 import { LiveNotices, type LiveFeedback } from './components/chat/LiveNotices';
 import { useUnreadMessages } from './chat/api';
@@ -573,7 +574,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const activeRecord = slug && activeJob ? orderQuery.data?.find(order => order.id === activeJob.id) : undefined;
 
   return (
-    <div className={`relative flex h-dvh w-full overflow-hidden bg-app-canvas font-sans text-app-text antialiased ${slug && activeTab === 'monitor' && !tmsWorkspace ? 'dispatcher-monitor' : ''}`} data-sidebar-open={sidebarOpen}>
+    <div className={`relative flex h-dvh w-full overflow-hidden bg-app-canvas font-sans text-app-text antialiased ${!slug ? '' : activeTab === 'monitor' && !tmsWorkspace ? 'dispatcher-monitor' : 'app-workspace dispatcher-workspace app-monitor-nav'}`} data-sidebar-open={sidebarOpen}>
       <ConfirmDialogHost />
       {sidebarOpen && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/20 sm:hidden" onClick={() => setSidebarOpen(false)} />}
       {slug && (orderQuery.error || driverQuery.error || monitorQuery.error) && <div role="alert" className="absolute top-3 left-1/2 z-50 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-rose-700">Could not load workspace data. <ActionButton type="button" className="underline" onClick={() => queryClient.invalidateQueries({ queryKey: ['operations', slug] })}>Retry</ActionButton></div>}
@@ -622,12 +623,12 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
 
         {slug && <DispatcherChatPopup key={slug} slug={slug} timeZone={settingsQuery.data?.data.time_zone} />}
         {activeTab !== 'monitor' && (activeTab === 'messages' && slug ? (
-          <div className="flex h-full flex-col bg-app-canvas">
-            <header className="flex h-16 shrink-0 items-center justify-between border-b border-app-border px-6 max-sm:pl-16"><h1 className="app-page-title">Chat</h1><NotificationBell slug={slug} onOpen={row => {
+          <div className="app-page app-list-page flex h-full w-full flex-col overflow-hidden">
+            <PageHeader title="Chat" description="Conversations with your drivers, shippers and Dispatra." actions={<NotificationBell slug={slug} onOpen={row => {
               if (row.conversation_id) openDispatcherChat({ conversationId: row.conversation_id });
               else if (row.order_id) { const order = jobs.find(job => job.id === row.order_id); if (order) handleOpenJobDossier(order); }
-            }} /></header>
-            <div className="min-h-0 flex-1 p-3 md:p-5"><ChatWorkspace slug={slug} initialTarget={chatTarget} timeZone={settingsQuery.data?.data.time_zone} onOpenOrder={id => { const order = jobs.find(job => job.id === id); if (order) handleOpenJobDossier(order); }} /></div>
+            }} />} />
+            <div className="min-h-0 flex-1 pt-6"><div className="page-content h-full"><ChatWorkspace slug={slug} initialTarget={chatTarget} timeZone={settingsQuery.data?.data.time_zone} onOpenOrder={id => { const order = jobs.find(job => job.id === id); if (order) handleOpenJobDossier(order); }} /></div></div>
           </div>
         ) : activeTab === 'rate-cards' ? (
           <RateCardsPage

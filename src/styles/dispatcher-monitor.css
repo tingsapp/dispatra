@@ -1,5 +1,6 @@
 /* Finder-inspired materials belong only to the signed-in dispatcher Monitor.
-   Other workspace pages, public pages and the isolated prototype retain their layout. */
+   Other non-admin workspaces reuse its sidebar card via .app-monitor-nav (workspace-panels.css);
+   public pages and the isolated prototype retain their layout. */
 .dispatcher-monitor {
   --monitor-inset: 12px;
   --monitor-sidebar: 204px;
@@ -28,9 +29,11 @@
 .dispatcher-monitor .app-workspace-sidebar aside {
   height: 100%;
   border: 1px solid var(--monitor-edge);
+  border-right: 0;
   border-radius: 22px;
   background: linear-gradient(145deg, rgb(255 255 255 / 94%), rgb(250 250 252 / 87%));
-  box-shadow: var(--monitor-shadow), inset 0 1px 0 white;
+  /* The sidebar drops --monitor-shadow's outline ring so it has no right edge. */
+  box-shadow: 0 3px 8px rgb(30 35 42 / 5%), 0 16px 40px rgb(30 35 42 / 10%), inset 0 1px 0 white;
   backdrop-filter: blur(28px) saturate(115%);
   -webkit-backdrop-filter: blur(28px) saturate(115%);
 }

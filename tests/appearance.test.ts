@@ -38,6 +38,16 @@ test('page header keeps its title and page actions without a duplicate Monitor b
   assert.equal(created, 1);
 });
 
+test('company workspaces reuse the Monitor sidebar card while platform administration keeps its own', () => {
+  const frame = () => screen.getByRole('complementary', { name: 'Workspace sidebar' }).parentElement!.classList;
+  render(React.createElement(PortalShell, { ...base, children: null }));
+  assert.ok(frame().contains('app-monitor-nav'));
+  cleanup();
+  render(React.createElement(PortalShell, { ...base, monitorNav: false, children: null }));
+  assert.ok(frame().contains('app-workspace'));
+  assert.equal(frame().contains('app-monitor-nav'), false);
+});
+
 test('portal shell preserves form drafts while toggling navigation and exposes the current destination', async () => {
   const user = userEvent.setup({ document }); let home = 0, settings = 0, logout = 0;
   const props = { ...base, onHome: () => { home += 1; }, onSettings: () => { settings += 1; }, onLogout: () => { logout += 1; } };
