@@ -40,7 +40,7 @@ export function MonitorReviewDialog({ slug, review, timeZone, onClose, onOpenDra
   slug: string; review: Review; timeZone?: string; onClose: () => void; onOpenDraft: (id: string) => void;
 }) {
   useEntityDialog(true, onClose);
-  const rows = [...(review.drafts.data ?? [])].sort((a, b) => a.received_at.localeCompare(b.received_at));
+  const rows = [...(review.drafts.data ?? [])].sort((a, b) => b.received_at.localeCompare(a.received_at));
   return <Dialog size="lg" onClose={onClose}>
     <DialogHeader title="Requests needing review" description="These requests have not become orders. Review the missing details before dispatch." onClose={onClose} />
     <DialogBody className="space-y-4">

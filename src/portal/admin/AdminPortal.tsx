@@ -1,5 +1,6 @@
 import { ChatWorkspace } from '../../components/chat/ChatWorkspace';
-import { IncomingChatNotice } from '../../components/chat/IncomingChatNotice';
+import { LiveNotices } from '../../components/chat/LiveNotices';
+import type { PlatformNotification } from '../api';
 import { ADMIN_CHAT, useAdminUnread } from '../../chat/api';
 import type { ChatTarget } from '../../chat/navigation';
 import { useEffect, useState } from 'react';
@@ -65,7 +66,12 @@ export function AdminPortal({ account, onLogout, loggingOut, logoutError }: { ac
       : route?.page === 'company' ? <Button variant="outline" onClick={() => go({ page: 'companies' })}>All companies</Button> : undefined}>
 
     <ConfirmDialogHost />
-    <IncomingChatNotice slug={ADMIN_CHAT} accountId={account.id} onOpen={id => { setChatTarget({ conversationId: id }); go({ page: 'chat' }); }} />
+    <LiveNotices<PlatformNotification> slug={ADMIN_CHAT} accountId={account.id} onOpen={row => {
+      if (row.target === 'chat' && row.conversation_id) { setChatTarget({ conversationId: row.conversation_id }); go({ page: 'chat' }); }
+      else if (row.target === 'operational') { setMonitorFocus('OPERATIONAL'); go({ page: 'monitor' }); }
+      else if (row.target === 'monitor') { setMonitorFocus('ALL'); go({ page: 'monitor' }); }
+      else go({ page: 'company', id: row.organization_id });
+    }} />
     {route?.page === 'chat' && <div className="h-[calc(100dvh-250px)] min-h-[440px]"><ChatWorkspace slug={ADMIN_CHAT} initialTarget={chatTarget} timeZone="UTC" /></div>}
     <Notice error={logoutError} />
     {!route && <div className="py-10 text-center"><Button variant="outline" onClick={() => go({ page: 'companies' })}>Go to companies</Button></div>}

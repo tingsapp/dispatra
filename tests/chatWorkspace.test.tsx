@@ -4,12 +4,12 @@ import { afterEach, test } from 'node:test';
 import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/acme/chat', pretendToBeVisual: true });
 for (const name of ['window','document','navigator','HTMLElement','HTMLInputElement','Element','Node','Event','CustomEvent','MutationObserver','getComputedStyle','localStorage','location','history','requestAnimationFrame']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
-const { render, screen, cleanup, waitFor, fireEvent } = await import('@testing-library/react');
+const { render, screen, cleanup, waitFor, fireEvent, within } = await import('@testing-library/react');
 const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { chat, ADMIN_CHAT } = await import('../src/chat/api');
 const { ChatWorkspace } = await import('../src/components/chat/ChatWorkspace');
-const { IncomingChatNotice } = await import('../src/components/chat/IncomingChatNotice');
+const { LiveNotices } = await import('../src/components/chat/LiveNotices');
 const { operations } = await import('../src/operations/api');
 const original = {...chat}; const originalOperations = {...operations};
 let cache: InstanceType<typeof QueryClient>;
@@ -67,16 +67,33 @@ test('oversight has read-only history and does not expose a reply composer',asyn
  assert.ok(screen.getByText('Dispatch can read this chat but not reply.'));
 });
 
-test('incoming notification banner ignores old notices and opens the exact newly received chat',async()=>{
- const old={id:'old',title:'Old message',kind:'message.created',conversation_id:'old-chat',read_at:null};
+test('live notices ignore old notices and open the exact newly received chat',async()=>{
+ const old={id:'old',title:'Old message',body:'Open chat to reply.',kind:'message.created',severity:'INFO',conversation_id:'old-chat',read_at:null};
  operations.notifications=async()=>[old] as never;
  const opened:string[]=[];
- mount(<IncomingChatNotice slug="acme" onOpen={id=>opened.push(id)} />);
+ mount(<LiveNotices slug="acme" onOpen={row=>opened.push(row.conversation_id!)} />);
  await waitFor(()=>assert.ok(cache.getQueryData(['notifications','acme'])));
  assert.equal(screen.queryByRole('status'),null);
  cache.setQueryData(['notifications','acme'],[{...old,id:'new',title:'New message from driver',conversation_id:'new-chat'},old]);
  await userEvent.setup({document}).click(await screen.findByRole('button',{name:/New message from driver.*Open conversation/}));
  assert.deepEqual(opened,['new-chat']);
+});
+
+test('live notices show new order and assignment events newest first, then dismiss them',async()=>{
+ const note=(id:string,title:string,body:string)=>({id,title,body,kind:'order.assigned',severity:'INFO',conversation_id:null,order_id:`order-${id}`,read_at:null});
+ operations.notifications=async()=>[] as never;
+ const opened:string[]=[];
+ mount(<LiveNotices slug="acme" feedback={{text:'Saved.',tone:'default'}} onOpen={row=>opened.push(row.order_id!)} />);
+ await waitFor(()=>assert.ok(cache.getQueryData(['notifications','acme'])));
+ cache.setQueryData(['notifications','acme'],[note('b','Order assigned','DTO-2 assigned to Alex.'),note('a','New order booked','DTO-1 from Acme.')]);
+ const stack=await screen.findByRole('status');
+ await waitFor(()=>assert.deepEqual([...stack.querySelectorAll('button span.font-medium')].map(node=>node.textContent),['Order assigned','New order booked']));
+ assert.ok(within(stack).getByText('Saved.'));
+ const user=userEvent.setup({document});
+ await user.click(within(stack).getByRole('button',{name:/New order booked/}));
+ assert.deepEqual(opened,['order-a']);
+ await user.click(within(stack).getByRole('button',{name:'Dismiss notification'}));
+ assert.equal(within(stack).queryByText('Order assigned'),null);
 });
 
 test('a hidden document does not mark messages read until it becomes visible',async()=>{

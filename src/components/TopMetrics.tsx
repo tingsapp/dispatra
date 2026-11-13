@@ -215,7 +215,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                     onClick={() => {
                       onSelectJob(item.jobNumber);
                       setShowNeedsAttentionPopover(false);
-                      onActionNotification(`Selected ${item.jobNumber}: ${item.subtitle}`);
+                      onActionNotification(`Selected ${item.jobNumber}`);
                     }}
                     className="py-2.5 hover:bg-slate-50/80 -mx-2 px-2 rounded-xl cursor-pointer transition-colors group"
                   >
@@ -225,7 +225,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                           <span className="font-medium text-slate-900 text-xs whitespace-nowrap">{item.jobNumber}</span>
                           <MonitorBadge tone={item.badgeColor === 'red' ? 'danger' : 'warning'}>{item.statusLabel}</MonitorBadge>
                         </div>
-                        <p className="text-xs text-slate-700 whitespace-pre-line [overflow-wrap:anywhere]">{item.subtitle}</p>
+                        <p className="text-xs text-slate-700 line-clamp-2 [overflow-wrap:anywhere]" title={item.subtitle}>{item.subtitle}</p>
                         {item.pickupAddress && <p className="text-xs text-slate-500 truncate">Pickup · {item.pickupAddress.split(',')[0]}</p>}
                         <ResolveIssue item={item} onResolve={onResolveIssue} />
                       </div>

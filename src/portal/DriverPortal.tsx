@@ -1,5 +1,5 @@
 import { NotificationChat } from '../components/chat/NotificationChat';
-import { IncomingChatNotice } from '../components/chat/IncomingChatNotice';
+import { LiveNotices } from '../components/chat/LiveNotices';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck, ChevronRight, ClipboardList, Clock, MessageSquare, Package, Phone, Shield, Truck, UserRound } from 'lucide-react';
@@ -124,7 +124,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     <Notice error={logoutError || dutyError} />
     {page.path === 'orders' && profile.data && <DriverQuestions slug={slug} driverId={profile.data.id} />}
     {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} driverId={profile.data?.id} company={company} />) : <DriverOrders timeZone={profile.data?.time_zone} slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
-    <IncomingChatNotice slug={slug} onOpen={setNotificationChat} />
+    <LiveNotices slug={slug} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} />
     {notificationChat && <NotificationChat key={notificationChat} slug={slug} identity={notificationChat} onClose={() => setNotificationChat(null)} />}
   </PortalShell>;
 }

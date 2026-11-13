@@ -1,9 +1,8 @@
 import { ActionButton } from './components/ui/button';
-import { BrandMark } from "./components/layout/AppBrand";
 import { showPopupFeedback } from './components/ui/popupFeedback';
 import { ChatWorkspace } from './components/chat/ChatWorkspace';
 import { DispatcherChatPopup } from './components/chat/DispatcherChatPopup';
-import { IncomingChatNotice } from './components/chat/IncomingChatNotice';
+import { LiveNotices, type LiveFeedback } from './components/chat/LiveNotices';
 import { useUnreadMessages } from './chat/api';
 import { openDispatcherChat, type ChatTarget } from './chat/navigation';
 import { NotificationBell } from './portal/Notifications';
@@ -226,14 +225,13 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   });
 
   // Notification Toast state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<LiveFeedback | null>(null);
 
   const showToast = (msg: string, tone: 'default' | 'error' = 'default') => {
     if (showPopupFeedback(msg, tone)) { setToastMessage(null); return; }
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
+    const feedback = { text: msg, tone };
+    setToastMessage(feedback);
+    setTimeout(() => setToastMessage(current => current === feedback ? null : current), 4000);
   };
 
   // Callback to update driver telemetry from map simulation without re-rendering the whole map
@@ -623,7 +621,6 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         </button>
 
         {slug && <DispatcherChatPopup key={slug} slug={slug} timeZone={settingsQuery.data?.data.time_zone} />}
-        {slug && <IncomingChatNotice slug={slug} onOpen={id => openDispatcherChat({ conversationId: id })} />}
         {activeTab !== 'monitor' && (activeTab === 'messages' && slug ? (
           <div className="flex h-full flex-col bg-app-canvas">
             <header className="flex h-16 shrink-0 items-center justify-between border-b border-app-border px-6 max-sm:pl-16"><h1 className="app-page-title">Chat</h1><NotificationBell slug={slug} onOpen={row => {
@@ -826,21 +823,11 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
 
           </div>}
 
-        {/* NOTIFICATION TOAST */}
-        <AnimatePresence>
-          {toastMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.96 }}
-              transition={{ duration: 0.18 }}
-              className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-auto bg-slate-900/95 text-white px-4 py-2.5 rounded-xl shadow-xl shadow-slate-900/20 text-xs font-medium flex items-center gap-2.5"
-            >
-              <BrandMark size={16} />
-              <span>{toastMessage}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Page feedback and new notifications share one bottom-center stack. */}
+        <LiveNotices slug={slug} feedback={toastMessage} onOpen={row => {
+          if (row.conversation_id) openDispatcherChat({ conversationId: row.conversation_id });
+          else if (row.order_id) { const order = jobs.find(job => job.id === row.order_id); if (order) handleOpenJobDossier(order); }
+        }} />
       </main>
 
       {dossierJob && <MonitorOrderDetails job={dossierJob} jobs={jobs} drivers={drivers} onClose={() => setDossierJob(null)}

@@ -1,5 +1,5 @@
 import { NotificationChat } from '../components/chat/NotificationChat';
-import { IncomingChatNotice } from '../components/chat/IncomingChatNotice';
+import { LiveNotices } from '../components/chat/LiveNotices';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { operations } from '../operations/api';
@@ -60,7 +60,7 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
     {page.path === 'orders' && <ShipperOrders draftId={url.searchParams.get('draft')} slug={slug} open={newOrderOpen} onClose={() => setNewOrderOpen(false)} onNavigate={go} />}
     {page.path === 'messages' && (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} shipperId={profile.data?.id} company={company} />)}
     {page.path === 'tracking' && <ShipperTracking slug={slug} orderId={url.searchParams.get('order')} logoutError={logoutError} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}
-    <IncomingChatNotice slug={slug} onOpen={setNotificationChat} />
+    <LiveNotices slug={slug} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else if (row.order_id) go(`${base}/tracking?order=${encodeURIComponent(row.order_id)}`); }} />
     {notificationChat && <NotificationChat key={notificationChat} slug={slug} identity={notificationChat} onClose={() => setNotificationChat(null)} />}
   </PortalShell>;
 }

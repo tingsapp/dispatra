@@ -281,7 +281,7 @@ export function JobsPage({
         : scheduledDate >= dateFilter.from && scheduledDate <= dateFilter.to);
 
       return matchesSearch && matchesStatus && matchesType && matchesDate && (lifecycleFilter === 'all' || (lifecycleFilter === 'attention' ? orderAttention(job).length > 0 : orderLifecycle(job) === lifecycleFilter));
-    });
+    }).sort((a, b) => (Date.parse(b.createdAt ?? '') || 0) - (Date.parse(a.createdAt ?? '') || 0)); // newest first
   }, [jobs, searchQuery, statusFilter, typeFilter, lifecycleFilter, dateFilter, today]);
 
   const emailDrafts = useMemo(() => (emailQuery.data ?? []).filter(row => EMAIL_DRAFT_STATUSES.includes(row.status)).map(row => emailDraftRow(row, shipperQuery.data ?? [], catalogQuery.data ?? [])), [emailQuery.data, shipperQuery.data, catalogQuery.data]);

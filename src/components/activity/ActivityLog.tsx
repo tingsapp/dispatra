@@ -37,13 +37,13 @@ function SlidingRow({ entry, age, animateIn, reducedMotion, timeZone }: { entry:
     return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
   }, [arrived, reducedMotion]);
   return <li aria-hidden={age >= visibleRows} data-activity-entry={entry.id}
-    className="company-activity-row absolute inset-x-0 bottom-0 flex h-16 items-start gap-1.5 py-2 font-mono"
-    style={{ transform: `translateY(${(-age + (arrived || reducedMotion ? 0 : 1)) * 64}px)` }}>
+    className="company-activity-row absolute inset-x-0 top-0 flex h-16 items-start gap-1.5 py-2 font-mono"
+    style={{ transform: `translateY(${(age - (arrived || reducedMotion ? 0 : 1)) * 64}px)` }}>
     <EntryContent entry={entry} latest={age === 0} timeZone={timeZone} />
   </li>;
 }
 
-/** Recent saved rows enter once on opening, followed by new committed rows in order. */
+/** Newest first: recent saved rows enter once on opening, then each new committed row slides in at the top. */
 export function ActivityLog({ entries, active, reducedMotion, timeZone }: { entries?: CompanyActivityEntry[]; active: boolean; reducedMotion: boolean; timeZone?: string }) {
   const seen = useRef(new Set<string>());
   const initialized = useRef(false);
@@ -72,6 +72,6 @@ export function ActivityLog({ entries, active, reducedMotion, timeZone }: { entr
     return () => window.clearTimeout(timer);
   }, [active, reducedMotion, pending, entries]);
   return <ol aria-label="Recent order and agent activity" aria-live="off" className="relative min-h-0 flex-1 overflow-hidden" style={{ maxHeight: visibleRows * 64 }}>
-    {shown.map((entry, index) => <SlidingRow key={entry.id} entry={entry} age={shown.length - 1 - index} animateIn reducedMotion={reducedMotion} timeZone={timeZone} />)}
+    {[...shown].reverse().map((entry, age) => <SlidingRow key={entry.id} entry={entry} age={age} animateIn reducedMotion={reducedMotion} timeZone={timeZone} />)}
   </ol>;
 }

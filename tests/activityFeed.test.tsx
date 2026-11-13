@@ -118,7 +118,7 @@ test('a chat assignment is saved only after Assign, refusals stay on the card an
   assert.equal(confirmed.length, 2);
 });
 
-test('opening rows and new records slide upward once in chronological order; reduced motion respects visibility', async () => {
+test('opening rows and new records slide in once, newest first; reduced motion respects visibility', async () => {
   const originalRows = [entry('AGENT:2', 'Second saved step.'), entry('AGENT:1', 'First saved step.')];
   const view = render(<ActivityLog entries={originalRows} active reducedMotion={false} />);
   await screen.findByText('First saved step.');
@@ -127,7 +127,7 @@ test('opening rows and new records slide upward once in chronological order; red
   view.rerender(<ActivityLog entries={[next, ...originalRows]} active reducedMotion={false} />);
   await screen.findByText('New recorded step.', {}, { timeout: 4000 });
   const list = screen.getByRole('list', { name: 'Recent order and agent activity' });
-  assert.deepEqual(within(list).getAllByRole('listitem').map(row => row.querySelector('p')?.textContent), ['First saved step.', 'Second saved step.', 'New recorded step.']);
+  assert.deepEqual(within(list).getAllByRole('listitem').map(row => row.querySelector('p')?.textContent), ['New recorded step.', 'Second saved step.', 'First saved step.']);
   view.rerender(<ActivityLog entries={[next, ...originalRows]} active reducedMotion />);
   const last = entry('AGENT:4', 'A further recorded step.');
   view.rerender(<ActivityLog entries={[last, next, ...originalRows]} active={false} reducedMotion />);
@@ -149,15 +149,16 @@ test('console rows retain recorded time, actor, severity and order context witho
   const warning: CompanyActivityEntry = { ...entry('AGENT:warning', 'Assignment needs review'), agent: 'DISPATCH', level: 'WARNING' };
   const error: CompanyActivityEntry = { ...entry('AGENT:error', 'Email processing failed'), level: 'ERROR' };
   render(<ActivityLog entries={[error, warning, driver]} active reducedMotion timeZone="America/Vancouver" />);
+  // Newest first: error, warning, then the driver arrival.
   const rows = screen.getAllByRole('listitem');
-  assert.equal(rows[0].querySelector('time')?.getAttribute('dateTime'), driver.created_at);
-  assert.ok(rows[0].querySelector('time')?.textContent?.startsWith('02:00:00'));
-  assert.ok(within(rows[0]).getByText('[Driver]'));
-  assert.ok(within(rows[0]).getByText('#1042'));
-  assert.ok(within(rows[0]).getByText('INFO'));
+  assert.equal(rows[2].querySelector('time')?.getAttribute('dateTime'), driver.created_at);
+  assert.ok(rows[2].querySelector('time')?.textContent?.startsWith('02:00:00'));
+  assert.ok(within(rows[2]).getByText('[Driver]'));
+  assert.ok(within(rows[2]).getByText('#1042'));
+  assert.ok(within(rows[2]).getByText('INFO'));
   assert.ok(within(rows[1]).getByText('[Dispatch agent]'));
   assert.ok(within(rows[1]).getByText('WARNING').className.includes('text-amber-700'));
-  assert.ok(within(rows[2]).getByText('ERROR').className.includes('text-rose-700'));
+  assert.ok(within(rows[0]).getByText('ERROR').className.includes('text-rose-700'));
   assert.ok(rows.every(row => row.className.includes('font-mono')));
   assert.equal(screen.queryByText(/Working|Processing|Thinking/), null);
 });
@@ -166,12 +167,12 @@ test('the console shows the latest six saved entries and does not replay unchang
   const entries = Array.from({ length: 8 }, (_, index) => entry(`AGENT:${8 - index}`, `Saved step ${8 - index}`));
   const view = render(<ActivityLog entries={entries} active reducedMotion />);
   const identities = () => screen.getAllByRole('listitem').map(row => row.getAttribute('data-activity-entry'));
-  assert.deepEqual(identities(), ['AGENT:3', 'AGENT:4', 'AGENT:5', 'AGENT:6', 'AGENT:7', 'AGENT:8']);
+  assert.deepEqual(identities(), ['AGENT:8', 'AGENT:7', 'AGENT:6', 'AGENT:5', 'AGENT:4', 'AGENT:3']);
   view.rerender(<ActivityLog entries={[...entries]} active reducedMotion />);
-  assert.deepEqual(identities(), ['AGENT:3', 'AGENT:4', 'AGENT:5', 'AGENT:6', 'AGENT:7', 'AGENT:8']);
+  assert.deepEqual(identities(), ['AGENT:8', 'AGENT:7', 'AGENT:6', 'AGENT:5', 'AGENT:4', 'AGENT:3']);
   view.rerender(<ActivityLog entries={[entry('AGENT:9', 'New saved step'), ...entries]} active reducedMotion />);
   await screen.findByText('New saved step');
-  assert.deepEqual(identities(), ['AGENT:4', 'AGENT:5', 'AGENT:6', 'AGENT:7', 'AGENT:8', 'AGENT:9']);
+  assert.deepEqual(identities(), ['AGENT:9', 'AGENT:8', 'AGENT:7', 'AGENT:6', 'AGENT:5', 'AGENT:4']);
 });
 
 test('failed questions retain the draft, retry the same payload without duplicate user messages and prevent double send', async () => {
