@@ -69,9 +69,13 @@ test('native mode confirms without needing connectors and cancellation stays off
  await user.click(screen.getByRole('switch'));await user.click(await screen.findByRole('button',{name:'Turn on'}));
  await waitFor(()=>assert.equal(writes,1));
 });
-test('turning off AUTO never depends on a connection',async()=>{
+test('turning off AUTO confirms first and never depends on a connection',async()=>{
  connectors.list=async()=>{throw Error('Should not check');};const user=mount({initial:'AUTO'});
- await user.click(screen.getByRole('switch'));await waitFor(()=>assert.equal(screen.getByRole('switch').getAttribute('aria-checked'),'false'));
+ await user.click(screen.getByRole('switch'));const popup=await screen.findByRole('alertdialog',{name:'Turn off auto dispatch?'});
+ await user.click(within(popup).getByRole('button',{name:'Cancel'}));
+ assert.equal(writes,0);assert.equal(screen.getByRole('switch').getAttribute('aria-checked'),'true');
+ await user.click(screen.getByRole('switch'));await user.click(await screen.findByRole('button',{name:'Turn off'}));
+ await waitFor(()=>assert.equal(screen.getByRole('switch').getAttribute('aria-checked'),'false'));
  assert.equal(writes,1);assert.equal(screen.queryByRole('alertdialog'),null);
 });
 test('connection lookup failure does not save or claim no connection',async()=>{
