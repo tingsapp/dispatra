@@ -7809,6 +7809,8 @@ export interface components {
             dispatch_zones?: components["schemas"]["DispatchZone"][];
             /** Default Service Id */
             default_service_id?: string | null;
+            /** Default Package Type Id */
+            default_package_type_id?: string | null;
         };
         /** SettingsData */
         "SettingsData-Output": {
@@ -7928,6 +7930,8 @@ export interface components {
             dispatch_zones?: components["schemas"]["DispatchZone"][];
             /** Default Service Id */
             default_service_id?: string | null;
+            /** Default Package Type Id */
+            default_package_type_id?: string | null;
         };
         /** SettingsUpdate */
         SettingsUpdate: {
