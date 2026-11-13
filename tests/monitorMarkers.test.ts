@@ -65,16 +65,22 @@ test('all stop circles select their order at the clicked location with mouse, En
       assert.match(marker.getAttribute('aria-label')!, new RegExp(stop.label));
       assert.equal(marker.tabIndex, 0);
       assert.ok(marker.querySelector('svg > circle'));
-      assert.equal(marker.querySelector('svg > circle')!.getAttribute('fill'), '#171717', 'Pickup and drop-off circles are black');
+      const circles = marker.querySelectorAll('svg > circle');
+      if (stop.type === 'PICKUP') assert.equal(circles[0].getAttribute('fill'), '#171717', 'Pickup circles are black');
+      else {
+        assert.deepEqual([circles[0].getAttribute('fill'), circles[0].getAttribute('stroke'), circles[1].getAttribute('fill')], ['white', '#171717', '#171717'], 'Drop-offs are a black ring around a filled center dot');
+        assert.equal(marker.querySelector('svg text'), null, 'Drop-offs no longer print a sequence number');
+      }
       assert.equal(!!marker.querySelector('svg svg.lucide-package'), stop.type === 'PICKUP', 'Only pickups show the package icon');
-      assert.match(marker.title, /Pickup|Drop-off/);
+      assert.equal(marker.title, '', 'The branded hover label replaces the native tooltip');
+      assert.match(marker.getAttribute('aria-label')!, /At Risk$/, 'Every stop announces the order status');
       fireEvent.click(marker);
       fireEvent.keyDown(marker, { key: 'Enter' });
       fireEvent.keyDown(marker, { key: ' ' });
       fireEvent.keyDown(marker, { key: 'Escape' });
       assert.deepEqual(selections.slice(index * 3), Array.from({ length: 3 }, () => [job.jobNumber, [stop.lng, stop.lat]]));
     });
-    assert.equal(screen.getAllByText('At Risk').length, 1, 'The order status is retained once');
+    assert.equal(screen.getAllByText('At Risk').length, stops.length, 'Every stop carries the status in its hover label');
     assert.equal(mapClicks, 0, 'Stop clicks do not dismiss order details through the map background');
   } finally { pane.removeEventListener('click', backgroundClick); }
 });
@@ -96,6 +102,23 @@ test('overlays follow map projection and updated stop coordinates, then detach o
   assert.equal(positioned.style.top, `${49.4 * 100}px`);
   view.unmount();
   assert.equal(pane.childElementCount, 0);
+});
+
+test('stops have no persistent tag; a branded label appears on hover or keyboard focus', () => {
+  document.body.appendChild(pane);
+  render(tree({ job, stops, onSelect() {} }));
+  for (const marker of screen.getAllByRole('button')) {
+    assert.ok(marker.classList.contains('group/marker'));
+    const card = marker.querySelector('[aria-hidden="true"].opacity-0')!;
+    assert.ok(card, 'The label is hidden until hover or focus');
+    assert.ok(card.classList.contains('group-hover/marker:opacity-100') && card.classList.contains('group-focus-visible/marker:opacity-100'));
+    assert.ok(card.textContent!.includes(job.jobNumber));
+    assert.equal(marker.querySelector('svg')!.getAttribute('class'), 'drop-shadow-[0_2px_3px_rgb(0_0_0/0.35)]', 'Stop glyphs carry the shared marker shadow');
+  }
+  const drop = screen.getByRole('button', { name: /Final delivery/ });
+  assert.match(drop.textContent!, /Drop-off · Stop|Drop-off/);
+  assert.ok(drop.textContent!.includes('Final delivery'));
+  assert.ok(drop.parentElement!.classList.contains('map-overlay-marker'), 'Hovered markers can rise above neighbours');
 });
 
 test('orders without located stops retain their selectable status marker', () => {
@@ -153,13 +176,19 @@ test('Google route overlay rounds caps and joins, stays projected during camera 
   const path = pane.querySelector('svg[data-shipper-route="own-order"] path')!;
   assert.equal(path.getAttribute('stroke-linecap'), 'round');
   assert.equal(path.getAttribute('stroke-linejoin'), 'round');
-  assert.equal(path.getAttribute('stroke-width'), '4');
+  assert.equal(path.getAttribute('stroke-width'), '2.5');
   assert.equal(path.getAttribute('d'), 'M0,0L90,0Q100,0 100,10L100,100');
+  const hit = [...pane.querySelectorAll('svg path')].find(node => node !== path)!;
+  assert.equal(hit.getAttribute('d'), path.getAttribute('d'), 'The hover target follows the visible route');
+  fireEvent.pointerEnter(hit);
+  assert.equal(path.getAttribute('stroke'), '#1447e6', 'Hovering a route turns it accent blue');
+  fireEvent.pointerLeave(hit);
+  assert.equal(path.getAttribute('stroke'), '#171717');
   cameraOffset = 40;
   overlays.forEach(overlay => overlay.draw());
   assert.equal(path.getAttribute('d'), 'M40,0L130,0Q140,0 140,10L140,100');
   view.rerender(routeTree(false));
-  assert.equal(path.getAttribute('stroke-width'), '4');
+  assert.equal(path.getAttribute('stroke-width'), '2.5');
   view.unmount(); assert.equal(pane.childElementCount, 0);
 });
 
@@ -170,6 +199,7 @@ test('shared vehicle parking opens every vehicle, supports keyboard dismissal an
   const wrap = (rows: typeof vehicles | Array<Omit<typeof vehicles[number], 'source'> & { source: 'GPS' }>) => React.createElement(APIProviderContext.Provider, { value: context }, React.createElement(GoogleVehicleMarkers, { vehicles: rows, onOpenVehicle: id => opened.push(id) }));
   const view = render(wrap(vehicles));
   const marker = screen.getByRole('button', { name: '2 vehicles at this location' });
+  assert.match(marker.querySelector('[aria-hidden="true"].opacity-0')!.textContent!, /2 vehicles.*Parking.*V1, V2/);
   assert.ok(marker.querySelector('.rounded-full.bg-app-accent.border-white svg.lucide-truck'), 'Vehicles use a blue circle with a white border and a centered truck');
   fireEvent.keyDown(marker, { key: 'Enter' });
   await waitFor(() => assert.equal(screen.getByRole('dialog', { name: 'Vehicle location details' }).querySelectorAll('button').length, 3));
@@ -180,5 +210,7 @@ test('shared vehicle parking opens every vehicle, supports keyboard dismissal an
   assert.equal(screen.queryByRole('dialog'), null);
   view.rerender(wrap([{ ...vehicles[0], source: 'GPS' }]));
   const live = screen.getByRole('button', { name: 'Vehicle V1, Live GPS' });
-  assert.equal(live.querySelector('.rounded-full span'), null, 'A single live vehicle has no badge');
+  assert.equal(live.querySelector('.bg-app-accent span'), null, 'A single live vehicle has no badge');
+  assert.equal(live.title, '');
+  assert.match(live.querySelector('[aria-hidden="true"].opacity-0')!.textContent!, /V1.*Live GPS.*No driver attached/, 'Vehicles show a branded hover label');
 });

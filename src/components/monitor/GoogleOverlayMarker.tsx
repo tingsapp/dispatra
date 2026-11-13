@@ -25,6 +25,7 @@ export function GoogleOverlayMarker({ position, label, children, onSelect, id, t
   const element = useRef<HTMLDivElement | null>(null);
   if (!element.current) {
     element.current = document.createElement('div');
+    element.current.className = 'map-overlay-marker';
     element.current.style.position = 'absolute';
     element.current.style.transform = 'translate(-50%, -50%)';
   }

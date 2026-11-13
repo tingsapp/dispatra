@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useMap } from '@vis.gl/react-google-maps';
 import { GoogleOverlayMarker } from './GoogleOverlayMarker';
 import { VehicleMarkerCircle } from '../map/VehicleMarkerCircle';
+import { MapMarkerLabel } from '../map/MapMarkerLabel';
 import type { MapVehicle } from './mapLocations';
 import { Popover, PopoverAnchor, PopoverContent } from '../ui/popover';
 
@@ -29,10 +30,11 @@ export function GoogleVehicleMarkers({ vehicles, onOpenVehicle }: { vehicles: Ma
     const markerId = `map-vehicle-${first.id}`;
     return <Popover key={key} open={expanded} onOpenChange={value => setOpen(value ? key : null)}><GoogleOverlayMarker id={markerId} position={{ lat: first.lat, lng: first.lng }}
       label={group.length > 1 ? `${group.length} vehicles at this location` : `Vehicle ${first.label}, ${live ? 'Live GPS' : 'Parking address'}`}
-      title={group.map(vehicle => `${vehicle.label} · ${vehicle.source === 'GPS' ? 'Live GPS' : 'Parking address'}`).join('\n')}
       expanded={expanded} zIndex={expanded ? 100 : 30} onSelect={() => setOpen(expanded ? null : key)} onDismiss={() => setOpen(null)}
-      className="relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+      className="group/marker relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
       <PopoverAnchor asChild><div><VehicleMapGlyph live={live} count={group.length} /></div></PopoverAnchor>
+      <MapMarkerLabel title={group.length > 1 ? `${group.length} vehicles` : first.label} status={live ? 'Live GPS' : 'Parking'} tone={live ? 'live' : 'muted'}
+        meta={group.length > 1 ? group.map(vehicle => vehicle.label).join(', ') : first.driverName ?? 'No driver attached'} detail={group.length > 1 || first.source === 'GPS' ? undefined : first.address} />
       <PopoverContent aria-label="Vehicle location details" side="top" collisionPadding={12} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}
         onCloseAutoFocus={event => { event.preventDefault(); document.getElementById(markerId)?.focus(); }} className="max-h-64 w-60 overflow-y-auto rounded-xl p-3">
         <div className="mb-2 flex items-center justify-between"><strong className="text-sm">{group.length > 1 ? 'Vehicles at this location' : 'Vehicle location'}</strong><button type="button" aria-label="Close vehicle details" onClick={() => setOpen(null)} className="rounded p-1 hover:bg-slate-100"><X className="size-4" /></button></div>

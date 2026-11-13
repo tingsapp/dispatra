@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { GoogleOverlayMarker } from '../monitor/GoogleOverlayMarker';
-import { StopMarkerCircle } from '../map/StopMarkerCircle';
+import { MAP_MARKER_SHADOW, StopMarkerCircle } from '../map/StopMarkerCircle';
 import type { MapPoint } from './shipperMapLocation';
 
 /** Keep circles on their stops, with captions outside the route's endpoints. */
@@ -25,6 +25,6 @@ export function ShipperStopMarker({ position, kind, number, address, contactName
       <p className="mt-1 line-clamp-3 whitespace-normal text-slate-600">{address}</p>
       {contactName && <p className="mt-1 truncate text-slate-500">Contact: {contactName}</p>}
     </div>}
-    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden><StopMarkerCircle kind={kind} /></svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden className={MAP_MARKER_SHADOW}><StopMarkerCircle kind={kind} /></svg>
   </GoogleOverlayMarker>;
 }

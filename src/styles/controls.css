@@ -47,6 +47,8 @@
 .shipper-tracking-scroll { min-height: 0; overflow-y: auto; padding: 1.25rem; overscroll-behavior: contain; }
 .shipper-tracking-scroll > :not(:first-child) { margin-top: 1rem; }
 .shipper-map-controls { position: absolute; right: 1.5rem; bottom: 2.5rem; z-index: 20; display: grid; gap: .5rem; }
+/* A hovered or focused map marker rises above its neighbours so its label is never covered. */
+.map-overlay-marker:hover, .map-overlay-marker:focus-within { z-index: 200 !important; }
 .shipper-stop-marker { position: relative; width: 24px; height: 24px; }
 .shipper-stop-caption {
   position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
