@@ -21,6 +21,7 @@ import { MonitorBadge } from './monitor/MonitorBadge';
 import { ReviewAttentionItem, hasReviewAttention, type ReviewAttentionProps } from './monitor/ReviewAttentionItem';
 import { DialogHeader, DialogBody } from './ui/Dialog';
 import { useEntityDialog } from './entities/useEntityDialog';
+import { ResolveIssue, type ResolveIssueHandler } from './monitor/ResolveIssue';
 
 interface DetailModalDialogProps extends OrderMapVisibilityProps, ReviewAttentionProps {
   isOpen?: boolean;
@@ -48,6 +49,7 @@ interface DetailModalDialogProps extends OrderMapVisibilityProps, ReviewAttentio
   /** Opens the driver on the Drivers page for editing. */
   onMessageDriver?: (driver: Driver) => void;
   onEditDriver?: (driver: Driver) => void;
+  onResolveIssue?: ResolveIssueHandler;
 }
 
 export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
@@ -179,6 +181,7 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
               onSelectJob={onSelectJob}
               onApproveAiFix={effectiveApproveAi}
               onActionNotification={onActionNotification}
+              onResolveIssue={props.onResolveIssue}
             />
           )}
 
@@ -397,12 +400,14 @@ const AllExceptionsView: React.FC<ReviewAttentionProps & {
   onSelectJob?: (jobNumber: string) => void;
   onApproveAiFix?: () => void;
   onActionNotification: (msg: string) => void;
+  onResolveIssue?: ResolveIssueHandler;
 }> = ({
   exceptions,
   onClose,
   onSelectJob,
   onApproveAiFix,
   onActionNotification,
+  onResolveIssue,
   ...review
 }) => {
   const count = exceptions.length + (review.reviewCount ?? 0);
@@ -425,6 +430,7 @@ const AllExceptionsView: React.FC<ReviewAttentionProps & {
                 <MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-slate-400" />
                 <span className="min-w-0 [overflow-wrap:anywhere]">{item.pickupAddress}</span>
               </div>
+              <ResolveIssue item={item} onResolve={onResolveIssue} />
             </div>
             {(onSelectJob || (item.jobNumber === '#461' && onApproveAiFix)) && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-3 sm:flex-col sm:items-end">
               {item.jobNumber === '#461' && onApproveAiFix && <button type="button"

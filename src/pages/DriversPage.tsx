@@ -292,6 +292,7 @@ export function DriversPage({
                               <span className="text-xs font-mono bg-slate-100 text-slate-600 px-1 py-0.2 rounded">
                                 {driver.driverNumber ?? driver.id}
                               </span>
+                              {(driver.crewSize ?? 1) >= 2 && <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">With helper</span>}
                             </div>
                             <div className="text-xs text-slate-400">{formatPhone(driver.phone)}</div>
                           </div>

@@ -36,3 +36,11 @@ test('planned assignment is not idle availability; start and completion change t
  assert.equal(driverToUi({...row,active:false},vehicle,undefined,{status:'PLANNED'},true).status,'offline');
  assert.equal(driverToUi(row,undefined,undefined,{status:'PLANNED'},true).statusLabel,'Vehicle unavailable');
 });
+test('team size round-trips and older profiles without it stay a 1-person team',()=>{
+ const ui=driverToUi(previous);
+ assert.equal(ui.crewSize,1);
+ assert.equal(driverFromUi(ui,previous).crew_size,1);
+ const team=driverFromUi({...ui,crewSize:2},previous);
+ assert.equal(team.crew_size,2);
+ assert.equal(driverToUi({...previous as object,data:{...(previous as {data:object}).data,crew_size:2}} as never).crewSize,2);
+});

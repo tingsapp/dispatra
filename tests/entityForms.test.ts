@@ -589,3 +589,16 @@ test('shipper standing assignment round-trips and becomes a booking constraint',
   assert.deepEqual(shipperAssignment({booking:{assigned_driver:{id:'d1',name:'Dana'}}}),{id:'d1',name:'Dana'});
   assert.equal(shipperAssignment({booking:{assigned_driver:{id:3,name:'invalid'}}}),null);
 });
+test('driver form helper checkbox saves a 2-person team and unchecking returns to 1', async()=>{
+  const user=userEvent.setup({document}); let saved:any;
+  const driver=normalizeDriver({...INITIAL_DRIVERS[0],currentVehicleId:null,email:'driver@example.ca',address:'100 Main St, Vancouver, BC V6A 2S5'});
+  render(React.createElement(DriverEditor,{driver,drivers:[driver],onSave:d=>saved=d,onCancel:()=>{}}));
+  const helper=screen.getByRole('checkbox',{name:/Works with a helper/}) as HTMLInputElement;
+  assert.equal(helper.checked,false);
+  await user.click(helper);
+  await user.click(screen.getByRole('button',{name:'Save driver'}));
+  assert.equal(saved.crewSize,2);
+  await user.click(helper);
+  await user.click(screen.getByRole('button',{name:'Save driver'}));
+  assert.equal(saved.crewSize,1);
+});

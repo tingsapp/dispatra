@@ -40,7 +40,7 @@ export function TaxEditor() {
 }
 
 export function SaveSettings({ editor, label }: { editor: ReturnType<typeof useSettingsDraft>; label: string }) {
-  return <div className="mt-auto space-y-3">
+  return <div className="mt-auto space-y-3 pt-6">
     <Notice error={editor.error} success={editor.saved ? 'Changes saved.' : undefined} />
     <div className="flex items-center justify-end gap-3">
       {!!editor.error && <Button type="button" variant="outline" disabled={editor.pending} onClick={editor.reload}>Reload saved settings</Button>}

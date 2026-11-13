@@ -15,6 +15,8 @@ export interface DriverOperations extends AuditFields {
   vehicleTypeQualifications?: string[]; currentVehicleId?: string | null; shiftEnd?: string; maximumWorkMinutes?: number;
   preferredStartLocation?: string; availabilitySchedule?: AvailabilityPeriod[]; appLastSeenAt?: string | null; locationCapturedAt?: string | null;
   locationPermissionStatus?: 'GRANTED' | 'DENIED' | 'UNKNOWN'; notes?: string;
+  /** People who work together on this driver's routes; extras such as Helper need 2. Defaults to 1. */
+  crewSize?: number;
 }
 export interface TruckRoutingMeasurements {
   lengthM: number; widthM: number; heightM: number; grossWeightKg: number; axleWeightKg?: number;

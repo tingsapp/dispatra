@@ -145,7 +145,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const needsAttentionItems = slug ? (monitorQuery.data?.needs_attention ?? []).map(item => {
     const order = orderQuery.data?.find(row => row.id === item.order_id);
     return { id: item.id ?? `${item.order_id}-${item.kind}`, jobNumber: order?.number ?? '', statusType: 'at_risk' as const, statusLabel: attentionLabel(item.kind), subtitle: item.description,
-      pickupAddress: order?.facts.stops.find(stop => stop.kind === 'PICKUP')?.address.text ?? '', badgeColor: item.kind === 'AT_RISK' ? 'red' as const : 'amber' as const };
+      pickupAddress: order?.facts.stops.find(stop => stop.kind === 'PICKUP')?.address.text ?? '', badgeColor: item.kind === 'AT_RISK' ? 'red' as const : 'amber' as const,
+      ...(item.id && item.version != null ? { issue: { id: item.id, version: item.version } } : {}) };
   }) : [...pricingAttentionItems(jobs), ...operationalAttentionItems];
 
   // Active Jobs & Driver counts
@@ -449,6 +450,12 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     finally { await refreshDispatch(); }
   };
   const refreshDispatch = () => Promise.all(['orders', 'routes', 'monitor'].map(name => queryClient.invalidateQueries({ queryKey: ['operations', slug, name] })));
+  const resolveIssue = async (item: NeedsAttentionItem, resolution: string) => {
+    if (!slug || !item.issue) return;
+    await operations.resolveIssue(slug, item.issue, resolution);
+    showToast(`Issue on ${item.jobNumber} resolved.`);
+    await refreshDispatch();
+  };
   const handleRecommendationAssigned = async (message: string) => {
     setShowAiRecommendation(false); setShowAssignDriver(false); setShowJobDetail(false);
     showToast(message);
@@ -780,6 +787,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                 availableDriversCount={availableDriversCount}
                 needsAttentionCount={needsAttentionItems.length}
                 needsAttentionItems={needsAttentionItems}
+                onResolveIssue={slug ? resolveIssue : undefined}
                 showAvailableDriversMenu={showAvailableDriversMenu}
                 setShowAvailableDriversMenu={setShowAvailableDriversMenu}
                 showNeedsAttentionPopover={showNeedsAttentionPopover}
@@ -865,6 +873,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         hiddenOrderIds={hiddenOrderIds}
         onOrderVisibilityChange={handleOrderVisibilityChange}
         needsAttentionItems={needsAttentionItems}
+        onResolveIssue={slug ? resolveIssue : undefined}
         {...reviewAttention}
         onOpenReview={() => setReviewOpen(true)}
         timeZone={slug ? settingsQuery.data?.data.time_zone : undefined}

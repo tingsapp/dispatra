@@ -40,13 +40,14 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
   operations.assistant = async (_slug, body) => {
     requests.push(body.kind ?? 'CHAT');
     return { message: body.kind === 'BRIEFING' ? 'Review the waiting orders.' : 'Your orders are ready.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false,
-      briefing: body.kind === 'BRIEFING' ? { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 15, unassigned: 12, assigned: 1, in_progress: 1, completed: 1, open_incidents: 2 } : null };
+      briefing: body.kind === 'BRIEFING' ? { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 15, unassigned: 12, assigned: 1, in_progress: 1, completed: 1, open_incidents: 2, dispatch_mode: 'AUTO', assigned_by_driver: [{ driver_name: 'Alex Chen', orders: 2 }, { driver_name: 'Sam Lee', orders: 1 }] } : null };
   };
   mount(); const user = userEvent.setup({ document });
   await screen.findByLabelText('Daily briefing');
   assert.deepEqual(requests, ['BRIEFING']);
   assert.equal(screen.getByRole('dialog', {name:'Dispatra'}).getAttribute('data-view'),'briefing');
   assert.ok(screen.getByText('2 open issues to review'));
+  assert.ok(screen.getByText('Auto dispatch is on. 2 orders assigned to Alex Chen, 1 to Sam Lee. You can still change them.'));
   assert.equal(screen.queryByRole('heading', { name: 'Dispatra' }), null);
   assert.equal(screen.queryByRole('button', { name: 'Show unassigned' }), null);
   const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
@@ -71,20 +72,50 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
 });
 
 test('the open briefing follows workspace changes and drops commentary written for older totals', async () => {
-  const opening = { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 1, unassigned: 1, assigned: 0, in_progress: 0, completed: 0, open_incidents: 0 };
+  const opening = { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 1, unassigned: 1, assigned: 0, in_progress: 0, completed: 0, open_incidents: 0, dispatch_mode: 'MANUAL' as const, assigned_by_driver: [] as { driver_name: string; orders: number }[] };
   let totals = opening;
   operations.assistant = async () => ({ message: 'Assign the waiting order.', references: [], mode: 'AI', observed_at: '2026-11-04T17:00:00Z', limited: false, briefing: opening });
   operations.briefing = async () => ({ briefing: totals, observed_at: new Date().toISOString() });
   mount();
   await screen.findByText('Assign the waiting order.');
+  assert.ok(screen.getByText('Auto dispatch is off. 1 order waiting for you to assign.'));
   const count = (label: string) => within(screen.getByLabelText('Status of orders received today')).getByText(label).nextElementSibling?.textContent;
-  totals = { ...opening, received: 2, unassigned: 1, assigned: 1, open_incidents: 1 };
+  totals = { ...opening, received: 2, unassigned: 1, assigned: 1, open_incidents: 1, assigned_by_driver: [{ driver_name: 'Alex Chen', orders: 1 }] };
   await act(() => cache.invalidateQueries({ queryKey: syncInvalidations('DISPATCHER', 'acme', [{ entity: 'route', type: 'route.assigned' } as never]).find(key => key.includes('briefing')) }));
   await screen.findByText('1 open issue to review');
   assert.equal(count('Assigned'), '1');
+  assert.ok(screen.getByText('Auto dispatch is off. 1 order assigned to Alex Chen. You can still change them.'));
   assert.ok(screen.getByText('orders received today').parentElement?.textContent?.startsWith('2'));
   assert.equal(screen.queryByText('Assign the waiting order.'), null);
   assert.deepEqual(BRIEFING_QUESTIONS.map(question => screen.getByRole('button', { name: question }).textContent), BRIEFING_QUESTIONS);
+});
+
+test('a chat assignment is saved only after Assign, refusals stay on the card and Cancel changes nothing', async () => {
+  const action = { kind: 'ASSIGN' as const, order_id: '11111111-1111-4111-8111-111111111111', order_version: 3, order_number: 'ORD-1042', driver_id: '22222222-2222-4222-8222-222222222222', driver_name: 'Alex Chen', vehicle_name: 'Truck 12 (ABC123)', current_driver_name: null };
+  const reply = (message: string, withAction = false) => ({ message, references: [], mode: 'AI' as const, observed_at: new Date().toISOString(), limited: false, ...(withAction ? { action } : {}) });
+  operations.assistant = async (_slug, body) => body.kind === 'BRIEFING' ? reply('Briefing ready.') : reply('Alex Chen can take order ORD-1042 in Truck 12 (ABC123). Confirm below and I’ll assign it.', true);
+  const confirmed: unknown[] = []; let refuse = true;
+  operations.confirmAssistantAction = async (_slug, sent) => { confirmed.push(sent); if (refuse) throw new Error('Alex Chen is off duty.'); return { message: 'Done. Order ORD-1042 is now assigned to Alex Chen.', order_id: action.order_id, order_version: 4 }; };
+  mount(); const user = userEvent.setup({ document });
+  await screen.findByText('Briefing ready.');
+  const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
+  await user.type(input, 'Assign 1042 to Alex{Enter}');
+  const card = await screen.findByLabelText('Assign order ORD-1042');
+  assert.equal(confirmed.length, 0, 'a proposal alone saves nothing');
+  await user.click(within(card).getByRole('button', { name: 'Assign' }));
+  await within(card).findByText('Alex Chen is off duty.');
+  refuse = false;
+  await user.click(within(card).getByRole('button', { name: 'Assign' }));
+  await screen.findByText('Done. Order ORD-1042 is now assigned to Alex Chen.');
+  assert.ok(within(card).getByText('Assigned'));
+  assert.equal(within(card).queryByRole('button', { name: 'Assign' }), null);
+  assert.equal(confirmed.length, 2);
+  await user.type(input, 'Assign 1042 to Alex{Enter}');
+  await waitFor(() => assert.equal(screen.getAllByLabelText('Assign order ORD-1042').length, 2));
+  const second = screen.getAllByLabelText('Assign order ORD-1042')[1];
+  await user.click(within(second).getByRole('button', { name: 'Cancel' }));
+  await screen.findByText('Okay, I left order ORD-1042 as it was.');
+  assert.equal(confirmed.length, 2);
 });
 
 test('opening rows and new records slide upward once in chronological order; reduced motion respects visibility', async () => {

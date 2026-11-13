@@ -12,6 +12,7 @@ import {
 import { Driver, NeedsAttentionItem } from '../types';
 import { MonitorBadge } from './monitor/MonitorBadge';
 import { ReviewAttentionItem, hasReviewAttention, type ReviewAttentionProps } from './monitor/ReviewAttentionItem';
+import { ResolveIssue, type ResolveIssueHandler } from './monitor/ResolveIssue';
 
 interface TopMetricsProps extends ReviewAttentionProps {
   drivers: Driver[];
@@ -25,6 +26,7 @@ interface TopMetricsProps extends ReviewAttentionProps {
   onSelectJob: (jobNumber: string) => void;
   onSelectDriver: (driverId: string) => void;
   onActionNotification: (msg: string) => void;
+  onResolveIssue?: ResolveIssueHandler;
 }
 
 export const TopMetrics: React.FC<TopMetricsProps> = ({
@@ -39,7 +41,8 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
   setShowNeedsAttentionPopover,
   onSelectJob,
   onSelectDriver,
-  onActionNotification
+  onActionNotification,
+  onResolveIssue
 }) => {
   const [driverSearchQuery, setDriverSearchQuery] = useState('');
   const [driverFilterTab, setDriverFilterTab] = useState<'available' | 'all'>('available');
@@ -224,6 +227,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                         </div>
                         <p className="text-xs text-slate-700 whitespace-pre-line [overflow-wrap:anywhere]">{item.subtitle}</p>
                         {item.pickupAddress && <p className="text-xs text-slate-500 truncate">Pickup · {item.pickupAddress.split(',')[0]}</p>}
+                        <ResolveIssue item={item} onResolve={onResolveIssue} />
                       </div>
                       <ChevronRight className="w-4 h-4 mt-0.5 text-slate-400 group-hover:text-slate-700 transition-colors shrink-0" />
                     </div>

@@ -39,7 +39,7 @@ export function MonitorActivity({ slug, open, active, onOpenChange, onSelectRefe
       <button type="button" onClick={() => { inputRef.current?.blur(); onOpenChange(false); }} aria-label="Close Dispatra" className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-app-muted hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-slate-500"><X size={14} /></button>
     </div>
     <div role="region" aria-label="Dispatra content" tabIndex={0} className="assistant-panel-body assistant-view-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-      <AssistantConversation slug={slug} messages={chat.messages} pending={chat.pending} active={open && active && visible} reducedMotion={reducedMotion} onSelect={onSelectReference} onFollowUp={prompt => chat.submit(false, false, prompt)} />
+      <AssistantConversation slug={slug} messages={chat.messages} pending={chat.pending} active={open && active && visible} reducedMotion={reducedMotion} onSelect={onSelectReference} onFollowUp={prompt => chat.submit(false, false, prompt)} onConfirm={chat.confirmAction} onCancel={chat.cancelAction} />
     </div>
     </div>}
     <form className={`shrink-0 ${open ? 'mt-3' : ''}`} onSubmit={event => { event.preventDefault(); submit(); }}>

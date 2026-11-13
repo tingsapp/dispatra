@@ -72,6 +72,8 @@ export interface NeedsAttentionItem {
   subtitle: string;
   pickupAddress: string;
   badgeColor: 'red' | 'amber';
+  /** Set for a reported issue that the dispatcher can resolve. */
+  issue?: { id: string; version: number };
 }
 
 export interface EligibleDriver {

@@ -1,9 +1,22 @@
 import { CircleCheck, CircleAlert, Package } from 'lucide-react';
-import type { AssistantReply } from '../../operations/api';
+import type { AssistantReply, BriefingTotals } from '../../operations/api';
 import { useLiveBriefing } from './useLiveBriefing';
 
 /** Questions a dispatcher most often needs answered at the start of a shift; each is sent as a normal chat message. */
 export const BRIEFING_QUESTIONS = ['List all new orders.', 'Which orders need attention and why?'];
+
+type Briefing = BriefingTotals['briefing'];
+const orders = (count: number) => `${count.toLocaleString()} ${count === 1 ? 'order' : 'orders'}`;
+
+/** One plain sentence on who dispatches today and where today's orders went, e.g. "Auto dispatch is on. 3 orders assigned to Alex, 1 to Sam and 2 more drivers." */
+export function dispatchSummary(data: Briefing) {
+  const mode = data.dispatch_mode === 'AUTO' ? 'Auto dispatch is on.' : 'Auto dispatch is off.';
+  const drivers = data.assigned_by_driver ?? [];
+  if (!drivers.length) return `${mode} ${data.dispatch_mode === 'MANUAL' && data.unassigned ? `${orders(data.unassigned)} waiting for you to assign.` : 'No orders assigned yet today.'}`;
+  const shown = drivers.slice(0, 2).map((row, index) => `${index ? row.orders.toLocaleString() : orders(row.orders)} ${index ? 'to' : 'assigned to'} ${row.driver_name}`);
+  const more = drivers.length > 2 ? ` and ${drivers.length - 2} more ${drivers.length === 3 ? 'driver' : 'drivers'}` : '';
+  return `${mode} ${shown.join(', ')}${more}. You can still change them.`;
+}
 
 export function BriefingCard({ slug, reply, pending, onFollowUp }: { slug?: string; reply: AssistantReply; pending: boolean; onFollowUp?: (prompt: string) => void }) {
   const live = useLiveBriefing(slug, reply);
@@ -29,6 +42,7 @@ export function BriefingCard({ slug, reply, pending, onFollowUp }: { slug?: stri
       {[['Unassigned', data.unassigned], ['Assigned', data.assigned], ['In progress', data.in_progress], ['Completed', data.completed]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value.toLocaleString()}</dd></div>)}
     </dl>
     <div className="briefing-guidance">
+      <p className="briefing-dispatch">{dispatchSummary(data)}</p>
       <p className={`briefing-issues ${attention ? 'text-amber-700' : 'text-slate-600'}`}><Icon size={15} className="shrink-0" aria-hidden="true" />{attention ? `${data.open_incidents} open ${data.open_incidents === 1 ? 'issue' : 'issues'} to review` : 'No open issues recorded'}<span className="sr-only"> across your workspace</span></p>
       {live.recommendation && <p className="briefing-recommendation">{live.recommendation}</p>}
     </div>

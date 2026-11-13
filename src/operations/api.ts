@@ -24,6 +24,7 @@ export type AssistantQuestion = components['schemas']['WorkspaceAssistantQuestio
 export type AssistantReply = components['schemas']['AssistantReply'];
 export type BriefingTotals = components['schemas']['BriefingTotals'];
 export type AssistantReference = components['schemas']['AssistantReference'];
+export type AssistantAction = components['schemas']['AssistantAction'];
 export type Mailbox = components['schemas']['MailboxView'];
 export type MailboxInput = components['schemas']['MailboxInput'];
 export type EmailIntake = components['schemas']['IntakeView'];
@@ -49,6 +50,8 @@ const mutation = () => ({ 'Idempotency-Key': key() });
 export const operations = {
   assistant: async (slug: string, body: AssistantQuestion, signal?: AbortSignal) => unwrap(await client.POST('/api/v1/companies/{slug}/assistant/messages', { body, signal, params: { path: company(slug) } })),
   briefing: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/assistant/briefing', { params: { path: company(slug) } })),
+  /** Confirms a chat-prepared assignment; the key is stable per proposal so a retried click cannot assign twice. */
+  confirmAssistantAction: async (slug: string, action: AssistantAction) => unwrap(await client.POST('/api/v1/companies/{slug}/assistant/actions/assign', { body: { order_id: action.order_id, order_version: action.order_version, driver_id: action.driver_id }, params: { path: company(slug), header: { 'Idempotency-Key': `ca-${action.order_id.replaceAll('-', '')}-${action.order_version}-${action.driver_id.replaceAll('-', '').slice(0, 24)}` } } })),
   sync: async (slug: string, cursor?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/sync', { params: { path: company(slug), query: { cursor } } })),
   notifications: async (slug: string, before?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/notifications', { params: { path: company(slug), query: { limit: 50, before } } })),
   readNotification: async (slug: string, row: AppNotification) => unwrap(await client.POST('/api/v1/companies/{slug}/notifications/{identity}/read', { body: { version: row.version }, params: { path: entity(slug, row.id), header: mutation() } })),
@@ -110,6 +113,8 @@ export const operations = {
   dispatchSuggestion: async (slug: string, orderId: string, refresh = false) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/dispatch-suggestions', { params: { path: entity(slug, orderId), query: { refresh } } })),
   approveDispatch: async (slug: string, decision: DispatchDecision, driverId: string) => unwrap(await client.POST('/api/v1/companies/{slug}/dispatch-decisions/{identity}/approve', { body: { version: decision.version, driver_id: driverId }, params: { path: entity(slug, decision.id), header: { 'Idempotency-Key': `da-${decision.id.replaceAll('-', '')}-${driverId.replaceAll('-', '')}` } } })),
   completeOrder: async (slug: string, order: Order) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/complete', { body: { version: order.version }, params: { path: entity(slug, order.id), header: mutation() } })),
+  /** Closes a reported issue with the dispatcher's note; the API completes the order when nothing else is outstanding. */
+  resolveIssue: async (slug: string, issue: { id: string; version: number }, resolution: string) => unwrap(await client.POST('/api/v1/companies/{slug}/issues/{identity}/resolve', { body: { version: issue.version, resolution }, params: { path: entity(slug, issue.id), header: mutation() } })),
   releaseRoute: async (slug: string, route: components['schemas']['RouteView']) => unwrap(await client.POST('/api/v1/companies/{slug}/routes/{identity}/release', { body: { version: route.version, generation: route.generation }, params: { path: entity(slug, route.id), header: mutation() } })),
   orders: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders', { params: { path: company(slug), query: { limit: 200, after } } })),
   quotes: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/quotes', { params: { path: company(slug), query: { limit: 200, after } } })),

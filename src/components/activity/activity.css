@@ -52,6 +52,7 @@
 .briefing-counts > div { display: flex; min-width: 0; flex-direction: column; gap: 6px; padding: 0 4px; }
 .briefing-counts dt { font-size: 10px; line-height: 16px; color: #64748b; }
 .briefing-counts dd { font-size: 21px; line-height: 26px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.briefing-dispatch { font-size: 12px; line-height: 18px; color: #334155; }
 .briefing-guidance { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: #fafafa; }
 .briefing-issues { display: flex; align-items: center; gap: 7px; font-size: 12px; line-height: 18px; }
 .briefing-recommendation { font-size: 12px; line-height: 18px; color: #475569; overflow-wrap: anywhere; }
@@ -70,6 +71,8 @@
   .assistant-briefing { gap: 8px; }
   .briefing-overview { padding-block: 10px; }
   .briefing-total { margin-top: 8px; }
+  .briefing-total .briefing-order-icon { width: 34px; height: 34px; border-radius: 11px; }
+  .briefing-counts > div { gap: 4px; }
   .briefing-guidance { gap: 6px; padding-block: 10px; }
   .company-activity-panel[data-view="briefing"] .assistant-panel-content > :first-child { padding-bottom: 6px; }
 }

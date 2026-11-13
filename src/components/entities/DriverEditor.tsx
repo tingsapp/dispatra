@@ -58,7 +58,12 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
             {vehicles.map(v => <DropdownMenuItem key={v.id} onSelect={() => patch({ currentVehicleId: v.id, vehicle: `${v.vehicleNumber ?? v.unitNumber} · ${v.plateNumber}` })}>{v.unitNumber} · {v.plateNumber}</DropdownMenuItem>)}
           </DropdownMenuContent>
         </DropdownMenu>      </div>
-      <label className="sm:col-span-2 flex items-start gap-2.5 cursor-pointer text-sm text-slate-800">
+      <label className="sm:col-span-2 mt-2 flex items-start gap-2.5 cursor-pointer text-sm text-slate-800">
+        <input type="checkbox" className="app-checkbox mt-0.5" checked={(draft.crewSize ?? 1) >= 2} onChange={event => patch({ crewSize: event.target.checked ? Math.max(2, draft.crewSize ?? 1) : 1 })} />
+        <span><span className="font-medium">Works with a helper</span>
+          <span className="block text-xs text-slate-500 mt-0.5">Check if this driver always has a second person on board. Orders with the Helper extra go only to drivers with a helper.</span></span>
+      </label>
+      <label className="sm:col-span-2 mt-2 flex items-start gap-2.5 cursor-pointer text-sm text-slate-800">
         <input type="checkbox" className="app-checkbox mt-0.5" checked={dgQualified} onChange={event => patch({ skills: event.target.checked
           ? [...(draft.skills ?? []).filter(skill => skill !== 'DG'), 'DG']
           : (draft.skills ?? []).filter(skill => skill !== 'DG') })} />

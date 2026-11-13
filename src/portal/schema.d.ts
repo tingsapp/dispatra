@@ -3094,6 +3094,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/assistant/actions/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Assignment
+         * @description Save an assignment the dispatcher confirmed in chat. The shared assignment command re-checks every rule.
+         */
+        post: operations["confirm_assignment_api_v1_companies__slug__assistant_actions_assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/billing/payment-method": {
         parameters: {
             query?: never;
@@ -3780,6 +3800,64 @@ export interface components {
             order_version: number;
             route: components["schemas"]["RouteView"];
         };
+        /**
+         * AssistantAction
+         * @description A checked assignment the dispatcher confirms; the shared assignment command re-validates it.
+         */
+        AssistantAction: {
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "ASSIGN";
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Order Version */
+            order_version: number;
+            /** Order Number */
+            order_number: string;
+            /**
+             * Driver Id
+             * Format: uuid
+             */
+            driver_id: string;
+            /** Driver Name */
+            driver_name: string;
+            /** Vehicle Name */
+            vehicle_name: string;
+            /** Current Driver Name */
+            current_driver_name?: string | null;
+        };
+        /** AssistantActionCommand */
+        AssistantActionCommand: {
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Order Version */
+            order_version: number;
+            /**
+             * Driver Id
+             * Format: uuid
+             */
+            driver_id: string;
+        };
+        /** AssistantActionResult */
+        AssistantActionResult: {
+            /** Message */
+            message: string;
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Order Version */
+            order_version: number;
+        };
         /** AssistantReference */
         AssistantReference: {
             /** Key */
@@ -3803,6 +3881,7 @@ export interface components {
         /** AssistantReply */
         AssistantReply: {
             briefing?: components["schemas"]["DailyBriefing"] | null;
+            action?: components["schemas"]["AssistantAction"] | null;
             /** Message */
             message: string;
             /** References */
@@ -5002,6 +5081,14 @@ export interface components {
             completed: number;
             /** Open Incidents */
             open_incidents: number;
+            /**
+             * Dispatch Mode
+             * @default MANUAL
+             * @enum {string}
+             */
+            dispatch_mode: "AUTO" | "MANUAL";
+            /** Assigned By Driver */
+            assigned_by_driver?: components["schemas"]["DriverAssignments"][];
         };
         /** DailyMetric */
         DailyMetric: {
@@ -5546,6 +5633,13 @@ export interface components {
             location_permission: string;
             /** Current Route */
             current_route: string | null;
+        };
+        /** DriverAssignments */
+        DriverAssignments: {
+            /** Driver Name */
+            driver_name: string;
+            /** Orders */
+            orders: number;
         };
         /** DriverData */
         DriverData: {
@@ -6678,6 +6772,8 @@ export interface components {
         MonitorIssue: {
             /** Id */
             id?: string | null;
+            /** Version */
+            version?: number | null;
             /**
              * Order Id
              * Format: uuid
@@ -28916,6 +29012,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BriefingTotals"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    confirm_assignment_api_v1_companies__slug__assistant_actions_assign_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantActionCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantActionResult"];
                 };
             };
             /** @description Bad Request */

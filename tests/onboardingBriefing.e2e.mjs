@@ -9,7 +9,7 @@ const errors = [];
 const base = {
   message: 'Check order intake and driver readiness before dispatching; no issues are shown in the current briefing card.',
   references: [], mode: 'AI', observed_at: '2026-11-05T11:23:00Z', limited: false,
-  briefing: { day: '2026-11-05', time_zone: 'America/Vancouver', evening: false, received: 0, unassigned: 0, assigned: 0, in_progress: 0, completed: 0, open_incidents: 0 },
+  briefing: { day: '2026-11-05', time_zone: 'America/Vancouver', evening: false, received: 0, unassigned: 0, assigned: 0, in_progress: 0, completed: 0, open_incidents: 0, dispatch_mode: 'MANUAL', assigned_by_driver: [] },
 };
 const preamble = `<script type="module">
   import RefreshRuntime from '/@react-refresh';
@@ -57,7 +57,8 @@ try {
   const cases = [
     ['empty', base],
     ['busy', { ...base, message: 'Review unassigned orders and confirm driver readiness before dispatching. Check the recorded issues for any delivery constraints that need your attention before assigning more work.',
-      briefing: { ...base.briefing, received: 1250, unassigned: 150, assigned: 200, in_progress: 300, completed: 600, open_incidents: 12 } }],
+      briefing: { ...base.briefing, received: 1250, unassigned: 150, assigned: 200, in_progress: 300, completed: 600, open_incidents: 12, dispatch_mode: 'AUTO',
+        assigned_by_driver: [{ driver_name: 'Alexandra Montgomery', orders: 420 }, { driver_name: 'Samuel Leblanc', orders: 380 }, { driver_name: 'Priya Raman', orders: 200 }, { driver_name: 'Jo Kim', orders: 100 }] } }],
     ['evening', { ...base, briefing: { ...base.briefing, evening: true, received: 1, completed: 1 } }],
     ['unavailable', { ...base, mode: 'SEARCH', message: 'Live totals are shown. AI commentary is unavailable.' }],
   ];
