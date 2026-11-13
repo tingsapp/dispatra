@@ -105,3 +105,9 @@
 .animate-radar-ping-fast {
   animation: markerRadarPing 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+
+/* No focus outline anywhere in the app. Inputs keep their focused border colour;
+   forced-colors mode keeps the system indicator so keyboard users are not lost. */
+@media (forced-colors: none) {
+  :focus, :focus-visible { outline: none !important; }
+}

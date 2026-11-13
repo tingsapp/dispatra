@@ -58,7 +58,6 @@
   box-shadow: 0 3px 12px #0000001a; font-size: 11px; line-height: 14px;
 }
 .shipper-stop-marker-pickup .shipper-stop-caption { top: calc(100% + 4px); bottom: auto; }
-.shipper-stop-marker:focus-visible .shipper-stop-caption { outline: 2px solid var(--app-focus-color); outline-offset: 2px; }
 @media (max-width: 480px) { .shipper-stop-caption { width: 144px; } }
 .shipper-map-unavailable { position: absolute; top: 45%; left: max(1.5rem, 52%); right: 1.5rem; text-align: center; }
 @media (max-width: 767px) {

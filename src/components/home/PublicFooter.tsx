@@ -4,7 +4,7 @@ import { api } from '../../portal/api';
 import { accountWorkspace } from '../../lib/workspaceEntry';
 import { BrandLogo } from '../layout/AppBrand';
 
-const linkClass = 'w-fit rounded text-sm text-app-muted transition-colors hover:text-app-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-accent focus-visible:ring-offset-4';
+const linkClass = 'w-fit rounded text-sm text-app-muted transition-colors hover:text-app-text';
 
 export function PublicFooter({ workspaceHref }: { workspaceHref?: string }) {
   const [sessionHref, setSessionHref] = useState<string>();

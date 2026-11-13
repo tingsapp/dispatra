@@ -5,7 +5,7 @@ export const labelClass = 'app-label';
 export const hintClass = 'text-xs text-slate-500 mt-1';
 export const cardClass = 'app-panel';
 export const checkboxClass =
-  'w-4 h-4 rounded border-slate-300 accent-slate-900 focus:ring-2 focus:ring-slate-900/20 cursor-pointer';
+  'w-4 h-4 rounded border-slate-300 accent-slate-900 cursor-pointer';
 
 /** Small labelled numeric field with an optional prefix/suffix adornment. */
 export const NumberField: React.FC<{

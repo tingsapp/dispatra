@@ -28,7 +28,7 @@ export function BillingSettingsForm({ section, onNotification }: { section: keyo
     {section === 'fuel' && <FuelChargeSettings editor={editor} />}
     </fieldset>
     {editor.saveError && <p role="alert" className="text-sm text-red-600">{editor.saveError}</p>}
-    <div className={`flex items-center justify-end gap-3 ${section === 'fuel' ? 'flex-row-reverse flex-wrap' : ''}`}>
+    <div className={`flex items-center justify-end gap-3 pt-6 ${section === 'fuel' ? 'flex-row-reverse flex-wrap' : ''}`}>
       <span role="status" className="text-xs text-slate-500">{editor.isSaved && !editor.dirty ? 'Settings saved' : ''}</span>
       <Button loading={editor.pending} type="submit" disabled={!editor.dirty || editor.pending} className="app-action app-primary rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-40">Save {SAVE_LABELS[section]}</Button>
     </div>

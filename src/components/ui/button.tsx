@@ -11,7 +11,7 @@ const buttonVariants = cva(
       variant: {
         default: "app-primary bg-slate-900 text-white hover:bg-slate-900/90",
         destructive:
-          "bg-rose-600 text-white hover:bg-rose-600/90 focus-visible:ring-rose-600/20 dark:bg-rose-600/60 dark:focus-visible:ring-rose-600/40",
+          "bg-rose-600 text-white hover:bg-rose-600/90 dark:bg-rose-600/60",
         outline:
           "app-secondary border bg-white hover:bg-slate-100 hover:text-slate-900",
         secondary:

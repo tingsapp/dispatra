@@ -24,7 +24,7 @@ interface RateCardListProps {
 export function RateCardList({ cards, selectedId, search, onSearch, onAdd, onSelect, isDefault }: RateCardListProps) {
   return <aside aria-label="Rate cards" className="space-y-3 xl:sticky xl:top-0">
     <div className="flex justify-end">
-      <button type="button" onClick={onAdd} className={primaryBtn}><Plus className="w-3.5 h-3.5" />Add card</button>
+      <button type="button" data-size="sm" onClick={onAdd} className={`${primaryBtn} app-action-compact`}><Plus className="w-3.5 h-3.5" />Add card</button>
     </div>
     <SearchInput aria-label="Search rate cards" placeholder="Search rate cards" value={search} onChange={onSearch} />
     <div className="space-y-1">

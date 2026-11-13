@@ -39,7 +39,7 @@ export function SecretField({ label, value, saved, onChange, generate = false }:
           onChange={event => onChange(event.target.value)} className="app-input w-full min-w-0 pr-11 font-normal" />
         <button type="button" disabled={!value} aria-label={`${visible ? 'Hide' : 'Show'} ${label.toLowerCase()}`} aria-pressed={visible}
           onClick={() => setVisible(current => !current)}
-          className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-app-muted hover:text-app-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:pointer-events-none disabled:opacity-50">
+          className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-app-muted hover:text-app-text disabled:pointer-events-none disabled:opacity-50">
           {visible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
         </button>
       </div>
