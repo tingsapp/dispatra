@@ -3,7 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { operations, type AssistantReply, type AssistantQuestion } from '../../operations/api';
 import { briefingKey } from './useLiveBriefing';
 
-export type ActionState = { status: 'open' | 'saving' | 'done' | 'cancelled'; error?: string };
+/** `key` is the proposal's idempotency key; `password` is a new account's one-time sign-in, kept off the chat text and history. */
+export type ActionState = { status: 'open' | 'saving' | 'done' | 'cancelled'; error?: string; key?: string; password?: string };
 export type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string; reply?: AssistantReply; action?: ActionState };
 
 /** Ephemeral company-scoped conversation, retained through panel close/reopen, never browser-persisted. */
@@ -36,7 +37,8 @@ export function useAssistantChat(slug: string) {
     try {
       const reply = await operations.assistant(slug, body, controller.signal);
       if (controller.signal.aborted) return;
-      append({ id: crypto.randomUUID(), role: 'assistant', content: reply.message, reply, ...(reply.action ? { action: { status: 'open' as const } } : {}) });
+      const action = reply.action ? { status: 'open' as const } : reply.change ? { status: 'open' as const, key: `cc-${crypto.randomUUID()}` } : undefined;
+      append({ id: crypto.randomUUID(), role: 'assistant', content: reply.message, reply, ...(action ? { action } : {}) });
     } catch (failure) {
       if (controller.signal.aborted) return;
       failed.current = body;
@@ -48,7 +50,7 @@ export function useAssistantChat(slug: string) {
   };
 
   /** Saves a proposed assignment the dispatcher confirmed; the API re-checks it and refusals stay on the card. */
-  const confirmAction = async (row: ChatMessage) => {
+  const confirmAssignment = async (row: ChatMessage) => {
     const action = row.reply?.action;
     if (!action || row.action?.status !== 'open') return;
     setAction(row.id, { status: 'saving' });
@@ -62,11 +64,28 @@ export function useAssistantChat(slug: string) {
       setAction(row.id, { status: 'open', error: failure instanceof Error ? failure.message : 'I couldn’t save that change. Try again.' });
     }
   };
+  /** Saves a drafted record change the dispatcher confirmed; the API re-validates it through the workspace command. */
+  const confirmChange = async (row: ChatMessage) => {
+    const change = row.reply?.change;
+    const state = row.action;
+    if (!change || !state?.key || state.status !== 'open') return;
+    setAction(row.id, { ...state, status: 'saving', error: undefined });
+    try {
+      const result = await operations.confirmAssistantChange(slug, change, state.key);
+      setAction(row.id, { status: 'done', key: state.key, password: result.initial_password ?? undefined });
+      append({ id: crypto.randomUUID(), role: 'assistant', content: result.message });
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug] }), queryClient.invalidateQueries({ queryKey: briefingKey(slug) })]);
+    } catch (failure) {
+      setAction(row.id, { ...state, status: 'open', error: failure instanceof Error ? failure.message : 'I couldn’t save that change. Try again.' });
+    }
+  };
   const cancelAction = (row: ChatMessage) => {
     const action = row.reply?.action;
-    if (!action || row.action?.status !== 'open') return;
+    const change = row.reply?.change;
+    if ((!action && !change) || row.action?.status !== 'open') return;
     setAction(row.id, { status: 'cancelled' });
-    append({ id: crypto.randomUUID(), role: 'assistant', content: `Okay, I left order ${action.order_number} as it was.` });
+    append({ id: crypto.randomUUID(), role: 'assistant', content: action ? `Okay, I left order ${action.order_number} as it was.` : `Okay, I didn’t change ${change!.subject}.` });
   };
+  const confirmAction = (row: ChatMessage) => row.reply?.change ? confirmChange(row) : confirmAssignment(row);
   return { messages, draft, setDraft, pending, error, submit, confirmAction, cancelAction, canRetry: !!failed.current };
 }

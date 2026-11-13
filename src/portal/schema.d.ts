@@ -3114,6 +3114,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/assistant/actions/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Change
+         * @description Save a record change the dispatcher confirmed in chat through its workspace command, as that dispatcher.
+         */
+        post: operations["confirm_change_api_v1_companies__slug__assistant_actions_change_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/billing/payment-method": {
         parameters: {
             query?: never;
@@ -3329,40 +3349,6 @@ export interface paths {
         put?: never;
         /** Public Message */
         post: operations["public_message_api_v1_public_assistant_messages_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/assistant/voice": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Public Voice */
-        post: operations["public_voice_api_v1_public_assistant_voice_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/assistant/voice/end": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** End Public Voice */
-        post: operations["end_public_voice_api_v1_public_assistant_voice_end_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3858,6 +3844,53 @@ export interface components {
             /** Order Version */
             order_version: number;
         };
+        /**
+         * AssistantChange
+         * @description A drafted record change the dispatcher confirms. `body` is exactly the workspace request for `operation`.
+         */
+        AssistantChange: {
+            /** Operation */
+            operation: string;
+            /** Title */
+            title: string;
+            /** Subject */
+            subject: string;
+            /** Target Id */
+            target_id?: string | null;
+            /**
+             * Destructive
+             * @default false
+             */
+            destructive: boolean;
+            /** Lines */
+            lines: components["schemas"]["ChangeLine"][];
+            /** Body */
+            body: {
+                [key: string]: unknown;
+            };
+        };
+        /** AssistantChangeCommand */
+        AssistantChangeCommand: {
+            /** Operation */
+            operation: string;
+            /** Target Id */
+            target_id?: string | null;
+            /** Body */
+            body: {
+                [key: string]: unknown;
+            };
+        };
+        /** AssistantChangeResult */
+        AssistantChangeResult: {
+            /** Message */
+            message: string;
+            /** Id */
+            id?: string | null;
+            /** Version */
+            version?: number | null;
+            /** Initial Password */
+            initial_password?: string | null;
+        };
         /** AssistantReference */
         AssistantReference: {
             /** Key */
@@ -3882,6 +3915,7 @@ export interface components {
         AssistantReply: {
             briefing?: components["schemas"]["DailyBriefing"] | null;
             action?: components["schemas"]["AssistantAction"] | null;
+            change?: components["schemas"]["AssistantChange"] | null;
             /** Message */
             message: string;
             /** References */
@@ -4397,6 +4431,15 @@ export interface components {
             /** Active */
             active: boolean;
             data: components["schemas"]["CatalogData-Output"];
+        };
+        /** ChangeLine */
+        ChangeLine: {
+            /** Field */
+            field: string;
+            /** Before */
+            before?: string | null;
+            /** After */
+            after?: string | null;
         };
         /** ChannelView */
         ChannelView: {
@@ -5267,7 +5310,14 @@ export interface components {
             value: string;
         };
         /** DispatchZone */
-        DispatchZone: {
+        "DispatchZone-Input": {
+            /** Name */
+            name: string;
+            /** Postal Codes */
+            postal_codes: string[];
+        };
+        /** DispatchZone */
+        "DispatchZone-Output": {
             /** Name */
             name: string;
             /** Postal Codes */
@@ -7432,7 +7482,7 @@ export interface components {
              */
             dimensional_divisor: number | string;
             /** Zones */
-            zones?: components["schemas"]["Zone"][];
+            zones?: components["schemas"]["Zone-Input"][];
             /** Weight Bands */
             weight_bands?: components["schemas"]["WeightBand-Input"][];
             /**
@@ -7511,7 +7561,7 @@ export interface components {
              */
             dimensional_divisor: string;
             /** Zones */
-            zones?: components["schemas"]["Zone"][];
+            zones?: components["schemas"]["Zone-Output"][];
             /** Weight Bands */
             weight_bands?: components["schemas"]["WeightBand-Output"][];
             /**
@@ -7907,7 +7957,7 @@ export interface components {
              */
             dispatch_mode: "AUTO" | "MANUAL";
             /** Dispatch Zones */
-            dispatch_zones?: components["schemas"]["DispatchZone"][];
+            dispatch_zones?: components["schemas"]["DispatchZone-Input"][];
             /** Default Service Id */
             default_service_id?: string | null;
             /** Default Package Type Id */
@@ -8028,7 +8078,7 @@ export interface components {
              */
             dispatch_mode: "AUTO" | "MANUAL";
             /** Dispatch Zones */
-            dispatch_zones?: components["schemas"]["DispatchZone"][];
+            dispatch_zones?: components["schemas"]["DispatchZone-Output"][];
             /** Default Service Id */
             default_service_id?: string | null;
             /** Default Package Type Id */
@@ -9103,25 +9153,6 @@ export interface components {
             /** Version */
             version: number;
         };
-        /** VoiceEnd */
-        VoiceEnd: {
-            /** End Token */
-            end_token: string;
-        };
-        /** VoiceOffer */
-        VoiceOffer: {
-            /** Sdp */
-            sdp: string;
-        };
-        /** VoiceSession */
-        VoiceSession: {
-            /** Sdp */
-            sdp: string;
-            /** Max Seconds */
-            max_seconds: number;
-            /** End Token */
-            end_token: string;
-        };
         /** WebhookReceipt */
         WebhookReceipt: {
             /** Accepted */
@@ -9165,7 +9196,16 @@ export interface components {
             kind: "CHAT" | "BRIEFING";
         };
         /** Zone */
-        Zone: {
+        "Zone-Input": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Postal Codes */
+            postal_codes: string[];
+        };
+        /** Zone */
+        "Zone-Output": {
             /** Id */
             id: string;
             /** Name */
@@ -29193,6 +29233,106 @@ export interface operations {
             };
         };
     };
+    confirm_change_api_v1_companies__slug__assistant_actions_change_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantChangeCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantChangeResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     company_payment_api_v1_companies__slug__billing_payment_method_get: {
         parameters: {
             query?: never;
@@ -30370,196 +30510,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PublicAssistantReply"];
                 };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Too Many Requests */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    public_voice_api_v1_public_assistant_voice_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VoiceOffer"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VoiceSession"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Too Many Requests */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    end_public_voice_api_v1_public_assistant_voice_end_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VoiceEnd"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Bad Request */
             400: {

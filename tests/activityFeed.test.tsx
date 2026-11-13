@@ -118,6 +118,33 @@ test('a chat assignment is saved only after Assign, refusals stay on the card an
   assert.equal(confirmed.length, 2);
 });
 
+test('a chat record change shows its lines, saves once per proposal key and keeps the one-time password off the chat text', async () => {
+  const change = { operation: 'DRIVER.CREATE', title: 'Add driver', subject: 'Sam Lee', target_id: null, destructive: false,
+    lines: [{ field: 'Name', before: null, after: 'Sam Lee' }, { field: 'Phone', before: null, after: '604 555 0100' }], body: { name: 'Sam Lee' } };
+  const reply = (message: string, withChange = false) => ({ message, references: [], mode: 'AI' as const, observed_at: new Date().toISOString(), limited: false, ...(withChange ? { change } : {}) });
+  const sent: { history: string[] }[] = [];
+  operations.assistant = async (_slug, body) => { sent.push({ history: (body.history ?? []).map(turn => turn.content) }); return body.kind === 'BRIEFING' ? reply('Briefing ready.') : reply('Here’s the change for Sam Lee.', true); };
+  const keys: string[] = []; let refuse = true;
+  operations.confirmAssistantChange = async (_slug, _change, key) => { keys.push(key); if (refuse) throw new Error('Email is already used.'); return { message: 'Done. Driver Sam Lee is added.', id: null, version: 1, initial_password: 'once-only-secret' }; };
+  mount(); const user = userEvent.setup({ document });
+  await screen.findByText('Briefing ready.');
+  const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
+  await user.type(input, 'Add driver Sam Lee{Enter}');
+  const card = await screen.findByLabelText('Add driver: Sam Lee');
+  assert.ok(within(card).getByText('604 555 0100'));
+  assert.equal(keys.length, 0, 'a proposal alone saves nothing');
+  await user.click(within(card).getByRole('button', { name: 'Confirm' }));
+  await within(card).findByText('Email is already used.');
+  refuse = false;
+  await user.click(within(card).getByRole('button', { name: 'Confirm' }));
+  await screen.findByText('Done. Driver Sam Lee is added.');
+  assert.ok(within(card).getByText('once-only-secret'));
+  assert.equal(new Set(keys).size, 1, 'a retried confirmation reuses the proposal key');
+  await user.type(input, 'Thanks{Enter}');
+  await waitFor(() => assert.equal(sent.length, 3));
+  assert.ok(sent[2].history.every(content => !content.includes('once-only-secret')), 'the password never enters chat history');
+});
+
 test('opening rows and new records slide in once, newest first; reduced motion respects visibility', async () => {
   const originalRows = [entry('AGENT:2', 'Second saved step.'), entry('AGENT:1', 'First saved step.')];
   const view = render(<ActivityLog entries={originalRows} active reducedMotion={false} />);

@@ -6,7 +6,7 @@ import { useSettingsGuard } from './useSettingsGuard';
 import { Button } from '../ui/button';
 import type { components } from '../../portal/schema';
 
-type Zone = components['schemas']['DispatchZone'];
+type Zone = components['schemas']['DispatchZone-Input'];
 export function DispatchPlanningSettings() {
   const workspace = useWorkspaceAccount();
   return workspace ? <SavedDispatchPlanningSettings workspace={workspace} /> : null;

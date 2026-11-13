@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { AssistantReference } from '../../operations/api';
 import { BriefingCard } from './BriefingCard';
 import { AssistantActionCard } from './AssistantActionCard';
+import { AssistantChangeCard } from './AssistantChangeCard';
 import type { ChatMessage } from './useAssistantChat';
 
 export function AssistantConversation({ slug, messages, pending, active, reducedMotion, onSelect, onFollowUp, onConfirm, onCancel }: {
@@ -50,6 +51,8 @@ export function AssistantConversation({ slug, messages, pending, active, reduced
         </button></li>)}
       </ul>}
       {message.reply?.action && message.action && <AssistantActionCard action={message.reply.action} state={message.action} disabled={pending || !onConfirm}
+        onConfirm={() => onConfirm?.(message) ?? Promise.resolve()} onCancel={() => onCancel?.(message)} />}
+      {message.reply?.change && message.action && <AssistantChangeCard change={message.reply.change} state={message.action} disabled={pending || !onConfirm}
         onConfirm={() => onConfirm?.(message) ?? Promise.resolve()} onCancel={() => onCancel?.(message)} />}
     </article>)}
     {pending && <p role="status" className="text-xs text-app-muted">Checking the latest workspace data...</p>}

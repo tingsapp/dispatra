@@ -25,6 +25,7 @@ export type AssistantReply = components['schemas']['AssistantReply'];
 export type BriefingTotals = components['schemas']['BriefingTotals'];
 export type AssistantReference = components['schemas']['AssistantReference'];
 export type AssistantAction = components['schemas']['AssistantAction'];
+export type AssistantChange = components['schemas']['AssistantChange'];
 export type Mailbox = components['schemas']['MailboxView'];
 export type MailboxInput = components['schemas']['MailboxInput'];
 export type EmailIntake = components['schemas']['IntakeView'];
@@ -52,6 +53,8 @@ export const operations = {
   briefing: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/assistant/briefing', { params: { path: company(slug) } })),
   /** Confirms a chat-prepared assignment; the key is stable per proposal so a retried click cannot assign twice. */
   confirmAssistantAction: async (slug: string, action: AssistantAction) => unwrap(await client.POST('/api/v1/companies/{slug}/assistant/actions/assign', { body: { order_id: action.order_id, order_version: action.order_version, driver_id: action.driver_id }, params: { path: company(slug), header: { 'Idempotency-Key': `ca-${action.order_id.replaceAll('-', '')}-${action.order_version}-${action.driver_id.replaceAll('-', '').slice(0, 24)}` } } })),
+  /** Confirms a chat-drafted record change; `operationKey` is fixed per proposal so a retried click saves it once. */
+  confirmAssistantChange: async (slug: string, change: AssistantChange, operationKey: string) => unwrap(await client.POST('/api/v1/companies/{slug}/assistant/actions/change', { body: { operation: change.operation, target_id: change.target_id ?? null, body: change.body }, params: { path: company(slug), header: { 'Idempotency-Key': operationKey } } })),
   sync: async (slug: string, cursor?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/sync', { params: { path: company(slug), query: { cursor } } })),
   notifications: async (slug: string, before?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/notifications', { params: { path: company(slug), query: { limit: 50, before } } })),
   readNotification: async (slug: string, row: AppNotification) => unwrap(await client.POST('/api/v1/companies/{slug}/notifications/{identity}/read', { body: { version: row.version }, params: { path: entity(slug, row.id), header: mutation() } })),
