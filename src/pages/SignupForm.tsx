@@ -15,7 +15,6 @@ export function SignupForm({ onPendingChange, trialEnabled = true }: { onPending
   });
   const [confirmation, setConfirmation] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [addressResolving, setAddressResolving] = useState(false);
   const addressId = useId();
   const [error, setError] = useState('');
   const keyFor = useOperationKey();
@@ -27,7 +26,7 @@ export function SignupForm({ onPendingChange, trialEnabled = true }: { onPending
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (signup.isPending || addressResolving || !trialEnabled) return;
+    if (signup.isPending || !trialEnabled) return;
     if (!acceptedTerms) { setError('Please accept the Terms and Conditions to start your trial.'); return; }
     if (!signupDestination(form.slug)) { setError('Choose a valid company workspace name.'); return; }
     if (form.password !== confirmation) { setError('Passwords do not match.'); return; }
@@ -43,7 +42,6 @@ export function SignupForm({ onPendingChange, trialEnabled = true }: { onPending
         <div className="min-w-0 grid gap-1.5 text-sm text-slate-700">
           <label htmlFor={addressId}>Address</label>
           <AddressAutocomplete id={addressId} maxLength={500} placeholder="Search company address" value={form.address ?? ''}
-            onSelectionStateChange={state => setAddressResolving(state === 'resolving')}
             onChange={address => { setForm(current => ({ ...current, address })); setError(''); signup.reset(); }} />
         </div>
         <Field label="Email" type="email" required maxLength={254} autoComplete="email" value={form.email} onChange={change('email')} />
@@ -72,6 +70,6 @@ export function SignupForm({ onPendingChange, trialEnabled = true }: { onPending
       {!trialEnabled && <p role="status" className="text-sm text-app-muted">Free trials are currently unavailable. Contact Dispatra to get started.</p>}
       <Notice error={error ? new Error(error) : signup.error} />
     </DialogBody>
-    <DialogFooter><Button loading={signup.isPending} disabled={signup.isPending || addressResolving || !trialEnabled}>{signup.isPending ? 'Creating your workspace…' : 'Start trial'}</Button></DialogFooter>
+    <DialogFooter><Button loading={signup.isPending} disabled={signup.isPending || !trialEnabled}>{signup.isPending ? 'Creating your workspace…' : 'Start trial'}</Button></DialogFooter>
   </form>;
 }

@@ -22,12 +22,17 @@ function Field({ includeCoordinates = true }: { includeCoordinates?: boolean }) 
   });
 }
 
+const parts = (values: Record<string, string>) => Object.entries(values).map(([type, text]) => ({ types: [type], longText: text, shortText: text }));
+const DELTA = parts({ street_number: '1420', route: 'Derwent Way', locality: 'Delta', administrative_area_level_1: 'BC', postal_code: 'V3M 6M7', country: 'CA' });
+const VANCOUVER_NO_POSTAL = parts({ street_number: '600', route: 'W 12th Ave', locality: 'Vancouver', administrative_area_level_1: 'BC', country: 'CA' });
+const geocoded = (values: Record<string, string>) => Object.entries(values).map(([type, text]) => ({ types: [type], long_name: text, short_name: text }));
+
 afterEach(() => { cleanup(); delete (globalThis as Record<string, unknown>).google; chosen = null; });
 
-test('address suggestions wait for meaningful input, keep one session, and save selected coordinates', async () => {
+test('address suggestions wait for meaningful input, renew the session after details, and save selected coordinates', async () => {
   const requests: Array<{ sessionToken: unknown; includedRegionCodes: string[]; locationBias?: unknown }> = [];
   const fields: string[][] = [];
-  const place = { formattedAddress: '1420 Derwent Way, Delta, BC V3M 6M7, Canada', addressComponents: [{ types: ['locality'], longText: 'Delta', shortText: 'Delta' }, { types: ['administrative_area_level_1'], longText: 'British Columbia', shortText: 'BC' }, { types: ['postal_code'], longText: 'V3M 6M7', shortText: 'V3M 6M7' }, { types: ['country'], longText: 'Canada', shortText: 'CA' }], location: { lat: () => 49.1901, lng: () => -122.9412 }, fetchFields: async ({ fields: requested }: { fields: string[] }) => { fields.push(requested); } };
+  const place = { formattedAddress: '1420 Derwent Way, Delta, BC V3M 6M7, Canada', addressComponents: DELTA, location: { lat: () => 49.1901, lng: () => -122.9412 }, fetchFields: async ({ fields: requested }: { fields: string[] }) => { fields.push(requested); } };
   const prediction = { placeId: 'delta-address', text: { toString: () => place.formattedAddress }, toPlace: () => place };
   class Token {}
   (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async () => ({
@@ -46,7 +51,12 @@ test('address suggestions wait for meaningful input, keep one session, and save 
   await waitFor(() => assert.equal(screen.getByRole('option').textContent, place.formattedAddress));
   fireEvent.change(input, { target: { value: '1420 Derwent Way' } });
   await waitFor(() => assert.equal(requests.length, 2));
-  assert.equal(requests[0].sessionToken, requests[1].sessionToken);
+  fireEvent.change(input, { target: { value: '1420 Derwent Way, Delta' } });
+  await waitFor(() => assert.equal(requests.length, 3));
+  // Place Details ended the first session; the cached place needs no new details, so the next session continues.
+  assert.notEqual(requests[0].sessionToken, requests[1].sessionToken);
+  assert.equal(requests[1].sessionToken, requests[2].sessionToken);
+  await waitFor(() => assert.ok(screen.getByRole('button', { name: place.formattedAddress })));
   assert.deepEqual(requests[0].includedRegionCodes, ['ca']);
   assert.equal(requests[0].locationBias, undefined);
   fireEvent.click(screen.getByRole('button', { name: place.formattedAddress }));
@@ -56,9 +66,9 @@ test('address suggestions wait for meaningful input, keep one session, and save 
   assert.equal(screen.queryByRole('listbox'), null);
 });
 
-test('ordinary address fields request only the formatted address', async () => {
+test('ordinary address fields do not request coordinates', async () => {
   const fields: string[][] = [];
-  const place = { formattedAddress: '1420 Derwent Way, Delta, BC V3M 6M7, Canada', fetchFields: async ({ fields: requested }: { fields: string[] }) => { fields.push(requested); } };
+  const place = { formattedAddress: '1420 Derwent Way, Delta, BC V3M 6M7, Canada', addressComponents: DELTA, fetchFields: async ({ fields: requested }: { fields: string[] }) => { fields.push(requested); } };
   const prediction = { placeId: 'delta-address', text: { toString: () => place.formattedAddress }, toPlace: () => place };
   (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async () => ({
     AutocompleteSessionToken: class {},
@@ -71,7 +81,7 @@ test('ordinary address fields request only the formatted address', async () => {
   fireEvent.click(screen.getByRole('button', { name: place.formattedAddress }));
   await waitFor(() => assert.equal(input.value, place.formattedAddress));
   assert.deepEqual(fields, [['formattedAddress', 'addressComponents']]);
-  assert.deepEqual(chosen, { address: place.formattedAddress, latitude: null, longitude: null, city: undefined, province: undefined, postalCode: undefined, country: undefined });
+  assert.deepEqual(chosen, { address: place.formattedAddress, latitude: null, longitude: null, city: 'Delta', province: 'BC', postalCode: 'V3M 6M7', country: 'CA' });
 });
 
 test('manual address entry works when Places is unavailable', async () => {
@@ -85,7 +95,7 @@ test('manual address entry works when Places is unavailable', async () => {
 
 test('Escape dismisses address suggestions before bubbling to the surrounding dialog', async () => {
   let dismissals = 0;
-  const prediction = {placeId:'escape-address',text:{toString:()=> '1420 Derwent Way, Delta, BC'}};
+  const prediction = {placeId:'escape-address',text:{toString:()=> '1420 Derwent Way, Delta, BC'},toPlace:()=>({formattedAddress:'1420 Derwent Way, Delta, BC V3M 6M7, Canada',addressComponents:DELTA,fetchFields:async()=>{}})};
   (globalThis as Record<string, unknown>).google = {maps:{importLibrary:async()=>({AutocompleteSessionToken:class {},
     AutocompleteSuggestion:{fetchAutocompleteSuggestions:async()=>({suggestions:[{placePrediction:prediction}]})}})}};
   render(React.createElement('div',{onKeyDown:(event:React.KeyboardEvent)=>{if(event.key==='Escape') dismissals++;}},React.createElement(Field)));
@@ -106,7 +116,7 @@ test('selecting a delivery address keeps coordinates in order stop data', async 
   const context = loadPricingContext();
   const initial = createDefaultOrderInput(context);
   let latest = initial;
-  const place = { formattedAddress: '1420 Derwent Way, Delta, BC V3M 6M7, Canada', addressComponents: [{ types: ['locality'], longText: 'Delta', shortText: 'Delta' }, { types: ['administrative_area_level_1'], longText: 'British Columbia', shortText: 'BC' }, { types: ['postal_code'], longText: 'V3M 6M7', shortText: 'V3M 6M7' }, { types: ['country'], longText: 'Canada', shortText: 'CA' }], location: { lat: () => 49.1901, lng: () => -122.9412 }, fetchFields: async () => {} };
+  const place = { formattedAddress: '1420 Derwent Way, Delta, BC V3M 6M7, Canada', addressComponents: DELTA, location: { lat: () => 49.1901, lng: () => -122.9412 }, fetchFields: async () => {} };
   const prediction = { placeId: 'delivery-place', text: { toString: () => place.formattedAddress }, toPlace: () => place };
   (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async () => ({
     AutocompleteSessionToken: class {},
@@ -142,18 +152,14 @@ test('selected Google components become the structured API address', async () =>
   assert.throws(() => canadianAddress('Seattle', undefined, { city: 'Seattle', province: 'WA', postalCode: '98101', country: 'US', latitude: 1, longitude: 1 }), /Canada/);
 });
 
-test('driver cannot save before selected Google address details arrive', async () => {
+test('driver address suggestions appear only after Google confirms the complete address', async () => {
   const { DriversPage } = await import('../src/pages/DriversPage');
   const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
   const { driverFromUi } = await import('../src/operations/adapters');
   const address = '600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada';
   let resolveDetails!: () => void;
-  const place = { formattedAddress: address, addressComponents: [
-    { types: ['locality'], longText: 'Vancouver', shortText: 'Vancouver' },
-    { types: ['administrative_area_level_1'], longText: 'British Columbia', shortText: 'BC' },
-    { types: ['postal_code'], longText: 'V5Z 1M9', shortText: 'V5Z 1M9' },
-    { types: ['country'], longText: 'Canada', shortText: 'CA' },
-  ], location: { lat: () => 49.26, lng: () => -123.12 }, fetchFields: () => new Promise<void>(resolve => { resolveDetails = resolve; }) };
+  const place = { formattedAddress: address, addressComponents: [...VANCOUVER_NO_POSTAL, ...parts({ postal_code: 'V5Z 1M9' })],
+    location: { lat: () => 49.26, lng: () => -123.12 }, fetchFields: () => new Promise<void>(resolve => { resolveDetails = resolve; }) };
   (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async () => ({
     AutocompleteSessionToken: class {},
     AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: [{ placePrediction: { placeId: 'driver-place', text: { toString: () => address }, toPlace: () => place } }] }) },
@@ -167,12 +173,11 @@ test('driver cannot save before selected Google address details arrive', async (
   fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '6045550199' } });
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'driver@example.ca' } });
   fireEvent.change(screen.getByLabelText('Address'), { target: { value: '600 W 12th Ave, Vancouver, BC' } });
+  await waitFor(() => assert.ok(resolveDetails));
+  assert.equal(screen.queryByRole('listbox'), null);
+  resolveDetails();
   await waitFor(() => assert.ok(screen.getByRole('button', { name: address })));
   fireEvent.click(screen.getByRole('button', { name: address }));
-  assert.equal((screen.getByRole('button', { name: 'Save driver' }) as HTMLButtonElement).disabled, true);
-  assert.equal(saved, undefined);
-  resolveDetails();
-  await waitFor(() => assert.equal((screen.getByRole('button', { name: 'Save driver' }) as HTMLButtonElement).disabled, false));
   fireEvent.click(screen.getByRole('button', { name: 'Save driver' }));
   assert.ok(saved);
   const api = driverFromUi(saved, undefined, saved.addressCoordinates);
@@ -183,11 +188,7 @@ test('driver cannot save before selected Google address details arrive', async (
 
 test('missing Place Details postcode falls back to geocoding the selected place ID', async () => {
   const address = '600 W 12th Ave, Vancouver, BC';
-  const place = { formattedAddress: address, addressComponents: [
-    { types: ['locality'], longText: 'Vancouver', shortText: 'Vancouver' },
-    { types: ['administrative_area_level_1'], longText: 'British Columbia', shortText: 'BC' },
-    { types: ['country'], longText: 'Canada', shortText: 'CA' },
-  ], location: { lat: () => 49.26, lng: () => -123.12 }, fetchFields: async () => {} };
+  const place = { formattedAddress: address, addressComponents: VANCOUVER_NO_POSTAL, location: { lat: () => 49.26, lng: () => -123.12 }, fetchFields: async () => {} };
   let geocodedPlaceId = '';
   (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async (name: string) => name === 'geocoding' ? ({ Geocoder: class {
     geocode = async ({ placeId }: { placeId: string }) => { geocodedPlaceId = placeId; return { results: [{ formatted_address: '600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada', address_components: [
@@ -196,8 +197,9 @@ test('missing Place Details postcode falls back to geocoding the selected place 
   } }) : ({ AutocompleteSessionToken: class {}, AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: [{ placePrediction: { placeId: 'driver-place', text: { toString: () => address }, toPlace: () => place } }] }) } }) } };
   render(React.createElement(Field));
   fireEvent.change(screen.getByLabelText('Stop address'), { target: { value: '600 W 12th Ave' } });
-  await waitFor(() => assert.ok(screen.getByRole('button', { name: address })));
-  fireEvent.click(screen.getByRole('button', { name: address }));
+  const resolved = '600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada';
+  await waitFor(() => assert.ok(screen.getByRole('button', { name: resolved })));
+  fireEvent.click(screen.getByRole('button', { name: resolved }));
   await waitFor(() => assert.equal(chosen?.postalCode, 'V5Z 1M9'));
   assert.equal(geocodedPlaceId, 'driver-place');
 });
@@ -206,23 +208,21 @@ test('a failed Place Details request can still resolve the selected address by p
   const address = '600 W 12th Ave, Vancouver, BC';
   const place = { fetchFields: async () => { throw new Error('Place details unavailable'); } };
   (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async (name: string) => name === 'geocoding' ? ({ Geocoder: class {
-    geocode = async () => ({ results: [{ formatted_address: '600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada', address_components: [
-      { types: ['locality'], long_name: 'Vancouver', short_name: 'Vancouver' },
-      { types: ['administrative_area_level_1'], long_name: 'British Columbia', short_name: 'BC' },
-      { types: ['postal_code'], long_name: 'V5Z 1M9', short_name: 'V5Z 1M9' },
-      { types: ['country'], long_name: 'Canada', short_name: 'CA' },
-    ], geometry: { location: { lat: () => 49.26, lng: () => -123.12 } } }] });
+    geocode = async () => ({ results: [{ formatted_address: '600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada', address_components: geocoded({
+      street_number: '600', route: 'W 12th Ave', locality: 'Vancouver', administrative_area_level_1: 'BC', postal_code: 'V5Z 1M9', country: 'CA',
+    }), geometry: { location: { lat: () => 49.26, lng: () => -123.12 } } }] });
   } }) : ({ AutocompleteSessionToken: class {}, AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: [{ placePrediction: { placeId: 'driver-place', text: { toString: () => address }, toPlace: () => place } }] }) } }) } };
   render(React.createElement(Field));
   fireEvent.change(screen.getByLabelText('Stop address'), { target: { value: '600 W 12th Ave' } });
-  await waitFor(() => assert.ok(screen.getByRole('button', { name: address })));
-  fireEvent.click(screen.getByRole('button', { name: address }));
+  const resolved = '600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada';
+  await waitFor(() => assert.ok(screen.getByRole('button', { name: resolved })));
+  fireEvent.click(screen.getByRole('button', { name: resolved }));
   await waitFor(() => assert.equal(chosen?.postalCode, 'V5Z 1M9'));
   assert.equal(chosen?.country, 'CA');
   assert.equal(chosen?.latitude, 49.26);
 });
 
-test('failed Google lookups do not silently treat a clicked suggestion as a complete address', async () => {
+test('failed Google lookups never list an unconfirmed suggestion', async () => {
   const address = '600 W 12th Ave, Vancouver, BC';
   const place = { fetchFields: async () => { throw new Error('Place details unavailable'); } };
   (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async (name: string) => name === 'geocoding' ? ({ Geocoder: class {
@@ -230,8 +230,46 @@ test('failed Google lookups do not silently treat a clicked suggestion as a comp
   } }) : ({ AutocompleteSessionToken: class {}, AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: [{ placePrediction: { placeId: 'driver-place', text: { toString: () => address }, toPlace: () => place } }] }) } }) } };
   render(React.createElement(Field));
   fireEvent.change(screen.getByLabelText('Stop address'), { target: { value: '600 W 12th Ave' } });
-  await waitFor(() => assert.ok(screen.getByRole('button', { name: address })));
-  fireEvent.click(screen.getByRole('button', { name: address }));
-  await waitFor(() => assert.match(screen.getByRole('alert').textContent ?? '', /could not load the selected address details/i));
+  await waitFor(() => assert.match(screen.getByRole('status').textContent ?? '', /enter the address manually/i));
+  assert.equal(screen.queryByRole('listbox'), null);
   assert.equal(chosen, null);
+});
+
+test('partial suggestions are skipped and only complete street addresses are listed', async () => {
+  const complete = '61 Powell St, Vancouver, BC V6A 1E9, Canada';
+  const place = (formattedAddress: string, addressComponents: ReturnType<typeof parts>) => ({ formattedAddress, addressComponents, location: { lat: () => 49.28, lng: () => -123.1 }, fetchFields: async () => {} });
+  const predictions = [
+    { placeId: 'street', types: ['route', 'geocode'], text: { toString: () => 'Powell St, Vancouver, BC, Canada' }, toPlace: () => { throw new Error('route should not be resolved'); } },
+    { placeId: 'city', types: ['locality', 'political', 'geocode'], text: { toString: () => 'Powell River, BC, Canada' }, toPlace: () => { throw new Error('city should not be resolved'); } },
+    { placeId: 'no-postal', types: ['street_address', 'geocode'], text: { toString: () => '61 Powell Rd, Kelowna, BC, Canada' }, toPlace: () => place('61 Powell Rd, Kelowna, BC, Canada', parts({ street_number: '61', route: 'Powell Rd', locality: 'Kelowna', administrative_area_level_1: 'BC', country: 'CA' })) },
+    { placeId: 'postal-prefix', types: ['street_address', 'geocode'], text: { toString: () => '61 Powell Ave, Burnaby, BC, Canada' }, toPlace: () => place('61 Powell Ave, Burnaby, BC V5C, Canada', parts({ street_number: '61', route: 'Powell Ave', locality: 'Burnaby', administrative_area_level_1: 'BC', postal_code: 'V5C', country: 'CA' })) },
+    { placeId: 'complete', types: ['street_address', 'geocode'], text: { toString: () => '61 Powell St, Vancouver, BC, Canada' }, toPlace: () => place(complete, parts({ street_number: '61', route: 'Powell St', locality: 'Vancouver', administrative_area_level_1: 'BC', postal_code: 'V6A 1E9', country: 'CA' })) },
+  ];
+  const geocodedIds: string[] = [];
+  (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async (name: string) => name === 'geocoding' ? ({ Geocoder: class {
+    geocode = async ({ placeId }: { placeId: string }) => { geocodedIds.push(placeId); return { results: [] }; };
+  } }) : ({ AutocompleteSessionToken: class {}, AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: predictions.map(placePrediction => ({ placePrediction })) }) } }) } };
+  render(React.createElement(Field));
+  fireEvent.change(screen.getByLabelText('Stop address'), { target: { value: '61 powell street' } });
+  await waitFor(() => assert.equal(screen.getAllByRole('option').length, 1));
+  assert.equal(screen.getByRole('option').textContent, complete);
+  assert.deepEqual(geocodedIds.sort(), ['no-postal', 'postal-prefix']);
+  fireEvent.click(screen.getByRole('button', { name: complete }));
+  await waitFor(() => assert.equal(chosen?.postalCode, 'V6A 1E9'));
+  const { canadianAddress } = await import('../src/operations/adapters');
+  assert.equal(canadianAddress(chosen!.address, undefined, chosen!).postal_code, 'V6A 1E9');
+});
+
+test('a clear empty state appears when no complete street address matches', async () => {
+  (globalThis as Record<string, unknown>).google = { maps: { importLibrary: async () => ({ AutocompleteSessionToken: class {}, AutocompleteSuggestion: { fetchAutocompleteSuggestions: async () => ({ suggestions: [
+    { placePrediction: { placeId: 'street', types: ['route'], text: { toString: () => 'Powell St, Vancouver, BC, Canada' }, toPlace: () => { throw new Error('unused'); } } },
+  ] }) } }) } };
+  render(React.createElement(Field));
+  const input = screen.getByLabelText('Stop address') as HTMLInputElement;
+  fireEvent.change(input, { target: { value: 'powell street' } });
+  await waitFor(() => assert.match(screen.getByRole('status').textContent ?? '', /no complete street address matches/i));
+  assert.equal(screen.queryByRole('listbox'), null);
+  fireEvent.keyDown(input, { key: 'Escape' });
+  assert.equal(screen.queryByRole('status'), null);
+  assert.equal(input.value, 'powell street');
 });

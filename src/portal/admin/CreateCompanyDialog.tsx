@@ -12,12 +12,11 @@ const empty = (): OrganizationInput => ({ name: '', phone: '', address: '', slug
 export function CreateCompanyDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (org: Organization, submitted: OrganizationInput) => void }) {
   const operation = useOperationKey();
   const [form, setForm] = useState<OrganizationInput>(empty);
-  const [addressResolving, setAddressResolving] = useState(false);
   const addressId = useId();
   const mutation = useMutation({ mutationFn: (submitted: OrganizationInput) => api.createOrganization(submitted, operation(submitted)), onSuccess: (org, submitted) => onCreated(org, submitted) });
   const set = (field: keyof OrganizationInput) => (event: React.ChangeEvent<HTMLInputElement>) => setForm(current => ({ ...current, [field]: field === 'slug' || field === 'admin_login' ? event.target.value.toLowerCase() : event.target.value }));
   return <Dialog onClose={() => { if (!mutation.isPending) onClose(); }} size="form">
-    <form className="contents" aria-label="Add company" onSubmit={e => { e.preventDefault(); if (mutation.isPending || addressResolving) return; mutation.mutate({ ...form, name: form.name.trim(), phone: form.phone?.trim(), address: form.address?.trim(), slug: form.slug.trim(), admin_login: form.admin_login.trim() }); }}>
+    <form className="contents" aria-label="Add company" onSubmit={e => { e.preventDefault(); if (mutation.isPending) return; mutation.mutate({ ...form, name: form.name.trim(), phone: form.phone?.trim(), address: form.address?.trim(), slug: form.slug.trim(), admin_login: form.admin_login.trim() }); }}>
       <DialogHeader title="Add company" description="Creates the workspace and its first dispatcher together." onClose={onClose} closeDisabled={mutation.isPending} />
       <DialogBody className="space-y-5">
         <fieldset className="min-w-0 space-y-5" disabled={mutation.isPending}>
@@ -30,7 +29,6 @@ export function CreateCompanyDialog({ onClose, onCreated }: { onClose: () => voi
               <p className="mt-1.5 text-xs text-app-muted">Workspace address: /{form.slug || 'company'}/, this cannot be changed later.</p></div>
             <div className="grid min-w-0 gap-1.5 text-sm text-slate-700"><label htmlFor={addressId}>Address</label>
               <AddressAutocomplete id={addressId} maxLength={500} placeholder="Search company address" value={form.address ?? ''}
-                onSelectionStateChange={state => setAddressResolving(state === 'resolving')}
                 onChange={address => setForm(current => ({ ...current, address }))} />
             </div>
           </div>
@@ -49,7 +47,7 @@ export function CreateCompanyDialog({ onClose, onCreated }: { onClose: () => voi
           <Notice error={mutation.error} />
         </fieldset>
       </DialogBody>
-      <DialogFooter><Button loading={mutation.isPending} disabled={mutation.isPending || addressResolving}>{mutation.isPending ? 'Creating…' : 'Create company'}</Button></DialogFooter>
+      <DialogFooter><Button loading={mutation.isPending} disabled={mutation.isPending}>{mutation.isPending ? 'Creating…' : 'Create company'}</Button></DialogFooter>
     </form>
   </Dialog>;
 }

@@ -138,11 +138,11 @@ test('TMS signup choice survives failed retries and changes the operation key wh
   assert.equal(calls[2].body.tms_workspace, false);
   assert.notEqual(calls[2].key, calls[0].key);
 });
-test('signup waits for address selection and submits the formatted company address', async () => {
+test('signup selects a resolved company address and submits the formatted address', async () => {
   const calls: TrialSignupInput[] = [];
-  let resolvePlace: () => void = () => {};
   const address = '1420 Derwent Way, Delta, BC V3M 6M7, Canada';
-  const place = {formattedAddress: address, fetchFields: () => new Promise<void>(resolve => {resolvePlace=resolve;})};
+  const addressComponents = Object.entries({street_number:'1420',route:'Derwent Way',locality:'Delta',administrative_area_level_1:'BC',postal_code:'V3M 6M7',country:'CA'}).map(([type,text])=>({types:[type],longText:text,shortText:text}));
+  const place = {formattedAddress: address, addressComponents, fetchFields: async () => {}};
   const prediction = {placeId:'signup-address', text:{toString:()=>address}, toPlace:()=>place};
   (globalThis as Record<string, unknown>).google = {maps:{importLibrary:async()=>({AutocompleteSessionToken:class {},
     AutocompleteSuggestion:{fetchAutocompleteSuggestions:async()=>({suggestions:[{placePrediction:prediction}]})}})}};
@@ -150,10 +150,6 @@ test('signup waits for address selection and submits the formatted company addre
   view(); fill();
   fireEvent.change(screen.getByLabelText('Address'), {target:{value:'1420 Derwent'}});
   fireEvent.click(await screen.findByRole('button',{name:address}));
-  assert.equal((screen.getByRole('button',{name:'Start trial'}) as HTMLButtonElement).disabled,true);
-  fireEvent.submit(screen.getByLabelText('Email').closest('form')!);
-  assert.equal(calls.length,0);
-  resolvePlace();
   await waitFor(()=>assert.equal((screen.getByLabelText('Address') as HTMLInputElement).value,address));
   fireEvent.click(screen.getByRole('button',{name:'Start trial'}));
   await screen.findByText('Try again.');

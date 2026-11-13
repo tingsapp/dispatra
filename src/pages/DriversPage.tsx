@@ -90,7 +90,6 @@ export function DriversPage({
 
   // Add Driver Modal
   const [showAddModal, setShowAddModal] = useState(false);
-  const [driverAddressBlocked, setDriverAddressBlocked] = useState(false);
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [createdVehicle, setCreatedVehicle] = useState<VehicleAsset | null>(null);
   const openVehicleModal = () => { setCreatedVehicle(null); setShowVehicleModal(true); };
@@ -361,7 +360,7 @@ export function DriversPage({
           <DialogBody>
             <Tabs label="Driver details tabs" items={[
               { id: 'details', label: 'Details', content: <><section aria-label="Driver profile">
-                <DriverEditor driver={drivers.find(row => row.id === activeDriverDrawer.id) ?? activeDriverDrawer} drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onAddressBlockedChange={setDriverAddressBlocked} onCancel={() => setActiveDriverDrawer(null)} onSave={saveDriver} />
+                <DriverEditor driver={drivers.find(row => row.id === activeDriverDrawer.id) ?? activeDriverDrawer} drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onCancel={() => setActiveDriverDrawer(null)} onSave={saveDriver} />
               </section>
               <DriverActivity driver={drivers.find(row => row.id === activeDriverDrawer.id) ?? activeDriverDrawer} jobs={jobs} />
               {slug && <DirectoryPasswordForm key={activeDriverDrawer.id} slug={slug} kind="driver" record={driverQuery.data?.find(row => row.id === activeDriverDrawer.id)} />}</> },
@@ -371,7 +370,7 @@ export function DriversPage({
           <DialogFooter>
             {slug && <Button type="button" variant="outline" onClick={() => openDispatcherChat({ driverId: activeDriverDrawer.id })}><MessageSquare /> Chat with driver</Button>}
             <Button type="button" variant="outline" onClick={() => { onSelectDriver(activeDriverDrawer.id); setActiveDriverDrawer(null); }}><MapPin /> Locate on Monitor</Button>
-            <Button loading={saveDriverAction.pending} type="submit" form="driver-details-form" disabled={driverAddressBlocked}>Save driver</Button>
+            <Button loading={saveDriverAction.pending} type="submit" form="driver-details-form">Save driver</Button>
           </DialogFooter>
         </Dialog>
       )}
@@ -382,8 +381,8 @@ export function DriversPage({
       {showAddModal && (
         <Dialog size="form" onClose={() => setShowAddModal(false)}>
             <DialogHeader onClose={() => setShowAddModal(false)} title="Add Driver" />
-          <DialogBody><DriverEditor drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-add-form" hideActions onAddressBlockedChange={setDriverAddressBlocked} onCancel={() => setShowAddModal(false)} onSave={saveDriver} /></DialogBody>
-          <DialogFooter><Button loading={saveDriverAction.pending} type="submit" form="driver-add-form" disabled={driverAddressBlocked}>Save driver</Button></DialogFooter>
+          <DialogBody><DriverEditor drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-add-form" hideActions onCancel={() => setShowAddModal(false)} onSave={saveDriver} /></DialogBody>
+          <DialogFooter><Button loading={saveDriverAction.pending} type="submit" form="driver-add-form">Save driver</Button></DialogFooter>
         </Dialog>
       )}
       {showVehicleModal && (

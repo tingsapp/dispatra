@@ -34,7 +34,6 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
   const [payloadCapacityKg, setPayloadCapacityKg] = useState<number | null>(originalType?.payloadCapacityKg ?? null);
   const [palletCapacity, setPalletCapacity] = useState<number | undefined>(originalType?.palletCapacity);
   const [errors, setErrors] = useState<string[]>([]);
-  const [addressState, setAddressState] = useState<'idle' | 'resolving' | 'failed'>('idle');
   const patch = (changes: Partial<VehicleAsset>) => setDraft(current => ({ ...current, ...changes }));
   const isEditing = !!vehicle;
   const selectedType = types.find(type => type.id === draft.vehicleTypeId);
@@ -54,9 +53,6 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
   const action = usePendingAction();
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (addressState !== 'idle') {
-      setErrors([addressState === 'resolving' ? 'Wait for the parking address details to load.' : 'Select the parking address again.']); return;
-    }
     if (!selectedType?.name.trim() || payloadCapacityKg == null || payloadCapacityKg <= 0 || palletCapacity == null || palletCapacity < 1 || !Number.isInteger(palletCapacity)) {
       setErrors(['Choose a vehicle type and enter positive payload and pallet capacity.']); return;
     }
@@ -88,7 +84,7 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
       <div className="sm:col-span-2">
         <label htmlFor="vehicle-parking-address" className="app-label">Parking address <span aria-hidden="true">*</span></label>
         <AddressAutocomplete id="vehicle-parking-address" aria-label="Parking address" value={draft.parkingAddress ?? ''} includeCoordinates required
-          onSelectionStateChange={setAddressState} onChange={(parkingAddress, parkingAddressCoordinates) => patch({ parkingAddress, parkingAddressCoordinates })}
+          onChange={(parkingAddress, parkingAddressCoordinates) => patch({ parkingAddress, parkingAddressCoordinates })}
           placeholder="Street, city, province, postal code" className="app-input w-full" />
         <span className="mt-1 block text-xs text-slate-500">Select where this vehicle parks. Used for dispatch when live GPS is unavailable.</span>
       </div>
