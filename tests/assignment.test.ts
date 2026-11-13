@@ -13,7 +13,7 @@ test('an existing planned route is selected for an additional order', () => {
 });
 
 test('an in-progress route cannot accept another order', () => {
-  assert.throws(() => assignableRoute([route('IN_PROGRESS')], 'driver-1', 'vehicle-1'), /in-progress route/);
+  assert.throws(() => assignableRoute([route('IN_PROGRESS')], 'driver-1', 'vehicle-1'), /update the app before work is added/);
 });
 
 test('a vehicle attached to a different active route cannot be reused', () => {
