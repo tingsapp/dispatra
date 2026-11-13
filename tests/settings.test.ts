@@ -1515,7 +1515,7 @@ test('removing a shared zone confirms, shrinks both matrix axes and preserves dr
   const remove = screen.getByRole('button', { name: 'Remove zone Zone 2' });
   await user.click(remove);
   let dialog = screen.getByRole('alertdialog', { name: 'Remove zone "Zone 2"?' });
-  assert.match(dialog.textContent!, /Previously priced orders stay unchanged/);
+  assert.match(dialog.textContent!, /Priced orders stay unchanged/);
   await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
   assert.deepEqual(loadPricingConfig(), before);
   await waitFor(() => assert.equal(document.activeElement === remove, true));
@@ -1774,7 +1774,7 @@ for (const [section, singular] of [['services', 'service'], ['accessorials', 'ac
     }
     await user.click(remove);
     let dialog = screen.getByRole('alertdialog', { name: `Delete ${singular} “${item.name}”?` });
-    assert.match(dialog.textContent!, /Saved order prices stay unchanged/);
+    assert.match(dialog.textContent!, /Saved prices stay/);
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     assert.deepEqual(loadSimplePricingConfig()[section], before[section]);
     assert.equal(changes, 0);
