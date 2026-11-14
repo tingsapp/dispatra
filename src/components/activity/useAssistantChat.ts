@@ -4,7 +4,7 @@ import { operations, type AssistantReply, type AssistantQuestion } from '../../o
 import { briefingKey } from './useLiveBriefing';
 
 /** `key` is the proposal's idempotency key; `password` is a new account's one-time sign-in, kept off the chat text and history. */
-export type ActionState = { status: 'open' | 'saving' | 'done' | 'cancelled'; error?: string; key?: string; password?: string };
+export type ActionState = { status: 'open' | 'saving' | 'done'; error?: string; key?: string; password?: string };
 export type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string; reply?: AssistantReply; action?: ActionState };
 
 /** Ephemeral company-scoped conversation, retained through panel close/reopen, never browser-persisted. */
@@ -79,13 +79,6 @@ export function useAssistantChat(slug: string) {
       setAction(row.id, { ...state, status: 'open', error: failure instanceof Error ? failure.message : 'I couldn’t save that change. Try again.' });
     }
   };
-  const cancelAction = (row: ChatMessage) => {
-    const action = row.reply?.action;
-    const change = row.reply?.change;
-    if ((!action && !change) || row.action?.status !== 'open') return;
-    setAction(row.id, { status: 'cancelled' });
-    append({ id: crypto.randomUUID(), role: 'assistant', content: action ? `Okay, I left order ${action.order_number} as it was.` : `Okay, I didn’t change ${change!.subject}.` });
-  };
   const confirmAction = (row: ChatMessage) => row.reply?.change ? confirmChange(row) : confirmAssignment(row);
-  return { messages, draft, setDraft, pending, error, submit, confirmAction, cancelAction, canRetry: !!failed.current };
+  return { messages, draft, setDraft, pending, error, submit, confirmAction, canRetry: !!failed.current };
 }

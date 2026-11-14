@@ -90,7 +90,7 @@ test('the open briefing follows workspace changes and drops commentary written f
   assert.deepEqual(BRIEFING_QUESTIONS.map(question => screen.getByRole('button', { name: question }).textContent), BRIEFING_QUESTIONS);
 });
 
-test('a chat assignment is saved only after Assign, refusals stay on the card and Cancel changes nothing', async () => {
+test('a chat assignment shows one Confirm button, saves only after it and keeps refusals on the card', async () => {
   const action = { kind: 'ASSIGN' as const, order_id: '11111111-1111-4111-8111-111111111111', order_version: 3, order_number: 'ORD-1042', driver_id: '22222222-2222-4222-8222-222222222222', driver_name: 'Alex Chen', vehicle_name: 'Truck 12 (ABC123)', current_driver_name: null };
   const reply = (message: string, withAction = false) => ({ message, references: [], mode: 'AI' as const, observed_at: new Date().toISOString(), limited: false, ...(withAction ? { action } : {}) });
   operations.assistant = async (_slug, body) => body.kind === 'BRIEFING' ? reply('Briefing ready.') : reply('Alex Chen can take order ORD-1042 in Truck 12 (ABC123). Confirm below and I’ll assign it.', true);
@@ -102,19 +102,14 @@ test('a chat assignment is saved only after Assign, refusals stay on the card an
   await user.type(input, 'Assign 1042 to Alex{Enter}');
   const card = await screen.findByLabelText('Assign order ORD-1042');
   assert.equal(confirmed.length, 0, 'a proposal alone saves nothing');
-  await user.click(within(card).getByRole('button', { name: 'Assign' }));
+  assert.deepEqual(within(card).getAllByRole('button').map(button => button.textContent), ['Confirm']);
+  await user.click(within(card).getByRole('button', { name: 'Confirm' }));
   await within(card).findByText('Alex Chen is off duty.');
   refuse = false;
-  await user.click(within(card).getByRole('button', { name: 'Assign' }));
+  await user.click(within(card).getByRole('button', { name: 'Confirm' }));
   await screen.findByText('Done. Order ORD-1042 is now assigned to Alex Chen.');
   assert.ok(within(card).getByText('Assigned'));
-  assert.equal(within(card).queryByRole('button', { name: 'Assign' }), null);
-  assert.equal(confirmed.length, 2);
-  await user.type(input, 'Assign 1042 to Alex{Enter}');
-  await waitFor(() => assert.equal(screen.getAllByLabelText('Assign order ORD-1042').length, 2));
-  const second = screen.getAllByLabelText('Assign order ORD-1042')[1];
-  await user.click(within(second).getByRole('button', { name: 'Cancel' }));
-  await screen.findByText('Okay, I left order ORD-1042 as it was.');
+  assert.equal(within(card).queryByRole('button', { name: 'Confirm' }), null);
   assert.equal(confirmed.length, 2);
 });
 
@@ -133,6 +128,7 @@ test('a chat record change shows its lines, saves once per proposal key and keep
   const card = await screen.findByLabelText('Add driver: Sam Lee');
   assert.ok(within(card).getByText('604 555 0100'));
   assert.equal(keys.length, 0, 'a proposal alone saves nothing');
+  assert.deepEqual(within(card).getAllByRole('button').map(button => button.textContent), ['Confirm']);
   await user.click(within(card).getByRole('button', { name: 'Confirm' }));
   await within(card).findByText('Email is already used.');
   refuse = false;

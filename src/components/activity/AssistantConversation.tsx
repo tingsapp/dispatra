@@ -5,8 +5,8 @@ import { AssistantActionCard } from './AssistantActionCard';
 import { AssistantChangeCard } from './AssistantChangeCard';
 import type { ChatMessage } from './useAssistantChat';
 
-export function AssistantConversation({ slug, messages, pending, active, reducedMotion, onSelect, onFollowUp, onConfirm, onCancel }: {
-  onFollowUp?: (prompt: string) => void; onConfirm?: (message: ChatMessage) => Promise<void>; onCancel?: (message: ChatMessage) => void;
+export function AssistantConversation({ slug, messages, pending, active, reducedMotion, onSelect, onFollowUp, onConfirm }: {
+  onFollowUp?: (prompt: string) => void; onConfirm?: (message: ChatMessage) => Promise<void>;
   slug?: string; messages: ChatMessage[]; pending: boolean; active: boolean; reducedMotion: boolean; onSelect?: (reference: AssistantReference) => void;
 }) {
   const transcript = useRef<HTMLDivElement>(null);
@@ -51,9 +51,9 @@ export function AssistantConversation({ slug, messages, pending, active, reduced
         </button></li>)}
       </ul>}
       {message.reply?.action && message.action && <AssistantActionCard action={message.reply.action} state={message.action} disabled={pending || !onConfirm}
-        onConfirm={() => onConfirm?.(message) ?? Promise.resolve()} onCancel={() => onCancel?.(message)} />}
+        onConfirm={() => onConfirm?.(message) ?? Promise.resolve()} />}
       {message.reply?.change && message.action && <AssistantChangeCard change={message.reply.change} state={message.action} disabled={pending || !onConfirm}
-        onConfirm={() => onConfirm?.(message) ?? Promise.resolve()} onCancel={() => onCancel?.(message)} />}
+        onConfirm={() => onConfirm?.(message) ?? Promise.resolve()} />}
     </article>)}
     {pending && <p role="status" className="text-xs text-app-muted">Checking the latest workspace data...</p>}
     <div ref={end} />
