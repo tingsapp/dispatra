@@ -172,6 +172,22 @@ test('marking every notification read from chat waits for Confirm and then clear
   assert.deepEqual(cache.getQueryData(syncKey('acme')), { unread: 0, unread_messages: 2 });
 });
 
+test('deleting every notification from chat uses a red Confirm and clears the bell', async () => {
+  const change = { operation: 'NOTIFICATION.DELETE_ALL', title: 'Delete all notifications', subject: 'your notifications', target_id: null, destructive: true,
+    lines: [{ field: 'Notifications', before: '9', after: 'Deleted' }], body: {} };
+  operations.assistant = async (_slug, body) => ({ message: body.kind === 'BRIEFING' ? 'Briefing ready.' : 'Here’s the change for your notifications.', references: [], mode: 'AI' as const, observed_at: new Date().toISOString(), limited: false, ...(body.kind === 'BRIEFING' ? {} : { change }) });
+  operations.confirmAssistantChange = async () => ({ message: 'Done. 9 notifications are deleted.', id: null, version: null, initial_password: null });
+  mount(); cache.setQueryData(syncKey('acme'), { unread: 3, unread_messages: 0 }); const user = userEvent.setup({ document });
+  await screen.findByText('Briefing ready.');
+  await user.type(screen.getByRole('textbox', { name: 'Message Dispatra' }), 'clean all my notifications{Enter}');
+  const card = await screen.findByLabelText('Delete all notifications: your notifications');
+  const confirm = within(card).getByRole('button', { name: 'Confirm' });
+  assert.equal(confirm.dataset.variant, 'destructive');
+  await user.click(confirm);
+  await screen.findByText('Done. 9 notifications are deleted.');
+  assert.deepEqual(cache.getQueryData(syncKey('acme')), { unread: 0, unread_messages: 0 });
+});
+
 test('opening rows and new records slide in once, newest first; reduced motion respects visibility', async () => {
   const originalRows = [entry('AGENT:2', 'Second saved step.'), entry('AGENT:1', 'First saved step.')];
   const view = render(<ActivityLog entries={originalRows} active reducedMotion={false} />);

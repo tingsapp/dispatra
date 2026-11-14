@@ -1,3 +1,6 @@
+2026-11-14 chat workspace control: After a confirmed chat change every query except the sync cursor refreshes (requests, quotes and integrations included); deleting notifications from chat clears the bell like read-all. spec.md lists the wider chat scope.
+Verification: `npm run lint` passed; activityFeed, buttonLoading and notifications (23) passed incl. a red delete-all card test. Not deployed.
+
 2026-11-14 chat thinking label: While Dispatra chat answers a dispatcher's question the pending line says "Thinking..."; "Checking the latest workspace data..." is kept only for the opening Today so far briefing.
 Verification: `npm run lint` passed; activityFeed (12) passed with a new label test. Not deployed.
 
