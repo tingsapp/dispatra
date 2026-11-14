@@ -1,3 +1,6 @@
+2026-11-14 chat thinking label: While Dispatra chat answers a dispatcher's question the pending line says "Thinking..."; "Checking the latest workspace data..." is kept only for the opening Today so far briefing.
+Verification: `npm run lint` passed; activityFeed (12) passed with a new label test. Not deployed.
+
 2026-11-14 chat bulk clean-up: After a confirmed `NOTIFICATION.READ_ALL` chat change the bell count drops to 0 at once and the notification list refetches; spec.md describes the two bulk chat changes.
 Verification: `npm run lint`, `npm run build` passed; activityFeed + buttonLoading (16) passed with a new read-all card test.
 

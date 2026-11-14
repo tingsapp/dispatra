@@ -55,7 +55,7 @@ export function AssistantConversation({ slug, messages, pending, active, reduced
       {message.reply?.change && message.action && <AssistantChangeCard change={message.reply.change} state={message.action} disabled={pending || !onConfirm}
         onConfirm={() => onConfirm?.(message) ?? Promise.resolve()} />}
     </article>)}
-    {pending && <p role="status" className="text-xs text-app-muted">Checking the latest workspace data...</p>}
+    {pending && <p role="status" className="text-xs text-app-muted">{opening ? 'Checking the latest workspace data...' : 'Thinking...'}</p>}
     <div ref={end} />
   </div>;
 }

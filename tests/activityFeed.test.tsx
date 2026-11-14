@@ -141,6 +141,20 @@ test('a chat record change shows its lines, saves once per proposal key and keep
   assert.ok(sent[2].history.every(content => !content.includes('once-only-secret')), 'the password never enters chat history');
 });
 
+test('the opening briefing says it is checking workspace data; later questions say Thinking', async () => {
+  let answer: (value: unknown) => void = () => {};
+  const reply = (message: string) => ({ message, references: [], mode: 'AI' as const, observed_at: new Date().toISOString(), limited: false });
+  operations.assistant = async (_slug, body) => body.kind === 'BRIEFING' ? reply('Briefing ready.') : new Promise(resolve => { answer = () => resolve(reply('Two orders are unassigned.')); }) as never;
+  mount(); const user = userEvent.setup({ document });
+  await screen.findByText('Briefing ready.');
+  await user.type(screen.getByRole('textbox', { name: 'Message Dispatra' }), 'any unassigned orders?{Enter}');
+  assert.ok(await screen.findByText('Thinking...'));
+  assert.equal(screen.queryByText('Checking the latest workspace data...'), null);
+  await act(async () => answer(undefined));
+  await screen.findByText('Two orders are unassigned.');
+  assert.equal(screen.queryByText('Thinking...'), null);
+});
+
 test('marking every notification read from chat waits for Confirm and then clears the bell', async () => {
   const change = { operation: 'NOTIFICATION.READ_ALL', title: 'Mark all notifications read', subject: 'your notifications', target_id: null, destructive: false,
     lines: [{ field: 'Unread notifications', before: '5', after: '0' }], body: {} };
