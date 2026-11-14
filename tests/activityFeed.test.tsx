@@ -141,6 +141,23 @@ test('a chat record change shows its lines, saves once per proposal key and keep
   assert.ok(sent[2].history.every(content => !content.includes('once-only-secret')), 'the password never enters chat history');
 });
 
+test('marking every notification read from chat waits for Confirm and then clears the bell', async () => {
+  const change = { operation: 'NOTIFICATION.READ_ALL', title: 'Mark all notifications read', subject: 'your notifications', target_id: null, destructive: false,
+    lines: [{ field: 'Unread notifications', before: '5', after: '0' }], body: {} };
+  operations.assistant = async (_slug, body) => ({ message: body.kind === 'BRIEFING' ? 'Briefing ready.' : 'Here’s the change for your notifications.', references: [], mode: 'AI' as const, observed_at: new Date().toISOString(), limited: false, ...(body.kind === 'BRIEFING' ? {} : { change }) });
+  const confirmed: string[] = [];
+  operations.confirmAssistantChange = async (_slug, sent) => { confirmed.push(sent.operation); return { message: 'Done. 5 notifications are marked read.', id: null, version: null, initial_password: null }; };
+  mount(); cache.setQueryData(syncKey('acme'), { unread: 5, unread_messages: 2 }); const user = userEvent.setup({ document });
+  await screen.findByText('Briefing ready.');
+  await user.type(screen.getByRole('textbox', { name: 'Message Dispatra' }), 'clean all my notifications{Enter}');
+  const card = await screen.findByLabelText('Mark all notifications read: your notifications');
+  assert.equal(confirmed.length, 0, 'a proposal alone marks nothing read');
+  await user.click(within(card).getByRole('button', { name: 'Confirm' }));
+  await screen.findByText('Done. 5 notifications are marked read.');
+  assert.deepEqual(confirmed, ['NOTIFICATION.READ_ALL']);
+  assert.deepEqual(cache.getQueryData(syncKey('acme')), { unread: 0, unread_messages: 2 });
+});
+
 test('opening rows and new records slide in once, newest first; reduced motion respects visibility', async () => {
   const originalRows = [entry('AGENT:2', 'Second saved step.'), entry('AGENT:1', 'First saved step.')];
   const view = render(<ActivityLog entries={originalRows} active reducedMotion={false} />);

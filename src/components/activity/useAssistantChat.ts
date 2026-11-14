@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { operations, type AssistantReply, type AssistantQuestion } from '../../operations/api';
 import { briefingKey } from './useLiveBriefing';
+import { notificationsKey, syncKey, type SyncSummary } from '../../portal/sync';
 
 /** `key` is the proposal's idempotency key; `password` is a new account's one-time sign-in, kept off the chat text and history. */
 export type ActionState = { status: 'open' | 'saving' | 'done'; error?: string; key?: string; password?: string };
@@ -74,7 +75,10 @@ export function useAssistantChat(slug: string) {
       const result = await operations.confirmAssistantChange(slug, change, state.key);
       setAction(row.id, { status: 'done', key: state.key, password: result.initial_password ?? undefined });
       append({ id: crypto.randomUUID(), role: 'assistant', content: result.message });
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug] }), queryClient.invalidateQueries({ queryKey: briefingKey(slug) })]);
+      // Marking every notification read from chat clears the bell like its own Mark all read.
+      if (change.operation === 'NOTIFICATION.READ_ALL') queryClient.setQueryData<SyncSummary>(syncKey(slug), current => ({ unread: 0, unread_messages: current?.unread_messages ?? 0 }));
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug] }), queryClient.invalidateQueries({ queryKey: briefingKey(slug) }),
+        queryClient.invalidateQueries({ queryKey: notificationsKey(slug) })]);
     } catch (failure) {
       setAction(row.id, { ...state, status: 'open', error: failure instanceof Error ? failure.message : 'I couldn’t save that change. Try again.' });
     }

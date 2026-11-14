@@ -1,3 +1,6 @@
+2026-11-14 chat bulk clean-up: After a confirmed `NOTIFICATION.READ_ALL` chat change the bell count drops to 0 at once and the notification list refetches; spec.md describes the two bulk chat changes.
+Verification: `npm run lint`, `npm run build` passed; activityFeed + buttonLoading (16) passed with a new read-all card test.
+
 2026-11-14 chat confirm button: Dispatra chat assignment and record-change cards now show one small (`xs`) Confirm button (red for destructive changes) instead of Assign/Move order/Confirm plus Cancel; the cancel handler and `cancelled` card state were removed and spec.md updated.
 Verification: `npm run lint`, `npm run build` passed; activityFeed + buttonLoading (15) passed. Not committed or deployed.
 
