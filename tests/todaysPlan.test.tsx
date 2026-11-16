@@ -5,6 +5,7 @@ import React from 'react';
 import { INITIAL_JOBS } from '../src/data/mockData';
 import type { Job } from '../src/types';
 import { companyDay, createdDay, ordersCompletedToday, todaysPlan } from '../src/components/monitor/todaysPlanData';
+import { isTodaysMonitorOrder } from '../src/components/monitor/orderVisibility';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'Event']) Object.defineProperty(globalThis, name, { configurable: true, value: dom.window[name as keyof Window] });
@@ -38,6 +39,15 @@ test('uses company-local creation dates regardless of schedule and excludes miss
   assert.equal(createdDay(jobs[0], zone), today);
   assert.equal(createdDay(jobs[7], zone), undefined);
   assert.equal(createdDay(jobs[8], zone), undefined);
+});
+
+test('the live map shows only active orders created on the company day', () => {
+  const rows = [order('today', 'IN_PROGRESS', '2026-10-27T09:00'), order('older', 'ASSIGNED', '2026-10-27T09:00'),
+    order('late', 'NEW', '2026-10-27T09:00'), order('done', 'COMPLETED', '2026-10-27T09:00'), order('missing', 'NEW', '2026-10-27T09:00')];
+  rows[1].createdAt = '2026-10-26T12:00:00-07:00'; // Yesterday's order still in progress today.
+  rows[2].createdAt = '2026-10-28T06:30:00Z'; // 11:30 p.m. Oct 27 in Vancouver.
+  rows[4].createdAt = undefined;
+  assert.deepEqual(rows.filter(row => isTodaysMonitorOrder(row, '2026-10-27', zone)).map(row => row.id), ['today', 'late']);
 });
 
 test('attention counts an order once even when API and local flags overlap', () => {

@@ -37,7 +37,8 @@ import { TopMetrics } from './components/TopMetrics';
 import { TodaysPlan } from './components/monitor/TodaysPlan';
 import { GoogleMonitorMap, type MapController, VANCOUVER_CENTER_LNG_LAT } from './components/GoogleMonitorMap';
 import { companyMapCenter } from './components/monitor/mapScene';
-import { isActiveMonitorOrder } from './components/monitor/orderVisibility';
+import { isActiveMonitorOrder, isTodaysMonitorOrder } from './components/monitor/orderVisibility';
+import { useCompanyDay } from './components/monitor/useCompanyDay';
 import {
 INITIAL_DRIVERS,
 INITIAL_JOBS,
@@ -119,8 +120,10 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const [localJobs, setJobs] = useState<Job[]>(() => slug ? [] : loadSavedOrders(INITIAL_JOBS));
   const jobs = slug ? (orderQuery.data ?? []).map(row => orderToUi(row, shipperQuery.data ?? [], catalogQuery.data ?? [], rateQuery.data ?? [], routeQuery.data?.find(route => route.id === row.route_id))) : localJobs;
   const [hiddenOrderIds, setHiddenOrderIds] = useState<ReadonlySet<string>>(() => new Set());
-  const activeOrders = jobs.filter(isActiveMonitorOrder);
-  const mapOrders = activeOrders.filter(job => !hiddenOrderIds.has(job.id));
+  const monitorTimeZone = settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone;
+  const { day: monitorDay } = useCompanyDay(monitorTimeZone);
+  // The live map shows only today's orders, matching the Active orders panel; the prototype's mocks have no creation day.
+  const mapOrders = jobs.filter(job => (slug ? isTodaysMonitorOrder(job, monitorDay, monitorTimeZone) : isActiveMonitorOrder(job)) && !hiddenOrderIds.has(job.id));
   const [dossierJob, setDossierJob] = useState<Job | null>(null);
   const review = useMonitorReview(slug);
   const reviewAttention = {
@@ -270,7 +273,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const handleSelectJob = useCallback((jobNumber: string, markerPosition?: [number, number]) => {
     setPlanAssignment(false);
     const found = jobs.find((j) => j.jobNumber === jobNumber);
-    if (found && (hiddenOrderIds.has(found.id) || !isActiveMonitorOrder(found))) {
+    if (found && !mapOrders.some(job => job.id === found.id)) {
       setShowJobDetail(false);
       setShowAssignDriver(false);
       setShowAiRecommendation(false);
@@ -294,7 +297,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
       if (pt && (pt.x !== 0 || pt.y !== 0)) setMarkerPositions((curr) => ({ ...curr, job: pt, job461: jobNumber === '#461' ? pt : curr.job461 }));
     }
     showToast(`Selected Job ${jobNumber}`);
-  }, [jobs, hiddenOrderIds]);
+  }, [jobs, mapOrders]);
 
   const handleOrderVisibilityChange = (id: string, visible: boolean) => {
     setHiddenOrderIds(current => {
@@ -711,7 +714,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
             />
 
             {activeTab === 'monitor' && <>
-            <TodaysPlan reviewNotice={slug ? <MonitorReviewNotice review={review} onOpen={() => setReviewOpen(true)} /> : undefined} attentionItems={needsAttentionItems} drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} focusVersion={planFocusVersion} jobs={jobs} timeZone={settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone}
+            <TodaysPlan reviewNotice={slug ? <MonitorReviewNotice review={review} onOpen={() => setReviewOpen(true)} /> : undefined} attentionItems={needsAttentionItems} drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} focusVersion={planFocusVersion} jobs={jobs} timeZone={monitorTimeZone}
               attentionIds={new Set(jobs.filter(job => needsAttentionItems.some(item => item.jobNumber === job.jobNumber)).map(job => job.id))}
               loading={!!slug && (orderQuery.isPending || settingsQuery.isPending || monitorQuery.isPending)}
               error={!!slug && (orderQuery.isError || settingsQuery.isError || monitorQuery.isError)}

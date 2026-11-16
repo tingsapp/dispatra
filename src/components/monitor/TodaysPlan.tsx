@@ -9,6 +9,7 @@ import type { Driver, Job, NeedsAttentionItem } from '../../types';
 import { lifecycleLabel, orderAttention, orderLifecycle } from '../../domain/validation';
 import { companyDay, todaysPlan } from './todaysPlanData';
 import { OrderMapFocusButton } from './OrderMapFocusButton';
+import { useCompanyDay } from './useCompanyDay';
 
 interface TodaysPlanProps extends OrderMapVisibilityProps {
   reviewNotice?: React.ReactNode;
@@ -39,14 +40,7 @@ export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, o
   useEffect(() => {
     if (focusVersion > 0) setHidden(false);
   }, [focusVersion]);
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000);
-    const refresh = () => setNow(new Date());
-    window.addEventListener('focus', refresh);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
-  }, []);
-  const day = companyDay(now, timeZone);
+  const { now, day } = useCompanyDay(timeZone);
   const displayTime = (value: string) => {
     const parsed = new Date(value);
     return Number.isFinite(parsed.getTime()) && companyDay(parsed, timeZone) === day
