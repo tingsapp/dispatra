@@ -30,6 +30,7 @@ import { catalogFromUi } from '../operations/pricingAdapters';
 import { assignableRoute, assignToDriver } from '../operations/assignment';
 import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking, withMatchedZones } from '../operations/orderAdapters';
 import { OrderDetailsDialog } from '../components/orders/OrderDetailsDialog';
+import { ArchivedOrders } from '../components/orders/ArchivedOrders';
 import { EMAIL_DRAFT_STATUSES } from '../components/orders/EmailIntake';
 import { EmailDraftSection, OriginalEmail } from '../components/orders/EmailDraftSection';
 import type { EmailIntakeDetail } from '../operations/api';
@@ -111,7 +112,7 @@ export function JobsPage({
   const { ctx: livePricingCtx, settings: settingsQuery, catalog: catalogQuery, rates: rateQuery, shippers: shipperQuery } = useCompanyPricingContext(slug);
   const orderQuery = useQuery({ queryKey: ['operations', slug, 'orders'], queryFn: () => allOperations.orders(slug!), enabled: !!slug });
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'at_risk'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'at_risk' | 'archived'>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<OrderDateSelection>({ kind: 'all' });
@@ -518,8 +519,10 @@ export function JobsPage({
               >
                 At Risk
               </button>
+              {slug && <button onClick={() => setStatusFilter('archived')} aria-pressed={statusFilter === 'archived'} className="app-tab inline-flex items-center gap-2 whitespace-nowrap">Archived</button>}
             </div>
 
+            {statusFilter !== 'archived' && <>
             <OrderDateFilter value={dateFilter} onValueChange={setDateFilter} today={today} />
             <Select aria-label="Filter by order status" value={lifecycleFilter} onValueChange={setLifecycleFilter} options={[{ value: 'all', label: 'All order statuses' }, ...ORDER_LIFECYCLES.map(value => ({ value, label: ORDER_LIFECYCLE_LABELS[value] })), { value: 'attention', label: 'Needs attention' }, ...(slug ? [{ value: 'draft', label: 'Draft' }] : [])]} />
             {/* Service Type Filter */}
@@ -532,12 +535,13 @@ export function JobsPage({
                 { value: 'all', label: 'All Service Levels' }, ...pricingCtx.catalogue.services.map(s => ({value:s.id,label:s.name}))
               ]}
             />
+            </>}
           </div>
         </div>
 
         {/* JOBS TABLE */}
         <div className="app-table-shell bg-white overflow-hidden">
-          {filteredJobs.length === 0 && visibleDrafts.length === 0 ? (
+          {statusFilter === 'archived' && slug ? <ArchivedOrders slug={slug} search={searchQuery} timeZone={pricingCtx.billing.general.timeZone} onNotification={onNotification} /> : filteredJobs.length === 0 && visibleDrafts.length === 0 ? (
             <div className="p-12 text-center">
               <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <h3 className="app-section-title text-slate-800">No orders match your filter</h3>

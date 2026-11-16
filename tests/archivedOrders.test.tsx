@@ -1,0 +1,34 @@
+import { JSDOM } from 'jsdom';
+import assert from 'node:assert/strict';
+import { afterEach,test } from 'node:test';
+import React from 'react';
+const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true });
+for (const name of ['window','document','navigator','HTMLElement','HTMLInputElement','Element','Node','Event','CustomEvent','MutationObserver','getComputedStyle','localStorage']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
+const {render: rawRender,screen,cleanup,waitFor}=await import('@testing-library/react');
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+const {default:userEvent}=await import('@testing-library/user-event');
+const {allOperations,operations}=await import('../src/operations/api');
+const {ArchivedOrders}=await import('../src/components/orders/ArchivedOrders');
+const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0, retry: false } } });
+const wrap = (ui: React.ReactElement) => React.createElement(QueryClientProvider, { client }, ui);
+const order = (number: string, status: string, archivedAt: string, shipper: string) => ({ id: `id-${number}`, number, status, version: 3, scheduled_at: '2026-11-14T09:15:00Z', archived_at: archivedAt, booking: { shipper: { name: shipper } } });
+const originals = { list: allOperations.archivedOrders, restore: operations.restoreOrder };
+afterEach(() => { cleanup(); client.clear(); Object.assign(allOperations, { archivedOrders: originals.list }); Object.assign(operations, { restoreOrder: originals.restore }); });
+
+test('archived orders list newest first, filter by search and restore one', async () => {
+  let rows = [order('DTO-2559', 'CANCELLED', '2026-11-15T10:00:00Z', 'Pacific Office Supply'), order('DTO-1001', 'COMPLETED', '2026-11-16T10:00:00Z', 'Fresh Test')];
+  const restored: string[] = []; const notices: string[] = [];
+  Object.assign(allOperations, { archivedOrders: async () => rows });
+  Object.assign(operations, { restoreOrder: async (_slug: string, row: { id: string }) => { restored.push(row.id); rows = rows.filter(r => r.id !== row.id); return row; } });
+  const view = rawRender(wrap(React.createElement(ArchivedOrders, { slug: 'acme', search: '', timeZone: 'America/Vancouver', onNotification: (m: string) => notices.push(m) })));
+  await screen.findByRole('table', { name: 'Archived orders' });
+  assert.deepEqual(screen.getAllByRole('button', { name: /^Restore order/ }).map(b => b.getAttribute('aria-label')), ['Restore order DTO-1001', 'Restore order DTO-2559']);
+  assert.ok(screen.getByText('Cancelled'));
+  view.rerender(wrap(React.createElement(ArchivedOrders, { slug: 'acme', search: 'pacific', timeZone: 'America/Vancouver', onNotification: (m: string) => notices.push(m) })));
+  const button = await screen.findByRole('button', { name: 'Restore order DTO-2559' });
+  assert.equal(screen.queryByRole('button', { name: 'Restore order DTO-1001' }), null);
+  await userEvent.setup({ document }).click(button);
+  await waitFor(() => assert.deepEqual(restored, ['id-DTO-2559']));
+  await waitFor(() => assert.deepEqual(notices, ['Order DTO-2559 restored.']));
+  await screen.findByText('No archived orders match your search');
+});

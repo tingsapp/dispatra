@@ -264,8 +264,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
         <div ref={packageGrid} role="group" aria-label="Packages" className={`app-package-grid${packagesCompact ? ' is-compact' : ''}`} style={{ '--package-columns': packageColumns } as React.CSSProperties}>
           <div aria-hidden="true" className="package-head">
             {showPackageType && <span>Type</span>}
-            <span className="text-right">Qty</span>
-            <span className="text-right">Weight <span className="package-unit">{units.weightUnit}</span></span>
+            <span>Qty</span>
+            <span>Weight <span className="package-unit">{units.weightUnit}</span></span>
             <span>L × W × H <span className="package-unit">{units.dimensionUnit}</span></span>
             {pickups.length > 1 && <span>From</span>}
             {drops.length > 1 && <span>To</span>}

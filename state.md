@@ -1,3 +1,15 @@
+2026-11-16 package header alignment: Order form Packages headers Qty and Weight are now left-aligned like Type and L × W × H.
+Verification: `npm run lint` passed. Not deployed.
+
+2026-11-16 Archived orders tab: Orders page has an Archived tab (`ArchivedOrders`) listing archived orders with search and a Restore button; `operations.restoreOrder`, `allOperations.archivedOrders`.
+Verification: `npm run lint` and `vite build` passed; new archivedOrders test passed. Full suite 750/781; the failing Orders-page, pricing, autoDispatchGate and Rate Card files fail identically without these changes. Not deployed.
+
+2026-11-16 order archive types: Regenerated `schema.d.ts` for `OrderView.archived_at` and `POST /orders/{id}/archive`; archived orders drop out of order lists through the existing `order.*` sync.
+Verification: `npm run lint` passed. Not deployed.
+
+2026-11-16 sidebar active color: The active sidebar item in the Monitor and floating workspace sidebars now uses the shared #1447e6 accent token instead of a hardcoded #087dcc.
+Verification: `npx vite build` passed. Not deployed.
+
 2026-11-14 chat workspace control: After a confirmed chat change every query except the sync cursor refreshes (requests, quotes and integrations included); deleting notifications from chat clears the bell like read-all. spec.md lists the wider chat scope.
 Verification: `npm run lint` passed; activityFeed, buttonLoading and notifications (23) passed incl. a red delete-all card test. Not deployed.
 

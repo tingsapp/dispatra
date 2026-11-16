@@ -119,7 +119,8 @@ export const operations = {
   /** Closes a reported issue with the dispatcher's note; the API completes the order when nothing else is outstanding. */
   resolveIssue: async (slug: string, issue: { id: string; version: number }, resolution: string) => unwrap(await client.POST('/api/v1/companies/{slug}/issues/{identity}/resolve', { body: { version: issue.version, resolution }, params: { path: entity(slug, issue.id), header: mutation() } })),
   releaseRoute: async (slug: string, route: components['schemas']['RouteView']) => unwrap(await client.POST('/api/v1/companies/{slug}/routes/{identity}/release', { body: { version: route.version, generation: route.generation }, params: { path: entity(slug, route.id), header: mutation() } })),
-  orders: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders', { params: { path: company(slug), query: { limit: 200, after } } })),
+  orders: async (slug: string, after?: string, archived = false) => unwrap(await client.GET('/api/v1/companies/{slug}/orders', { params: { path: company(slug), query: { limit: 200, after, archived } } })),
+  restoreOrder: async (slug: string, order: Order) => unwrap(await client.POST('/api/v1/companies/{slug}/orders/{identity}/restore', { body: { version: order.version }, params: { path: entity(slug, order.id), header: mutation() } })),
   quotes: async (slug: string, after?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/quotes', { params: { path: company(slug), query: { limit: 200, after } } })),
   driverActivity: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/drivers/{identity}/activity', { params: { path: entity(slug, identity) } })),
   tms: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/integrations/tms', { params: { path: company(slug) } })),
@@ -172,5 +173,6 @@ export const allOperations = {
   rates: (slug: string) => allPages(after => operations.rates(slug, after)),
   routes: (slug: string) => allPages(after => operations.routes(slug, after), 100),
   orders: (slug: string) => allPages(after => operations.orders(slug, after)),
+  archivedOrders: (slug: string) => allPages(after => operations.orders(slug, after, true)),
   quotes: (slug: string) => allPages(after => operations.quotes(slug, after)),
 };
