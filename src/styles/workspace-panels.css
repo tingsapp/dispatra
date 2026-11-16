@@ -65,7 +65,7 @@
 .app-workspace.app-monitor-nav .app-nav-item > svg { width: 16px; height: 16px; stroke-width: 1.65; color: #55585f; }
 .app-workspace.app-monitor-nav .app-nav-item:hover { color: #17191d; }
 .app-workspace.app-monitor-nav .app-nav-item:active { background: var(--color-app-selected); }
-.app-workspace.app-monitor-nav .app-nav-item[aria-current="page"] { background: var(--color-app-selected); color: #087dcc; }
+.app-workspace.app-monitor-nav .app-nav-item[aria-current="page"] { background: var(--color-app-selected); color: var(--color-app-accent); }
 .app-workspace.app-monitor-nav .app-nav-item[aria-current="page"] > svg { color: currentColor; }
 
 /* Content scrolls inside its own quiet surface; navigation never moves with it. */

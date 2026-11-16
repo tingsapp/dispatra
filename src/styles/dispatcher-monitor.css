@@ -56,7 +56,7 @@
 .dispatcher-monitor .app-nav-item > svg { width: 16px; height: 16px; stroke-width: 1.65; color: #55585f; }
 .dispatcher-monitor .app-nav-item:hover { background: var(--monitor-hover); color: #17191d; }
 .dispatcher-monitor .app-nav-item:active { background: var(--monitor-selected); }
-.dispatcher-monitor .app-nav-item[aria-current="page"] { background: var(--monitor-selected); color: #087dcc; }
+.dispatcher-monitor .app-nav-item[aria-current="page"] { background: var(--monitor-selected); color: var(--color-app-accent); }
 .dispatcher-monitor .app-nav-item[aria-current="page"] > svg { color: currentColor; }
 .dispatcher-monitor .dispatcher-nav-footer { flex-shrink: 0; padding: 8px; }
 .dispatcher-monitor .app-account-card { background: rgb(255 255 255 / 45%); padding: 9px 8px; gap: 9px; }
