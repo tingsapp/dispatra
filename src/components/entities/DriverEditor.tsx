@@ -16,7 +16,7 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
   const [errors, setErrors] = useState<string[]>([]);
   const [localVehicles, setVehicles] = useState(loadVehicles);
   const vehicles = vehicleOptions ?? localVehicles;
-  // Account password changes end duty externally; keep the draft from silently restoring it.
+  // Duty can change outside this form (driver switch, logout); keep the draft from silently restoring it.
   useEffect(() => {
     if (driver?.dutyStatus) setDraft(current => ({ ...current, dutyStatus: driver.dutyStatus }));
   }, [driver?.dutyStatus]);

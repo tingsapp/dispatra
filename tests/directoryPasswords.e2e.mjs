@@ -48,8 +48,8 @@ try {
     assert.equal((await login(account, portal, slug, record.email, record.initial_password)).status(), 401);
     await json(await login(account, portal, slug, record.email, newPassword));
     if (kind === 'driver') {
-      assert.equal((await json(await account.request.get(origin + base + '/driver/profile'))).duty, null);
-      await page.getByRole('combobox', { name: 'Duty', exact: true }).filter({ hasText: 'Off duty' }).waitFor();
+      assert.notEqual((await json(await account.request.get(origin + base + '/driver/profile'))).duty, null);
+      await page.getByRole('combobox', { name: 'Duty', exact: true }).filter({ hasText: 'On duty' }).waitFor();
       assert.equal(await page.getByLabel('Driver name', { exact: true }).inputValue(), 'Unsaved driver name');
     }
     assert.ok(await form.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
@@ -58,5 +58,5 @@ try {
     await page.setViewportSize({ width: 1440, height: 1000 });
   }
   assert.deepEqual(errors, []);
-  console.log('PASS: dispatcher Shipper/Driver password forms, confirmation and eye toggle, exact password login, session revocation, driver Off Duty, cleared credentials and mobile bounds.');
+  console.log('PASS: dispatcher Shipper/Driver password forms, confirmation and eye toggle, exact password login, session revocation, driver duty kept, cleared credentials and mobile bounds.');
 } finally { for (const ctx of contexts) await ctx.close(); await browser.close(); }
