@@ -1,5 +1,5 @@
 2026-11-16 Monitor map shows today only: the live map now draws only active orders created on the company's current day (same rule as the Active orders panel), so older orders' markers, road routes and route approaches no longer appear; shared `useCompanyDay` rolls over at company midnight.
-Verification: `npm run lint` passed; todaysPlan + monitorOrderVisibility 35/35 incl. a new map-day test. Full suite 752/782; all 30 failures (Rate Card, pricing, settings, autoDispatchGate, monitorReview, etc.) fail identically without this change. Not deployed.
+Verification: `npm run lint` passed; todaysPlan + monitorOrderVisibility 35/35 incl. a new map-day test. Full suite 752/782; all 30 failures (Rate Card, pricing, settings, autoDispatchGate, monitorReview, etc.) fail identically without this change. Published 2026-11-16 (see api/state.md, monitor_today_20261116).
 
 2026-11-16 package header alignment: Order form Packages headers Qty and Weight are now left-aligned like Type and L × W × H.
 Verification: `npm run lint` passed. Not deployed.
