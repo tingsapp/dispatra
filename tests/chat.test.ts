@@ -193,27 +193,29 @@ test('dispatcher shipper contact opens its ongoing company conversation without 
   assert.ok(await screen.findByRole('textbox',{name:'Message Fresh Test'}));
 });
 
-test('shipper sidebar company badge excludes driver messages and opens a single company thread', async () => {
+test('shipper sidebar company badge excludes driver messages and opens the pinned company thread', async () => {
   const { ShipperPortal } = await import('../src/portal/ShipperPortal');
   history.replaceState(null,'','/acme/shipper/messages');
   operations.ownShipper = async () => ({id:'s1',name:'Alice Shipper'}) as never;
+  operations.bookingPreferences = async () => ({time_zone:'America/Vancouver'}) as never;
   operations.sync = async () => ({cursor:'1-0',changes:[],unread:0,unread_messages:5,reset:false,next_poll_ms:60000});
   allOperations.orders = async () => [];
   chat.inbox = async () => [{kind:'DRIVER_SHIPPER',order_id:'o1',unread:3},{kind:'DISPATCH_SHIPPER',order_id:null,unread:2}] as never;
+  chat.page = async () => ({items:[],next_cursor:null});
   chat.shipperCompanyChannel = async () => channel('DISPATCH_SHIPPER','Company',null,{shipper_id:'s1',unread:2});
   mount(React.createElement(ShipperPortal,{slug:'acme',company:'Acme Transport',login:'alice@example.com',onLogout:()=>{},loggingOut:false,logoutError:null}));
-  assert.ok(await screen.findByRole('link',{name:'Chat, 2 unread'}));
+  assert.ok(await screen.findByRole('link',{name:'Chat, 2 unread'},{timeout:5000}));
   assert.ok(screen.getByRole('link',{name:'Orders, 3 unread'}));
+  const user = userEvent.setup({document});
+  await user.click(await screen.findByRole('button',{name:'Company, always open, 2 unread'}));
   assert.ok(await screen.findByRole('textbox',{name:'Message Company'}));
-  assert.equal(screen.queryByRole('tablist'),null);
   assert.equal(screen.queryByRole('textbox',{name:'Message Dana Driver'}),null);
   assert.equal(screen.queryByRole('searchbox',{name:'Search your orders'}),null);
   assert.ok(screen.getByRole('button',{name:/Notifications/}));
-  const user = userEvent.setup({document});
   await user.click(screen.getByRole('link',{name:'Orders, 3 unread'}));
   assert.ok(await screen.findByRole('searchbox',{name:'Search your orders'}));
   await user.click(screen.getByRole('link',{name:'Chat, 2 unread'}));
-  assert.ok(await screen.findByRole('textbox',{name:'Message Company'}));
+  assert.ok(await screen.findByRole('button',{name:'Company, always open, 2 unread'}));
   assert.equal(screen.queryByRole('searchbox',{name:'Search your orders'}),null);
 });
 

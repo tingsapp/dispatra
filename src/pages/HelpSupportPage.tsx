@@ -15,9 +15,10 @@ import { Select } from '../components/ui/Select';
 import { SearchInput } from '../components/ui/SearchInput';
 import { loadBillingConfig } from '../lib/billingStorage';
 import { type Units } from '../lib/units';
+import type { Notify } from '../components/ui/popupFeedback';
 
 interface HelpSupportPageProps {
-  onNotification?: (msg: string) => void;
+  onNotification?: Notify;
 }
 
 interface FAQItem {
@@ -109,7 +110,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
   const handleSubmitTicket = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketSubject.trim() || !ticketMessage.trim()) {
-      onNotification?.('Please fill out the ticket subject and description');
+      onNotification?.('Please fill out the ticket subject and description', 'warning');
       return;
     }
 
@@ -117,7 +118,7 @@ export const HelpSupportPage: React.FC<HelpSupportPageProps> = ({
     setSubmittedTicketId(randomId);
     setTicketSubject('');
     setTicketMessage('');
-    onNotification?.(`Support ticket ${randomId} submitted to Dispatra Engineering`);
+    onNotification?.(`Support ticket ${randomId} submitted to Dispatra Engineering`, 'success');
   };
 
   return (

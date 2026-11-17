@@ -39,6 +39,7 @@ import { PackageTypesSection } from '../components/settings/PackageTypesSection'
 import { PreferencesEditor, TaxEditor } from '../portal/CompanySettingsEditors';
 import { MailboxSettings } from '../components/orders/EmailIntake';
 import { SettingsLayout, SettingsPageProps } from '../components/settings/SettingsLayout';
+import type { Notify } from '../components/ui/popupFeedback';
 import { DISCARD_CHANGES, useSettingsGuard } from '../components/settings/useSettingsGuard';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
 export function RateCardsPage({ onNotification }: SettingsPageProps) {
@@ -158,7 +159,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
           : await operations.createRate(slug, saved.code, rateFromUi(saved, config.zones), saved.scope === 'ORGANIZATION');
         await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] });
         setDraft(rateToUi(result)); setIsNew(false); setIsSaved(true); setSaveError(null);
-        onNotification?.(`Saved "${result.data.name}" (v${result.version}).`);
+        onNotification?.(`Saved "${result.data.name}" (v${result.version}).`, 'success');
       } catch (error) { setSaveError(error instanceof Error ? error.message : 'Could not save rate card.'); }
       return;
     }
@@ -170,7 +171,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     setIsNew(false);
     setIsSaved(true);
     setSaveError(null);
-    onNotification?.(`Saved "${saved.name}" (v${saved.version}).`);
+    onNotification?.(`Saved "${saved.name}" (v${saved.version}).`, 'success');
     setTimeout(() => setIsSaved(false), 2500);
   };
 
@@ -179,26 +180,26 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
   const makeDefault = async (card: RateCard) => {
     if (slug) {
       const record = rateQuery.data?.find(row => row.id === card.id); if (!record) return;
-      try { await operations.updateRate(slug, record, record.data, true); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] }); onNotification?.(`"${card.name}" is now the Default rate card.`); }
-      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not set default rate card.'); }
+      try { await operations.updateRate(slug, record, record.data, true); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] }); onNotification?.(`"${card.name}" is now the Default rate card.`, 'success'); }
+      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not set default rate card.', 'error'); }
       return;
     }
     const rateCards = config.rateCards.map(c => c.id === card.id ? stamp(c, { scope: 'ORGANIZATION' }) : isDefault(c) ? stamp(c, { scope: 'ORDER' }) : c);
     persist({ ...config, rateCards });
     if (draft?.id === card.id) setDraft(rateCards.find(c => c.id === card.id)!);
-    onNotification?.(`"${card.name}" is now the Default rate card.`);
+    onNotification?.(`"${card.name}" is now the Default rate card.`, 'success');
   };
 
   /** Cards are archived, never deleted: orders already priced keep their frozen snapshot of the card. */
   const archiveCard = async (card: RateCard) => {
-    if (isDefault(card)) { onNotification?.('Set another card as Default before archiving this one.'); return; }
+    if (isDefault(card)) { onNotification?.('Set another card as Default before archiving this one.', 'warning'); return; }
     const attached = customers.filter(c => c.rateCardId === card.id).length;
     const impact = attached ? `${attached} shipper${attached === 1 ? '' : 's'} attached to it will use the Default card for new orders.` : 'No shippers are attached to it.';
     if (!(await confirmDialog({ title: `Archive "${card.name}"?`, message: `It leaves the list and every selector; orders already priced with it are unchanged. ${impact}`, confirmLabel: 'Archive card', tone: 'danger' }))) return;
     if (slug) {
       const record = rateQuery.data?.find(row => row.id === card.id); if (!record) return;
       try { await operations.archiveRate(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] }); onNotification?.(`Archived "${card.name}".`); }
-      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not archive rate card.'); }
+      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not archive rate card.', 'error'); }
       return;
     }
     const rateCards = config.rateCards.map(c => c.id === card.id ? stamp(c, { status: 'ARCHIVED' }) : c);
@@ -247,7 +248,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     setIsNew(false);
     setSaveError(null);
   };
-  const refreshDefaults = (message: string) => { setRevision(value => value + 1); onNotification?.(message); };
+  const refreshDefaults: Notify = (message, tone) => { setRevision(value => value + 1); onNotification?.(message, tone); };
   const zoneActions = { addZone, patchZone, deleteZone };
   const methodFilterControl = <Select aria-label="Filter pricing method" value={methodFilter} onValueChange={setMethodFilter} options={[{ value: '', label: 'All pricing methods' }, ...SETTINGS_PRICING_METHODS.map(value => ({ value, label: METHOD_LABELS[value] }))]} />;
   if (slug && !liveCtx) return <SettingsLayout><p role={rateQuery.error || catalogQuery.error || shipperQuery.error || settingsQuery.error ? 'alert' : 'status'} className="text-sm text-slate-500">{rateQuery.error || catalogQuery.error || shipperQuery.error || settingsQuery.error ? 'Could not load pricing data.' : 'Loading pricing…'}</p></SettingsLayout>;

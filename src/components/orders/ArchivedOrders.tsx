@@ -4,11 +4,12 @@ import { allOperations, operations, type Order } from '../../operations/api';
 import { Button } from '../ui/button';
 import { usePendingAction } from '../ui/usePendingAction';
 import { formatWhen } from './OrderDossierSections';
+import type { Notify } from '../ui/popupFeedback';
 
 const STATUS: Record<string, string> = { CANCELLED: 'Cancelled', COMPLETED: 'Completed' };
 
 /** Archived orders: closed orders kept for history, out of the Orders list until restored. */
-export function ArchivedOrders({ slug, search, timeZone, onNotification }: { slug: string; search: string; timeZone: string; onNotification: (message: string) => void }) {
+export function ArchivedOrders({ slug, search, timeZone, onNotification }: { slug: string; search: string; timeZone: string; onNotification: Notify }) {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ['operations', slug, 'orders', 'archived'], queryFn: () => allOperations.archivedOrders(slug) });
   const restore = usePendingAction();
@@ -16,8 +17,8 @@ export function ArchivedOrders({ slug, search, timeZone, onNotification }: { slu
   const rows = (query.data ?? []).filter(order => !term || [order.number, (order.booking as { shipper?: { name?: string } }).shipper?.name ?? ''].some(text => text.toLowerCase().includes(term)))
     .sort((a, b) => (b.archived_at ?? '').localeCompare(a.archived_at ?? ''));
   const run = (order: Order) => restore.run(async () => {
-    try { await operations.restoreOrder(slug, order); onNotification(`Order ${order.number} restored.`); }
-    catch (error) { onNotification(error instanceof Error ? error.message : 'Could not restore the order.'); }
+    try { await operations.restoreOrder(slug, order); onNotification(`Order ${order.number} restored.`, 'success'); }
+    catch (error) { onNotification(error instanceof Error ? error.message : 'Could not restore the order.', 'error'); }
     finally { await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }); }
   }, order.id);
   if (query.isPending) return <p role="status" className="p-12 text-center text-xs text-slate-500">Loading archived orders…</p>;

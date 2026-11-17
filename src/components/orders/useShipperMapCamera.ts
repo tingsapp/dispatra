@@ -11,6 +11,9 @@ function extent(points: MapPoint[]) {
   return points.length ? [south, north, west, east].join(':') : '';
 }
 
+/** The docked sidebar card covers the map's left edge; the mobile drawer is a modal and does not. */
+const workspaceSidebar = (canvas: HTMLElement) => canvas.closest('.app-workspace')?.querySelector<HTMLElement>('.app-portal-sidebar:not([role="dialog"])');
+
 /** Automatic views follow route/layout bounds; only camera gestures switch to manual mode. */
 export function useShipperMapCamera(map: google.maps.Map | null, points: MapPoint[], home: MapPoint, ready: boolean) {
   const current = useRef({ points, home, ready });
@@ -33,6 +36,7 @@ export function useShipperMapCamera(map: google.maps.Map | null, points: MapPoin
     const view = map.getDiv().getBoundingClientRect();
     if (!view.width || !view.height) return;
     const card = map.getDiv().closest('main')?.querySelector('.shipper-tracking-card')?.getBoundingClientRect();
+    const sidebar = workspaceSidebar(map.getDiv())?.getBoundingClientRect();
     const positions = target === 'orders' && current.current.points.length ? current.current.points : [current.current.home];
     const bounds = new google.maps.LatLngBounds();
     positions.forEach(point => bounds.extend(point));
@@ -44,7 +48,7 @@ export function useShipperMapCamera(map: google.maps.Map | null, points: MapPoin
     const span = shipperMapSpan(positions);
     // Keep home/single-point views useful; real routes may fit up to street level.
     map.setOptions({ maxZoom: target === 'home' ? 13 : !span.width && !span.height ? 17 : 19 });
-    map.fitBounds(bounds, shipperMapPadding(view, card, shipperMarkerInsets(map.getDiv()), span));
+    map.fitBounds(bounds, shipperMapPadding(view, card, shipperMarkerInsets(map.getDiv()), span, sidebar));
     idle.current = google.maps.event.addListenerOnce(map, 'idle', () => { map.setOptions({ maxZoom: 19 }); idle.current = null; });
   }, [map]);
 
@@ -73,6 +77,8 @@ export function useShipperMapCamera(map: google.maps.Map | null, points: MapPoin
     observe.observe(map.getDiv());
     const card = map.getDiv().closest('main')?.querySelector('.shipper-tracking-card');
     if (card) observe.observe(card);
+    const sidebar = workspaceSidebar(map.getDiv());
+    if (sidebar) observe.observe(sidebar);
     const canvas = map.getDiv();
     const captions = new Set<Element>();
     const watchCaptions = () => {

@@ -1,3 +1,35 @@
+2026-11-17 Default work hours 06:00–19:00 daily (`DEFAULT_WORK_HOURS`); the order form checks hours only when the company's hours are loaded, so /prototype is unrestricted; schema.d.ts regenerated.
+Checks: lint, `operatingCalendar.test.tsx` 5/5.
+2026-11-17 Preferences: Work hours and Holidays use short one-line descriptions, the weekly summary and Copy Monday button are removed, and Holidays sits beside Work hours from `xl` up (stacked below on smaller screens).
+Checks: lint, `operatingCalendar.test.tsx` 5/5. Layout not checked in the browser (pane hidden).
+2026-11-17 Order form checks the pickup against company work hours/holidays (`lib/operatingCalendar.closedReason`, via pricing context `general.workHours/holidays`): Shipper dialog blocks with the API's reason, dispatcher form warns; Settings shows 24:00 and "open 24 hours"; `OUTSIDE_HOURS` attention label; schema.d.ts regenerated (driver schema too, types only).
+Checks: lint, build, `operatingCalendar.test.tsx` 5/5 (closedReason, Shipper block/dispatcher warn in the form), `addressAutocomplete` 12/12. Unrelated failures persist with the new wiring removed: `entityForms` tests 10 and 20, `emailDraftForm` test 2. Browser check not done (pane hidden); local API restarted.
+2026-11-17 Settings → Preferences adds Work hours (table: day, open switch, half-hour opens/closes selects, weekly summary, Copy Monday to Tue–Fri) and Holidays (date + name, dated table, past marked, remove); saved via Save Preferences; schema.d.ts regenerated.
+Checks: lint, build, `tests/operatingCalendar.test.tsx` 3/3; browser save on local demo persisted then restored. `tests/settings.test.ts` 77/84: 7 rate-card/pricing failures unrelated to Preferences (from other uncommitted rate-card work).
+2026-11-17 Briefing Unassigned colour is now light gray (#cbd5e1) in the status bar and count dot.
+Verification: checked in the browser.
+
+2026-11-17 Small-screen Monitor toolbar: below 960px the status buttons are icon-only squares stacked on the right with count badges (`MetricTrigger` adds count/chevron hooks and `data-empty`); Active orders now uses the top inset on tablets.
+Verification: `npm run lint`, `npm run build` passed; checked 820×700 (panel at top, badges) and 375×812 (stack, Needs Attention menu opens); desktop toolbar unchanged.
+
+2026-11-17 Pickup-day wording: Active orders note is one line, "Orders to be delivered today" (tooltip: date and unfinished earlier orders); the briefing total is labelled "orders for today" and follows the same pickup rule from the API.
+Verification: `npm run lint`, `npm run build` passed; todaysPlan 21/21, activityFeed 13/13; checked at 1280×800 (panel 11 = briefing 11).
+
+2026-11-17 Monitor day + feedback: Active orders and the map now show orders by scheduled pickup day (today's pickups plus still-open earlier pickups; later pickups wait), earliest pickup first; the order list is the panel's only scroll area; review notice button is an orange "Review" (`warning` button variant); action messages use `FeedbackMessage` (12px, success/error/warning/info colours) with explicit tones across `showToast`/`onNotification` callers. Local demo: an incomplete order email queued for review.
+Verification: `npm run lint`, `npm run build` passed; todaysPlan 21/21, chatWorkspace + dialogDismissal pass; monitorReview "Needs Attention menu" still fails (pre-existing, untouched TopMetrics). Checked 375×667 and 1280×800: one scroll area, review card, coloured messages.
+
+2026-11-17 Active orders subtitle: replaced "date · Created today · N unassigned" with "Only orders created today, <date>." plus a View all orders link to the Orders page (`allOrders` prop); spec updated.
+Verification: `npm run lint`, `npm run build` passed; todaysPlan 21/21 incl. the link; checked at 375px that the link opens /demo/orders.
+
+2026-11-17 Monitor stacking: Active orders and the Dispatra chat publish their live heights (`usePublishedHeight` → `--monitor-plan-height` / `--monitor-dock-height`), and each caps its max height by the other's, so they never overlap and the capped one scrolls; spec updated. Local demo: DDO-8711/DDO-3336 `created_at` moved to today, and 10 review orders booked through `create_order` (2 past-deadline, 2 with reported issues) for review.
+Verification: `npm run lint`, `npm run build` passed; todaysPlan + activityFeed pass; checked at 1280×800 and 375×812 with 26 rows and an open conversation (12–68px gaps, no overlap). Not deployed.
+
+2026-11-17 Monitor briefing: the four status counts stay in one row on phones too (dropped the phone 2×2 grid; labels never wrap), the two suggested questions are removed (with the unused follow-up prop chain), the AI recommendation line is no longer shown, and the card is redesigned: one summary block with total, proportional status bar and colour-keyed counts, then dispatch-mode/issue rows with icons; spec updated.
+Verification: `npm run lint`, `npm run build` passed; activityFeed 13/13 (now also asserts a `watch.detected` sync change alone refreshes the open-issue line); checked the panel at 375px and 1280px, and that live `watch` events refetch the open briefing. Not deployed.
+
+2026-11-17 Portal chats + Tracking: shipper Tracking map runs under the floating sidebar like the Monitor (`app-portal-map`; fitting keeps routes clear of the sidebar). `ChatWorkspace` tabs are kind-specific with the first conversation pinned and always open: dispatcher Dispatra (admin) / Shipper / Driver (no All, no D–S); shipper (`shipperId`) Dispatch / Drivers, one driver chat per Order (+ picks an ASSIGNED/IN_PROGRESS order). Shipper Chat uses it; an empty thread centers the compact composer (`ChatThread page`). Admin chat shows as "Dispatra".
+Verification: `npm run lint`, `npm run build` passed; chatWorkspace 13/13, chat 16/16, appearance, shipperOrders, shipperMapLocation pass; checked shipper + dispatcher in the browser. Full suite not rerun (Rate Card failure pre-exists). Not deployed.
+
 2026-11-16 Monitor map shows today only: the live map now draws only active orders created on the company's current day (same rule as the Active orders panel), so older orders' markers, road routes and route approaches no longer appear; shared `useCompanyDay` rolls over at company midnight.
 Verification: `npm run lint` passed; todaysPlan + monitorOrderVisibility 35/35 incl. a new map-day test. Full suite 752/782; all 30 failures (Rate Card, pricing, settings, autoDispatchGate, monitorReview, etc.) fail identically without this change. Published 2026-11-16 (see api/state.md, monitor_today_20261116).
 

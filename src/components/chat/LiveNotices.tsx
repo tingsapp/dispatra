@@ -4,10 +4,11 @@ import { X, MessageSquare, Bell, AlertTriangle } from 'lucide-react';
 import { ADMIN_CHAT } from '../../chat/api';
 import { operations } from '../../operations/api';
 import { api } from '../../portal/api';
-import { BrandMark } from '../layout/AppBrand';
+import { FeedbackMessage } from '../ui/FeedbackMessage';
+import type { FeedbackTone } from '../ui/popupFeedback';
 
 export type LiveNotice = { id: string; title: string; body: string; kind: string; severity: string; conversation_id?: string | null; order_id?: string | null; read_at: string | null };
-export type LiveFeedback = { text: string; tone: 'default' | 'error' };
+export type LiveFeedback = { text: string; tone: FeedbackTone };
 const VISIBLE = 3;
 const SHOW_MS = 8_000;
 
@@ -35,9 +36,7 @@ export function LiveNotices<T extends LiveNotice = LiveNotice>({ slug, accountId
   const dismiss = (id: string) => setNotices(current => current.filter(notice => notice.id !== id));
   if (!notices.length && !feedback) return null;
   return <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-[80] flex flex-col items-center gap-2 px-4">
-    {feedback && <div className="pointer-events-auto flex max-w-full items-center gap-2.5 rounded-xl bg-slate-900/95 px-4 py-2.5 text-xs font-medium text-white shadow-xl shadow-slate-900/20">
-      <BrandMark size={16} /><span className={feedback.tone === 'error' ? 'text-rose-200' : undefined}>{feedback.text}</span>
-    </div>}
+    {feedback && <FeedbackMessage announce={false} message={feedback.text} tone={feedback.tone} className="pointer-events-auto w-fit max-w-[min(380px,100%)] shadow-lg" />}
     {notices.map(notice => <NoticeCard key={notice.id} notice={notice} onOpen={() => { onOpen(notice); dismiss(notice.id); }} onDismiss={() => dismiss(notice.id)} />)}
   </div>;
 }

@@ -12,11 +12,12 @@ import { loadBillingConfig } from '../../lib/billingStorage';
 import { toDisplayDimension, toDisplayWeight } from '../../lib/units';
 import { PackageType } from '../../types/simplePricing';
 import { PackageTypeModal } from '../pricing/PackageTypeModal';
+import type { Notify } from '../ui/popupFeedback';
 
 const typeCode = (name: string) => `${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'PACKAGE'}_${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
 /** Company Package Types (API workspaces only). Order forms offer the active ones; deleting keeps saved orders unchanged. The Default is used by emails whose package type cannot be inferred. */
-export function PackageTypesSection({ onNotification, onChanged }: { onNotification?: (message: string) => void; onChanged?: () => void }) {
+export function PackageTypesSection({ onNotification, onChanged }: { onNotification?: Notify; onChanged?: () => void }) {
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
@@ -32,22 +33,22 @@ export function PackageTypesSection({ onNotification, onChanged }: { onNotificat
       const previous = catalogQuery.data?.find(row => row.id === type.id);
       if (previous) await operations.updateCatalog(slug, previous, packageTypeToCatalog(type, previous));
       else await operations.createCatalog(slug, 'PACKAGE_TYPE', typeCode(type.name), packageTypeToCatalog(type));
-      await refresh(); setEditing(undefined); onNotification?.('Package type saved.');
-    } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save package type.'); }
+      await refresh(); setEditing(undefined); onNotification?.('Package type saved.', 'success');
+    } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save package type.', 'error'); }
   };
   const makeDefault = async (type: PackageType) => {
     const settings = settingsQuery.data; if (!slug || !settings) return;
     try {
       const saved = await api.saveCompanySettings(slug, { version: settings.version, data: { ...settings.data, default_package_type_id: type.id } }, crypto.randomUUID());
-      queryClient.setQueryData(companySettingsKey(slug), saved); onChanged?.(); onNotification?.(`${type.name} is now the Default package type.`);
-    } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not change the Default package type.'); }
+      queryClient.setQueryData(companySettingsKey(slug), saved); onChanged?.(); onNotification?.(`${type.name} is now the Default package type.`, 'success');
+    } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not change the Default package type.', 'error'); }
   };
   const remove = async (type: PackageType) => {
-    if (type.id === defaultId) { onNotification?.('Set another package type as Default before deleting this one.'); return; }
+    if (type.id === defaultId) { onNotification?.('Set another package type as Default before deleting this one.', 'warning'); return; }
     if (!slug || !(await confirmDialog({ title: `Delete package type “${type.name}”?`, message: 'It will no longer be offered on new packages. Saved orders keep it.', confirmLabel: 'Delete package type', tone: 'danger' }))) return;
     const record = catalogQuery.data?.find(row => row.id === type.id); if (!record) return;
-    try { await operations.deleteCatalog(slug, record); await refresh(); onNotification?.(`${type.name} deleted.`); }
-    catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not delete ${type.name}.`); }
+    try { await operations.deleteCatalog(slug, record); await refresh(); onNotification?.(`${type.name} deleted.`, 'success'); }
+    catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not delete ${type.name}.`, 'error'); }
   };
   const size = (type: PackageType) => type.lengthCm == null || type.widthCm == null || type.heightCm == null ? '-'
     : [type.lengthCm, type.widthCm, type.heightCm].map(cm => Number(toDisplayDimension(cm, units).toFixed(1))).join(' × ');

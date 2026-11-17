@@ -10,7 +10,7 @@ import { NavBadge } from '../components/layout/NavBadge';
 const initials = (name: string) => name.trim().split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('') || '?';
 
 /** Presentational workspace shell. Authentication and customer data remain in PortalApp. */
-export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, titleBadge, headerActions, reading = false, map = false, canvas = false, monitorNav = true, footer, children }: {
+export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, titleBadge, headerActions, reading = false, map = false, chat = false, canvas = false, monitorNav = true, footer, children }: {
   /** Sidebar card styled like the dispatcher Monitor's; platform administration keeps its own. */
   monitorNav?: boolean;
   /** Sidebar controls under the Logout card (or the account card), such as the driver's duty switch. */
@@ -22,6 +22,8 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
   headerActions?: ReactNode;
   /** Edge-to-edge map canvas with workspace controls floating above it. */
   map?: boolean; canvas?: boolean;
+  /** Conversations fill the page below its heading instead of scrolling with it. */
+  chat?: boolean;
   /** Dispatcher-style account card with a Profile / Logout menu instead of the plain sign-out control. */
   account?: { logoUrl?: string; name: string; role: string; profileCurrent: boolean; activeTab?: string; onSettings?: () => void; onSubscription?: () => void; onIntegration?: () => void };
   navigation?: { label: string; href: string; icon: LucideIcon; current: boolean; badge?: number; badgeLabel?: string }[];
@@ -40,7 +42,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
   const PageHeading = headerActions && !canvas ? 'div' : 'header';
   const menuButton = <button type="button" className={hidden ? 'app-icon-button' : 'hidden'} aria-hidden={!hidden} tabIndex={hidden ? 0 : -1} aria-label="Open menu" onClick={() => setOpen(true)}><SidebarToggleIcon className="h-4.5 w-4.5" strokeWidth={1.5} aria-hidden="true" /></button>;
 
-  return <div className={`app-workspace app-portal-workspace ${monitorNav ? 'app-monitor-nav' : ''} relative flex h-dvh overflow-hidden bg-app-canvas text-app-text`} data-sidebar-open={open}>
+  return <div className={`app-workspace app-portal-workspace ${monitorNav ? 'app-monitor-nav' : ''} ${map ? 'app-portal-map' : ''} relative flex h-dvh overflow-hidden bg-app-canvas text-app-text`} data-sidebar-open={open}>
     {open && mobile && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/20 sm:hidden" onClick={() => setOpen(false)} />}
     <aside ref={panelRef} role={open && mobile ? 'dialog' : undefined} aria-modal={open && mobile ? true : undefined} aria-label="Workspace sidebar" aria-hidden={hidden} inert={hidden} data-collapsed={collapsed}
       className={`app-workspace-sidebar app-portal-sidebar border-r border-app-border fixed inset-y-0 left-0 z-50 md:sticky md:top-0 transition-[width] duration-300 ${hidden ? 'hidden' : collapsed ? 'app-sidebar-rail' : ''}`}>
@@ -86,7 +88,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
     {map ? <main className="relative min-h-0 flex-1 overflow-hidden" aria-label={primary}>
       <h1 className="sr-only">{primary}</h1>{children}
     </main> : <>
-    <div className={`app-page min-h-0 min-w-0 flex-1 flex flex-col ${settings || reading ? 'app-page-reading' : ''} ${canvas ? 'app-page-machine' : headerActions ? 'app-page-with-header' : ''}`}>
+    <div className={`app-page min-h-0 min-w-0 flex-1 flex flex-col ${settings || reading ? 'app-page-reading' : ''} ${canvas ? 'app-page-machine' : headerActions ? 'app-page-with-header' : ''} ${chat ? 'app-page-chat' : ''}`}>
       <PageHeading aria-label={canvas ? "Workspace header" : undefined} className="app-page-header page-content shrink-0">
         <div className="flex min-w-0 items-center gap-3">
           {(!headerActions || canvas) && menuButton}
@@ -94,7 +96,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
         </div>
         {(actions || canvas && headerActions) && <div className={canvas ? "flex flex-wrap items-center gap-2" : "flex items-center gap-2"}>{actions}{canvas && headerActions}</div>}
       </PageHeading>
-      <main className="page-content space-y-6 py-6">{children}</main>
+      <main className={`page-content ${chat ? 'flex flex-col gap-4 pt-6 pb-6' : 'space-y-6 py-6'}`}>{children}</main>
     </div>
     </>}
     </div>

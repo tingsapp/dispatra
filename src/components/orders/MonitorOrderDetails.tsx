@@ -5,11 +5,12 @@ import { companySlugForCurrentPath } from '../../lib/pageRoutes';
 import { loadPricingContext } from '../../lib/orderPricing';
 import { useEntityDialog } from '../entities/useEntityDialog';
 import type { Driver, Job } from '../../types';
+import type { Notify } from '../ui/popupFeedback';
 
 /** The Orders list details dialog opened from the Monitor; editing continues on the Orders page. */
 export function MonitorOrderDetails({ job, jobs, drivers, onClose, onEdit, onUpdateJob, onNotification }: {
   job: Job; jobs: Job[]; drivers: Driver[]; onClose: () => void; onEdit: (job: Job) => void;
-  onUpdateJob: (job: Job) => void; onNotification: (message: string) => void;
+  onUpdateJob: (job: Job) => void; onNotification: Notify;
 }) {
   const slug = companySlugForCurrentPath();
   const { ctx } = useCompanyPricingContext(slug);

@@ -34,9 +34,10 @@ export function shipperMapSpan(points: MapPoint[]) {
   return { width: points.length ? east - west : 0, height: points.length ? south - north : 0 };
 }
 
-/** Choose the closest uncovered fit; 12px also allows for Google pixel rounding. */
-export function shipperMapPadding(view: Rect, card?: Rect, insets: Insets = { top: 12, right: 12, bottom: 12, left: 12 }, span?: { width: number; height: number }): Insets {
-  const base = { top: 76 + insets.top, right: 12 + insets.right, bottom: 44 + insets.bottom, left: 12 + insets.left };
+/** Choose the closest uncovered fit, clear of the card and the sidebar floating over the map; 12px also allows for Google pixel rounding. */
+export function shipperMapPadding(view: Rect, card?: Rect, insets: Insets = { top: 12, right: 12, bottom: 12, left: 12 }, span?: { width: number; height: number }, sidebar?: Rect): Insets {
+  const covered = sidebar?.width ? Math.max(0, sidebar.right - view.left) : 0;
+  const base = { top: 76 + insets.top, right: 12 + insets.right, bottom: 44 + insets.bottom, left: covered + 12 + insets.left };
   if (!card) return base;
   const beside = { ...base, left: Math.max(base.left, card.right - view.left + 12 + insets.left) };
   const below = { ...base, top: Math.max(base.top, card.bottom - view.top + 12 + insets.top) };

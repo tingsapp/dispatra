@@ -5,9 +5,10 @@ import { cardClass, fieldClass, labelClass } from './BillingFields';
 import { TaxSettings } from './TaxSettings';
 import { FuelChargeSettings } from './FuelChargeSettings';
 import { useBillingSettings } from './useBillingSettings';
+import type { Notify } from '../ui/popupFeedback';
 
 const SAVE_LABELS = { taxes: 'Taxes', preferences: 'Preferences', fuel: 'Fuel Surcharge' } as const;
-export function BillingSettingsForm({ section, onNotification }: { section: keyof typeof SAVE_LABELS; onNotification?: (message: string) => void }) {
+export function BillingSettingsForm({ section, onNotification }: { section: keyof typeof SAVE_LABELS; onNotification?: Notify }) {
   const editor = useBillingSettings(onNotification);
   return <><form noValidate={section === 'taxes'} onSubmit={event => { event.preventDefault(); editor.handleSave(); }} className={`space-y-5 ${section === 'fuel' ? 'w-full max-w-2xl' : ''}`}>
     <fieldset disabled={editor.pending} className="contents">

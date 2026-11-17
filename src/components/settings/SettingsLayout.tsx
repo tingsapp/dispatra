@@ -1,9 +1,10 @@
 import { ChevronDown } from 'lucide-react';
 import React,{ useId } from 'react';
 import { PageHeader } from '../layout/PageHeader';
+import type { Notify } from '../ui/popupFeedback';
 
 export interface SettingsPageProps {
-  onNotification?: (message: string) => void;
+  onNotification?: Notify;
 }
 
 export function SettingsLayout({ children }: { children: React.ReactNode }) {

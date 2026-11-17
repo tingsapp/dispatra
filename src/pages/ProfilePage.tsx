@@ -23,9 +23,10 @@ UserProfile,
 loadUserProfile,
 saveUserProfile
 } from '../lib/profileStorage';
+import type { Notify } from '../components/ui/popupFeedback';
 
 interface ProfilePageProps {
-  onNotification?: (msg: string) => void;
+  onNotification?: Notify;
   initialSection?: 'company' | 'security';
 }
 
@@ -83,7 +84,7 @@ const PrototypeProfilePage: React.FC<ProfilePageProps> = ({
       setSavedCompanyIdentity(companyIdentity);
     }
     setIsSaved(true);
-    onNotification?.('Company details saved.');
+    onNotification?.('Company details saved.', 'success');
     setTimeout(() => setIsSaved(false), 3000);
   };
 

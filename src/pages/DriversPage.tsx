@@ -35,6 +35,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Driver,Job } from '../types';
 import { formatPhone } from '../lib/phone';
+import type { Notify } from '../components/ui/popupFeedback';
 
 interface DriversPageProps {
   /** Render shared record dialogs over the Monitor without the list page. */
@@ -46,7 +47,7 @@ interface DriversPageProps {
   onUpdateDriver: (updatedDriver: Driver) => void;
   onCreateDriver: (newDriver: Driver) => void;
   onDeleteDriver?: (driver: Driver) => void;
-  onNotification: (message: string) => void;
+  onNotification: Notify;
   /** Opens this driver's details once loaded (e.g. "Edit driver" from the Monitor). */
   openDriverId?: string | null;
   onOpenHandled?: () => void;
@@ -102,13 +103,13 @@ export function DriversPage({
         const saved = await operations.createVehicle(slug, vehicleFromUi(vehicle));
         await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'vehicles'] });
         setCreatedVehicle(vehicleToUi(saved, catalogQuery.data?.find(type => type.id === saved.type_id)));
-        setShowVehicleModal(false); onNotification('Vehicle registered');
-      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not register vehicle.'); }
+        setShowVehicleModal(false); onNotification('Vehicle registered', 'success');
+      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not register vehicle.', 'error'); }
       return;
     }
     try { saveVehicleProfile(vehicle, profile, loadVehicles()); }
-    catch { onNotification('Vehicle could not be saved in this browser.'); return; }
-    setCreatedVehicle(vehicle); setShowVehicleModal(false); onNotification('Vehicle registered');
+    catch { onNotification('Vehicle could not be saved in this browser.', 'error'); return; }
+    setCreatedVehicle(vehicle); setShowVehicleModal(false); onNotification('Vehicle registered', 'success');
 
     });
   };
@@ -122,12 +123,12 @@ export function DriversPage({
         await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'drivers'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]);
         setActiveDriverDrawer(null); setShowAddModal(false);
         if (saved.initial_password) setInitialCredential({ name: saved.name, email: saved.email, password: saved.initial_password });
-        else onNotification('Driver saved');
-      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not save driver.'); }
+        else onNotification('Driver saved', 'success');
+      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not save driver.', 'error'); }
       return;
     }
     if (drivers.some(d => d.id === form.id)) onUpdateDriver(form); else onCreateDriver(form);
-    setActiveDriverDrawer(null); setShowAddModal(false); onNotification('Driver saved');
+    setActiveDriverDrawer(null); setShowAddModal(false); onNotification('Driver saved', 'success');
 
     });
   };
@@ -159,16 +160,16 @@ export function DriversPage({
 
   const handleDeleteDriver = async (driver: Driver) => {
     const active = jobs.filter(j => j.assignedDriverId === driver.id && j.status !== 'completed').length;
-    if (active) { onNotification(`${driver.name} has ${active} active order${active === 1 ? '' : 's'}. Reassign them before deleting the driver.`); return; }
+    if (active) { onNotification(`${driver.name} has ${active} active order${active === 1 ? '' : 's'}. Reassign them before deleting the driver.`, 'warning'); return; }
     if (!(await confirmDialog({ title: `Delete driver "${driver.name}"?`, message: `This removes the driver profile${driver.currentVehicleId ? ' and releases their vehicle' : ''}. Completed orders keep their history. This cannot be undone.`, confirmLabel: 'Delete driver', tone: 'danger' }))) return;
     if (slug) {
       const record = driverQuery.data?.find(row => row.id === driver.id);
       if (!record) return;
       try { await operations.archiveDriver(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'drivers'] }); }
-      catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be deleted.'); return; }
-    } else { try { onDeleteDriver?.(driver); } catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be deleted.'); return; } }
+      catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be deleted.', 'error'); return; }
+    } else { try { onDeleteDriver?.(driver); } catch (error) { onNotification(error instanceof Error ? error.message : 'Driver could not be deleted.', 'error'); return; } }
     if (activeDriverDrawer?.id === driver.id) setActiveDriverDrawer(null);
-    onNotification(`Removed driver "${driver.name}".`);
+    onNotification(`Removed driver "${driver.name}".`, 'success');
   };
   useEntityDialog(!!activeDriverDrawer || showAddModal, () => { setActiveDriverDrawer(null); setShowAddModal(false); });
   useEntityDialog(showVehicleModal, () => setShowVehicleModal(false));

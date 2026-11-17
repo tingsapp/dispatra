@@ -112,7 +112,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     return () => { active = false; window.clearInterval(timer); };
   }, [slug, profile.data?.duty?.id, trackingDutyId]);
   useEffect(() => () => { trackingIntent.current++; tracking.current = null; }, [slug]);
-  return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false} reading={page.path === 'profile'}
+  return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false} reading={page.path === 'profile'} chat={page.path === 'messages'}
     description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'messages' ? 'Chats with dispatch and shippers about your assigned orders.' : online ? 'Your assigned orders. Open an order to work its stops.' : 'Your assigned orders. Go On Duty to receive and start a route.'}
     navigation={driverPages.map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path, badge: item.path === 'messages' ? unreadMessages : item.path === 'orders' ? orderUnread : 0 }))}
     footer={collapsed => <div className={`mt-1 flex items-center py-3 ${collapsed ? 'justify-center' : 'justify-between px-3'}`} title={collapsed ? (online ? 'On duty' : 'Off duty') : undefined}>

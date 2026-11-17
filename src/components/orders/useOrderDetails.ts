@@ -10,6 +10,7 @@ import { validateAssignment } from '../../lib/organizationWorkflows';
 import { orderAssignable, orderLifecycle } from '../../domain/validation';
 import { confirmDialog } from '../ui/ConfirmDialog';
 import type { Driver, Job } from '../../types';
+import type { Notify } from '../ui/popupFeedback';
 
 /** Company pricing context from API settings, catalogue, Rate Cards and Shippers (shared query cache). Null until loaded or outside a company. */
 export function useCompanyPricingContext(slug: string | null | undefined) {
@@ -25,18 +26,18 @@ export function useCompanyPricingContext(slug: string | null | undefined) {
 /** Driver (re)assignment shared by the Orders list and the Monitor. Resolves `{}` when saved through the API,
  *  `{ updated }` for a local prototype change, or null when nothing changed. */
 export function useOrderAssignment({ slug, jobs, drivers, onUpdateJob, onNotification }: {
-  slug: string | null | undefined; jobs: Job[]; drivers: Driver[]; onUpdateJob: (job: Job) => void; onNotification: (message: string) => void;
+  slug: string | null | undefined; jobs: Job[]; drivers: Driver[]; onUpdateJob: (job: Job) => void; onNotification: Notify;
 }) {
   const queryClient = useQueryClient();
   const orders = useQuery({ queryKey: ['operations', slug, 'orders'], queryFn: () => allOperations.orders(slug!), enabled: !!slug });
   const routes = useQuery({ queryKey: ['operations', slug, 'routes'], queryFn: () => allOperations.routes(slug!), enabled: !!slug });
   return async (job: Job, driverId: string): Promise<{ updated?: Job } | null> => {
     const current = jobs.find(row => row.id === job.id) ?? job;
-    if (!orderAssignable(current)) { onNotification('Driver changes are unavailable after an order starts or closes.'); return null; }
+    if (!orderAssignable(current)) { onNotification('Driver changes are unavailable after an order starts or closes.', 'warning'); return null; }
     if (slug) {
       const record = orders.data?.find(row => row.id === job.id);
       if (!record) return null;
-      if (!['NEW', 'ASSIGNED'].includes(record.status)) { onNotification('Driver changes are unavailable after an order starts or closes.'); return null; }
+      if (!['NEW', 'ASSIGNED'].includes(record.status)) { onNotification('Driver changes are unavailable after an order starts or closes.', 'warning'); return null; }
       try {
         const selectedDriver = driverId === 'unassigned' ? undefined : drivers.find(row => row.id === driverId);
         if (driverId !== 'unassigned' && !selectedDriver?.currentVehicleId) throw new Error('The driver needs an attached vehicle.');
@@ -49,14 +50,14 @@ export function useOrderAssignment({ slug, jobs, drivers, onUpdateJob, onNotific
           if (!(await confirmDialog({ title: driverId === 'unassigned' ? 'Release route?' : 'Change driver?', message: affected > 1 ? `This planned route has ${affected} orders. Releasing it will leave the other orders unassigned.` : 'The planned route will be released before the assignment changes.', confirmLabel: driverId === 'unassigned' ? 'Release route' : 'Change driver' }))) return null;
         }
         await changeAssignment(slug, record, driverId === 'unassigned' ? null : driverId, selectedDriver?.currentVehicleId ?? null, route);
-        onNotification('Assignment saved.');
+        onNotification('Assignment saved.', 'success');
         return {};
-      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not change assignment.'); return null; }
+      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not change assignment.', 'error'); return null; }
       finally { await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'routes'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]); }
     }
-    if (!orderAssignable(job)) { onNotification('This order is locked for operational changes.'); return null; }
+    if (!orderAssignable(job)) { onNotification('This order is locked for operational changes.', 'warning'); return null; }
     const driver = drivers.find((d) => d.id === driverId);
-    if (driver) { const errors = validateAssignment(job, driver, jobs, loadPricingContext()); if (errors.length) { onNotification(errors.join(' ')); return null; } }
+    if (driver) { const errors = validateAssignment(job, driver, jobs, loadPricingContext()); if (errors.length) { onNotification(errors.join(' '), 'warning'); return null; } }
     const updated: Job = {
       ...job,
       assignedDriverId: driverId === 'unassigned' ? undefined : driverId,
@@ -68,7 +69,7 @@ export function useOrderAssignment({ slug, jobs, drivers, onUpdateJob, onNotific
       riskText: driver ? `Assigned to ${driver.name} (${driver.id})` : 'Needs dispatch'
     };
     onUpdateJob(updated);
-    onNotification(`Job ${job.jobNumber} reassigned to ${driver ? `${driver.name} (${driver.id})` : 'Unassigned'}`);
+    onNotification(`Job ${job.jobNumber} reassigned to ${driver ? `${driver.name} (${driver.id})` : 'Unassigned'}`, 'success');
     return { updated };
   };
 }
@@ -78,7 +79,7 @@ export const orderCompletable = (job: Job) => ['ASSIGNED', 'IN_PROGRESS'].includ
 
 /** Manual completion shared by the Orders list and the Monitor. Resolves like `useOrderAssignment`. */
 export function useOrderCompletion({ slug, onUpdateJob, onNotification }: {
-  slug: string | null | undefined; onUpdateJob: (job: Job) => void; onNotification: (message: string) => void;
+  slug: string | null | undefined; onUpdateJob: (job: Job) => void; onNotification: Notify;
 }) {
   const queryClient = useQueryClient();
   const orders = useQuery({ queryKey: ['operations', slug, 'orders'], queryFn: () => allOperations.orders(slug!), enabled: !!slug });
@@ -88,18 +89,18 @@ export function useOrderCompletion({ slug, onUpdateJob, onNotification }: {
     if (slug) {
       const record = orders.data?.find(row => row.id === job.id);
       if (!record) return null;
-      if (!['ASSIGNED', 'IN_PROGRESS'].includes(record.status)) { onNotification('This order can no longer be completed.'); return null; }
+      if (!['ASSIGNED', 'IN_PROGRESS'].includes(record.status)) { onNotification('This order can no longer be completed.', 'warning'); return null; }
       try {
         await operations.completeOrder(slug, record);
-        onNotification(`${job.jobNumber} completed.`);
+        onNotification(`${job.jobNumber} completed.`, 'success');
         return {};
       }
-      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not complete the order.'); return null; }
+      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not complete the order.', 'error'); return null; }
       finally { await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'routes'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]); }
     }
     const updated: Job = { ...job, lifecycleStatus: 'COMPLETED', status: 'completed', statusLabel: 'Completed', version: (job.version ?? 1) + 1 };
     onUpdateJob(updated);
-    onNotification(`${job.jobNumber} completed.`);
+    onNotification(`${job.jobNumber} completed.`, 'success');
     return { updated };
   };
 }

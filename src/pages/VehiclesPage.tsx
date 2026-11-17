@@ -26,13 +26,14 @@ import { Select } from '../components/ui/Select';
 import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
 import { VehicleAsset,loadVehicles,saveVehicles,saveVehicleProfile,archiveVehicleProfile,type VehicleProfile } from '../lib/vehicleStorage';
 import { Driver } from '../types';
+import type { Notify } from '../components/ui/popupFeedback';
 
 interface VehiclesPageProps {
   /** Render shared record dialogs over the Monitor without the list page. */
   dialogsOnly?: boolean;
   onDialogsClose?: () => void;
   drivers: Driver[];
-  onNotification: (message: string) => void;
+  onNotification: Notify;
   openVehicleId?: string;
   onOpenHandled?: () => void;
   onSelectDriver?: (driverId: string) => void;
@@ -107,31 +108,31 @@ export function VehiclesPage({
         if (previous) await operations.updateVehicle(slug, previous, input);
         else await operations.createVehicle(slug, input);
         await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'vehicles'] });
-        setActiveVehicleDrawer(null); setShowRegisterModal(false); onNotification('Vehicle saved');
-      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not save vehicle.'); }
+        setActiveVehicleDrawer(null); setShowRegisterModal(false); onNotification('Vehicle saved', 'success');
+      } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not save vehicle.', 'error'); }
       return;
     }
 
     const next = saveVehicleProfile(vehicle, profile, vehicles);
-    setVehicles(next); setActiveVehicleDrawer(null); setShowRegisterModal(false); onNotification('Vehicle saved');
+    setVehicles(next); setActiveVehicleDrawer(null); setShowRegisterModal(false); onNotification('Vehicle saved', 'success');
 
     });
   };
   const handleDeleteVehicle = async (vehicle: VehicleAsset) => {
     const driver = drivers.find(d => d.id === vehicle.currentDriverId) ?? (vehicle.currentDriverName ? { name: vehicle.currentDriverName } : null);
-    if (driver) { onNotification(`${vehicle.unitNumber} is with ${driver.name}. Release it from the driver first.`); return; }
+    if (driver) { onNotification(`${vehicle.unitNumber} is with ${driver.name}. Release it from the driver first.`, 'warning'); return; }
     if (!(await confirmDialog({ title: `Delete vehicle "${vehicle.unitNumber}"?`, message: 'This removes the fleet record. Completed orders keep their history. This cannot be undone.', confirmLabel: 'Delete vehicle', tone: 'danger' }))) return;
     if (slug) {
       const record = fleetQuery.data?.find(row => row.id === vehicle.id);
       if (!record) return;
-      try { await operations.archiveVehicle(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'vehicles'] }); setActiveVehicleDrawer(null); onNotification(`Removed vehicle "${vehicle.unitNumber}".`); }
-      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not remove vehicle.'); }
+      try { await operations.archiveVehicle(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'vehicles'] }); setActiveVehicleDrawer(null); onNotification(`Removed vehicle "${vehicle.unitNumber}".`, 'success'); }
+      catch (error) { onNotification(error instanceof Error ? error.message : 'Could not remove vehicle.', 'error'); }
       return;
     }
     const next = vehicles.filter(v => v.id !== vehicle.id);
     saveVehicles(next); archiveVehicleProfile(vehicle); setVehicles(next);
     if (activeVehicleDrawer?.id === vehicle.id) setActiveVehicleDrawer(null);
-    onNotification(`Removed vehicle "${vehicle.unitNumber}".`);
+    onNotification(`Removed vehicle "${vehicle.unitNumber}".`, 'success');
   };
   useEntityDialog(!!activeVehicleDrawer || showRegisterModal, () => { setActiveVehicleDrawer(null); setShowRegisterModal(false); });
 

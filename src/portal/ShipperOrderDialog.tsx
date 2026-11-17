@@ -10,6 +10,8 @@ import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { operations, type Order, type ShipperDraft } from '../operations/api';
 import { inputToShipperBooking, inputToDraftShipment } from '../operations/orderAdapters';
 import { validateBookingSchedule } from '../lib/organizationWorkflows';
+import { closedReason } from '../lib/operatingCalendar';
+import { bookingInstant } from '../operations/time';
 import type { PricingContext } from '../lib/pricingEngine';
 import type { PricingOrderInput } from '../types/pricing';
 
@@ -47,6 +49,9 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
     event.preventDefault(); setErrors([]); setBusy(true);
     try {
       if (!editing) { const scheduleErrors = validateBookingSchedule(input, timeZone); if (scheduleErrors.length) throw new Error(scheduleErrors.join(' ')); }
+      const zone = timeZone ?? 'America/Vancouver';
+      const closed = input.scheduledAt && (!editing || bookingInstant(input.scheduledAt, zone) !== new Date(editing.scheduled_at).toISOString()) && closedReason(input.scheduledAt, zone, ctx.billing.general.workHours, ctx.billing.general.holidays);
+      if (closed) throw new Error(`${closed} Choose a pickup time when we're open.`);
       const booking = inputToShipperBooking(input, timeZone);
       if (draft) {
         const shipment = inputToDraftShipment(input, timeZone);
@@ -66,7 +71,7 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
       <fieldset disabled={busy} className="min-w-0"><div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-7 space-y-5 text-xs">
           {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
-          <OrderPricingForm customerMode="self" showVehicleSelection suggestVehicle={!editing && !draft} showStopAddresses futureOnly={!editing} value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
+          <OrderPricingForm customerMode="self" showVehicleSelection suggestVehicle={!editing && !draft} showStopAddresses futureOnly={!editing} outsideHours="block" value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
           <div>
             <label className="app-label" htmlFor="shipper-order-instructions">Delivery instructions (optional)</label>
             <textarea id="shipper-order-instructions" className="app-input w-full" rows={3} maxLength={2000} placeholder="Access details, delivery preferences, or other instructions…" value={instructionStop?.instructions ?? ''} onChange={event => setInput({ ...input, stops: input.stops.map(stop => stop.id === instructionStop?.id ? { ...stop, instructions: event.target.value } : stop) })} />

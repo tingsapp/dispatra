@@ -86,6 +86,9 @@
   margin: 0 0 0 var(--workspace-content-left); height: 100dvh;
   border: 0; border-radius: 0; background: transparent; box-shadow: none;
 }
+/* As on the Monitor, a portal map runs beneath the floating sidebar card; its controls stay beside it. */
+.app-workspace.app-portal-map > .app-workspace-body { margin: 0; height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
+.app-workspace.app-portal-map > .app-workspace-body > header { left: var(--workspace-content-left); }
 .app-workspace .app-page:not(.app-page-machine) { padding-top: clamp(24px, 6vh, 64px); }
 .app-workspace .app-page.app-page-with-header { padding-top: 20px; }
 .app-workspace .app-page-header { min-height: 64px; }
@@ -106,6 +109,7 @@
   .app-workspace > .app-workspace-sidebar { inset: 12px auto 12px 12px; z-index: 50; }
   .app-workspace[data-sidebar-open="false"] > .app-workspace-sidebar { visibility: hidden; pointer-events: none; }
   .app-workspace.app-monitor-nav > :is(main, .app-workspace-body) { margin-left: 0; }
+  .app-workspace.app-portal-map > .app-workspace-body > header { left: 0; }
   .app-workspace .app-nav-item, .app-workspace.app-monitor-nav .app-nav-item { min-height: 44px; }
   .app-workspace .app-page:not(.app-page-machine) { padding-top: 52px; }
   .app-workspace .app-page.app-page-with-header { padding-top: 12px; }

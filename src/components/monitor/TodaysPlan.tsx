@@ -1,5 +1,5 @@
 import { ActionButton } from '../ui/button';
-import { type CSSProperties, useEffect, useId, useState } from 'react';
+import { type CSSProperties, useEffect, useId, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 import { SearchInput } from '../ui/SearchInput';
 import { MonitorBadge } from './MonitorBadge';
@@ -10,6 +10,7 @@ import { lifecycleLabel, orderAttention, orderLifecycle } from '../../domain/val
 import { companyDay, todaysPlan } from './todaysPlanData';
 import { OrderMapFocusButton } from './OrderMapFocusButton';
 import { useCompanyDay } from './useCompanyDay';
+import { usePublishedHeight } from './usePublishedHeight';
 
 interface TodaysPlanProps extends OrderMapVisibilityProps {
   reviewNotice?: React.ReactNode;
@@ -28,14 +29,18 @@ interface TodaysPlanProps extends OrderMapVisibilityProps {
   error?: boolean;
   onRetry: () => void;
   onSelectOrder: (job: Job) => void;
+  /** Full Orders list; the panel itself only covers today's pickups and open earlier ones. */
+  allOrders?: { href: string; open: () => void };
 }
 
-export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, onAssignOrder, drivers = [], hiddenOrderIds, onOrderVisibilityChange, chatOpen = false, onCloseChat, focusVersion = 0, jobs, attentionIds, timeZone, loading, error, onRetry, onSelectOrder }: TodaysPlanProps) {
+export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, onAssignOrder, drivers = [], hiddenOrderIds, onOrderVisibilityChange, chatOpen = false, onCloseChat, focusVersion = 0, jobs, attentionIds, timeZone, loading, error, onRetry, onSelectOrder, allOrders }: TodaysPlanProps) {
   const [filter, setFilter] = useState<'all' | 'assigned' | 'unassigned' | 'in_progress' | 'completed' | 'attention'>('all');
   const [warningId, setWarningId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [hidden, setHidden] = useState(false);
   const contentId = useId();
+  const panel = useRef<HTMLElement>(null);
+  usePublishedHeight(panel, '--monitor-plan-height');
   const expanded = !hidden && !chatOpen;
   useEffect(() => {
     if (focusVersion > 0) setHidden(false);
@@ -50,7 +55,7 @@ export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, o
   const query = search.trim().toLowerCase();
   const visibleOrders = groups[filter].filter(job => [job.jobNumber, job.customerName, job.dropoffAddress, job.pickupAddress, job.driverName, drivers.find(driver => driver.id === job.assignedDriverId)?.name].some(value => value?.toLowerCase().includes(query)));
   const attention = new Set(groups.attention.map(job => job.id));
-  return <section aria-label="Active orders" className="absolute left-3 top-20 z-20 w-[min(26rem,calc(100vw_-_112px))] max-w-[calc(100%_-_1.5rem)] overflow-hidden app-map-menu rounded-2xl border border-app-border bg-white shadow-sm sm:left-6 lg:top-5">
+  return <section ref={panel} aria-label="Active orders" className="absolute left-3 top-20 z-20 w-[min(26rem,calc(100vw_-_112px))] max-w-[calc(100%_-_1.5rem)] overflow-hidden app-map-menu rounded-2xl border border-app-border bg-white shadow-sm sm:left-6 lg:top-5">
     <header className="px-4 pb-3 pt-4">
       <button type="button" aria-expanded={expanded} aria-controls={expanded ? contentId : undefined}
         onClick={() => { if (expanded) setHidden(true); else { setHidden(false); onCloseChat?.(); } }}
@@ -58,20 +63,20 @@ export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, o
         <span className="flex items-center gap-2"><span className="text-sm font-medium">Active orders</span>{!loading && !error && <MonitorBadge>{groups.all.length}</MonitorBadge>}</span>
         {expanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
       </button>
-      <p className="mt-1 text-[11px] text-app-muted">{new Intl.DateTimeFormat('en-CA', { timeZone, month: 'short', day: 'numeric' }).format(now)} · Created today{!loading && !error && groups.unassigned.length > 0 && ` · ${groups.unassigned.length} unassigned`}</p>
+      <p className="mt-1 flex min-w-0 gap-x-1.5 whitespace-nowrap text-[11px] text-app-muted"><span className="truncate" title={`Today’s pickups (${new Intl.DateTimeFormat('en-CA', { timeZone, month: 'short', day: 'numeric' }).format(now)}) and unfinished orders from earlier days`}>Orders to be delivered today</span>{allOrders && <a href={allOrders.href} className="shrink-0 font-medium text-slate-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-slate-500" onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); allOrders.open(); }}>View all orders</a>}</p>
     </header>
     {reviewNotice}
-    {expanded && <div id={contentId}>
+    {expanded && <div id={contentId} data-plan-body>
       {!loading && !error && groups.all.length > 0 && <div className="px-4 pb-3"><SearchInput value={search} onChange={setSearch} placeholder="Search orders, shippers or addresses..." aria-label="Search today’s orders" /></div>}
-      {!loading && !error && <div role="tablist" aria-label="Filter today’s orders" className="flex gap-0.5 overflow-x-auto border-b border-slate-100 px-3 pb-3">
+      {!loading && !error && <div role="tablist" aria-label="Filter today’s orders" className="app-scroll-row flex gap-0.5 overflow-x-auto border-b border-slate-100 px-3 pb-3">
         {([['all', 'All'], ['unassigned', 'New'], ['assigned', 'Assigned'], ['in_progress', 'In progress'], ['completed', 'Completed'], ['attention', 'At risk']] as const).map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={filter === key} onClick={() => setFilter(key)} className={`shrink-0 whitespace-nowrap rounded-lg px-1.5 py-1.5 text-[13px] font-medium focus-visible:outline-2 focus-visible:outline-slate-500 ${filter === key ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>)}
       </div>}
       {error ? <div role="alert" className="px-4 pb-3 text-xs text-app-muted">Active orders are unavailable. <ActionButton type="button" className="underline" onClick={onRetry}>Try again</ActionButton></div>
         : loading ? <p role="status" className="px-4 pb-3 text-xs text-app-muted">Loading today’s orders…</p>
         : <>
-          {groups.all.length === 0 ? <p className="px-4 pb-4 pt-1 text-xs text-app-muted">No orders created today.</p> :
+          {groups.all.length === 0 ? <p className="px-4 pb-4 pt-1 text-xs text-app-muted">No pickups today.</p> :
           visibleOrders.length === 0 ? <p className="px-4 py-6 text-center text-xs text-slate-400">No matching orders found.</p> :
-          <ul className="max-h-[min(34rem,60dvh)] overflow-y-auto overscroll-contain px-3 pb-2" aria-label="Orders created today">
+          <ul className="max-h-[min(34rem,60dvh)] overflow-y-auto overscroll-contain px-3 pb-2" aria-label="Today’s orders">
             {visibleOrders.map(job => {
               const drop = job.pricingInput?.stops.find(stop => stop.type === 'DROPOFF');
               const deliveryTime = drop?.windowEnd ?? drop?.windowStart;

@@ -96,7 +96,7 @@ export function apiPricingContext(settings: Settings, catalog: CatalogItem[], ra
     ...base,
     billing: { ...base.billing,
       companyTax: { enabled: data.gst_enabled, ratePercent: n(data.gst_percent), provincialEnabled: data.provincial_enabled, provincialRatePercent: n(data.provincial_percent) },
-      general: { ...base.billing.general, timeZone: data.time_zone, distanceUnit: data.distance_unit, weightUnit: data.weight_unit, dimensionUnit: data.dimension_unit },
+      general: { ...base.billing.general, timeZone: data.time_zone, distanceUnit: data.distance_unit, weightUnit: data.weight_unit, dimensionUnit: data.dimension_unit, workHours: data.work_hours, holidays: data.holidays },
       quoteSettings: { ...base.billing.quoteSettings, currency: data.currency, taxRegistrationNumber: data.tax_registration_number, quoteValidityDays: data.quote_validity_days },
       fuelSurcharge: { ...base.billing.fuelSurcharge, enabled: data.fuel_enabled, percent: n(data.fuel_percent) },
       dispatch: { ...base.billing.dispatch, maxActiveOrdersPerDriver: data.maximum_active_orders },
@@ -126,7 +126,7 @@ export function catalogFromUi(item: DeliveryService | AccessorialItem, previous?
 export function shipperPricingContext(preferences: BookingPreferences, options: CatalogItem[], shipper: Shipper): PricingContext {
   const billing = structuredClone(INITIAL_BILLING_CONFIG);
   return {
-    billing: { ...billing, general: { ...billing.general, timeZone: preferences.time_zone, distanceUnit: preferences.distance_unit, weightUnit: preferences.weight_unit, dimensionUnit: preferences.dimension_unit },
+    billing: { ...billing, general: { ...billing.general, timeZone: preferences.time_zone, distanceUnit: preferences.distance_unit, weightUnit: preferences.weight_unit, dimensionUnit: preferences.dimension_unit, workHours: preferences.work_hours, holidays: preferences.holidays },
       quoteSettings: { ...billing.quoteSettings, currency: preferences.currency },
       companyTax: { enabled: preferences.gst_enabled, ratePercent: n(preferences.gst_percent), provincialEnabled: preferences.provincial_enabled, provincialRatePercent: n(preferences.provincial_percent) },
       fuelSurcharge: { ...billing.fuelSurcharge, mode: 'fixed_percent', enabled: preferences.fuel_enabled, percent: n(preferences.fuel_percent) } },

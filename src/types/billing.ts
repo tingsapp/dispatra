@@ -1,3 +1,4 @@
+import type { Holiday, WorkDay } from '../lib/operatingCalendar';
 import type { CanadianProvince } from '../lib/taxAddress';
 
 // Organization-wide billing, tax, and operating-cost settings.
@@ -79,6 +80,9 @@ export interface BillingRules {
  */
 export interface OrganizationDefaults {
   timeZone?: string;
+  /** Company work hours (MON–SUN) and holidays from the API; booking forms check the pickup against them. */
+  workHours?: WorkDay[];
+  holidays?: Holiday[];
   distanceUnit: 'km' | 'mi';
   weightUnit: 'kg' | 'lb';
   dimensionUnit: 'cm' | 'in';

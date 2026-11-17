@@ -35,12 +35,12 @@ test('review stays visible when the plan is collapsed and clears only when intak
  function Harness(){const review=useMonitorReview('acme');return <TodaysPlan jobs={[]} attentionIds={new Set()} timeZone="UTC" chatOpen onRetry={()=>{}} onSelectOrder={()=>{}} reviewNotice={<MonitorReviewNotice review={review} onOpen={()=>{opens++;}}/>}/>;}
  mount(<Harness/>, {emailIntakes:async()=>rows});
  assert.ok(await screen.findByText('1 order needs review'));
- fireEvent.click(screen.getByRole('button',{name:'Review requests'}));assert.equal(opens,1);
+ fireEvent.click(screen.getByRole('button',{name:'Review'}));assert.equal(opens,1);
  await act(async()=>{cache.setQueryData(['sync','acme'],{unread:0});});
  assert.ok(screen.getByText('1 order needs review'));
  rows=[];
  await act(async()=>{for(const queryKey of syncInvalidations('DISPATCHER','acme',[{entity:'intake'} as never])) await cache.invalidateQueries({queryKey});});
- await waitFor(()=>assert.equal(screen.queryByRole('button',{name:'Review requests'}),null));
+ await waitFor(()=>assert.equal(screen.queryByRole('button',{name:'Review'}),null));
  assert.equal(location.pathname,'/acme/');
 });
 

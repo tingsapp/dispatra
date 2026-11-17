@@ -77,19 +77,28 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) {
   -webkit-backdrop-filter: blur(24px) saturate(115%);
 }
 body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { font-family: var(--font-sans); border-radius: 16px; }
-/* Active orders, the map toolbar and the assistant share the sidebar's inset so their top and bottom edges line up. */
+/* Active orders, the map toolbar and the assistant share the sidebar's inset so their top and bottom edges line up.
+   Active orders and the assistant stack in one column: each is capped by the other's live height (published by
+   `usePublishedHeight`) plus a 12px gap, so they never overlap and the capped one scrolls instead. */
 .dispatcher-monitor [aria-label="Active orders"] {
   left: var(--monitor-content-left);
   top: var(--monitor-inset);
   width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 76px));
   max-width: none;
-  max-height: calc(100dvh - 48px);
+  max-height: calc(100dvh - var(--monitor-inset) * 2 - var(--monitor-dock-height, 0px) - 12px);
   display: flex;
   flex-direction: column;
   border-radius: 18px;
 }
 .dispatcher-monitor [aria-label="Active orders"] > header { padding: 14px 16px 12px; flex-shrink: 0; }
-.dispatcher-monitor [aria-label="Active orders"] > div { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* One scroll area: the order list. Header, review notice, search and filters keep their size above it. */
+.dispatcher-monitor [aria-label="Active orders"] > * { flex-shrink: 0; }
+.dispatcher-monitor [aria-label="Active orders"] > [data-plan-body] { display: flex; min-height: 0; flex: 0 1 auto; flex-direction: column; }
+.dispatcher-monitor [aria-label="Active orders"] [data-plan-body] > * { flex-shrink: 0; }
+.dispatcher-monitor [aria-label="Active orders"] [data-plan-body] > ul { min-height: 0; max-height: none; flex-shrink: 1; }
+/* Filter chips swipe sideways without a second visible scrollbar. */
+.dispatcher-monitor .app-scroll-row { scrollbar-width: none; }
+.dispatcher-monitor .app-scroll-row::-webkit-scrollbar { display: none; }
 .dispatcher-monitor [aria-label="Active orders"] [role="tab"][aria-selected="true"] { background: rgb(30 35 42 / 9%); color: #24262b; }
 .dispatcher-monitor [aria-label="Active orders"] [role="tab"] { font-weight: 400; }
 .dispatcher-monitor [aria-label="Active orders"] header button { color: #303238; }
@@ -104,7 +113,7 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
 .dispatcher-monitor .company-activity-panel[data-expanded="true"] {
   border-radius: 22px;
   padding: 14px;
-  max-height: calc(100dvh - 132px);
+  max-height: calc(100dvh - var(--monitor-inset) * 2 - var(--monitor-plan-height, 0px) - 12px);
 }
 .dispatcher-monitor .company-activity-panel[data-view="briefing"] .assistant-panel-content { animation: none; }
 .dispatcher-monitor .briefing-overview { background: rgb(239 240 243 / 74%); border-radius: 14px; }
@@ -150,9 +159,18 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   .dispatcher-monitor .app-map-metrics .app-metric-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .dispatcher-monitor [aria-label="Active orders"] { width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 256px)); }
 }
+/* Small screens: icon-only status buttons stack in the right column, so Active orders keeps the top edge beside them.
+   Counts become badges on the icon (a zero stays readable to screen readers only). */
+@media (max-width: 959px) {
+  .dispatcher-monitor :is(.app-map-toolbar, .app-map-metrics) { flex-direction: column; flex-wrap: nowrap; align-items: flex-end; }
+  .dispatcher-monitor .app-map-toolbar .app-metric { position: relative; aspect-ratio: 1; width: auto; justify-content: center; gap: 0; padding: 0; }
+  .dispatcher-monitor .app-map-toolbar .app-metric-chevron { display: none; }
+  .dispatcher-monitor .app-map-toolbar .app-metric-count { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #334155; color: white; font-size: 10px; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px white; }
+  .dispatcher-monitor .app-map-toolbar .app-metric[data-tone="warning"] .app-metric-count { background: #d97706; }
+  .dispatcher-monitor .app-map-toolbar .app-metric[data-empty] .app-metric-count { width: 1px; min-width: 0; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); box-shadow: none; }
+}
 @media (min-width: 640px) and (max-width: 959px) {
-  .dispatcher-monitor [aria-label="Active orders"] { top: 72px; width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 76px)); }
-  .dispatcher-monitor .company-activity-panel[data-expanded="true"] { max-height: calc(100dvh - 188px); }
+  .dispatcher-monitor [aria-label="Active orders"] { width: min(var(--monitor-panel-width), calc(100% - var(--monitor-content-left) - 76px)); }
 }
 @media (max-width: 639px) {
   .dispatcher-monitor,
@@ -162,29 +180,24 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
   .dispatcher-monitor .app-nav-item { min-height: 44px; }
   .dispatcher-monitor [aria-label="Open menu"] { top: 12px; left: 12px; border-radius: 12px; background: var(--monitor-glass); box-shadow: var(--monitor-shadow); backdrop-filter: blur(24px); }
   .dispatcher-monitor .app-map-toolbar { top: 12px; right: 12px; }
-  .dispatcher-monitor [aria-label="Active orders"] { top: 68px; width: calc(100% - 80px); max-height: calc(100dvh - 92px); }
+  .dispatcher-monitor [aria-label="Active orders"] { top: 68px; width: calc(100% - 80px); max-height: calc(100dvh - 80px - var(--monitor-inset) - var(--monitor-dock-height, 0px)); }
   .dispatcher-monitor .monitor-assistant-dock { width: calc(100% - 80px); }
-  .dispatcher-monitor .company-activity-panel[data-expanded="true"] { padding: 10px; max-height: calc(100dvh - 178px); border-radius: 18px; }
+  .dispatcher-monitor .company-activity-panel[data-expanded="true"] { padding: 10px; max-height: calc(100dvh - 80px - var(--monitor-inset) - var(--monitor-plan-height, 0px)); border-radius: 18px; }
   .dispatcher-monitor .monitor-map-controls { right: 12px; bottom: 32px; }
-  .dispatcher-monitor .briefing-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .dispatcher-monitor .briefing-counts > div { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 4px; }
   .dispatcher-monitor .briefing-counts dd { font-size: 17px; }
-  .dispatcher-monitor .briefing-total > div { gap: 4px; }
+  .dispatcher-monitor .briefing-total { gap: 4px 8px; }
   .dispatcher-monitor .briefing-total span { font-size: 11px; }
-  .dispatcher-monitor .briefing-total .briefing-order-icon { width: 28px; height: 28px; border-radius: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dispatcher-monitor *, body:has(.dispatcher-monitor) .app-floating-panel { transition: none !important; animation: none !important; }
 }
 @media (max-width: 639px) and (max-height: 650px) {
   .dispatcher-monitor .assistant-briefing { gap: 8px; }
-  .dispatcher-monitor .briefing-overview { padding: 10px; }
-  .dispatcher-monitor .briefing-total { margin-top: 8px; }
-  .dispatcher-monitor .briefing-guidance { padding: 8px; gap: 5px; }
-  .dispatcher-monitor :is(.briefing-issues, .briefing-recommendation) { font-size: 11px; line-height: 16px; }
+  .dispatcher-monitor .briefing-overview { gap: 8px; padding: 10px; }
+  .dispatcher-monitor .briefing-guidance { padding-inline: 8px; }
+  .dispatcher-monitor .briefing-guidance > li { padding-block: 5px; font-size: 11px; line-height: 16px; }
   .dispatcher-monitor .briefing-counts { gap: 4px; }
   .dispatcher-monitor .briefing-counts dd { line-height: 20px; }
-  .dispatcher-monitor .company-activity-panel[data-expanded="true"] { max-height: calc(100dvh - 172px); }
 }
 @media (prefers-reduced-transparency: reduce) {
   .dispatcher-monitor :is(.app-workspace-sidebar aside, [aria-label="Active orders"], .company-activity-panel[data-expanded="true"], .app-metric, .monitor-map-zoom),

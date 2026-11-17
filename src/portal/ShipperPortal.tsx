@@ -14,7 +14,7 @@ import { Button, Notice } from './ui';
 import { NotificationBell } from './Notifications';
 import { useSync } from './sync';
 import { useCompanyChannel, useChatInbox } from '../chat/api';
-import { CompanyChatPage } from '../components/chat/CompanyChatDialog';
+import { ChatWorkspace } from '../components/chat/ChatWorkspace';
 
 export const shipperPages = [
   { path: 'orders', label: 'Orders', icon: ClipboardList },
@@ -36,6 +36,7 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   const base = `/${slug}/shipper`;
   const suffix = url.pathname.replace(/\/+$/, '').split('/')[3];
   const page = shipperPages.find(item => item.path === suffix) ?? shipperPages[0];
+  const preferences = useQuery({ queryKey: ['booking-preferences', slug], queryFn: () => operations.bookingPreferences(slug), enabled: page.path === 'messages' });
   const orderChats = useChatInbox(slug);
   const orderUnread = orderChats.data?.filter(row => row.kind === 'DRIVER_SHIPPER').reduce((sum,row) => sum + row.unread,0) ?? 0;
   const companyChat = useCompanyChannel(slug, undefined, profile.data?.id);
@@ -43,9 +44,9 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false}
     headerActions={<>{page.path !== 'messages' && <ShipperOrderSearch slug={slug} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}<NotificationBell slug={slug} surface={page.path === 'tracking' ? 'white' : true} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} /></>}
     actions={page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}
-    reading={page.path === 'profile'} map={page.path === 'tracking'}
+    reading={page.path === 'profile'} map={page.path === 'tracking'} chat={page.path === 'messages'}
     account={{ logoUrl: profile.data?.logo_url, name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}
-    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'messages' ? 'One ongoing conversation with your company.' : page.path === 'tracking' ? 'Follow your order from pickup to delivery.' : 'Create and track your deliveries.'}
+    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'messages' ? 'Conversations with dispatch and your drivers.' : page.path === 'tracking' ? 'Follow your order from pickup to delivery.' : 'Create and track your deliveries.'}
     navigation={shipperPages.filter(item => item.path !== 'profile').map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path, badge: item.path === 'messages' ? unreadMessages : item.path === 'orders' ? orderUnread : 0 }))}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     {page.path !== 'tracking' && <Notice error={logoutError} />}
@@ -58,7 +59,7 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
       {profileSection === 'security' && <PasswordPage plain />}
     </>}
     {page.path === 'orders' && <ShipperOrders draftId={url.searchParams.get('draft')} slug={slug} open={newOrderOpen} onClose={() => setNewOrderOpen(false)} onNavigate={go} />}
-    {page.path === 'messages' && (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} shipperId={profile.data?.id} company={company} />)}
+    {page.path === 'messages' && (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : profile.data ? <div className="min-h-0 flex-1"><ChatWorkspace slug={slug} shipperId={profile.data.id} timeZone={preferences.data?.time_zone} onOpenOrder={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} /></div> : <p role="status" className="text-sm text-app-muted">Loading chat…</p>)}
     {page.path === 'tracking' && <ShipperTracking slug={slug} orderId={url.searchParams.get('order')} logoutError={logoutError} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}
     <LiveNotices slug={slug} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else if (row.order_id) go(`${base}/tracking?order=${encodeURIComponent(row.order_id)}`); }} />
     {notificationChat && <NotificationChat key={notificationChat} slug={slug} identity={notificationChat} onClose={() => setNotificationChat(null)} />}

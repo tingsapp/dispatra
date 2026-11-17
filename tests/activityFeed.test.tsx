@@ -17,7 +17,6 @@ const { MonitorActions } = await import('../src/components/MonitorActions');
 const { ActivityLog } = await import('../src/components/activity/ActivityLog');
 const { activityKey } = await import('../src/components/activity/useActivity');
 const { syncKey, syncInvalidations } = await import('../src/portal/sync');
-const { BRIEFING_QUESTIONS } = await import('../src/components/activity/BriefingCard');
 import type { CompanyActivityEntry } from '../src/operations/api';
 const original = { ...operations };
 let cache: InstanceType<typeof QueryClient>;
@@ -51,7 +50,8 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
   assert.equal(screen.queryByRole('heading', { name: 'Dispatra' }), null);
   assert.equal(screen.queryByRole('button', { name: 'Show unassigned' }), null);
   const input = screen.getByRole('textbox', { name: 'Message Dispatra' });
-  await user.click(screen.getByRole('button', { name: 'List all new orders.' }));
+  assert.equal(screen.queryByLabelText('Suggested questions'), null);
+  await user.type(input, 'List all new orders.{Enter}');
   await screen.findByText('Your orders are ready.');
   assert.equal(screen.getByRole('dialog', {name:'Dispatra'}).getAttribute('data-view'),'conversation');
   assert.deepEqual(requests, ['BRIEFING', 'CHAT']);
@@ -71,23 +71,26 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
   assert.deepEqual(requests, ['BRIEFING', 'CHAT', 'CHAT', 'BRIEFING']);
 });
 
-test('the open briefing follows workspace changes and drops commentary written for older totals', async () => {
+test('the open briefing follows workspace changes and never shows the AI commentary', async () => {
   const opening = { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 1, unassigned: 1, assigned: 0, in_progress: 0, completed: 0, open_incidents: 0, dispatch_mode: 'MANUAL' as const, assigned_by_driver: [] as { driver_name: string; orders: number }[] };
   let totals = opening;
   operations.assistant = async () => ({ message: 'Assign the waiting order.', references: [], mode: 'AI', observed_at: '2026-11-04T17:00:00Z', limited: false, briefing: opening });
   operations.briefing = async () => ({ briefing: totals, observed_at: new Date().toISOString() });
   mount();
-  await screen.findByText('Assign the waiting order.');
-  assert.ok(screen.getByText('Auto dispatch is off. 1 order waiting for you to assign.'));
-  const count = (label: string) => within(screen.getByLabelText('Status of orders received today')).getByText(label).nextElementSibling?.textContent;
+  await screen.findByText('Auto dispatch is off. 1 order waiting for you to assign.');
+  assert.equal(screen.queryByText('Assign the waiting order.'), null);
+  const count = (label: string) => within(screen.getByLabelText('Status of today’s orders')).getByText(label).nextElementSibling?.textContent;
   totals = { ...opening, received: 2, unassigned: 1, assigned: 1, open_incidents: 1, assigned_by_driver: [{ driver_name: 'Alex Chen', orders: 1 }] };
   await act(() => cache.invalidateQueries({ queryKey: syncInvalidations('DISPATCHER', 'acme', [{ entity: 'route', type: 'route.assigned' } as never]).find(key => key.includes('briefing')) }));
   await screen.findByText('1 open issue to review');
   assert.equal(count('Assigned'), '1');
   assert.ok(screen.getByText('Auto dispatch is off. 1 order assigned to Alex Chen. You can still change them.'));
-  assert.ok(screen.getByText('orders received today').parentElement?.textContent?.startsWith('2'));
+  assert.ok(screen.getByText('orders for today').parentElement?.textContent?.startsWith('2'));
   assert.equal(screen.queryByText('Assign the waiting order.'), null);
-  assert.deepEqual(BRIEFING_QUESTIONS.map(question => screen.getByRole('button', { name: question }).textContent), BRIEFING_QUESTIONS);
+  // A newly detected incident alone refreshes the open-issue line, without a page reload.
+  totals = { ...totals, open_incidents: 2 };
+  await act(() => Promise.all(syncInvalidations('DISPATCHER', 'acme', [{ entity: 'watch', type: 'watch.detected' } as never]).map(queryKey => cache.invalidateQueries({ queryKey }))));
+  await screen.findByText('2 open issues to review');
 });
 
 test('a chat assignment shows one Confirm button, saves only after it and keeps refusals on the card', async () => {

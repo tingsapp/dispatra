@@ -32,7 +32,7 @@ export function MonitorReviewNotice({ review, onOpen }: { review: Review; onOpen
         {!!count && (failed || pending) && <p className="mt-1 text-xs">Some sources are {failed ? 'unavailable' : 'still loading'}.</p>}
       </div>
     </div>
-    <Button className="mt-2" size="sm" onClick={onOpen}>Review requests <ChevronRight className="size-3" /></Button>
+    <Button className="mt-2" size="sm" variant="warning" onClick={onOpen}>Review <ChevronRight className="size-3" /></Button>
   </div>;
 }
 

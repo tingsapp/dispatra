@@ -1,11 +1,12 @@
 import { openDispatcherChat } from '../chat/navigation';
 import { FloatingPanel } from './ui/FloatingPanel';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
 import { NotificationPanel, useUnreadNotifications } from '../portal/Notifications';
 import { MonitorActivity } from './activity/MonitorActivity';
 import type { AssistantReference } from '../operations/api';
 import { MonitorBadge } from './monitor/MonitorBadge';
+import { usePublishedHeight } from './monitor/usePublishedHeight';
 import {
   Bell,
   X,
@@ -66,6 +67,8 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   useEffect(() => { if (!active) setIsNotificationOpen(false); }, [active, setIsNotificationOpen]);
 
   const slug = companySlugForCurrentPath();
+  const dock = useRef<HTMLDivElement>(null);
+  usePublishedHeight(dock, '--monitor-dock-height');
   const [alerts, setAlerts] = useState<DispatchAlert[]>([
     {
       id: 'alt-1',
@@ -108,7 +111,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
 
   return (
     <>
-      {slug && <div className="monitor-assistant-dock absolute bottom-6 left-6 z-40 pointer-events-auto">
+      {slug && <div ref={dock} className="monitor-assistant-dock absolute bottom-6 left-6 z-40 pointer-events-auto">
         <MonitorActivity jobs={jobs} timeZone={timeZone} key={slug} slug={slug} open={activityOpen} active={active} onSelectReference={onSelectReference} onOpenChange={next => {
           setActivityOpen(next);
           if (next) setIsNotificationOpen(false);

@@ -63,3 +63,12 @@ test('Mercator route dimensions account for latitude and support a single focus 
   assert.ok(span.height > span.width);
   assert.deepEqual(shipperMapSpan([warehouse].map(address => addressPoint(address)!)), { width: 0, height: 0 });
 });
+
+test('map fitting keeps routes clear of the sidebar floating over the map', () => {
+  const view = rect(0, 0, 1440, 900), card = rect(233, 80, 520, 300), sidebar = rect(12, 12, 205, 876);
+  const insets = { top: 12, right: 12, bottom: 12, left: 12 };
+  const wide = shipperMapPadding(view, card, insets, { width: 10, height: 1 }, sidebar);
+  assert.ok(view.top + wide.top > card.bottom, 'Wide routes still use the space below the card');
+  assert.ok(view.left + wide.left >= sidebar.right + 12, 'The fit starts beside the sidebar');
+  assert.equal(shipperMapPadding(view, card, insets, { width: 10, height: 1 }, rect(0, 0, 0, 0)).left, 24, 'A hidden sidebar covers nothing');
+});

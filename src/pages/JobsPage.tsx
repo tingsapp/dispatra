@@ -69,6 +69,7 @@ import type { AccessorialItem } from '../types/simplePricing';
 import { formatPhone } from '../lib/phone';
 import { formatWhen } from '../components/orders/OrderDossierSections';
 import { OrderTrackingDialog, trackable } from '../components/orders/OrderTracking';
+import type { Notify } from '../components/ui/popupFeedback';
 
 interface JobsPageProps {
   /** Render shared record dialogs over the Monitor without the list page. */
@@ -79,7 +80,7 @@ interface JobsPageProps {
   onSelectJob: (jobNumber: string) => void;
   onUpdateJob: (updatedJob: Job) => void;
   onCreateJob: (newJob: Job) => void;
-  onNotification: (message: string) => void;
+  onNotification: Notify;
   /** Opens this order's edit form once data is ready (e.g. "Edit order" from the Monitor). */
   editJobId?: string | null;
   draftId?: string | null;
@@ -158,12 +159,12 @@ export function JobsPage({
       setPricingCtx(loadPricingContext());
     }
     setNewOrderInput(current => ({ ...current, accessorials: [...current.accessorials, { accessorialId: id, quantity: 1 }] }));
-    onNotification(`${item.name} added to accessorials and selected for this order.`);
+    onNotification(`${item.name} added to accessorials and selected for this order.`, 'success');
   };
 
   const openCreateModal = (mode: 'order' | 'quote') => {
     const ctx = slug ? livePricingCtx : loadPricingContext();
-    if (!ctx) { onNotification('Pricing data is still loading. Try again in a moment.'); return; }
+    if (!ctx) { onNotification('Pricing data is still loading. Try again in a moment.', 'warning'); return; }
     setCreateMode(mode); setEditingOrder(null); setEmailSource(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null;
     setPricingCtx(ctx);
     setNewOrderInput({ ...createBookingInput(ctx), rateCardOverrideId: mode === 'quote' ? defaultRateCard(ctx.pricing.rateCards)?.id ?? null : null });
@@ -196,7 +197,7 @@ export function JobsPage({
   const [draftMessage, setDraftMessage] = useState('');
   const [trackingJob, setTrackingJob] = useState<Job | null>(null);
   const openEmailDraft = (email: EmailIntakeDetail) => {
-    if (!livePricingCtx) { onNotification('Pricing data is still loading. Try again in a moment.'); return; }
+    if (!livePricingCtx) { onNotification('Pricing data is still loading. Try again in a moment.', 'warning'); return; }
     setCreateMode('order'); setEditingOrder(null); setOrderFields({}); setFormErrors([]); pendingQuote.current = null; setPricingCtx(livePricingCtx);
     setNewOrderInput(normalizeOrderInput({ ...withMatchedZones(draftToInput({ ...email.draft, shipper_id: email.draft?.shipper_id ?? email.shipper_id }, email.extraction, livePricingCtx.billing.general), livePricingCtx.pricing.zones), taxCalculation: 'COMPANY' }));
     setNewInstructions(String(email.draft?.internal_notes ?? '')); setNewDriverId('unassigned'); setEmailSource(email); setDraftMessage(''); setShowCreateModal(true);
@@ -209,7 +210,7 @@ export function JobsPage({
       const email = await operations.emailIntake(slug, id);
       if (!EMAIL_DRAFT_STATUSES.includes(email.status)) throw new Error('This draft is gone. It was completed or discarded.');
       openEmailDraft(email);
-    } catch (error) { setDraftOpenError(error instanceof Error ? error : new Error('Could not open draft.')); onNotification(error instanceof Error ? error.message : 'Could not open draft.'); }
+    } catch (error) { setDraftOpenError(error instanceof Error ? error : new Error('Could not open draft.')); onNotification(error instanceof Error ? error.message : 'Could not open draft.', 'error'); }
     finally { setOpeningEmailId(null); }
   };
   useEffect(() => {
@@ -247,7 +248,7 @@ export function JobsPage({
       else await operations.retryEmailIntake(slug, emailSource);
       setShowCreateModal(false); setEmailSource(null);
       await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] });
-      onNotification(action === 'discard' ? 'Draft discarded.' : 'The agent is reading the email again.');
+      onNotification(action === 'discard' ? 'Draft discarded.' : 'The agent is reading the email again.', 'success');
     } catch (error) { setFormErrors([error instanceof Error ? error.message : 'Could not update draft.']); }
     finally { setEmailAction(null); }
   };
@@ -321,18 +322,18 @@ export function JobsPage({
     if (draftReviewMessages.length) {
       const message = 'Complete the items listed in “Needed before this can become an order” before creating this order.';
       setFormErrors([message]);
-      onNotification(message);
+      onNotification(message, 'warning');
       return;
     }
     if (estimateNeedsAttention) {
       const message = 'Resolve the items in Needs attention before creating this order.';
       setFormErrors([message]);
-      onNotification(message);
+      onNotification(message, 'warning');
       return;
     }
     if (!editingOrder) {
       const scheduleErrors = validateBookingSchedule(newOrderInput, pricingCtx.billing.general.timeZone);
-      if (scheduleErrors.length) { setFormErrors(scheduleErrors); onNotification(scheduleErrors.join(' ')); return; }
+      if (scheduleErrors.length) { setFormErrors(scheduleErrors); onNotification(scheduleErrors.join(' '), 'warning'); return; }
     }
     if (slug) {
       try {
@@ -353,9 +354,9 @@ export function JobsPage({
           if (newDriverId !== 'unassigned' && saved.status === 'NEW') {
             await assignToDriver(slug, saved, driver!.id, driver!.currentVehicleId!);
           }
-          onNotification(`${previous ? 'Updated' : 'Created'} ${saved.number}.`);
+          onNotification(`${previous ? 'Updated' : 'Created'} ${saved.number}.`, 'success');
         } catch (assignmentError) {
-          onNotification(`${saved.number} saved without an assignment. ${assignmentError instanceof Error ? assignmentError.message : 'Assignment failed.'}`);
+          onNotification(`${saved.number} saved without an assignment. ${assignmentError instanceof Error ? assignmentError.message : 'Assignment failed.'}`, 'warning');
         } finally {
           await Promise.all([queryClient.invalidateQueries({ queryKey: ['operations', slug, 'orders'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'routes'] }), queryClient.invalidateQueries({ queryKey: ['operations', slug, 'monitor'] })]);
         }
@@ -366,11 +367,11 @@ export function JobsPage({
     const pickups = newOrderInput.stops.filter((st) => st.type === 'PICKUP');
     const drops = newOrderInput.stops.filter((st) => st.type === 'DROPOFF');
     if (!selectedCustomer) {
-      onNotification('Choose a shipper. Walk-ins are added under Shippers first.');
+      onNotification('Choose a shipper. Walk-ins are added under Shippers first.', 'warning');
       return;
     }
     if (!pickups.length || !drops.length || newOrderInput.stops.some((st) => !st.label?.trim())) {
-      onNotification('Every stop needs an address, with at least one pickup and one drop-off');
+      onNotification('Every stop needs an address, with at least one pickup and one drop-off', 'warning');
       return;
     }
 
@@ -381,13 +382,13 @@ export function JobsPage({
     const latest = editingOrder && jobs.find(j => j.id === editingOrder.id);
     if (editingOrder && (!latest || !orderEditable(latest) || (latest.version ?? 1) !== (editingOrder.version ?? 1))) factsErrors.push('Order changed while editing. Close and reopen it before saving.');
     setFormErrors(factsErrors);
-    if (factsErrors.length) { onNotification(factsErrors.join(' ')); return; }
+    if (factsErrors.length) { onNotification(factsErrors.join(' '), 'warning'); return; }
     const bookingErrors = validateBooking(newOrderInput, pricingCtx);
-    if (bookingErrors.length) { onNotification(bookingErrors.join(' ')); return; }
+    if (bookingErrors.length) { onNotification(bookingErrors.join(' '), 'warning'); return; }
     const assignedDriver = drivers.find((d) => d.id === newDriverId);
     const service = pricingCtx.catalogue.services.find((sv) => sv.id === newOrderInput.serviceId);
     const snapshot = priceOrder(newOrderInput, pricingCtx);
-    if (assignedDriver) { const errors = validateAssignment({ ...orderFields, version: (editingOrder?.version ?? 0) + 1, id: editingOrder?.id ?? 'new', status: 'no_driver', pricing: snapshot, pricingInput: newOrderInput }, assignedDriver, jobs, pricingCtx); if (errors.length) { onNotification(errors.join(' ')); return; } }
+    if (assignedDriver) { const errors = validateAssignment({ ...orderFields, version: (editingOrder?.version ?? 0) + 1, id: editingOrder?.id ?? 'new', status: 'no_driver', pricing: snapshot, pricingInput: newOrderInput }, assignedDriver, jobs, pricingCtx); if (errors.length) { onNotification(errors.join(' '), 'warning'); return; } }
     const totalKg = newOrderInput.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
     const mapStop = drops[drops.length - 1];
 
@@ -434,7 +435,8 @@ export function JobsPage({
     onNotification(
       snapshot.status === 'PRICED'
         ? `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber}, quoted $${snapshot.total.toFixed(2)} ${snapshot.currency}`
-        : `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber}, pricing needs attention`
+        : `${editingOrder ? 'Updated' : 'Created'} ${newJob.jobNumber}, pricing needs attention`,
+      snapshot.status === 'PRICED' ? 'success' : 'warning'
     );
 
     });
@@ -451,7 +453,7 @@ export function JobsPage({
     await operations.sendQuote(slug, quote, recipient);
     pendingQuote.current = null;
     await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'quotes'] });
-    closeCreateModal(); onNotification(`Quote queued for ${recipient}.`);
+    closeCreateModal(); onNotification(`Quote queued for ${recipient}.`, 'success');
   };
   useEntityDialog(!!activeJobDossier || showCreateModal, () => { setActiveJobDossier(null); closeCreateModal(); });
 
@@ -773,6 +775,7 @@ export function JobsPage({
                     snapshot={newOrderSnapshot}
                     showStopAddresses
                     futureOnly={!editingOrder}
+                    outsideHours={createMode === 'order' ? 'warn' : undefined}
                     onAddAccessorial={() => setShowAddAccessorial(true)}
                   />
 

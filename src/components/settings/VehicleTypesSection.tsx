@@ -12,10 +12,11 @@ import { toDisplayDimension, toDisplayWeight } from '../../lib/units';
 import { VehicleType } from '../../types/simplePricing';
 import { VehicleTypeModal } from '../pricing/VehicleTypeModal';
 import { listedVehicleTypes } from '../../lib/vehicleTypes';
+import type { Notify } from '../ui/popupFeedback';
 
 const typeCode = (name: string) => `${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'VEHICLE'}_${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
-export function VehicleTypesSection({ onNotification, onChanged }: { onNotification?: (message: string) => void; onChanged?: () => void }) {
+export function VehicleTypesSection({ onNotification, onChanged }: { onNotification?: Notify; onChanged?: () => void }) {
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
@@ -37,8 +38,8 @@ export function VehicleTypesSection({ onNotification, onChanged }: { onNotificat
         const records = loadSimplePricingConfig().vehicles;
         commit(records.some(record => record.id === type.id) ? records.map(record => record.id === type.id ? type : record) : [...records, type]);
       }
-      setEditing(undefined); onNotification?.('Vehicle type saved.');
-    } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save vehicle type.'); }
+      setEditing(undefined); onNotification?.('Vehicle type saved.', 'success');
+    } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save vehicle type.', 'error'); }
   };
   const remove = async (type: VehicleType) => {
     if (!(await confirmDialog({ title: `Delete vehicle type “${type.name}”?`, message: 'It won’t be offered for vehicles anymore. Existing vehicles keep it.', confirmLabel: 'Delete vehicle type', tone: 'danger' }))) return;
@@ -47,8 +48,8 @@ export function VehicleTypesSection({ onNotification, onChanged }: { onNotificat
         const record = catalogQuery.data?.find(row => row.id === type.id); if (!record) return;
         await operations.deleteCatalog(slug, record); await refresh();
       } else commit(loadSimplePricingConfig().vehicles.map(record => record.id === type.id ? { ...record, active: false } : record));
-      onNotification?.(`${type.name} deleted.`);
-    } catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not delete ${type.name}.`); }
+      onNotification?.(`${type.name} deleted.`, 'success');
+    } catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not delete ${type.name}.`, 'error'); }
   };
   const dimension = (cm?: number) => cm == null ? '-' : Number(toDisplayDimension(cm, units).toFixed(1)).toString();
   return <section aria-label="Vehicle types" className="space-y-4">

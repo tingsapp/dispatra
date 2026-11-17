@@ -15,6 +15,7 @@ import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 import { ContactInput } from '../ui/ContactInput';
 import { packageHasCharge, setPackageCharge, syncPackageAccessorials, type PackageChargeCode } from '../../lib/packageAccessorials';
 import { organizationTime } from '../../lib/organizationWorkflows';
+import { closedReason } from '../../lib/operatingCalendar';
 import { applyPackageType, packageTypeOptions } from '../../lib/packageTypes';
 
 /**
@@ -40,6 +41,8 @@ interface OrderPricingFormProps {
   onAddAccessorial?: () => void;
   /** New bookings cannot choose dates or times that have already passed. */
   futureOnly?: boolean;
+  /** Pickups outside company work hours: `block` for Shippers (the API refuses them), `warn` for dispatchers who may override. */
+  outsideHours?: 'block' | 'warn';
 }
 
 const fieldClass = 'app-input';
@@ -77,10 +80,11 @@ function PackageMeasurementInput({ value, units, kind, label, missing = false, a
     onBlur={() => setDraft(null)} />;
 }
 
-export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, showVehicleSelection = true, suggestVehicle = false, customerMode = 'shipper', serviceExtras, onAddAccessorial, futureOnly = false }) => {
+export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, showVehicleSelection = true, suggestVehicle = false, customerMode = 'shipper', serviceExtras, onAddAccessorial, futureOnly = false, outsideHours }) => {
   const { catalogue, pricing, customers, billing } = ctx;
   const units = billing.general;
   const timeZone = billing.general.timeZone ?? 'America/Vancouver';
+  const pickupClosed = outsideHours && value.scheduledAt && billing.general.workHours ? closedReason(value.scheduledAt, timeZone, billing.general.workHours, billing.general.holidays) : undefined;
   const activeServices = catalogue.services.filter((s) => s.active);
   const activeVehicles = listedVehicleTypes(catalogue.vehicles);
   const activeAccessorials = catalogue.accessorials.filter((a) => a.active);
@@ -242,6 +246,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                   {stop.type === 'PICKUP'
                     ? <DateTimePicker aria-label={`Stop ${i + 1} ready at`} datePlaceholder="Date" futureOnly={futureOnly} value={stop.windowStart ?? ''} onValueChange={windowStart => updateStop(stop.id, { windowStart: windowStart || undefined })} timeZone={timeZone} />
                     : <DateTimePicker aria-label={`Stop ${i + 1} deliver by`} datePlaceholder="Date" futureOnly={futureOnly} after={futureOnly ? latestPickup : undefined} value={stop.windowEnd ?? ''} onValueChange={windowEnd => updateStop(stop.id, { windowEnd: windowEnd || undefined })} timeZone={timeZone} />}
+                  {pickupClosed && stop.type === 'PICKUP' && stop.windowStart === value.scheduledAt && <p role={outsideHours === 'block' ? 'alert' : 'status'} className={`mt-1 text-xs ${outsideHours === 'block' ? 'text-rose-700' : 'text-amber-700'}`}>
+                    {outsideHours === 'block' ? `${pickupClosed} Choose a time when we're open.` : `Outside work hours. ${pickupClosed} You can still save; AUTO dispatch won't assign it.`}</p>}
                 </div>
               </div>
               {stop.type === 'DROPOFF' && pickups.length > 1 && <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600"><span>Picked up at:</span>{pickups.map(pickup => <label key={pickup.id} className="inline-flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={(stop.pickupIds ?? []).includes(pickup.id)} onChange={e => updateStop(stop.id, { pickupIds: e.target.checked ? [...(stop.pickupIds ?? []), pickup.id] : (stop.pickupIds ?? []).filter(p => p !== pickup.id) })} className={checkbox} />Stop {value.stops.indexOf(pickup) + 1}</label>)}</div>}

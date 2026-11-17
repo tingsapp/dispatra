@@ -2,6 +2,9 @@ import { Button, Field, Notice } from './ui';
 import { useSettingsDraft } from './useSettingsDraft';
 import { TaxSettings } from '../components/settings/TaxSettings';
 import { RegionalSettings } from '../components/settings/RegionalSettings';
+import { WorkHoursSettings } from '../components/settings/WorkHoursSettings';
+import { HolidaySettings } from '../components/settings/HolidaySettings';
+import { DEFAULT_WORK_HOURS, workHoursError } from '../lib/operatingCalendar';
 import { INITIAL_BILLING_CONFIG } from '../lib/billingStorage';
 import { companySettingsBilling } from '../lib/serverCompanySettings';
 import type { BillingConfig } from '../types/billing';
@@ -39,12 +42,12 @@ export function TaxEditor() {
   </form>;
 }
 
-export function SaveSettings({ editor, label }: { editor: ReturnType<typeof useSettingsDraft>; label: string }) {
+export function SaveSettings({ editor, label, invalid = false }: { editor: ReturnType<typeof useSettingsDraft>; label: string; invalid?: boolean }) {
   return <div className="mt-auto space-y-3 pt-6">
     <Notice error={editor.error} success={editor.saved ? 'Changes saved.' : undefined} />
     <div className="flex items-center justify-end gap-3">
       {!!editor.error && <Button type="button" variant="outline" disabled={editor.pending} onClick={editor.reload}>Reload saved settings</Button>}
-      <Button loading={editor.pending} type="submit" disabled={!editor.dirty || editor.pending} className="app-action app-primary rounded-full px-4 py-2 text-xs">{editor.pending ? 'Saving…' : label}</Button>
+      <Button loading={editor.pending} type="submit" disabled={!editor.dirty || editor.pending || invalid} className="app-action app-primary rounded-full px-4 py-2 text-xs">{editor.pending ? 'Saving…' : label}</Button>
     </div>
   </div>;
 }
@@ -52,8 +55,17 @@ export function SaveSettings({ editor, label }: { editor: ReturnType<typeof useS
 export function PreferencesEditor() {
   const editor = useSettingsDraft();
   const { config, patch } = useBillingDraft(editor);
-  return <form className="space-y-5" onSubmit={e => { e.preventDefault(); editor.save(); }}>
-    <fieldset disabled={editor.pending} className="app-sections"><RegionalSettings editor={{ config, patch }} /></fieldset>
-    <SaveSettings editor={editor} label="Save Preferences" />
+  const workHours = editor.data.work_hours ?? DEFAULT_WORK_HOURS;
+  const invalid = !!workHoursError(workHours);
+  const timeZone = editor.data.time_zone ?? 'America/Vancouver';
+  return <form className="space-y-5" onSubmit={e => { e.preventDefault(); if (!invalid) editor.save(); }}>
+    <fieldset disabled={editor.pending} className="app-sections">
+      <RegionalSettings editor={{ config, patch }} />
+      <div className="mt-8 grid items-start gap-x-12 gap-y-8 xl:grid-cols-2">
+        <WorkHoursSettings days={workHours} timeZone={timeZone} onChange={work_hours => editor.patch({ work_hours })} />
+        <HolidaySettings holidays={editor.data.holidays ?? []} timeZone={timeZone} onChange={holidays => editor.patch({ holidays })} />
+      </div>
+    </fieldset>
+    <SaveSettings editor={editor} label="Save Preferences" invalid={invalid} />
   </form>;
 }

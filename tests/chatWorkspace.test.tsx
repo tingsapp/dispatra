@@ -10,10 +10,10 @@ const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query
 const { chat, ADMIN_CHAT } = await import('../src/chat/api');
 const { ChatWorkspace } = await import('../src/components/chat/ChatWorkspace');
 const { LiveNotices } = await import('../src/components/chat/LiveNotices');
-const { operations } = await import('../src/operations/api');
-const original = {...chat}; const originalOperations = {...operations};
+const { operations, allOperations } = await import('../src/operations/api');
+const original = {...chat}; const originalOperations = {...operations}; const originalAll = {...allOperations};
 let cache: InstanceType<typeof QueryClient>;
-afterEach(() => { cleanup(); cache?.clear(); Object.assign(chat,original); Object.assign(operations,originalOperations); });
+afterEach(() => { cleanup(); cache?.clear(); Object.assign(chat,original); Object.assign(operations,originalOperations); Object.assign(allOperations,originalAll); });
 const msg = (seq: number, cid='driver') => ({ id:`${cid}-${seq}`,seq,conversation_id:cid,sender_role:'DRIVER' as const,sender_name:'Dana',mine:false,body:`Message ${seq}`,created_at:'2026-11-08T10:00:00Z' });
 const row = (id='driver', extra={}) => ({ conversation_id:id,kind:'DISPATCH_DRIVER' as const,title:'Dana',driver_id:'d1',order_id:null,order_number:null,order_status:null,unread:1,can_send:true,closed_reason:null,last_message_at:'2026-11-08T10:00:00Z',last_message:msg(250,id),...extra });
 function mount(node: React.ReactElement) {
@@ -83,7 +83,7 @@ test('live notices show new order and assignment events newest first, then dismi
  const note=(id:string,title:string,body:string)=>({id,title,body,kind:'order.assigned',severity:'INFO',conversation_id:null,order_id:`order-${id}`,read_at:null});
  operations.notifications=async()=>[] as never;
  const opened:string[]=[];
- mount(<LiveNotices slug="acme" feedback={{text:'Saved.',tone:'default'}} onOpen={row=>opened.push(row.order_id!)} />);
+ mount(<LiveNotices slug="acme" feedback={{text:'Saved.',tone:'success'}} onOpen={row=>opened.push(row.order_id!)} />);
  await waitFor(()=>assert.ok(cache.getQueryData(['notifications','acme'])));
  cache.setQueryData(['notifications','acme'],[note('b','Order assigned','DTO-2 assigned to Alex.'),note('a','New order booked','DTO-1 from Acme.')]);
  const stack=await screen.findByRole('status');
@@ -227,4 +227,58 @@ test('dispatcher order details open only the chosen shipper or assigned driver o
  await user.keyboard('{Escape}');
  assert.equal(closes,0);
  assert.ok(screen.getByRole('button',{name:'Chat with driver'}));
+});
+
+test('shipper inbox pins the always-open dispatch chat and keeps one driver chat per order',async()=>{
+ const user=userEvent.setup({document}); const kinds: unknown[]=[]; const sent: unknown[]=[];
+ const driverRow=row('order-driver',{kind:'DRIVER_SHIPPER',title:'Dana',order_id:'o1',order_number:'ORD-7',order_status:'IN_PROGRESS',unread:0});
+ chat.page=async(_slug,filter)=>{kinds.push(filter.kind);return{items:filter.kind==='DRIVER_SHIPPER'?[driverRow]:[],next_cursor:null};};
+ chat.detail=async()=>driverRow;
+ chat.channels=async()=>[{kind:'DRIVER_SHIPPER',title:'Sam',conversation_id:null,driver_id:'d2',can_send:true,closed_reason:null,unread:0,last_message_at:null}];
+ chat.shipperCompanyChannel=async()=>({kind:'DISPATCH_SHIPPER',title:'Dispatch',conversation_id:null,driver_id:null,shipper_id:'s1',can_send:true,closed_reason:null,unread:0,last_message_at:null});
+ chat.sendShipperCompany=async(_slug,id,body)=>{sent.push([id,body]);return msg(1,'company');};
+ chat.messages=async()=>({messages:[msg(4,'order-driver')],has_more:false});
+ chat.read=async()=>({unread:0});
+ const order=(id:string,number:string,status:string)=>({id,number,status}) as Awaited<ReturnType<typeof allOperations.orders>>[number];
+ allOperations.orders=async()=>[order('o1','ORD-7','IN_PROGRESS'),order('o2','ORD-8','ASSIGNED'),order('o3','ORD-9','NEW')];
+ const opened: string[]=[];
+ mount(<ChatWorkspace slug="acme" shipperId="s1" onOpenOrder={id=>opened.push(id)} />);
+ const tabs=within(screen.getByLabelText('Filter conversations'));
+ assert.deepEqual(tabs.getAllByRole('button').map(button=>button.textContent),['Dispatch','Drivers'],'shippers have no All tab');
+ assert.equal(tabs.getByRole('button',{name:'Dispatch'}).getAttribute('aria-pressed'),'true');
+ await user.click(await screen.findByRole('button',{name:'Dispatch, always open'}));
+ assert.ok(await screen.findByRole('heading',{name:'How can we help you?'}));
+ assert.equal(screen.queryByRole('log'),null,'an empty conversation centers the composer instead of a transcript');
+ await user.type(screen.getByRole('textbox',{name:'Message Dispatch'}),'Hello dispatch{Enter}');
+ await waitFor(()=>assert.deepEqual(sent,[['s1','Hello dispatch']]));
+ await user.click(tabs.getByRole('button',{name:'Drivers'}));
+ const driver=await screen.findByRole('button',{name:'Dana'});
+ assert.match(driver.textContent??'',/Driver · ORD-7 · in progress/);
+ assert.equal(screen.queryByRole('button',{name:/always open/}),null);
+ await user.click(driver);
+ assert.ok(await screen.findByRole('log',{name:'Messages with Dana'}));
+ await user.click(screen.getByRole('button',{name:'Open order'}));
+ assert.deepEqual(opened,['o1']);
+ await user.click(screen.getByRole('button',{name:'New driver chat'}));
+ assert.deepEqual((await screen.findAllByRole('button',{name:/^ORD-/})).map(button=>button.querySelector('span')?.textContent),['ORD-7','ORD-8'],'only orders with a driver');
+ await user.click(screen.getByRole('button',{name:/^ORD-8/}));
+ assert.ok(await screen.findByRole('heading',{name:'Message Sam'}));
+ assert.ok(kinds.includes('DISPATCH_SHIPPER')&&kinds.includes('DRIVER_SHIPPER')&&!kinds.includes(undefined));
+});
+
+test('dispatcher tabs are Dispatra, Shipper and Driver, with the Dispatra chat pinned and always open',async()=>{
+ const user=userEvent.setup({document}); const kinds: unknown[]=[];
+ chat.page=async(_slug,filter)=>{kinds.push(filter.kind);return{items:filter.kind==='DISPATCH_DRIVER'?[row()]:[],next_cursor:null};};
+ chat.support=async()=>({...row('support'),kind:'ADMIN_DISPATCHER',title:'Dispatra',dispatcher_id:'me',driver_id:null,company_name:'Acme',conversation_id:null,unread:0});
+ chat.detail=async()=>row(); chat.messages=async()=>({messages:[],has_more:false}); chat.read=async()=>({unread:0});
+ mount(<ChatWorkspace slug="acme" />);
+ const tabs=within(screen.getByLabelText('Filter conversations'));
+ assert.deepEqual(tabs.getAllByRole('button').map(button=>button.textContent),['Dispatra','Shipper','Driver']);
+ assert.equal(tabs.getByRole('button',{name:'Dispatra'}).getAttribute('aria-pressed'),'true');
+ await user.click(await screen.findByRole('button',{name:'Dispatra, always open'}));
+ assert.ok(await screen.findByRole('textbox',{name:'Message Dispatra'}));
+ await user.click(tabs.getByRole('button',{name:'Driver'}));
+ assert.ok(await screen.findByRole('button',{name:'Dana, 1 unread'}));
+ assert.equal(screen.queryByRole('button',{name:/always open/}),null);
+ assert.deepEqual([...new Set(kinds)],['ADMIN_DISPATCHER','DISPATCH_DRIVER'],'no All or Driver–Shipper inbox query');
 });

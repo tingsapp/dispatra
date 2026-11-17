@@ -4151,6 +4151,10 @@ export interface components {
             fuel_enabled: boolean;
             /** Fuel Percent */
             fuel_percent: string;
+            /** Work Hours */
+            work_hours: components["schemas"]["WorkDay"][];
+            /** Holidays */
+            holidays: components["schemas"]["Holiday"][];
             /** Default Service Id */
             default_service_id?: string | null;
         };
@@ -6137,6 +6141,16 @@ export interface components {
             /** Error */
             error: string | null;
         };
+        /** Holiday */
+        Holiday: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Name */
+            name: string;
+        };
         /** InboxItem */
         InboxItem: {
             /** Closed Reason */
@@ -7994,6 +8008,10 @@ export interface components {
             dispatch_mode: "AUTO" | "MANUAL";
             /** Dispatch Zones */
             dispatch_zones?: components["schemas"]["DispatchZone-Input"][];
+            /** Work Hours */
+            work_hours?: components["schemas"]["WorkDay"][];
+            /** Holidays */
+            holidays?: components["schemas"]["Holiday"][];
             /** Default Service Id */
             default_service_id?: string | null;
             /** Default Package Type Id */
@@ -8115,6 +8133,10 @@ export interface components {
             dispatch_mode: "AUTO" | "MANUAL";
             /** Dispatch Zones */
             dispatch_zones?: components["schemas"]["DispatchZone-Output"][];
+            /** Work Hours */
+            work_hours?: components["schemas"]["WorkDay"][];
+            /** Holidays */
+            holidays?: components["schemas"]["Holiday"][];
             /** Default Service Id */
             default_service_id?: string | null;
             /** Default Package Type Id */
@@ -9217,6 +9239,29 @@ export interface components {
             prices: {
                 [key: string]: string;
             };
+        };
+        /**
+         * WorkDay
+         * @description One weekday of company work hours, in the company time zone; same-day hours only, 23:59 meaning end of day.
+         */
+        WorkDay: {
+            /**
+             * Day
+             * @enum {string}
+             */
+            day: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
+            /** Open */
+            open: boolean;
+            /**
+             * Start
+             * @default 08:00
+             */
+            start: string;
+            /**
+             * End
+             * @default 17:00
+             */
+            end: string;
         };
         /** WorkspaceAssistantQuestion */
         WorkspaceAssistantQuestion: {

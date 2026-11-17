@@ -24,9 +24,9 @@ export function useAssistantChat(slug: string) {
   const append = (row: ChatMessage) => setMessages(rows => [...rows.slice(-59), row]);
   const setAction = (id: string, action: ActionState) => setMessages(rows => rows.map(row => row.id === id ? { ...row, action } : row));
 
-  const submit = async (retry = false, automatic = false, prompt?: string) => {
+  const submit = async (retry = false, automatic = false) => {
     if (request.current) return;
-    const message = prompt ?? (automatic ? 'Give me the current daily operational briefing.' : draft.trim());
+    const message = automatic ? 'Give me the current daily operational briefing.' : draft.trim();
     if (!retry && !message) return;
     const body = retry ? failed.current : { message, kind: automatic ? 'BRIEFING' as const : 'CHAT' as const, history: messages.slice(-10).map(row => ({ role: row.role, content: [row.content, ...(row.reply?.references ?? []).map(ref => `${ref.kind}: ${ref.label}`)].join('\n').slice(0, 1000) })) };
     if (!body) return;

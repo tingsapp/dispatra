@@ -6,11 +6,12 @@ import { DialogCloseButton } from '../ui/Dialog';
 import { isEmail, pdfBlob, Quotation, quotationFileName, quotationMailto, quotationPdf } from '../../lib/quotation';
 import { PdfJpeg } from '../../lib/pdf';
 import { ContactInput } from '../ui/ContactInput';
+import type { Notify } from '../ui/popupFeedback';
 
 interface QuotationMenuProps {
   /** Built lazily so the quote number and date reflect the moment the menu opens. */
   buildQuotation: () => Quotation;
-  onNotification: (msg: string) => void;
+  onNotification: Notify;
   triggerLabel?: string;
   prominent?: boolean;
   /** Allow a new shipper's details to be entered when sending a quote. */
@@ -57,9 +58,9 @@ export const QuotationMenu: React.FC<QuotationMenuProps> = ({ buildQuotation, on
     const logo = quote.company.logoDataUrl ? await logoFor(quote.company.logoDataUrl) : undefined;
     saveFile(quotationFileName(quote), pdfBlob(quotationPdf(quote, logo)));
   };
-  const run = async (action: (quote: Quotation) => Promise<void>) => { if (!q || busy) return; setBusy(true); try { await action(q); setOpen(false); } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not send quote.'); } finally { setBusy(false); } };
+  const run = async (action: (quote: Quotation) => Promise<void>) => { if (!q || busy) return; setBusy(true); try { await action(q); setOpen(false); } catch (error) { onNotification(error instanceof Error ? error.message : 'Could not send quote.', 'error'); } finally { setBusy(false); } };
   const email = () => run(async quote => { if (!canEmail) return; if (sendEmail) { await sendEmail(to); return; } await savePdf(quote); openMail(quotationMailto(quote, to, greeting(quote))); onNotification(`${quotationFileName(quote)} saved. Attach it to the email to ${to}.`); });
-  const download = () => run(async quote => { await savePdf(quote); onNotification(`${quotationFileName(quote)} downloaded`); });
+  const download = () => run(async quote => { await savePdf(quote); onNotification(`${quotationFileName(quote)} downloaded`, 'success'); });
   return <FloatingPanel open={open} onOpenChange={next => { if (next) setQuotation(buildQuotation()); setOpen(next); }} label={triggerLabel} size="rich" align="end" className="p-4"
     trigger={<Button type="button" variant={prominent ? "default" : "outline"} size={prominent ? "default" : "xs"}><Mail />{triggerLabel}</Button>}>
     {q && <div className="space-y-4">

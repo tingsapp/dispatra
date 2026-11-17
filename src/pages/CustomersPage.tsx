@@ -42,6 +42,7 @@ import { formatPhone, phoneHref } from '../lib/phone';
 import { loadDrivers } from '../lib/driverStorage';
 import { INITIAL_DRIVERS } from '../data/mockData';
 import { DirectoryPasswordForm } from '../components/entities/DirectoryPasswordForm';
+import type { Notify } from '../components/ui/popupFeedback';
 
 interface CustomersPageProps {
   /** Render shared record dialogs over the Monitor without the list page. */
@@ -49,7 +50,7 @@ interface CustomersPageProps {
   onDialogsClose?: () => void;
   jobs?: Job[];
   onBackToMonitor: () => void;
-  onNotification?: (msg: string) => void;
+  onNotification?: Notify;
   openCustomerId?: string;
   onOpenHandled?: () => void;
   onSelectJob?: (jobNumber: string) => void;
@@ -131,7 +132,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   }, [customers, searchQuery, statusFilter]);
 
   const activeOrderCount = (id: string) => jobs.filter(j => j.customerId === id && j.status !== 'completed').length;
-  const persistCustomers = (next: Customer[]) => { try { const normalized = next.map(normalizeCustomer); saveCustomers(normalized); setCustomers(normalized); return true; } catch { onNotification?.('Shipper changes could not be saved in this browser.'); return false; } };
+  const persistCustomers = (next: Customer[]) => { try { const normalized = next.map(normalizeCustomer); saveCustomers(normalized); setCustomers(normalized); return true; } catch { onNotification?.('Shipper changes could not be saved in this browser.', 'error'); return false; } };
 
   // Statistics
   const stats = useMemo(() => {
@@ -192,8 +193,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'shippers'] });
         setIsModalOpen(false);
         if (saved.initial_password) setInitialCredential({ name: saved.name, email: saved.email, password: saved.initial_password });
-        else onNotification?.(`Saved shipper "${saved.name}".`);
-      } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save shipper.'); }
+        else onNotification?.(`Saved shipper "${saved.name}".`, 'success');
+      } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not save shipper.', 'error'); }
       return;
     }
 
@@ -202,7 +203,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     const contactName = formData.customerType === 'INDIVIDUAL' ? formData.name.trim()
       : editingCustomer?.contactName && editingCustomer.contactName !== editingCustomer.name ? editingCustomer.contactName : formData.name.trim();
     const errors = validateCustomer({ ...formData, code }, customers, editingCustomer?.id);
-    if (errors.length) { onNotification?.(errors.join(" ").replace(/Customer/g, "Shipper")); return; }
+    if (errors.length) { onNotification?.(errors.join(" ").replace(/Customer/g, "Shipper"), 'warning'); return; }
     if (editingCustomer) {
       // Update
       const updated = customers.map((c) =>
@@ -263,8 +264,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     if (slug) {
       const record = shipperQuery.data?.find(row => row.id === id);
       if (!record) return;
-      try { await operations.archiveShipper(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'shippers'] }); setSelectedCustomerForView(null); onNotification?.(`Removed shipper "${name}".`); }
-      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not remove shipper.'); }
+      try { await operations.archiveShipper(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'shippers'] }); setSelectedCustomerForView(null); onNotification?.(`Removed shipper "${name}".`, 'success'); }
+      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not remove shipper.', 'error'); }
       return;
     }
     const updated = customers.filter((c) => c.id !== id);
@@ -272,7 +273,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     if (selectedCustomerForView?.id === id) {
       setSelectedCustomerForView(null);
     }
-    onNotification?.(`Removed shipper "${name}".`);
+    onNotification?.(`Removed shipper "${name}".`, 'success');
   };
 
   useEntityDialog(!!selectedCustomerForView || isModalOpen, () => { setSelectedCustomerForView(null); setIsModalOpen(false); });

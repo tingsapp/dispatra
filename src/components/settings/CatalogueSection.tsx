@@ -15,6 +15,7 @@ import { loadSimplePricingConfig, saveSimplePricingConfig } from '../../lib/simp
 import { AccessorialItem, DeliveryService, SimplePricingConfig } from '../../types/simplePricing';
 import { AccessorialModal } from '../pricing/AccessorialModal';
 import { ServiceModal } from '../pricing/ServiceModal';
+import type { Notify } from '../ui/popupFeedback';
 
 type Section = 'services' | 'accessorials';
 type Item = DeliveryService | AccessorialItem;
@@ -24,7 +25,7 @@ const descriptions = {
 };
 const button = 'inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shrink-0';
 
-export function CatalogueSection({ section, onNotification, onChanged }: { section: Section; onNotification?: (message: string) => void; onChanged?: () => void }) {
+export function CatalogueSection({ section, onNotification, onChanged }: { section: Section; onNotification?: Notify; onChanged?: () => void }) {
   const slug = companySlugForCurrentPath();
   const queryClient = useQueryClient();
   const catalogQuery = useQuery({ queryKey: ['operations', slug, 'catalog'], queryFn: () => allOperations.catalog(slug!), enabled: !!slug });
@@ -51,7 +52,7 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
         else await operations.createCatalog(slug, section === 'services' ? 'SERVICE' : 'ACCESSORIAL', (item as DeliveryService | AccessorialItem).code, catalogFromUi(item as DeliveryService | AccessorialItem));
         await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'catalog'] });
         onChanged?.(); onNotification?.(`${singular} saved.`);
-      } catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not save ${singular.toLowerCase()}.`); if (section === 'accessorials') throw error; }
+      } catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not save ${singular.toLowerCase()}.`, 'error'); if (section === 'accessorials') throw error; }
       return;
     }
     const records: Item[] = loadSimplePricingConfig()[section];
@@ -63,15 +64,15 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       const settings = settingsQuery.data; if (!settings) return;
       try {
         const saved = await api.saveCompanySettings(slug, { version: settings.version, data: { ...settings.data, default_service_id: item.id } }, crypto.randomUUID());
-        queryClient.setQueryData(companySettingsKey(slug), saved); onChanged?.(); onNotification?.(`${item.name} is now the Default service.`);
-      } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not change the Default service.'); }
+        queryClient.setQueryData(companySettingsKey(slug), saved); onChanged?.(); onNotification?.(`${item.name} is now the Default service.`, 'success');
+      } catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not change the Default service.', 'error'); }
       return;
     }
     commit(loadSimplePricingConfig().services.map(service => ({ ...service, isDefault: service.id === item.id })));
-    onNotification?.(`${item.name} is now the Default service.`);
+    onNotification?.(`${item.name} is now the Default service.`, 'success');
   };
   const deleteItem = async (item: Item) => {
-    if (item.id === defaultId) { onNotification?.('Set another service as Default before deleting this one.'); return; }
+    if (item.id === defaultId) { onNotification?.('Set another service as Default before deleting this one.', 'warning'); return; }
     if (!(await confirmDialog({
       title: `Delete ${singular.toLowerCase()} “${item.name}”?`,
       message: 'It won’t be offered on new orders. Saved prices stay; orders using it may need a replacement when edited.',
@@ -80,14 +81,14 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
     }))) return;
     if (slug) {
       const record = catalogQuery.data?.find(row => row.id === item.id); if (!record) return;
-      try { await operations.deleteCatalog(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'catalog'] }); onChanged?.(); onNotification?.(`${item.name} deleted.`); }
-      catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not delete ${item.name}.`); }
+      try { await operations.deleteCatalog(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'catalog'] }); onChanged?.(); onNotification?.(`${item.name} deleted.`, 'success'); }
+      catch (error) { onNotification?.(error instanceof Error ? error.message : `Could not delete ${item.name}.`, 'error'); }
       return;
     }
     const records = loadSimplePricingConfig()[section];
     if (!records.some(record => record.id === item.id)) return;
     commit(records.filter(record => record.id !== item.id));
-    onNotification?.(`${item.name} deleted.`);
+    onNotification?.(`${item.name} deleted.`, 'success');
   };
   return <section aria-label={title} className="space-y-4">
     {slug && catalogQuery.isPending && <p role="status" className="text-sm text-slate-500">Loading {title.toLowerCase()}…</p>}

@@ -1,5 +1,5 @@
 import { ActionButton } from './components/ui/button';
-import { showPopupFeedback } from './components/ui/popupFeedback';
+import { showPopupFeedback, type Notify } from './components/ui/popupFeedback';
 import { ChatWorkspace } from './components/chat/ChatWorkspace';
 import { PageHeader } from './components/layout/PageHeader';
 import { DispatcherChatPopup } from './components/chat/DispatcherChatPopup';
@@ -13,7 +13,7 @@ import { PanelLeft,} from 'lucide-react';
 import { AnimatePresence,motion } from 'motion/react';
 import { lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { companySlugForCurrentPath } from './lib/pageRoutes';
+import { companySlugForCurrentPath, pathForPage } from './lib/pageRoutes';
 import { allOperations, operations } from './operations/api';
 import { changeAssignment } from './operations/assignment';
 import { driverToUi } from './operations/adapters';
@@ -64,7 +64,7 @@ import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from '.
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ default: module.ReportsPage })));
 
 /** API attention kinds as dispatcher-facing labels. */
-const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', OPERATIONAL: 'Operational risk', NO_DRIVER: 'No driver' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
+const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', OPERATIONAL: 'Operational risk', NO_DRIVER: 'No driver', OUTSIDE_HOURS: 'Outside work hours' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
 
 export default function App({ onSignOut, loggingOut = false, logoutError }: { onSignOut?: () => void; loggingOut?: boolean; logoutError?: unknown } = {}) {
   const savedTmsWorkspace = useWorkspaceAccount()?.settings.data.tms_workspace === true;
@@ -115,7 +115,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
       nextStop: nextVisit?.stop.address.text ?? 'Not set', routeId: current?.id, ...timing,
       lastUpdate: row.last_seen_at ? dateTime(row.last_seen_at) : 'Not set' };
   }) : localDrivers;
-  useEffect(() => { if (!slug) try { saveDrivers(localDrivers); } catch { showToast('Driver changes could not be saved in this browser.'); } }, [localDrivers, slug]);
+  useEffect(() => { if (!slug) try { saveDrivers(localDrivers); } catch { showToast('Driver changes could not be saved in this browser.', 'error'); } }, [localDrivers, slug]);
   // Every order carries a PricingSnapshot from the shared engine, including the static mocks.
   const [localJobs, setJobs] = useState<Job[]>(() => slug ? [] : loadSavedOrders(INITIAL_JOBS));
   const jobs = slug ? (orderQuery.data ?? []).map(row => orderToUi(row, shipperQuery.data ?? [], catalogQuery.data ?? [], rateQuery.data ?? [], routeQuery.data?.find(route => route.id === row.route_id))) : localJobs;
@@ -142,7 +142,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   useEffect(() => { setRecordOverlay(null); setReviewOpen(false); }, [activeTab]);
 
 
-  useEffect(() => { if (!slug) try { saveOrders(localJobs); } catch { showToast('Order changes weren’t saved in this browser. Free up storage before reloading.'); } }, [localJobs, slug]);
+  useEffect(() => { if (!slug) try { saveOrders(localJobs); } catch { showToast('Order changes weren’t saved in this browser. Free up storage before reloading.', 'error'); } }, [localJobs, slug]);
   const [operationalAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
   // Orders that could not be priced (no card, conflict, zone no-match, missing distance) join the list.
   const needsAttentionItems = slug ? (monitorQuery.data?.needs_attention ?? []).map(item => {
@@ -231,7 +231,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   // Notification Toast state
   const [toastMessage, setToastMessage] = useState<LiveFeedback | null>(null);
 
-  const showToast = (msg: string, tone: 'default' | 'error' = 'default') => {
+  const showToast: Notify = (msg, tone = 'info') => {
     if (showPopupFeedback(msg, tone)) { setToastMessage(null); return; }
     const feedback = { text: msg, tone };
     setToastMessage(feedback);
@@ -410,7 +410,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
       if (!mapReady) {
         attempts += 1;
         if (attempts >= 80) {
-          showToast('Map is unavailable. Check the Google Maps configuration and try again.');
+          showToast('Map is unavailable. Check the Google Maps configuration and try again.', 'error');
           setPendingLocate(null);
           return true;
         }
@@ -447,7 +447,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         if (!(await confirmDialog({ title: 'Change driver?', message: affected > 1 ? `This planned route has ${affected} orders. Releasing it will leave the other orders unassigned.` : 'The planned route will be released before the assignment changes.', confirmLabel: 'Change driver' }))) return;
       }
       await changeAssignment(slug, record, driverId, driver.currentVehicleId ?? null, route);
-      showToast(`Assigned ${job.jobNumber} to ${driver.name}.`);
+      showToast(`Assigned ${job.jobNumber} to ${driver.name}.`, 'success');
     } catch (error) { showToast(error instanceof Error ? error.message : 'Could not assign driver.', 'error'); }
     finally { await refreshDispatch(); }
   };
@@ -455,19 +455,19 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const resolveIssue = async (item: NeedsAttentionItem, resolution: string) => {
     if (!slug || !item.issue) return;
     await operations.resolveIssue(slug, item.issue, resolution);
-    showToast(`Issue on ${item.jobNumber} resolved.`);
+    showToast(`Issue on ${item.jobNumber} resolved.`, 'success');
     await refreshDispatch();
   };
   const handleRecommendationAssigned = async (message: string) => {
     setShowAiRecommendation(false); setShowAssignDriver(false); setShowJobDetail(false);
-    showToast(message);
+    showToast(message, 'success');
     await refreshDispatch();
   };
   const dispatchModePendingRef = useRef(false);
   const [dispatchModePending, setDispatchModePending] = useState(false);
   const handleDispatchModeChange = async (mode: 'AUTO' | 'MANUAL') => {
     if (dispatchModePendingRef.current) return;
-    if (!slug) { setDispatchMode(mode); showToast(`Dispatch mode set to ${mode === 'AUTO' ? 'Auto' : 'Manual'}`); return; }
+    if (!slug) { setDispatchMode(mode); showToast(`Dispatch mode set to ${mode === 'AUTO' ? 'Auto' : 'Manual'}`, 'success'); return; }
     const current = settingsQuery.data;
     if (!current || mode === current.data.dispatch_mode) return;
     dispatchModePendingRef.current = true; setDispatchModePending(true);
@@ -475,8 +475,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
       const saved = await changeDispatchMode(slug, current, mode, () => setActiveTab('integrations'));
       if (!saved) return;
       queryClient.setQueryData(companySettingsKey(slug), saved);
-      showToast(mode === 'AUTO' ? 'Auto dispatch is on.' : 'Auto dispatch is off. Orders wait for a dispatcher.');
-    } catch (error) { showToast(error instanceof Error ? error.message : 'Could not change the dispatch mode.'); }
+      showToast(mode === 'AUTO' ? 'Auto dispatch is on.' : 'Auto dispatch is off. Orders wait for a dispatcher.', 'success');
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Could not change the dispatch mode.', 'error'); }
     finally { dispatchModePendingRef.current = false; setDispatchModePending(false); }
   };
 
@@ -523,12 +523,12 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   };
 
   const handleApproveRecommendation = () => {
-    if (slug) { showToast('Automated recommendations are not enabled for this company.'); return; }
+    if (slug) { showToast('Automated recommendations are not enabled for this company.', 'warning'); return; }
     const target = jobs.find(j => j.jobNumber === '#461');
     const driver = drivers.find(d => d.id === 'D09');
     if (!target || !driver) return;
     const errors = validateAssignment(target, driver, jobs, loadPricingContext());
-    if (errors.length) { showToast(errors.join(' ')); return; }
+    if (errors.length) { showToast(errors.join(' '), 'warning'); return; }
     // Reassign Job #461 to Maria Garcia (D09)
     setJobs((prev) =>
       prev.map((j) =>
@@ -550,7 +550,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     // Remove #461 from Needs Attention
     setNeedsAttentionItems((prev) => prev.filter((item) => item.jobNumber !== '#461'));
 
-    showToast('Job #461 moved to Maria Garcia. ETA 14 min sooner.');
+    showToast('Job #461 moved to Maria Garcia. ETA 14 min sooner.', 'success');
   };
 
   const handleKeepCurrent = () => {
@@ -715,6 +715,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
 
             {activeTab === 'monitor' && <>
             <TodaysPlan reviewNotice={slug ? <MonitorReviewNotice review={review} onOpen={() => setReviewOpen(true)} /> : undefined} attentionItems={needsAttentionItems} drivers={drivers} hiddenOrderIds={hiddenOrderIds} onOrderVisibilityChange={handleOrderVisibilityChange} chatOpen={showActivityPopover} onCloseChat={() => setShowActivityPopover(false)} focusVersion={planFocusVersion} jobs={jobs} timeZone={monitorTimeZone}
+              allOrders={{ href: pathForPage('jobs', location.pathname) ?? '#', open: () => setActiveTab('jobs') }}
               attentionIds={new Set(jobs.filter(job => needsAttentionItems.some(item => item.jobNumber === job.jobNumber)).map(job => job.id))}
               loading={!!slug && (orderQuery.isPending || settingsQuery.isPending || monitorQuery.isPending)}
               error={!!slug && (orderQuery.isError || settingsQuery.isError || monitorQuery.isError)}
@@ -806,7 +807,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               onSelectReference={reference => {
                 if (reference.kind === 'ORDER' && reference.order_number) {
                   if (jobs.some(job => job.id === reference.id)) handleSelectJob(reference.order_number);
-                  else if (slug) void operations.getOrder(slug, reference.id).then(row => setDossierJob(orderToUi(row, shipperQuery.data ?? [], catalogQuery.data ?? [], rateQuery.data ?? []))).catch(error => showToast(error instanceof Error ? error.message : 'Order details are unavailable.'));
+                  else if (slug) void operations.getOrder(slug, reference.id).then(row => setDossierJob(orderToUi(row, shipperQuery.data ?? [], catalogQuery.data ?? [], rateQuery.data ?? []))).catch(error => showToast(error instanceof Error ? error.message : 'Order details are unavailable.', 'error'));
                 } else if (reference.kind === 'DRIVER') {
                   if (drivers.some(driver => driver.id === reference.id)) handleSelectDriver(reference.id);
                   else openRecordOverlay('driver', reference.id);

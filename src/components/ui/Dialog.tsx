@@ -1,6 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { FeedbackMessage } from './FeedbackMessage';
+import type { FeedbackTone } from './popupFeedback';
 
 /**
  * Shared modal shell so every popup has the same surface, widths, spacing and controls.
@@ -21,7 +23,7 @@ export function Dialog({ onClose, size = 'md', children, className, entity = tru
 }) {
   const surface = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState('');
-  const [messageTone, setMessageTone] = useState<'default' | 'error'>('default');
+  const [messageTone, setMessageTone] = useState<FeedbackTone>('info');
   const [anchorStyle, setAnchorStyle] = useState<React.CSSProperties>();
   useLayoutEffect(() => {
     if (!anchor || modal) { setAnchorStyle(undefined); return; }
@@ -43,16 +45,14 @@ export function Dialog({ onClose, size = 'md', children, className, entity = tru
   }, [anchor, modal]);
   useEffect(() => {
     const panel = surface.current;
-    const receive = (event: Event) => { const detail = (event as CustomEvent<{ message: string; tone: 'default' | 'error' }>).detail; setMessage(detail.message); setMessageTone(detail.tone); };
+    const receive = (event: Event) => { const detail = (event as CustomEvent<{ message: string; tone: FeedbackTone }>).detail; setMessage(detail.message); setMessageTone(detail.tone); };
     panel?.addEventListener('popup-feedback', receive);
     return () => panel?.removeEventListener('popup-feedback', receive);
   }, []);
   return <div {...(entity ? { 'data-entity-dialog': true } : {})} className={cn('fixed inset-0 flex items-center justify-center p-4 animate-in fade-in duration-150', modal ? 'app-dialog-backdrop' : 'pointer-events-none', zIndex)} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
     <div ref={surface} style={anchorStyle} role={!modal ? "dialog" : undefined} aria-label={label} aria-modal={!modal ? false : undefined} data-popup-feedback className={cn('app-dialog-surface pointer-events-auto w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-150', SIZE[size], className)} onMouseDown={e => e.stopPropagation()}>
       {children}
-      {message && <div role={messageTone === 'error' ? 'alert' : 'status'} aria-live={messageTone === 'error' ? 'assertive' : 'polite'} aria-atomic="true" className={cn("mx-5 mb-4 flex shrink-0 items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm", messageTone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-800')}><span>{message}</span>
-        <button type="button" aria-label="Dismiss message" onClick={() => setMessage('')} className="shrink-0 text-slate-500"><X className="h-4 w-4" /></button>
-      </div>}
+      {message && <FeedbackMessage message={message} tone={messageTone} onDismiss={() => setMessage('')} className="mx-4 mb-3 shrink-0" />}
     </div>
   </div>;
 }

@@ -9,6 +9,8 @@ import { Switch } from '../ui/Switch';
 import { PasswordInput } from '../ui/PasswordInput';
 import { allOperations, operations, type EmailIntakeStatus, type Mailbox } from '../../operations/api';
 import { reviewMessages } from '../../lib/emailDraftReview';
+import type { FeedbackTone, Notify } from '../ui/popupFeedback';
+import { FeedbackMessage } from '../ui/FeedbackMessage';
 
 /** An Order agent draft handed to the order form; saving it links the new Order to the email. */
 export type EmailDraft = { intake: { id: string; version: number }; draft: Record<string, unknown> };
@@ -41,7 +43,7 @@ export function EmailStatusBadge({ status }: { status: EmailIntakeStatus }) {
 }
 
 export function IntakeDialog({ slug, id, onClose, onChanged, onNotification, onCompleteDraft, onShowOrder }: {
-  slug: string; id: string; onClose: () => void; onChanged: () => void; onNotification: (message: string) => void;
+  slug: string; id: string; onClose: () => void; onChanged: () => void; onNotification: Notify;
   onCompleteDraft: (draft: EmailDraft) => void; onShowOrder: (orderNumber: string) => void;
 }) {
   const detail = useQuery({ queryKey: ['operations', slug, 'email-intakes', id], queryFn: () => operations.emailIntake(slug, id) });
@@ -51,8 +53,8 @@ export function IntakeDialog({ slug, id, onClose, onChanged, onNotification, onC
   const row = detail.data;
   const act = async (label: string, run: () => Promise<unknown>) => {
     setBusy(true);
-    try { await run(); onChanged(); await detail.refetch(); onNotification(label); }
-    catch (error) { onNotification(message(error, 'Could not update the email.')); }
+    try { await run(); onChanged(); await detail.refetch(); onNotification(label, 'success'); }
+    catch (error) { onNotification(message(error, 'Could not update the email.'), 'error'); }
     finally { setBusy(false); }
   };
   const open = row ? OPEN.includes(row.status) : false;
@@ -115,12 +117,12 @@ function UnreadEmails({ slug }: { slug: string }) {
   const queryClient = useQueryClient();
   const failed = useQuery({ queryKey: ['operations', slug, 'email-intakes', 'failed'], queryFn: () => operations.emailIntakes(slug, ['FAILED']) });
   const [openId, setOpenId] = useState<string | null>(null);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState<{ message: string; tone?: FeedbackTone } | null>(null);
   if (!failed.data?.length) return null;
   return <section className="max-w-2xl space-y-2">
     <h3 className="app-section-title text-slate-900">Emails that could not be read</h3>
     <p className="text-sm text-slate-500">Open one to read it again or discard it. Emails that are not order requests are ignored and not listed.</p>
-    {notice && <p role="status" className="text-sm text-slate-600">{notice}</p>}
+    {notice && <FeedbackMessage message={notice.message} tone={notice.tone} onDismiss={() => setNotice(null)} />}
     <ul className="divide-y divide-slate-100 rounded-lg border border-app-border">
       {failed.data.map(row => <li key={row.id}><button type="button" onClick={() => setOpenId(row.id)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50">
         <span className="min-w-0"><span className="block truncate font-medium text-slate-800">{row.subject || '(no subject)'}</span>
@@ -128,7 +130,7 @@ function UnreadEmails({ slug }: { slug: string }) {
         <span className="shrink-0 text-xs text-slate-500">{when(row.received_at)}</span>
       </button></li>)}
     </ul>
-    {openId && <IntakeDialog slug={slug} id={openId} onClose={() => setOpenId(null)} onNotification={setNotice}
+    {openId && <IntakeDialog slug={slug} id={openId} onClose={() => setOpenId(null)} onNotification={(message, tone) => setNotice({ message, tone })}
       onChanged={() => queryClient.invalidateQueries({ queryKey: ['operations', slug, 'email-intakes'] })} onCompleteDraft={() => setOpenId(null)} onShowOrder={() => setOpenId(null)} />}
   </section>;
 }

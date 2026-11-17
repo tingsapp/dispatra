@@ -9,7 +9,8 @@ import { isValidFuelPercent, normalizeFuelSurcharge } from '../../lib/billingEng
 import { isValidTaxRate } from '../../lib/taxRate';
 import { BillingConfig } from '../../types/billing';
 import { useSettingsGuard } from './useSettingsGuard';
-export function useBillingSettings(onNotification?: (message: string) => void) {
+import type { Notify } from '../ui/popupFeedback';
+export function useBillingSettings(onNotification?: Notify) {
   const workspace = useWorkspaceAccount();
   const action = usePendingAction();
   const queryClient = useContext(QueryClientContext);
@@ -52,7 +53,7 @@ export function useBillingSettings(onNotification?: (message: string) => void) {
         queryClient.setQueryData(companySettingsKey(slug), saved);
         await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'settings'] });
         const next = companySettingsBilling(saved.data, loadBillingConfig());
-        setConfig(next); setBaseline(next); setIsSaved(true); onNotification?.('Settings saved.');
+        setConfig(next); setBaseline(next); setIsSaved(true); onNotification?.('Settings saved.', 'success');
       } catch (error) { setSaveError(error instanceof Error ? error.message : 'Could not save settings.'); }
       return;
     }
@@ -73,7 +74,7 @@ export function useBillingSettings(onNotification?: (message: string) => void) {
     setConfig(next);
     setBaseline(next);
     setIsSaved(true);
-    onNotification?.('Settings saved.');
+    onNotification?.('Settings saved.', 'success');
     setTimeout(() => setIsSaved(false), 2500);
   };
 
