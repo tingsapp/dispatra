@@ -22,7 +22,8 @@ test('open days must end after they start; unconfigured hours are 06:00–19:00 
   assert.equal(workHoursError(OFFICE.map(d => d.day === 'TUE' ? { ...d, end: '08:00' } : d)), 'Tuesday hours must end after they start.');
   // Closed days keep their saved times without blocking the save.
   assert.equal(workHoursError(OFFICE.map(d => d.day === 'SUN' ? { ...d, end: '01:00' } : d)), undefined);
-  assert.equal(todayIn('America/Vancouver', new Date('2026-12-25T07:30:00Z')), '2026-12-24');
+  // July avoids British Columbia's 2026 switch to permanent daylight time, which older ICU time-zone data lacks.
+  assert.equal(todayIn('America/Vancouver', new Date('2026-07-01T06:30:00Z')), '2026-06-30');
 });
 
 test('closedReason mirrors the API for form wall times and saved instants', () => {
