@@ -64,7 +64,7 @@ import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from '.
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ default: module.ReportsPage })));
 
 /** API attention kinds as dispatcher-facing labels. */
-const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', OPERATIONAL: 'Operational risk', NO_DRIVER: 'No driver', OUTSIDE_HOURS: 'Outside work hours' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
+const attentionLabel = (kind: string) => ({ OVERDUE: 'Overdue', LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', OPERATIONAL: 'Operational risk', NO_DRIVER: 'No driver', OUTSIDE_HOURS: 'Outside work hours' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
 
 export default function App({ onSignOut, loggingOut = false, logoutError }: { onSignOut?: () => void; loggingOut?: boolean; logoutError?: unknown } = {}) {
   const savedTmsWorkspace = useWorkspaceAccount()?.settings.data.tms_workspace === true;
@@ -147,7 +147,15 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   // Orders that could not be priced (no card, conflict, zone no-match, missing distance) join the list.
   const needsAttentionItems = slug ? (monitorQuery.data?.needs_attention ?? []).map(item => {
     const order = orderQuery.data?.find(row => row.id === item.order_id);
-    return { id: item.id ?? `${item.order_id}-${item.kind}`, jobNumber: order?.number ?? '', statusType: 'at_risk' as const, statusLabel: attentionLabel(item.kind), subtitle: item.description,
+    const job = jobs.find(row => row.id === item.order_id);
+    const assignedDriver = job?.assignedDriverId ? drivers.find(row => row.id === job.assignedDriverId) : undefined;
+    const overdueDate = item.kind === 'OVERDUE' && order?.scheduled_at
+      ? new Intl.DateTimeFormat('en-CA', { timeZone: monitorTimeZone, year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(order.scheduled_at))
+      : undefined;
+    const subtitle = overdueDate
+      ? `Pickup scheduled ${overdueDate}; ${order?.status.toLowerCase().replace('_', ' ')} · ${assignedDriver?.name ?? 'No driver'}.`
+      : item.description;
+    return { id: item.id ?? `${item.order_id}-${item.kind}`, jobNumber: order?.number ?? '', statusType: 'at_risk' as const, statusLabel: attentionLabel(item.kind), subtitle,
       pickupAddress: order?.facts.stops.find(stop => stop.kind === 'PICKUP')?.address.text ?? '', badgeColor: item.kind === 'AT_RISK' ? 'red' as const : 'amber' as const,
       ...(item.id && item.version != null ? { issue: { id: item.id, version: item.version } } : {}) };
   }) : [...pricingAttentionItems(jobs), ...operationalAttentionItems];

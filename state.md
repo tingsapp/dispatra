@@ -1,3 +1,6 @@
+2026-11-18 Active orders and the live Monitor map use the current company-local pickup day. Earlier unfinished pickups appear in Needs Attention and the briefing's Overdue orders section.
+Checks: Active orders, map visibility, live briefing, TypeScript and the production build passed.
+
 2026-11-17 Default work hours 06:00–19:00 daily (`DEFAULT_WORK_HOURS`); the order form checks hours only when the company's hours are loaded, so /prototype is unrestricted; schema.d.ts regenerated.
 Checks: lint, `operatingCalendar.test.tsx` 5/5.
 2026-11-17 Preferences: Work hours and Holidays use short one-line descriptions, the weekly summary and Copy Monday button are removed, and Holidays sits beside Work hours from `xl` up (stacked below on smaller screens).

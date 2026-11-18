@@ -68,7 +68,7 @@ test('checkboxes hide complete order markers and cached road paths without selec
   const selected:string[]=[];
   function Harness({rows=orders}:{rows?:Job[]}) {
     const [hidden,setHidden]=useState<ReadonlySet<string>>(new Set());
-    return <><TodaysPlan jobs={rows.map(row => ({...row, createdAt: new Date().toISOString()}))} timeZone="America/Vancouver" attentionIds={new Set()} onRetry={()=>{}}
+    return <><TodaysPlan jobs={rows.map(row => ({...row, scheduledTime: new Date().toISOString()}))} timeZone="America/Vancouver" attentionIds={new Set()} onRetry={()=>{}}
       onSelectOrder={order=>selected.push(order.jobNumber)} hiddenOrderIds={hidden} onOrderVisibilityChange={(id,visible)=>setHidden(current=>{const next=new Set(current);if(visible)next.delete(id);else next.add(id);return next;})} />
       <MonitorMapContent demo={false} jobs={rows.filter(row=>isActiveMonitorOrder(row)&&!hidden.has(row.id))} drivers={[INITIAL_DRIVERS[0]]} onSelectJob={()=>{}} onSelectDriver={()=>{}} layerConfig={{mode:'map',traffic:false,labels:true}} /></>;
   }
