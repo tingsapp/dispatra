@@ -21,7 +21,7 @@ const order = (id: string, lifecycleStatus: Job['lifecycleStatus'], schedule: st
   scheduledTime: /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(schedule) ? `${schedule}:00-07:00` : schedule,
 });
 
-test('lists today’s company-local pickups and still-open earlier pickups, never later pickups or creation dates', () => {
+test('lists only pickups scheduled for the current company-local day', () => {
   const today = '2026-10-27';
   const jobs = [order('new', 'NEW', '2026-10-27T15:00:00-07:00'), order('assigned', 'ASSIGNED', '2026-10-27T09:00:00-07:00'),
     order('moving', 'IN_PROGRESS', '2026-10-27T10:00:00-07:00'), order('done', 'COMPLETED', '2026-10-27T11:00:00-07:00'),
@@ -30,19 +30,19 @@ test('lists today’s company-local pickups and still-open earlier pickups, neve
     order('old-done', 'COMPLETED', '2026-10-25T09:00:00-07:00'), order('invalid', 'NEW', 'invalid')];
   jobs[5].createdAt = '2026-10-27T08:00:00-07:00'; // Booked today for tomorrow: waits for its pickup day.
   jobs[6].createdAt = '2026-10-20T08:00:00-07:00'; // 11:30 p.m. Oct 27 in Vancouver, booked last week.
-  const groups = todaysPlan(jobs, today, zone, new Set(['assigned', 'moving', 'done', 'tomorrow']));
+  const groups = todaysPlan(jobs, today, zone, new Set(['assigned', 'moving', 'done', 'tomorrow', 'carried']));
   assert.deepEqual(Object.fromEntries(Object.entries(groups).map(([key, rows]) => [key, rows.map(row => row.id)])), {
-    all: ['carried', 'assigned', 'moving', 'done', 'new', 'late'], unassigned: ['new', 'late'], assigned: ['carried', 'assigned'],
+    all: ['assigned', 'moving', 'done', 'new', 'late'], unassigned: ['new', 'late'], assigned: ['assigned'],
     in_progress: ['moving'], completed: ['done'], attention: ['assigned', 'moving'],
   });
   assert.equal(pickupDay(jobs[6], zone), today);
   assert.equal(pickupDay(jobs[9], zone), undefined);
 });
 
-test('the live map shows the same day: active orders picked up today or still open from earlier', () => {
+test('the live map shows active orders scheduled for the current company-local day', () => {
   const rows = [order('today', 'IN_PROGRESS', '2026-10-27T09:00:00-07:00'), order('older', 'ASSIGNED', '2026-10-26T09:00:00-07:00'),
     order('tomorrow', 'NEW', '2026-10-28T09:00:00-07:00'), order('done', 'COMPLETED', '2026-10-27T09:00:00-07:00'), order('missing', 'NEW', '')];
-  assert.deepEqual(rows.filter(row => isTodaysMonitorOrder(row, '2026-10-27', zone)).map(row => row.id), ['today', 'older']);
+  assert.deepEqual(rows.filter(row => isTodaysMonitorOrder(row, '2026-10-27', zone)).map(row => row.id), ['today']);
 });
 
 test('attention counts an order once even when API and local flags overlap', () => {

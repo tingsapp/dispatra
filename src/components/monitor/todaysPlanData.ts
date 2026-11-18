@@ -22,10 +22,10 @@ export function pickupDay(job: Job, timeZone: string): string | undefined {
   return job.scheduledTime && Number.isFinite(date.getTime()) ? companyDay(date, timeZone) : undefined;
 }
 
-/** Today's work: orders picked up today, plus earlier pickups that are still open. Later pickups wait for their day. */
+/** Today's work: only orders whose scheduled pickup falls on the company's current day. */
 export function isTodaysOrder(job: Job, today: string, timeZone: string) {
   const day = pickupDay(job, timeZone), status = orderLifecycle(job);
-  return !!day && status !== 'CANCELLED' && (day === today || day < today && status !== 'COMPLETED');
+  return !!day && status !== 'CANCELLED' && day === today;
 }
 
 export function todaysPlan(jobs: Job[], today: string, timeZone: string, attentionIds: ReadonlySet<string>) {

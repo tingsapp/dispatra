@@ -71,11 +71,14 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
   assert.deepEqual(requests, ['BRIEFING', 'CHAT', 'CHAT', 'BRIEFING']);
 });
 
-test('the open briefing follows workspace changes and never shows the AI commentary', async () => {
+test('the open briefing follows workspace changes and leaves overdue orders out of the card', async () => {
   const opening = { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 1, unassigned: 1, assigned: 0, in_progress: 0, completed: 0, open_incidents: 0, dispatch_mode: 'MANUAL' as const, assigned_by_driver: [] as { driver_name: string; orders: number }[] };
   let totals = opening;
   operations.assistant = async () => ({ message: 'Assign the waiting order.', references: [], mode: 'AI', observed_at: '2026-11-04T17:00:00Z', limited: false, briefing: opening });
-  operations.briefing = async () => ({ briefing: totals, observed_at: new Date().toISOString() });
+  operations.briefing = async () => {
+    const briefing = { ...totals, overdue_count: 1, overdue_orders: [{ order_number: 'ORD-OLD', scheduled_at: '2026-11-03T16:00:00Z', status: 'ASSIGNED' }] };
+    return { briefing, observed_at: new Date().toISOString() };
+  };
   mount();
   await screen.findByText('Auto dispatch is off. 1 order waiting for you to assign.');
   assert.equal(screen.queryByText('Assign the waiting order.'), null);
@@ -91,6 +94,8 @@ test('the open briefing follows workspace changes and never shows the AI comment
   totals = { ...totals, open_incidents: 2 };
   await act(() => Promise.all(syncInvalidations('DISPATCHER', 'acme', [{ entity: 'watch', type: 'watch.detected' } as never]).map(queryKey => cache.invalidateQueries({ queryKey }))));
   await screen.findByText('2 open issues to review');
+  assert.equal(screen.queryByRole('region', { name: 'Overdue orders' }), null);
+  assert.equal(screen.queryByText('ORD-OLD'), null);
 });
 
 test('a chat assignment shows one Confirm button, saves only after it and keeps refusals on the card', async () => {

@@ -29,7 +29,7 @@ interface TodaysPlanProps extends OrderMapVisibilityProps {
   error?: boolean;
   onRetry: () => void;
   onSelectOrder: (job: Job) => void;
-  /** Full Orders list; the panel itself only covers today's pickups and open earlier ones. */
+  /** Full Orders list; the panel itself only covers the current company-local pickup day. */
   allOrders?: { href: string; open: () => void };
 }
 
@@ -63,7 +63,7 @@ export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, o
         <span className="flex items-center gap-2"><span className="text-sm font-medium">Active orders</span>{!loading && !error && <MonitorBadge>{groups.all.length}</MonitorBadge>}</span>
         {expanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
       </button>
-      <p className="mt-1 flex min-w-0 gap-x-1.5 whitespace-nowrap text-[11px] text-app-muted"><span className="truncate" title={`Today’s pickups (${new Intl.DateTimeFormat('en-CA', { timeZone, month: 'short', day: 'numeric' }).format(now)}) and unfinished orders from earlier days`}>Orders to be delivered today</span>{allOrders && <a href={allOrders.href} className="shrink-0 font-medium text-slate-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-slate-500" onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); allOrders.open(); }}>View all orders</a>}</p>
+      <p className="mt-1 flex min-w-0 gap-x-1.5 whitespace-nowrap text-[11px] text-app-muted"><span className="truncate" title={`Orders scheduled for ${new Intl.DateTimeFormat('en-CA', { timeZone, month: 'short', day: 'numeric' }).format(now)} in the company time zone`}>Orders to be delivered today</span>{allOrders && <a href={allOrders.href} className="shrink-0 font-medium text-slate-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-slate-500" onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); allOrders.open(); }}>View all orders</a>}</p>
     </header>
     {reviewNotice}
     {expanded && <div id={contentId} data-plan-body>
