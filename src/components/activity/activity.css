@@ -59,13 +59,6 @@
 .briefing-counts dt { overflow: hidden; font-size: 10px; line-height: 16px; color: #64748b; text-overflow: ellipsis; white-space: nowrap; }
 .briefing-counts dd { display: flex; align-items: center; gap: 6px; font-size: 21px; line-height: 26px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .briefing-counts dd::before { content: ''; flex-shrink: 0; width: 6px; height: 6px; border-radius: 999px; }
-.briefing-overdue { padding: 10px 12px; border: 1px solid #fde68a; border-radius: 14px; background: #fffbeb; }
-.briefing-overdue h4 { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #92400e; font-size: 12px; font-weight: 500; }
-.briefing-overdue h4 span { font-variant-numeric: tabular-nums; }
-.briefing-overdue ul { display: grid; gap: 4px; margin-top: 6px; }
-.briefing-overdue li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: #78350f; font-size: 11px; line-height: 16px; }
-.briefing-overdue li strong { font-weight: 600; }
-.briefing-overdue-more { color: #92400e !important; }
 .briefing-guidance { display: grid; padding: 2px 12px; border-radius: 14px; background: #fafafa; }
 .briefing-guidance > li { display: flex; align-items: flex-start; gap: 9px; padding: 9px 0; font-size: 12px; line-height: 18px; }
 .briefing-guidance > li + li { border-top: 1px solid rgb(15 23 42 / 6%); }

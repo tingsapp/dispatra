@@ -5160,13 +5160,6 @@ export interface components {
             in_progress: number;
             /** Completed */
             completed: number;
-            /**
-             * Overdue Count
-             * @default 0
-             */
-            overdue_count: number;
-            /** Overdue Orders */
-            overdue_orders?: components["schemas"]["OverdueOrderSummary"][];
             /** Open Incidents */
             open_incidents: number;
             /**
@@ -7172,21 +7165,6 @@ export interface components {
              * @default false
              */
             payment_required: boolean;
-        };
-        /** OverdueOrderSummary */
-        OverdueOrderSummary: {
-            /** Order Number */
-            order_number: string;
-            /**
-             * Scheduled At
-             * Format: date-time
-             */
-            scheduled_at: string;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "NEW" | "ASSIGNED" | "IN_PROGRESS";
         };
         /** OverviewDispatcherUpdate */
         OverviewDispatcherUpdate: {

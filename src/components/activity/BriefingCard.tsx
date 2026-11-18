@@ -20,12 +20,7 @@ export function BriefingCard({ slug, reply }: { slug?: string; reply: AssistantR
   const live = useLiveBriefing(slug, reply);
   if (!live) return null;
   const data = live.briefing;
-  const overdueOrders = data.overdue_orders ?? [];
-  const attention = data.open_incidents > 0 || data.overdue_count > 0;
-  const attentionSummary = [
-    data.overdue_count > 0 && `${data.overdue_count} overdue ${data.overdue_count === 1 ? 'order' : 'orders'}`,
-    data.open_incidents > 0 && `${data.open_incidents} open ${data.open_incidents === 1 ? 'issue' : 'issues'}`,
-  ].filter(Boolean).join(' · ');
+  const attention = data.open_incidents > 0;
   const Icon = attention ? CircleAlert : CircleCheck;
   const updated = new Intl.DateTimeFormat('en-CA', { timeZone: data.time_zone, hour: 'numeric', minute: '2-digit' }).format(new Date(live.observed_at));
   const Mode = data.dispatch_mode === 'AUTO' ? Zap : Hand;
@@ -41,20 +36,9 @@ export function BriefingCard({ slug, reply }: { slug?: string; reply: AssistantR
         {STATUSES.map(([label, key]) => <div key={key} data-status={key}><dt>{label}</dt><dd>{data[key].toLocaleString()}</dd></div>)}
       </dl>
     </section>
-    {!!data.overdue_count && <section className="briefing-overdue" aria-label="Overdue orders">
-      <h4>Overdue orders <span>{data.overdue_count}</span></h4>
-      <ul>
-        {overdueOrders.map(order => <li key={order.order_number}>
-          <strong>{order.order_number}</strong>
-          <span>{new Intl.DateTimeFormat('en-CA', { timeZone: data.time_zone, month: 'short', day: 'numeric' }).format(new Date(order.scheduled_at))}</span>
-          <span>{order.status.replace('_', ' ').toLowerCase()}</span>
-        </li>)}
-        {data.overdue_count > overdueOrders.length && <li className="briefing-overdue-more">+ {data.overdue_count - overdueOrders.length} more</li>}
-      </ul>
-    </section>}
     <ul className="briefing-guidance">
       <li className="briefing-dispatch"><Mode size={15} className="shrink-0 text-slate-500" aria-hidden="true" /><span>{dispatchSummary(data)}</span></li>
-      <li className={`briefing-issues ${attention ? 'text-amber-700' : 'text-emerald-700'}`}><Icon size={15} className="shrink-0" aria-hidden="true" />{attention ? `${attentionSummary} to review` : 'No open issues or overdue orders'}<span className="sr-only"> across your workspace</span></li>
+      <li className={`briefing-issues ${attention ? 'text-amber-700' : 'text-emerald-700'}`}><Icon size={15} className="shrink-0" aria-hidden="true" />{attention ? `${data.open_incidents} open ${data.open_incidents === 1 ? 'issue' : 'issues'} to review` : 'No open issues recorded'}<span className="sr-only"> across your workspace</span></li>
     </ul>
   </div>;
 }

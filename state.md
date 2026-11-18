@@ -1,5 +1,5 @@
-2026-11-18 Active orders and the live Monitor map use the current company-local pickup day. Earlier unfinished pickups appear in Needs Attention and the briefing's Overdue orders section.
-Checks: Active orders, map visibility, live briefing, TypeScript and the production build passed.
+2026-11-18 Today so far, Active orders and Monitor map use only the current company-local pickup day. Earlier unfinished orders appear only in Needs Attention.
+Checks: TypeScript and focused briefing, Active orders and map tests passed; production build is checked by the VM release gate.
 
 2026-11-17 Default work hours 06:00–19:00 daily (`DEFAULT_WORK_HOURS`); the order form checks hours only when the company's hours are loaded, so /prototype is unrestricted; schema.d.ts regenerated.
 Checks: lint, `operatingCalendar.test.tsx` 5/5.
