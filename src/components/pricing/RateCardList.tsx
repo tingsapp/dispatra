@@ -2,6 +2,7 @@ import { SearchInput } from '../ui/SearchInput';
 import { Clock3, FileInput, MapPin, Package, Plus, Route, type LucideIcon } from 'lucide-react';
 import { PricingMethod, RateCard } from '../../types/pricing';
 import { METHOD_LABELS, primaryBtn } from './RateCardFields';
+import { cardLoadSize, loadSizeShort } from '../../lib/loadSize';
 
 const METHOD_ICONS: Record<PricingMethod, LucideIcon> = {
   BASE_PLUS_DISTANCE: Route,
@@ -46,7 +47,7 @@ export function RateCardList({ cards, selectedId, search, onSearch, onAdd, onSel
               <span className="truncate text-sm text-slate-900" title={card.name}>{card.name}</span>
               {isDefault(card) && <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">Default</span>}
             </span>
-            <span className="mt-0.5 block text-xs text-slate-500">{METHOD_LABELS[card.pricingMethod]}</span>
+            <span className="mt-0.5 block text-xs text-slate-500">{METHOD_LABELS[card.pricingMethod]} · {loadSizeShort(cardLoadSize(card))}</span>
           </span>
         </button>;
       })}

@@ -1,6 +1,8 @@
 import { Order } from '../types';
 import { PricingOrderInput } from '../types/pricing';
-import { Customer } from '../lib/customerStorage';
+import { Customer, shipperRateCardIds } from '../lib/customerStorage';
+import { cardLoadSize, type LoadSize } from '../lib/loadSize';
+import type { RateCard } from '../types/pricing';
 import { addressChange } from '../lib/taxAddress';
 
 /** New-order estimates use the selected driver's attached asset, never a guessed type. */
@@ -12,6 +14,13 @@ export function normalizeOrderInput(input: PricingOrderInput): PricingOrderInput
     packages: input.packages.map(p => ({ ...p, ...(pickups.length === 1 && drops.length === 1 ? { pickupStopId: p.pickupStopId ?? pickups[0].id, deliveryStopId: p.deliveryStopId ?? drops[0].id } : {}) })) };
 }
 export const snapshotCustomer = (c?: Customer): Order['customerSnapshot'] => c ? { id: c.id, name: c.name, phone: c.phone, email: c.email, billingEmail: c.email, legalName: c.legalName, address: c.address } : undefined;
+/** New orders start with the load size of the shipper's default (first) card; undefined when it is unknown. */
+export function shipperLoadSize(c: Customer, cards: RateCard[] = []): LoadSize | undefined {
+  const id = shipperRateCardIds(c)[0];
+  const card = cards.find(card => card.id === id && card.status === 'ACTIVE');
+  return card ? cardLoadSize(card) : c.rateCardLoadSizes?.[0];
+}
+
 export function applyCustomerDefaults(input: PricingOrderInput, c?: Customer, previous?: Customer): PricingOrderInput {
   if (!c) return { ...input, customerId: null, requiredDriverId: null, requiredDriverName: null };
   const warehouse = c.address.trim();

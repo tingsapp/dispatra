@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Driver, NeedsAttentionItem } from '../types';
 import { MonitorBadge } from './monitor/MonitorBadge';
+import { attentionEntries } from './monitor/attentionEntries';
 import { ReviewAttentionItem, hasReviewAttention, type ReviewAttentionProps } from './monitor/ReviewAttentionItem';
 import { ResolveIssue, type ResolveIssueHandler } from './monitor/ResolveIssue';
 
@@ -30,7 +31,7 @@ interface TopMetricsProps extends ReviewAttentionProps {
 }
 
 export const TopMetrics: React.FC<TopMetricsProps> = ({
-  reviewCount = 0, reviewCapped = false, reviewPending = false, reviewFailed = false, onOpenReview,
+  reviewCount = 0, reviewLatestAt, reviewCapped = false, reviewPending = false, reviewFailed = false, onOpenReview,
   drivers,
   availableDriversCount,
   needsAttentionCount,
@@ -201,12 +202,10 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                 </button>
               </div>
 
-              <ReviewAttentionItem reviewCount={reviewCount} reviewCapped={reviewCapped} reviewPending={reviewPending} reviewFailed={reviewFailed}
-                onOpenReview={() => { setShowNeedsAttentionPopover(false); onOpenReview?.(); }} />
               {!needsAttentionItems.length && !hasReviewAttention({ reviewCount, reviewPending, reviewFailed }) && <p className="py-4 text-center text-xs text-slate-500">No alerts requiring attention.</p>}
               {/* Items List */}
               <div className="">
-                {needsAttentionItems.map((item) => (
+                {attentionEntries(needsAttentionItems, reviewLatestAt, hasReviewAttention({reviewCount,reviewPending,reviewFailed})).map(({id,item}) => !item ? <ReviewAttentionItem key={id} reviewCount={reviewCount} reviewCapped={reviewCapped} reviewPending={reviewPending} reviewFailed={reviewFailed} onOpenReview={() => {setShowNeedsAttentionPopover(false);onOpenReview?.();}} /> : (
                   <div
                     key={item.id}
                       role="button"

@@ -4,7 +4,7 @@ import { after, afterEach, test } from 'node:test';
 import React from 'react';
 import { INITIAL_JOBS } from '../src/data/mockData';
 import type { Job } from '../src/types';
-import { companyDay, pickupDay, ordersCompletedToday, todaysPlan } from '../src/components/monitor/todaysPlanData';
+import { companyDay, pickupDay, ordersCompletedToday, todaysPlan, receivedOnDay } from '../src/components/monitor/todaysPlanData';
 import { isTodaysMonitorOrder } from '../src/components/monitor/orderVisibility';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
@@ -14,6 +14,13 @@ const { TodaysPlan } = await import('../src/components/monitor/TodaysPlan');
 afterEach(cleanup);
 after(() => dom.window.close());
 const zone = 'America/Vancouver';
+test('request dates use the company day and exclude invalid values and both adjacent days', () => {
+  assert.equal(receivedOnDay('2026-11-18T04:59:59Z', '2026-11-18', 'America/Toronto'), false);
+  assert.equal(receivedOnDay('2026-11-18T05:00:00Z', '2026-11-18', 'America/Toronto'), true);
+  assert.equal(receivedOnDay('2026-11-19T04:59:59Z', '2026-11-18', 'America/Toronto'), true);
+  assert.equal(receivedOnDay('2026-11-19T05:00:00Z', '2026-11-18', 'America/Toronto'), false);
+  assert.equal(receivedOnDay('invalid', '2026-11-18', 'America/Toronto'), false);
+});
 const order = (id: string, lifecycleStatus: Job['lifecycleStatus'], schedule: string): Job => ({
   ...INITIAL_JOBS[0], id, jobNumber: `#${id}`, lifecycleStatus, status: 'on_time', assignedDriverId: undefined,
   pricing: undefined, pricingInput: undefined, createdAt: `${schedule.slice(0, 10)}T12:00:00-07:00`,
@@ -21,7 +28,7 @@ const order = (id: string, lifecycleStatus: Job['lifecycleStatus'], schedule: st
   scheduledTime: /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(schedule) ? `${schedule}:00-07:00` : schedule,
 });
 
-test('lists today’s company-local pickups and still-open earlier pickups, never later pickups or creation dates', () => {
+test('lists only pickups scheduled for the current company-local day', () => {
   const today = '2026-10-27';
   const jobs = [order('new', 'NEW', '2026-10-27T15:00:00-07:00'), order('assigned', 'ASSIGNED', '2026-10-27T09:00:00-07:00'),
     order('moving', 'IN_PROGRESS', '2026-10-27T10:00:00-07:00'), order('done', 'COMPLETED', '2026-10-27T11:00:00-07:00'),
@@ -30,19 +37,19 @@ test('lists today’s company-local pickups and still-open earlier pickups, neve
     order('old-done', 'COMPLETED', '2026-10-25T09:00:00-07:00'), order('invalid', 'NEW', 'invalid')];
   jobs[5].createdAt = '2026-10-27T08:00:00-07:00'; // Booked today for tomorrow: waits for its pickup day.
   jobs[6].createdAt = '2026-10-20T08:00:00-07:00'; // 11:30 p.m. Oct 27 in Vancouver, booked last week.
-  const groups = todaysPlan(jobs, today, zone, new Set(['assigned', 'moving', 'done', 'tomorrow']));
+  const groups = todaysPlan(jobs, today, zone, new Set(['assigned', 'moving', 'done', 'tomorrow', 'carried']));
   assert.deepEqual(Object.fromEntries(Object.entries(groups).map(([key, rows]) => [key, rows.map(row => row.id)])), {
-    all: ['carried', 'assigned', 'moving', 'done', 'new', 'late'], unassigned: ['new', 'late'], assigned: ['carried', 'assigned'],
-    in_progress: ['moving'], completed: ['done'], attention: ['assigned', 'moving'],
+    all: ['new', 'moving', 'done', 'assigned', 'late'], unassigned: ['new', 'late'], assigned: ['assigned'],
+    in_progress: ['moving'], completed: ['done'], attention: ['moving', 'assigned'],
   });
   assert.equal(pickupDay(jobs[6], zone), today);
   assert.equal(pickupDay(jobs[9], zone), undefined);
 });
 
-test('the live map shows the same day: active orders picked up today or still open from earlier', () => {
+test('the live map shows active orders scheduled for the current company-local day', () => {
   const rows = [order('today', 'IN_PROGRESS', '2026-10-27T09:00:00-07:00'), order('older', 'ASSIGNED', '2026-10-26T09:00:00-07:00'),
     order('tomorrow', 'NEW', '2026-10-28T09:00:00-07:00'), order('done', 'COMPLETED', '2026-10-27T09:00:00-07:00'), order('missing', 'NEW', '')];
-  assert.deepEqual(rows.filter(row => isTodaysMonitorOrder(row, '2026-10-27', zone)).map(row => row.id), ['today', 'older']);
+  assert.deepEqual(rows.filter(row => isTodaysMonitorOrder(row, '2026-10-27', zone)).map(row => row.id), ['today']);
 });
 
 test('attention counts an order once even when API and local flags overlap', () => {
@@ -86,7 +93,7 @@ test('loading and failure never present misleading zero counts; retry works', ()
 
 test('empty day shows a clear message without zero status rows', () => {
   render(<TodaysPlan jobs={[]} attentionIds={new Set()} timeZone={zone} onRetry={() => {}} onSelectOrder={() => {}} />);
-  assert.ok(screen.getByText('No pickups today.'));
+  assert.ok(screen.getByText('No orders scheduled for pickup today.'));
   assert.equal(screen.queryByRole('list', { name: 'Today’s orders' }), null);
   assert.equal(screen.queryAllByRole('button').length, 1);
 });
@@ -100,7 +107,7 @@ test('collapses for chat, restores afterward, and respects intentional hiding', 
   assert.equal(toggle().getAttribute('aria-expanded'), 'true');
   view.rerender(<TodaysPlan {...props} chatOpen />);
   assert.equal(toggle().getAttribute('aria-expanded'), 'false');
-  assert.equal(screen.queryByText('No pickups today.'), null);
+  assert.equal(screen.queryByText('No orders scheduled for pickup today.'), null);
   fireEvent.click(toggle());
   assert.equal(closed, 1);
   view.rerender(<TodaysPlan {...props} />);
@@ -110,7 +117,7 @@ test('collapses for chat, restores afterward, and respects intentional hiding', 
   view.rerender(<TodaysPlan {...props} />);
   assert.equal(toggle().getAttribute('aria-expanded'), 'false');
   fireEvent.click(toggle());
-  assert.ok(screen.getByText('No pickups today.'));
+  assert.ok(screen.getByText('No orders scheduled for pickup today.'));
 });
 
 
@@ -125,10 +132,10 @@ test('an incoming order or draft focus request reopens a manually collapsed plan
 });
 
 
-test('sorts by pickup time without mutating the source and searches the filtered list', () => {
+test('sorts by newest creation time without mutating the source and searches the filtered list', () => {
   const today = companyDay(new Date(), zone);
-  const older = order('older', 'NEW', new Date(`${today}T12:00:00Z`).toISOString());
-  const newer = order('newer', 'NEW', new Date(`${today}T10:00:00Z`).toISOString());
+  const older = {...order('older', 'NEW', new Date(`${today}T12:00:00Z`).toISOString()), createdAt: `${today}T08:00:00Z`};
+  const newer = {...order('newer', 'NEW', new Date(`${today}T10:00:00Z`).toISOString()), createdAt: `${today}T09:00:00Z`};
   const jobs = [older, newer];
   assert.deepEqual(todaysPlan(jobs, today, zone, new Set()).all.map(j => j.id), ['newer', 'older']);
   assert.deepEqual(jobs.map(j => j.id), ['older', 'newer']);
@@ -167,7 +174,7 @@ test('labels schedule fallback and missing driver and time honestly', () => {
   assert.ok(screen.getByText('No driver'));
   // Without a pickup time an order has no Monitor day; it stays on the Orders page.
   view.rerender(<TodaysPlan {...props} jobs={[{...job, scheduledTime: ''}]} />);
-  assert.ok(screen.getByText('No pickups today.'));
+  assert.ok(screen.getByText('No orders scheduled for pickup today.'));
 });
 
 
@@ -192,7 +199,7 @@ test('shows missing driver once when already conveyed by the status badge', () =
   const row = within(screen.getByRole('list')).getByRole('button');
   assert.ok(within(row).getByText('New'));
   assert.equal(within(row).queryByText(/no driver/i), null);
-  assert.ok(screen.getByText('Orders to be delivered today'));
+  assert.ok(screen.getByText(/Today’s scheduled orders/));
   const all = screen.getByRole('link', { name: 'View all orders' });
   assert.equal(all.getAttribute('href'), '/acme/orders');
   fireEvent.click(all);
@@ -324,4 +331,15 @@ test('Completed tab shows only completed orders', () => {
   assert.equal(within(list).getAllByRole('listitem').length, 1);
   assert.ok(within(list).getByText('#done-filter'));
   assert.equal(within(list).queryByText('#moving-filter'), null);
+});
+
+
+test('attention alerts and incoming requests share newest-first ordering without mutating input', async () => {
+  const { attentionEntries } = await import('../src/components/monitor/attentionEntries');
+  const rows = [
+    {id:'old',at:'2026-11-18T09:00:00Z'},
+    {id:'new',at:'2026-11-18T12:00:00Z'},
+  ] as import('../src/types').NeedsAttentionItem[];
+  assert.deepEqual(attentionEntries(rows,'2026-11-18T10:00:00Z',true).map(row=>row.id), ['new','request-review','old']);
+  assert.deepEqual(rows.map(row=>row.id),['old','new']);
 });

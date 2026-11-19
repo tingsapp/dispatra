@@ -18,6 +18,7 @@ import { formatPhone } from '../lib/phone';
 import { OrderMapCheckbox, type OrderMapVisibilityProps } from './monitor/OrderMapCheckbox';
 import { isActiveMonitorOrder } from './monitor/orderVisibility';
 import { MonitorBadge } from './monitor/MonitorBadge';
+import { attentionEntries } from './monitor/attentionEntries';
 import { ReviewAttentionItem, hasReviewAttention, type ReviewAttentionProps } from './monitor/ReviewAttentionItem';
 import { DialogHeader, DialogBody } from './ui/Dialog';
 import { useEntityDialog } from './entities/useEntityDialog';
@@ -175,7 +176,7 @@ export const DetailModalDialog: React.FC<DetailModalDialogProps> = (props) => {
           {effectiveType === 'all_exceptions' && (
             <AllExceptionsView
               exceptions={effectiveExceptions}
-              reviewCount={props.reviewCount} reviewCapped={props.reviewCapped} reviewPending={props.reviewPending} reviewFailed={props.reviewFailed}
+              reviewCount={props.reviewCount} reviewLatestAt={props.reviewLatestAt} reviewCapped={props.reviewCapped} reviewPending={props.reviewPending} reviewFailed={props.reviewFailed}
               onOpenReview={() => { onClose(); props.onOpenReview?.(); }}
               onClose={onClose}
               onSelectJob={onSelectJob}
@@ -417,9 +418,8 @@ const AllExceptionsView: React.FC<ReviewAttentionProps & {
 
       <DialogBody>
         <ul aria-label="Alerts requiring attention" className="divide-y divide-slate-100">
-          {hasReviewAttention(review) && <li><ReviewAttentionItem {...review} /></li>}
           {exceptions.length === 0 && !hasReviewAttention(review) && <li className="py-8 text-center text-sm text-slate-500">No alerts requiring attention.</li>}
-          {exceptions.map(item => <li key={item.id} className="flex flex-col gap-3 px-2 py-4 first:pt-2 last:pb-2 sm:flex-row sm:items-start sm:gap-6 text-[13px] leading-5">
+          {attentionEntries(exceptions, review.reviewLatestAt, hasReviewAttention(review)).map(({id,item}) => !item ? <li key={id}><ReviewAttentionItem {...review} /></li> : <li key={item.id} className="flex flex-col gap-3 px-2 py-4 first:pt-2 last:pb-2 sm:flex-row sm:items-start sm:gap-6 text-[13px] leading-5">
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-slate-900 [overflow-wrap:anywhere]">{item.jobNumber}</span>

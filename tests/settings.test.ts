@@ -495,8 +495,8 @@ test('customer groups are absent from Pricing tabs and the customer form attache
   render(React.createElement(CustomersPage, { onBackToMonitor: noop }));
   await user.click(screen.getByRole('button', { name: 'New Shipper' }));
   assert.equal(screen.queryByRole('combobox', { name: 'Customer group' }), null);
-  await user.click(screen.getByRole('combobox', { name: 'Shipper rate card' }));
-  assert.deepEqual(screen.getAllByRole('option').map(o => o.textContent), ['Contract A (Default)']); assert.equal(screen.queryByRole('option', { name: /^Default \(/ }), null);
+  await user.click(screen.getByRole('combobox', { name: 'Shipper rate cards' }));
+  assert.deepEqual(screen.getAllByRole('option').map(o => o.textContent), ['No cards for this size yet', 'Contract A · Company default', 'No cards for this size yet']); assert.equal(screen.queryByRole('option', { name: /^Default \(/ }), null);
 });
 
 test('Fuel Surcharge omits retired rounding and minimum controls', async () => {

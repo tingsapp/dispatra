@@ -1,6 +1,6 @@
 import { bookingInstant } from './time';
 import type { SelectedAddress } from '../components/ui/AddressAutocomplete';
-import type { Customer } from '../lib/customerStorage';
+import { shipperRateCardIds, type Customer } from '../lib/customerStorage';
 import type { Address, Shipper, ShipperInput } from './api';
 
 /** Accept the complete Canadian address shown by the existing one-field forms. */
@@ -28,7 +28,7 @@ export function shipperToCustomer(row: Shipper): Customer {
     email: row.email, phone: row.phone, address: row.warehouse.text, city: row.warehouse.city,
     accountType: 'Standard Freight', status, defaultRequirements: [], billingEmail: '',
     assignedDriverId: row.assigned_driver_id, assignedDriverName: row.assigned_driver_name,
-    rateCardId: row.rate_card_id, discount: { type: row.discount.kind, value: Number(row.discount.value), scope: 'TRANSPORT_ONLY' },
+    rateCardId: row.rate_card_id, rateCardIds: row.rate_card_ids?.length ? row.rate_card_ids : row.rate_card_id ? [row.rate_card_id] : [], rateCardLoadSizes: row.rate_card_load_sizes, discount: { type: row.discount.kind, value: Number(row.discount.value), scope: 'TRANSPORT_ONLY' },
     taxProfileId: null, taxExempt: false, totalShipments: 0, activeJobsCount: 0,
     notes: row.instructions, createdAt: row.created_at,
     communicationPreferences: { sms: false, email: row.email_updates ?? true, tracking: true },
@@ -41,7 +41,8 @@ export function customerToShipper(form: Partial<Customer>, previous?: Shipper, c
     name: form.name?.trim() ?? '', kind, company_name: kind === 'BUSINESS' ? form.legalName?.trim() ?? '' : '',
     email: form.email?.trim().toLowerCase() ?? '', phone: form.phone?.trim() ?? '',
     warehouse: canadianAddress(form.address ?? '', previous?.warehouse, coordinates),
-    rate_card_id: form.rateCardId || null,
+    rate_card_id: shipperRateCardIds({ rateCardId: form.rateCardId ?? null, rateCardIds: form.rateCardIds })[0] ?? null,
+    rate_card_ids: shipperRateCardIds({ rateCardId: form.rateCardId ?? null, rateCardIds: form.rateCardIds }),
     assigned_driver_id: form.assignedDriverId === undefined ? previous?.assigned_driver_id ?? null : form.assignedDriverId,
     discount: { kind: form.discount?.type === 'PERCENT' || form.discount?.type === 'FIXED' ? form.discount.type : 'NONE', value: form.discount?.value ?? 0 },
     instructions: form.notes ?? '',
@@ -135,6 +136,7 @@ export function vehicleFromUi(form: VehicleAsset, previous?: ApiVehicle): Vehicl
 }
 
 import type { VehicleType } from '../types/simplePricing';
+import { VEHICLE_LOAD_SIZES } from '../lib/loadSize';
 export function catalogToVehicleType(row: CatalogItem): VehicleType {
   return {
     id: row.id, name: row.data.name, description: row.data.description,
@@ -150,6 +152,7 @@ export function catalogToVehicleType(row: CatalogItem): VehicleType {
     equipment: (row.data.equipment ?? []).map(item => item.charAt(0) + item.slice(1).toLowerCase()),
     baseSurcharge: Number(row.data.amount), fuelEligible: row.data.fuel_eligible,
     hasLiftgate: row.data.equipment.includes('LIFTGATE'), requiresCommercialLicense: false, active: row.active,
+    loadSizes: row.data.load_sizes ?? VEHICLE_LOAD_SIZES,
   };
 }
 
@@ -166,5 +169,6 @@ export function vehicleTypeToCatalog(type: VehicleType, previous?: CatalogItem):
     payload_kg: type.payloadCapacityKg, volume_m3: l && w && h ? l * w * h / 1e6 : previous?.data.volume_m3 ?? null,
     length_cm: l ?? null, width_cm: w ?? null, height_cm: h ?? null, pallet_capacity: type.palletCapacity,
     equipment: previous?.data.equipment ?? [], required_equipment: previous?.data.required_equipment ?? [], required_crew: previous?.data.required_crew ?? 1,
+    load_sizes: type.loadSizes ?? previous?.data.load_sizes ?? VEHICLE_LOAD_SIZES,
   };
 }

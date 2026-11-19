@@ -8,11 +8,18 @@ import { TmsReview } from '../integrations/TmsReview';
 import { useEntityDialog } from '../entities/useEntityDialog';
 import { Dialog, DialogBody, DialogHeader } from '../ui/Dialog';
 import { Button } from '../ui/button';
+import { receivedOnDay } from './todaysPlanData';
+import { useCompanyDay } from './useCompanyDay';
 
-export function useMonitorReview(slug: string | null) {
+export function useMonitorReview(slug: string | null, timeZone = 'UTC') {
+  const { day } = useCompanyDay(timeZone);
   const drafts = useQuery({ queryKey: ['operations', slug, 'email-intakes', 'drafts'], queryFn: () => operations.emailIntakes(slug!, EMAIL_DRAFT_STATUSES), enabled: !!slug });
   const imports = useQuery({ queryKey: ['operations', slug, 'tms-inbox'], queryFn: () => operations.tmsInbox(slug!), enabled: !!slug, refetchInterval: 30_000 });
-  return { drafts, imports };
+  return {
+    drafts: { ...drafts, data: drafts.data?.filter(row => receivedOnDay(row.received_at, day, timeZone)).sort((a, b) => Date.parse(b.received_at) - Date.parse(a.received_at) || b.id.localeCompare(a.id)) },
+    imports: { ...imports, data: imports.data?.filter(row => receivedOnDay(row.received_at, day, timeZone)).sort((a, b) => Date.parse(b.received_at) - Date.parse(a.received_at) || b.id.localeCompare(a.id)) },
+    day, timeZone,
+  };
 }
 
 type Review = ReturnType<typeof useMonitorReview>;
@@ -42,7 +49,7 @@ export function MonitorReviewDialog({ slug, review, timeZone, onClose, onOpenDra
   useEntityDialog(true, onClose);
   const rows = [...(review.drafts.data ?? [])].sort((a, b) => b.received_at.localeCompare(a.received_at));
   return <Dialog size="lg" onClose={onClose}>
-    <DialogHeader title="Requests needing review" description="These aren’t orders yet. Add the missing details." onClose={onClose} />
+    <DialogHeader title="Requests needing review" description="Requests received today. Add the missing details." onClose={onClose} />
     <DialogBody className="space-y-4">
       {(review.drafts.isPending || review.imports.isPending) && <p role="status">Loading requests…</p>}
       {(review.drafts.isError || review.imports.isError) && <div role="alert">Some requests could not be loaded. <Button variant="outline" onClick={() => Promise.all([review.drafts.refetch(), review.imports.refetch()])}>Try again</Button></div>}
@@ -58,7 +65,7 @@ export function MonitorReviewDialog({ slug, review, timeZone, onClose, onOpenDra
           </button>
         </li>)}</ul>
       </section>}
-      <TmsReview slug={slug} />
+      <TmsReview slug={slug} receivedDay={review.day} timeZone={review.timeZone} />
       {review.drafts.isSuccess && review.imports.isSuccess && !rows.length && !review.imports.data?.length && <p>No requests need review.</p>}
     </DialogBody>
   </Dialog>;

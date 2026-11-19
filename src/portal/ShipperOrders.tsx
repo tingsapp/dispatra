@@ -6,7 +6,8 @@ import { AlertTriangle, ChevronRight, CircleCheck, Clock, MapPin, Package, Penci
 import { allOperations, operations, type Order } from '../operations/api';
 import { orderToUi } from '../operations/orderAdapters';
 import { shipperPricingContext } from '../operations/pricingAdapters';
-import { applyCustomerDefaults, normalizeOrderInput } from '../domain/orderAdapters';
+import { applyCustomerDefaults, normalizeOrderInput, shipperLoadSize } from '../domain/orderAdapters';
+import { prefillPackageTypes } from '../lib/packageTypes';
 import { lifecycleLabel, orderAttention, orderEditable, orderLifecycle } from '../domain/validation';
 import { ORDER_LIFECYCLES, ORDER_LIFECYCLE_LABELS } from '../domain/operations';
 import { createBookingInput, describePrice } from '../lib/orderPricing';
@@ -33,7 +34,10 @@ const shipperEditable = (job: Job) => job.lifecycleStatus === 'NEW' && orderEdit
 
 function newOrderInput(ctx: PricingContext, shipper: Shipper): PricingOrderInput {
   const self = ctx.customers[0];
-  const input = applyCustomerDefaults(createBookingInput(ctx), self);
+  const base = applyCustomerDefaults(createBookingInput(ctx), self);
+  // New bookings start with the load size of the shipper's default card and that size's package type.
+  const loadSize = base.loadSize ?? shipperLoadSize(self, ctx.pricing.rateCards);
+  const input = loadSize ? { ...base, loadSize, packages: prefillPackageTypes(base.packages, loadSize, ctx.catalogue.packageTypes, base.loadSize) } : base;
   const w = shipper.warehouse;
   let applied = false;
   return { ...input, customerId: null, stops: input.stops.map(stop => {

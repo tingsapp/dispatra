@@ -28,7 +28,8 @@ import {
   ResolvedInputs,
   ResolvedRateCard
 } from '../types/pricing';
-import { Customer } from './customerStorage';
+import { Customer, shipperRateCardIds } from './customerStorage';
+import { cardLoadSize } from './loadSize';
 import { organizationTime } from './organizationWorkflows';
 import { applyDistanceRules, isValidFuelPercent, resolveFuelPercent, roundMoney } from './billingEngine';
 
@@ -72,9 +73,14 @@ export const defaultRateCard = (cards: RateCard[]): RateCard | undefined =>
   cards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
 
 /**
- * Precedence: card chosen on the order → card attached to the customer → Default.
- * Every card applies to every service and vehicle; there are no priorities or conflicts.
+ * Precedence: card chosen on the order → the customer's attached card for the order's load size (each card prices one size)
+ * → the customer's default (first) card → company Default. Mirrors the API's `pricing.rate_card`.
  */
+const shipperCard = (order: PricingOrderInput, customer: Customer | undefined, cards: RateCard[]) => {
+  const attached = (customer ? shipperRateCardIds(customer) : []).map(id => cards.find(c => c.id === id && c.status === 'ACTIVE')).filter((c): c is RateCard => !!c);
+  return attached.find(c => cardLoadSize(c) === (order.loadSize ?? 'LTL')) ?? attached[0];
+};
+
 export const resolveRateCard = (order: PricingOrderInput, ctx: PricingContext): ResolutionResult => {
   const candidates: RateCardCandidate[] = [];
   const customer = order.customerId ? ctx.customers.find((c) => c.id === order.customerId) : undefined;
@@ -83,7 +89,7 @@ export const resolveRateCard = (order: PricingOrderInput, ctx: PricingContext): 
   }
   const levels: { source: RateCardSource; label: string; card: RateCard | undefined }[] = [
     { source: 'OVERRIDE', label: 'Chosen on order', card: ctx.pricing.rateCards.find((c) => c.id === order.rateCardOverrideId) },
-    { source: 'SHIPPER', label: 'Attached to customer', card: ctx.pricing.rateCards.find((c) => c.id === customer?.rateCardId) },
+    { source: 'SHIPPER', label: 'Attached to customer', card: shipperCard(order, customer, ctx.pricing.rateCards) },
     { source: 'ORGANIZATION_DEFAULT', label: 'Default', card: defaultRateCard(ctx.pricing.rateCards) }
   ];
   for (const { source, label, card } of levels) {

@@ -29,7 +29,7 @@ interface TodaysPlanProps extends OrderMapVisibilityProps {
   error?: boolean;
   onRetry: () => void;
   onSelectOrder: (job: Job) => void;
-  /** Full Orders list; the panel itself only covers today's pickups and open earlier ones. */
+  /** Full Orders list; the panel itself only covers the current company-local pickup day. */
   allOrders?: { href: string; open: () => void };
 }
 
@@ -63,7 +63,7 @@ export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, o
         <span className="flex items-center gap-2"><span className="text-sm font-medium">Active orders</span>{!loading && !error && <MonitorBadge>{groups.all.length}</MonitorBadge>}</span>
         {expanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
       </button>
-      <p className="mt-1 flex min-w-0 gap-x-1.5 whitespace-nowrap text-[11px] text-app-muted"><span className="truncate" title={`Today’s pickups (${new Intl.DateTimeFormat('en-CA', { timeZone, month: 'short', day: 'numeric' }).format(now)}) and unfinished orders from earlier days`}>Orders to be delivered today</span>{allOrders && <a href={allOrders.href} className="shrink-0 font-medium text-slate-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-slate-500" onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); allOrders.open(); }}>View all orders</a>}</p>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-app-muted"><span title={`Orders scheduled for ${new Intl.DateTimeFormat('en-CA', { timeZone, month: 'short', day: 'numeric' }).format(now)} in the company time zone`}>Today’s scheduled orders · {new Intl.DateTimeFormat('en-CA', { timeZone, month: 'short', day: 'numeric' }).format(now)}</span>{allOrders && <a href={allOrders.href} className="shrink-0 font-medium text-slate-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-slate-500" onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); allOrders.open(); }}>View all orders</a>}</div>
     </header>
     {reviewNotice}
     {expanded && <div id={contentId} data-plan-body>
@@ -74,7 +74,7 @@ export function TodaysPlan({ reviewNotice, attentionItems = [], onLocateOrder, o
       {error ? <div role="alert" className="px-4 pb-3 text-xs text-app-muted">Active orders are unavailable. <ActionButton type="button" className="underline" onClick={onRetry}>Try again</ActionButton></div>
         : loading ? <p role="status" className="px-4 pb-3 text-xs text-app-muted">Loading today’s orders…</p>
         : <>
-          {groups.all.length === 0 ? <p className="px-4 pb-4 pt-1 text-xs text-app-muted">No pickups today.</p> :
+          {groups.all.length === 0 ? <p className="px-4 pb-4 pt-1 text-xs text-app-muted">No orders scheduled for pickup today.</p> :
           visibleOrders.length === 0 ? <p className="px-4 py-6 text-center text-xs text-slate-400">No matching orders found.</p> :
           <ul className="max-h-[min(34rem,60dvh)] overflow-y-auto overscroll-contain px-3 pb-2" aria-label="Today’s orders">
             {visibleOrders.map(job => {

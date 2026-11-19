@@ -35,7 +35,7 @@ export function LiveNotices<T extends LiveNotice = LiveNotice>({ slug, accountId
   }, [rows]);
   const dismiss = (id: string) => setNotices(current => current.filter(notice => notice.id !== id));
   if (!notices.length && !feedback) return null;
-  return <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-[80] flex flex-col items-center gap-2 px-4">
+  return <div role="status" aria-live="polite" className="live-notices pointer-events-none fixed inset-x-0 bottom-6 z-[80] flex flex-col items-center gap-2 px-4">
     {feedback && <FeedbackMessage announce={false} message={feedback.text} tone={feedback.tone} className="pointer-events-auto w-fit max-w-[min(380px,100%)] shadow-lg" />}
     {notices.map(notice => <NoticeCard key={notice.id} notice={notice} onOpen={() => { onOpen(notice); dismiss(notice.id); }} onDismiss={() => dismiss(notice.id)} />)}
   </div>;

@@ -1,4 +1,5 @@
 import type { TruckRoutingMeasurements } from '../domain/operations';
+import type { VehicleLoadSize } from '../lib/loadSize';
 // Organization catalogue: Services, Vehicle Types, and Accessorials.
 //
 // These entities hold *defaults* only. Commercial rates (base fee, km rate,
@@ -87,6 +88,8 @@ export interface VehicleType {
   fuelEligible: boolean;
   hasLiftgate: boolean; // Equipped with power tail-lift
   requiresCommercialLicense: boolean; // CDL / Air brakes required
+  /** Load sizes an order may require this type for; missing means both. Small parcel orders choose no vehicle type. */
+  loadSizes?: VehicleLoadSize[];
   description?: string;
   active: boolean;
 }
@@ -103,6 +106,8 @@ export interface PackageType {
   widthCm: number | null;
   heightCm: number | null;
   active: boolean;
+  /** The company Default package type (Settings → Package Types). */
+  isDefault?: boolean;
 }
 
 export interface SimplePricingConfig {

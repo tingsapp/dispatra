@@ -30,6 +30,8 @@ function Actions({ active }: { active: boolean }) {
 }
 function mount(active = true) {
   cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } } });
+  // The real workspace keeps its sync summary mounted independently of the Monitor inbox.
+  cache.setQueryDefaults(syncKey('acme'), { gcTime: Infinity });
   cache.setQueryData(syncKey('acme'), { unread: 0 });
   return render(<QueryClientProvider client={cache}><Actions active={active} /></QueryClientProvider>);
 }
@@ -39,7 +41,7 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
   operations.assistant = async (_slug, body) => {
     requests.push(body.kind ?? 'CHAT');
     return { message: body.kind === 'BRIEFING' ? 'Review the waiting orders.' : 'Your orders are ready.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false,
-      briefing: body.kind === 'BRIEFING' ? { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 15, unassigned: 12, assigned: 1, in_progress: 1, completed: 1, open_incidents: 2, dispatch_mode: 'AUTO', assigned_by_driver: [{ driver_name: 'Alex Chen', orders: 2 }, { driver_name: 'Sam Lee', orders: 1 }] } : null };
+      briefing: body.kind === 'BRIEFING' ? { day: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()), time_zone: 'America/Vancouver', evening: false, received: 15, unassigned: 12, assigned: 1, in_progress: 1, completed: 1, overdue_count: 0, open_incidents: 2, dispatch_mode: 'AUTO', assigned_by_driver: [{ driver_name: 'Alex Chen', orders: 2 }, { driver_name: 'Sam Lee', orders: 1 }] } : null };
   };
   mount(); const user = userEvent.setup({ document });
   await screen.findByLabelText('Daily briefing');
@@ -71,16 +73,19 @@ test('Monitor briefs once per page load; focusing the composer does not expand o
   assert.deepEqual(requests, ['BRIEFING', 'CHAT', 'CHAT', 'BRIEFING']);
 });
 
-test('the open briefing follows workspace changes and never shows the AI commentary', async () => {
-  const opening = { day: '2026-11-04', time_zone: 'America/Vancouver', evening: false, received: 1, unassigned: 1, assigned: 0, in_progress: 0, completed: 0, open_incidents: 0, dispatch_mode: 'MANUAL' as const, assigned_by_driver: [] as { driver_name: string; orders: number }[] };
+test('the open briefing follows workspace changes and leaves overdue orders out of the card', async () => {
+  const opening = { day: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()), time_zone: 'America/Vancouver', evening: false, received: 1, unassigned: 1, assigned: 0, in_progress: 0, completed: 0, overdue_count: 0, open_incidents: 0, dispatch_mode: 'MANUAL' as const, assigned_by_driver: [] as { driver_name: string; orders: number }[] };
   let totals = opening;
   operations.assistant = async () => ({ message: 'Assign the waiting order.', references: [], mode: 'AI', observed_at: '2026-11-04T17:00:00Z', limited: false, briefing: opening });
-  operations.briefing = async () => ({ briefing: totals, observed_at: new Date().toISOString() });
+  operations.briefing = async () => {
+    const briefing = { ...totals, overdue_count: 1, overdue_orders: [{ order_number: 'ORD-OLD', scheduled_at: '2026-11-03T16:00:00Z', status: 'ASSIGNED' as const }] };
+    return { briefing, observed_at: new Date().toISOString() };
+  };
   mount();
   await screen.findByText('Auto dispatch is off. 1 order waiting for you to assign.');
   assert.equal(screen.queryByText('Assign the waiting order.'), null);
   const count = (label: string) => within(screen.getByLabelText('Status of today’s orders')).getByText(label).nextElementSibling?.textContent;
-  totals = { ...opening, received: 2, unassigned: 1, assigned: 1, open_incidents: 1, assigned_by_driver: [{ driver_name: 'Alex Chen', orders: 1 }] };
+  totals = { ...opening, received: 2, unassigned: 1, assigned: 1, overdue_count: 0, open_incidents: 1, assigned_by_driver: [{ driver_name: 'Alex Chen', orders: 1 }] };
   await act(() => cache.invalidateQueries({ queryKey: syncInvalidations('DISPATCHER', 'acme', [{ entity: 'route', type: 'route.assigned' } as never]).find(key => key.includes('briefing')) }));
   await screen.findByText('1 open issue to review');
   assert.equal(count('Assigned'), '1');
@@ -88,9 +93,34 @@ test('the open briefing follows workspace changes and never shows the AI comment
   assert.ok(screen.getByText('orders for today').parentElement?.textContent?.startsWith('2'));
   assert.equal(screen.queryByText('Assign the waiting order.'), null);
   // A newly detected incident alone refreshes the open-issue line, without a page reload.
-  totals = { ...totals, open_incidents: 2 };
+  totals = { ...totals, overdue_count: 0, open_incidents: 2 };
   await act(() => Promise.all(syncInvalidations('DISPATCHER', 'acme', [{ entity: 'watch', type: 'watch.detected' } as never]).map(queryKey => cache.invalidateQueries({ queryKey }))));
   await screen.findByText('2 open issues to review');
+  assert.equal(screen.queryByRole('region', { name: 'Overdue orders' }), null);
+  assert.equal(screen.queryByText('ORD-OLD'), null);
+  assert.ok(screen.getByText('for today’s orders'));
+});
+
+test('a briefing never keeps yesterday’s totals after company midnight, including when refresh fails', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-19T04:59:00Z') });
+  const { BriefingCard } = await import('../src/components/activity/BriefingCard');
+  const briefing = { day:'2026-11-18',time_zone:'America/Toronto',evening:true,received:11,unassigned:10,assigned:1,in_progress:0,completed:0,overdue_count: 0, open_incidents:14,dispatch_mode:'AUTO' as const,assigned_by_driver:[] };
+  const reply = {briefing,message:'',references:[],mode:'AI' as const,observed_at:'2026-11-19T04:59:00Z',limited:false};
+  operations.briefing = async()=>({briefing,observed_at:reply.observed_at});
+  cache = new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}});
+  render(<QueryClientProvider client={cache}><BriefingCard slug="acme" reply={reply}/></QueryClientProvider>);
+  await screen.findByText('14 open issues to review');
+  t.mock.timers.setTime(new Date('2026-11-19T05:01:00Z').getTime());
+  await act(async()=>window.dispatchEvent(new Event('focus')));
+  assert.equal(screen.queryByLabelText('Daily briefing'),null);
+  operations.briefing=async()=>{throw Error('Offline');};
+  await act(async()=>cache.invalidateQueries({queryKey:['operations','acme','briefing']}));
+  assert.ok((await screen.findByRole('alert')).textContent?.includes('Today’s briefing is unavailable'));
+  assert.equal(screen.queryByText('14 open issues to review'),null);
+  operations.briefing=async()=>({briefing:{...briefing,day:'2026-11-19',received:0,unassigned:0,assigned:0,overdue_count: 0, open_incidents:0},observed_at:new Date().toISOString()});
+  await act(async()=>cache.invalidateQueries({queryKey:['operations','acme','briefing']}));
+  assert.ok(await screen.findByText('No open issues recorded'));
+  assert.ok(screen.getByText('orders for today').parentElement?.textContent?.startsWith('0'));
 });
 
 test('a chat assignment shows one Confirm button, saves only after it and keeps refusals on the card', async () => {

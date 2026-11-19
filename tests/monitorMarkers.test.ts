@@ -191,6 +191,26 @@ test('Google route overlay rounds caps and joins, stays projected during camera 
   assert.equal(path.getAttribute('stroke-width'), '2.5');
   view.unmount(); assert.equal(pane.childElementCount, 0);
 });
+test('vehicle approach reads gray, the order path black, and hovering either turns the linked route blue', () => {
+  document.body.appendChild(pane);
+  const hovers: boolean[] = [];
+  const tree = (highlighted: boolean) => React.createElement(APIProviderContext.Provider, { value: context },
+    React.createElement(GoogleRoundedRoute, { id: 'approach-r1', points: [[0, 0], [0, 1]], selected: true, approach: true, highlighted }),
+    React.createElement(GoogleRoundedRoute, { id: 'order-1', points: [[0, 1], [1, 1]], selected: true, onHoverChange: hovered => hovers.push(hovered) }));
+  const view = render(tree(false));
+  const approach = pane.querySelector('svg[data-shipper-route="approach-r1"] path')!, order = pane.querySelector('svg[data-shipper-route="order-1"] path')!;
+  assert.deepEqual([approach.getAttribute('stroke'), approach.getAttribute('stroke-opacity')], ['#171717', '0.4']);
+  assert.deepEqual([order.getAttribute('stroke'), order.getAttribute('stroke-opacity')], ['#171717', '1']);
+  const orderHit = [...pane.querySelectorAll('svg path')].find(node => node.getAttribute('stroke') === 'transparent' && node.getAttribute('d') === order.getAttribute('d'))!;
+  fireEvent.pointerEnter(orderHit);
+  assert.deepEqual(hovers, [true], 'The map learns which route is hovered');
+  view.rerender(tree(true));
+  assert.deepEqual([approach.getAttribute('stroke'), approach.getAttribute('stroke-opacity')], ['#1447e6', '1'], 'The linked approach turns blue');
+  fireEvent.pointerLeave(orderHit); view.rerender(tree(false));
+  assert.deepEqual(hovers, [true, false]);
+  assert.deepEqual([approach.getAttribute('stroke'), approach.getAttribute('stroke-opacity')], ['#171717', '0.4']);
+  view.unmount();
+});
 
 test('shared vehicle parking opens every vehicle, supports keyboard dismissal and distinguishes live GPS', async () => {
   document.body.appendChild(pane);

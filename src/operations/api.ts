@@ -147,6 +147,7 @@ export const operations = {
   retryEmailIntake: async (slug: string, row: EmailIntake) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/retry', { body: { version: row.version }, params: { path: entity(slug, row.id), header: mutation() } })),
   linkEmailIntakeShipper: async (slug: string, row: EmailIntake, shipperId: string) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/shipper', { body: { version: row.version, shipper_id: shipperId }, params: { path: entity(slug, row.id), header: mutation() } })),
   createOrderFromEmail: async (slug: string, row: { id: string; version: number }, booking: Booking) => unwrap(await client.POST('/api/v1/companies/{slug}/email-intake/messages/{identity}/order', { body: { version: row.version, booking }, params: { path: entity(slug, row.id), header: mutation() } })),
+  orderAttentionCount: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/order-attention-count', { params: { path: company(slug) } })),
   monitor: async (slug: string) => unwrap(await client.GET('/api/v1/companies/{slug}/monitor', { params: { path: company(slug) } })),
   activity: async (slug: string, before?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/activity', { params: { path: company(slug), query: { before, limit: 30 } } })),
   analytics: async (slug: string, start?: string, end?: string) => unwrap(await client.GET('/api/v1/companies/{slug}/analytics', { params: { path: company(slug), query: { date_from: start, date_to: end } } })),

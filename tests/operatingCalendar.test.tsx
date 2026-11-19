@@ -79,17 +79,15 @@ test('holidays sort by date, mark past dates, need a date and name, and can be r
   assert.ok(screen.getByText(/1 upcoming\./));
 });
 
-test('the order form blocks Shippers and warns dispatchers when the pickup is outside work hours', () => {
+test('the order form blocks Shippers outside work hours and shows dispatchers no warning', () => {
   const base = loadPricingContext();
   const ctx = { ...base, billing: { ...base.billing, general: { ...base.billing.general, timeZone: 'America/Vancouver', workHours: OFFICE, holidays: [] } } };
   const input = createDefaultOrderInput(ctx);
   const at = '2099-11-23T19:00'; // A Monday evening.
   const value = { ...input, scheduledAt: at, stops: input.stops.map(stop => stop.type === 'PICKUP' ? { ...stop, windowStart: at } : stop) };
-  const form = (outsideHours?: 'block' | 'warn') => <OrderPricingForm value={value} onChange={() => {}} ctx={ctx} snapshot={priceOrder(value, ctx)} showStopAddresses outsideHours={outsideHours} />;
+  const form = (outsideHours?: 'block') => <OrderPricingForm value={value} onChange={() => {}} ctx={ctx} snapshot={priceOrder(value, ctx)} showStopAddresses outsideHours={outsideHours} />;
   const view = render(form('block'));
   assert.equal(screen.getByRole('alert').textContent, "Monday pickups are 08:00–17:00. Choose a time when we're open.");
-  view.rerender(form('warn'));
-  assert.match(screen.getByRole('status').textContent!, /^Outside work hours\. Monday pickups are 08:00–17:00\. You can still save/);
   view.rerender(form());
   assert.equal(screen.queryByText(/Monday pickups/), null);
 });

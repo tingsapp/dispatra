@@ -44,6 +44,8 @@ test('Vehicle Types roundtrip routing measurements independently from cargo dime
   const payload=vehicleTypeToCatalog({...type,truckRouting:{...type.truckRouting!,grossWeightKg:12000.2}});
   assert.equal(payload.road_profile?.gross_weight_kg,12001);assert.equal(payload.height_cm,180);
   assert.equal(vehicleTypeToCatalog({...type,truckRouting:undefined}).road_profile,null);
+  // Records saved before load sizes read as both; the form's choice is sent.
+  assert.deepEqual(type.loadSizes,['FTL','LTL']);assert.deepEqual(vehicleTypeToCatalog({...type,loadSizes:['LTL']}).load_sizes,['LTL']);
 });
 
 test('vehicle adapter omits routing fields so a form save preserves legacy measurements', () => {
@@ -58,13 +60,20 @@ test('Vehicle Type form requires shared routing measurements and rejects clearin
   const type={id:'t',name:'26ft box truck',payloadCapacityKg:1000,palletCapacity:2,cargoLengthCm:300,cargoWidthCm:180,cargoHeightCm:180,baseSurcharge:5,fuelEligible:true,hasLiftgate:false,requiresCommercialLicense:false,active:true};
   let saved:any;
   render(<VehicleTypeModal initialVehicle={type} onSave={value=>{saved=value;}} onClose={()=>{}} />);
-  assert.equal(screen.queryByRole('checkbox'),null);
+  // The only checkboxes are the load sizes the type is offered for; both start ticked.
+  assert.deepEqual(screen.getAllByRole('checkbox').map(box=>[box.parentElement!.textContent,(box as HTMLInputElement).checked]),[['Full truckload (FTL)',true],['Less than truckload (LTL)',true]]);
   await act(async () => { fireEvent.click(screen.getByRole('button',{name:'Save Changes'})); });
   assert.match(screen.getByRole('alert').textContent!,/outside dimensions/);assert.equal(saved,undefined);
   assert.equal((screen.getByRole('button',{name:'Save Changes'}) as HTMLButtonElement).disabled,false);
   for(const [label,value] of [['Length (cm)','820'],['Width (cm)','250'],['Height (cm)','380'],['Loaded gross weight','12000']])fireEvent.change(screen.getByLabelText(label),{target:{value}});
   await act(async () => { fireEvent.click(screen.getByRole('button',{name:'Save Changes'})); });
   assert.deepEqual(saved.truckRouting,{lengthM:8.2,widthM:2.5,heightM:3.8,grossWeightKg:12000});assert.equal(saved.baseSurcharge,5);assert.equal(saved.cargoHeightCm,180);
+  assert.deepEqual(saved.loadSizes,['FTL','LTL']);saved=undefined;
+  fireEvent.click(screen.getByRole('checkbox',{name:'Full truckload (FTL)'}));fireEvent.click(screen.getByRole('checkbox',{name:'Less than truckload (LTL)'}));
+  await act(async () => { fireEvent.click(screen.getByRole('button',{name:'Save Changes'})); });
+  assert.match(screen.getByRole('alert').textContent!,/at least one load size/);assert.equal(saved,undefined);
+  fireEvent.click(screen.getByRole('checkbox',{name:'Less than truckload (LTL)'}));
+  await act(async () => { fireEvent.click(screen.getByRole('button',{name:'Save Changes'})); });assert.deepEqual(saved.loadSizes,['LTL']);
   const previous=saved;saved=undefined;
   fireEvent.change(screen.getByLabelText('Loaded gross weight'),{target:{value:''}});
   await act(async () => { fireEvent.click(screen.getByRole('button',{name:'Save Changes'})); });assert.equal(saved,undefined);

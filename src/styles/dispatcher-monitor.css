@@ -217,3 +217,23 @@ body:has(.dispatcher-monitor) :is(.app-floating-panel, .app-dropdown-panel) { fo
     outline-offset: 2px;
   }
 }
+
+/* Leave a dedicated right-hand lane for settings and zoom; lift above the
+   assistant when a small viewport cannot fit both cards side by side. */
+.dispatcher-monitor .live-notices {
+  left: auto;
+  right: 76px;
+  bottom: var(--monitor-inset);
+  width: min(380px, calc(100vw - 92px));
+  padding: 0;
+  align-items: flex-end;
+}
+@media (max-width: 1099px) {
+  .dispatcher-monitor .live-notices {
+    bottom: calc(var(--monitor-inset) + var(--monitor-dock-height, 0px) + 12px);
+    max-height: max(48px, calc(100dvh - var(--monitor-dock-height, 0px) - var(--monitor-plan-height, 0px) - 48px));
+    overflow-y: auto;
+    pointer-events: auto;
+  }
+  .dispatcher-monitor .live-notices > * { flex-shrink: 0; }
+}

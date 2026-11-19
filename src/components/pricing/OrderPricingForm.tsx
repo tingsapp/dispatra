@@ -1,22 +1,23 @@
 import { addressChange, resolveStopLocation } from '../../lib/taxAddress';
 import { zoneForAddress } from '../../lib/zoneAddress';
 import { hasCentralZoneRates } from '../../lib/centralZoneRates';
-import { applyCustomerDefaults, removeOrderStop } from '../../domain/orderAdapters';
+import { applyCustomerDefaults, removeOrderStop, shipperLoadSize } from '../../domain/orderAdapters';
 import React from 'react';
 import { Trash2, Package, MapPin, AlertTriangle, Building2, Layers, Route, Tag, ChevronDown } from 'lucide-react';
 import { PricingOrderInput, PricingPackageInput, PricingSnapshot, PricingStopInput } from '../../types/pricing';
-import { defaultRateCard, PricingContext } from '../../lib/pricingEngine';
+import { PricingContext, resolveRateCard } from '../../lib/pricingEngine';
 import { createStop } from '../../lib/orderPricing';
 import { fromDisplayDimension, fromDisplayDistance, fromDisplayWeight, toDisplayDimension, toDisplayDistance, toDisplayWeight, Units } from '../../lib/units';
 import { Select } from '../ui/Select';
-import { listedVehicleTypes, suggestVehicleType } from '../../lib/vehicleTypes';
+import { listedVehicleTypes, offersLoadSize, suggestVehicleType } from '../../lib/vehicleTypes';
 import { DateTimePicker } from '../ui/DateTimePicker';
 import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 import { ContactInput } from '../ui/ContactInput';
 import { packageHasCharge, setPackageCharge, syncPackageAccessorials, type PackageChargeCode } from '../../lib/packageAccessorials';
 import { organizationTime } from '../../lib/organizationWorkflows';
 import { closedReason } from '../../lib/operatingCalendar';
-import { applyPackageType, packageTypeOptions } from '../../lib/packageTypes';
+import { applyPackageType, packageTypeOptions, prefillPackageTypes } from '../../lib/packageTypes';
+import { fullTruckLoad, LOAD_SIZE_OPTIONS, loadFields, type LoadSize } from '../../lib/loadSize';
 
 /**
  * Order-facts editor for Order creation. It only edits a `PricingOrderInput`; the caller runs
@@ -42,7 +43,10 @@ interface OrderPricingFormProps {
   /** New bookings cannot choose dates or times that have already passed. */
   futureOnly?: boolean;
   /** Pickups outside company work hours: `block` for Shippers (the API refuses them), `warn` for dispatchers who may override. */
-  outsideHours?: 'block' | 'warn';
+  /** Shipper booking refuses a pickup outside work hours; dispatchers may book any time and AUTO dispatches it once the company opens. */
+  outsideHours?: 'block';
+  /** Company orders choose a load size first; Service, Vehicle type and package sizes then follow `loadFields`, and Vehicle type lists only the types offered for it. */
+  loadSizes?: boolean;
 }
 
 const fieldClass = 'app-input';
@@ -57,6 +61,12 @@ const newPackage = (): PricingPackageInput => ({
   quantity: 0, weightKg: 0, lengthCm: 0, widthCm: 0, heightCm: 0, declaredValue: 0,
   missingFields: ['quantity', 'weightKg', 'lengthCm', 'widthCm', 'heightCm']
 });
+
+/** 'Shipper, Load & Service' style section headings from the visible field groups. */
+const sectionName = (parts: string[]) => {
+  const shown = parts.filter(Boolean);
+  return shown.length > 1 ? `${shown.slice(0, -1).join(', ')} & ${shown[shown.length - 1]}` : shown[0] ?? '';
+};
 
 /** Keep a typed decimal intact until blur; display stored package measurements to one decimal. */
 function PackageMeasurementInput({ value, units, kind, label, missing = false, allowBlank = false, className = 'app-input', onChange }: {
@@ -80,7 +90,7 @@ function PackageMeasurementInput({ value, units, kind, label, missing = false, a
     onBlur={() => setDraft(null)} />;
 }
 
-export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, showVehicleSelection = true, suggestVehicle = false, customerMode = 'shipper', serviceExtras, onAddAccessorial, futureOnly = false, outsideHours }) => {
+export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onChange, ctx, snapshot, showStopAddresses = false, showVehicleSelection = true, suggestVehicle = false, customerMode = 'shipper', serviceExtras, onAddAccessorial, futureOnly = false, outsideHours, loadSizes = false }) => {
   const { catalogue, pricing, customers, billing } = ctx;
   const units = billing.general;
   const timeZone = billing.general.timeZone ?? 'America/Vancouver';
@@ -91,11 +101,15 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   const pieces = value.packages.reduce((sum, p) => sum + (p.missingFields?.includes('quantity') ? 0 : p.quantity), 0);
   const weightText = (kg: number) => `${toDisplayWeight(kg, units).toFixed(1)} ${units.weightUnit}`;
   const weightFree = snapshot.method === 'FIXED' || snapshot.method === 'HOURLY' || (snapshot.method === 'BASE_PLUS_DISTANCE' && snapshot.context?.distanceWeightMode === 'NONE');
-  const showPackageType = packageTypeOptions(catalogue.packageTypes).length > 0 || value.packages.some(p => p.packageTypeId);
+  const fields = loadFields(value.loadSize);
+  const showService = !loadSizes || fields.service;
+  const showVehicle = showVehicleSelection && (!loadSizes || fields.vehicle !== 'hidden');
+  /** A full truckload has no Packages section: the load fills the vehicle, and Fragile/DG come from Accessorials. */
+  const fullTruck = loadSizes && !fields.packageSizes;
+  const offeredVehicles = loadSizes ? activeVehicles.filter(type => offersLoadSize(type, value.loadSize)) : activeVehicles;
+  const showPackageType = (packageTypeOptions(catalogue.packageTypes).length > 0 || value.packages.some(p => p.packageTypeId));
   const customer = customers.find(c => c.id === value.customerId);
-  const card = pricing.rateCards.find(c => c.id === value.rateCardOverrideId && c.status === 'ACTIVE')
-    ?? pricing.rateCards.find(c => c.id === customer?.rateCardId && c.status === 'ACTIVE')
-    ?? defaultRateCard(pricing.rateCards);
+  const card = resolveRateCard(value, ctx).card ?? undefined;
   const zonePriced = card?.pricingMethod === 'ZONE';
   const centralPickup = zonePriced && hasCentralZoneRates(card.zoneRates ?? []);
   const pickups = value.stops.filter(s => s.type === 'PICKUP');
@@ -109,7 +123,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
     const grid = packageGrid.current; if (!grid || typeof ResizeObserver === 'undefined') return;
     const measure = () => setPackagesCompact(grid.clientWidth < packageRowMinRem * parseFloat(getComputedStyle(document.documentElement).fontSize || '16'));
     measure(); const observer = new ResizeObserver(measure); observer.observe(grid); return () => observer.disconnect();
-  }, [packageRowMinRem]);
+  }, [packageRowMinRem, fullTruck]);
 
   const patch = (changes: Partial<PricingOrderInput>) => onChange({ ...value, ...changes });
   /** Stop edits; pickup ready times and delivery deadlines also set the order's schedule. */
@@ -144,31 +158,41 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   };
   const addStop = (type: PricingStopInput['type']) => patch({ stops: [...value.stops, createStop(type, type === 'DROPOFF' && pickups.length === 1 ? { pickupIds: [pickups[0].id] } : {})] });
 
-  const suggested = suggestVehicleType(catalogue.vehicles, value.packages);
+  const suggested = suggestVehicleType(catalogue.vehicles, value.packages, loadSizes ? value.loadSize : null);
+  /** A new load size keeps the chosen vehicle type when it is offered for it; otherwise the suggestion (new orders) or none. */
+  const vehicleFor = (loadSize: LoadSize) => loadFields(loadSize).vehicle === 'hidden' ? null
+    : value.vehicleId && catalogue.vehicles.some(type => type.id === value.vehicleId && offersLoadSize(type, loadSize)) ? value.vehicleId
+    : suggestVehicle ? suggestVehicleType(catalogue.vehicles, value.packages, loadSize) : null;
+  /** A new load size also brings its vehicle type and package type (see `prefillPackageTypes`). */
+  const withLoadSize = (input: PricingOrderInput, loadSize: LoadSize): PricingOrderInput =>
+    ({ ...input, loadSize, vehicleId: vehicleFor(loadSize), packages: prefillPackageTypes(input.packages, loadSize, catalogue.packageTypes, input.loadSize) });
   const lastSuggested = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!suggestVehicle) return;
+    if (!suggestVehicle || !showVehicle) return;
     if ((value.vehicleId == null || value.vehicleId === lastSuggested.current) && value.vehicleId !== suggested) onChange({ ...value, vehicleId: suggested });
     lastSuggested.current = suggested;
   }, [suggestVehicle, suggested]); // eslint-disable-line react-hooks/exhaustive-deps
   const currentVehicle = activeVehicles.find((v) => v.id === value.vehicleId);
-  const totalWeight = value.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
+  // A full truckload line has no quantity; it is one load (the API books it as quantity 1).
+  const totalWeight = fullTruck ? 0 : value.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
   const capacityWarning = currentVehicle && totalWeight > currentVehicle.payloadCapacityKg
     ? `Cargo (${Math.round(toDisplayWeight(totalWeight, units))} ${units.weightUnit}) exceeds ${currentVehicle.name} payload. Choose a larger vehicle type.` : null;
   const selectedAccessorials = activeAccessorials.filter(a => qtyOf(a.id) > 0);
   React.useEffect(() => {
-    const accessorials = syncPackageAccessorials(value.packages, value.accessorials, catalogue.accessorials);
-    if (JSON.stringify(accessorials) !== JSON.stringify(value.accessorials)) onChange({ ...value, accessorials });
-  }, [value, catalogue.accessorials, onChange]);
+    const packages = fullTruck ? fullTruckLoad(value.packages, value.stops) : value.packages;
+    const accessorials = syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials);
+    if (packages !== value.packages || JSON.stringify(accessorials) !== JSON.stringify(value.accessorials)) onChange({ ...value, packages, accessorials });
+  }, [value, fullTruck, catalogue.accessorials, onChange]);
 
   return (
     <div className="space-y-5">
       {/* Shipper, service, vehicle */}
       <div className={sectionClass}>
         <div className="flex items-center justify-between mb-3">
-          <h4 className={sectionTitle}><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{customerMode === 'rateCard' ? 'Rate Card & Service' : customerMode === 'self' ? showVehicleSelection ? 'Service & Vehicle' : 'Service' : showVehicleSelection ? 'Shipper, Service & Vehicle' : 'Shipper & Service'}</span></h4>
+          <h4 className={sectionTitle}><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{loadSizes ? sectionName([customerMode === 'rateCard' ? 'Rate Card' : customerMode === 'self' ? '' : 'Shipper', 'Load', showService ? 'Service' : '', showVehicle ? 'Vehicle' : ''])
+            : customerMode === 'rateCard' ? 'Rate Card & Service' : customerMode === 'self' ? showVehicleSelection ? 'Service & Vehicle' : 'Service' : showVehicleSelection ? 'Shipper, Service & Vehicle' : 'Shipper & Service'}</span></h4>
         </div>
-        <div className={`grid grid-cols-1 ${showVehicleSelection && customerMode !== 'self' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
+        <div className={`grid grid-cols-1 ${!loadSizes && showVehicleSelection && customerMode !== 'self' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
           {customerMode !== 'self' && <div>
             {customerMode === 'rateCard' ? <>
               <label className={labelClass}>Rate Card</label>
@@ -177,22 +201,32 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             </> : <>
               <label className={labelClass}>Shipper</label>
               <Select aria-label="Shipper" className="w-full" value={value.customerId ?? ''} onValueChange={(v) => {
-              const next = value.source === 'EMAIL' ? { ...value, customerId: v || null, billingCustomerId: null, rateCardOverrideId: null } : applyCustomerDefaults(value, customers.find(c => c.id === v), customer);
+              const chosen = customers.find(c => c.id === v);
+              let next = value.source === 'EMAIL' ? { ...value, customerId: v || null, billingCustomerId: null, rateCardOverrideId: null } : applyCustomerDefaults(value, chosen, customer);
+              // The shipper's usual load size fills an empty choice; a size the dispatcher picked stays.
+              const size = loadSizes && chosen && !value.loadSize ? shipperLoadSize(chosen, pricing.rateCards) : undefined;
+              if (size) next = withLoadSize(next, size);
               onChange(showStopAddresses ? { ...next, stops: next.stops.map(stop => ({ ...stop, zoneId: zoneForAddress(stop.label ?? '', pricing.zones) })) } : next);
             }}
               options={[{ value: '', label: 'Choose a shipper…' }, ...customers.filter(c => c.status !== 'Inactive' && c.status !== 'On Hold').map((c) => ({ value: c.id, label: c.name }))]} />
             </>}
           </div>}
-          <div>
+          {loadSizes && <div>
+            <label className={labelClass}>Load size</label>
+            <Select aria-label="Load size" className="w-full" value={value.loadSize ?? ''} placeholder="Choose a load size"
+              onValueChange={(v) => onChange(withLoadSize(value, v as LoadSize))} options={LOAD_SIZE_OPTIONS} />
+          </div>}
+          {showService && <div>
             <label className={labelClass}>Service</label>
             <Select aria-label="Service" className="w-full" value={value.serviceId} onValueChange={(v) => patch({ serviceId: v })} options={activeServices.map((s) => ({ value: s.id, label: s.name }))} />
-          </div>
-          {showVehicleSelection && <div>
-            <label className={labelClass}>Vehicle type</label>
-            <Select aria-label="Vehicle type" className="w-full" value={value.vehicleId ?? ''} onValueChange={(v) => patch({ vehicleId: v || null })} options={[...(value.vehicleId ? [] : [{ value: '', label: 'Choose a vehicle type' }]), ...activeVehicles.map((v) => ({ value: v.id, label: v.name })), ...(value.vehicleId && !activeVehicles.some(v => v.id === value.vehicleId) ? [{ value: value.vehicleId, label: catalogue.vehicles.find(v => v.id === value.vehicleId)?.name ?? 'Previous vehicle type' }] : [])]} />
+          </div>}
+          {showVehicle && <div>
+            <label className={labelClass}>{loadSizes && fields.vehicle === 'optional' ? 'Vehicle type (optional)' : 'Vehicle type'}</label>
+            <Select aria-label="Vehicle type" className="w-full" value={value.vehicleId ?? ''} onValueChange={(v) => patch({ vehicleId: v || null })} options={[...(loadSizes && fields.vehicle === 'optional' ? [{ value: '', label: 'Any vehicle type' }] : value.vehicleId ? [] : [{ value: '', label: 'Choose a vehicle type' }]), ...offeredVehicles.map((v) => ({ value: v.id, label: v.name })), ...(value.vehicleId && !offeredVehicles.some(v => v.id === value.vehicleId) ? [{ value: value.vehicleId, label: catalogue.vehicles.find(v => v.id === value.vehicleId)?.name ?? 'Previous vehicle type' }] : [])]} />
           </div>}
           {serviceExtras}
         </div>
+        {fullTruck && <p className="mt-3 text-xs text-slate-500">The load fills the vehicle. Its weight and size come from the vehicle type; add Fragile or Dangerous goods under Accessorials.</p>}
         {capacityWarning && <p className="mt-3 p-2 rounded-lg text-xs flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200"><AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />{capacityWarning}</p>}
       </div>
 
@@ -246,8 +280,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                   {stop.type === 'PICKUP'
                     ? <DateTimePicker aria-label={`Stop ${i + 1} ready at`} datePlaceholder="Date" futureOnly={futureOnly} value={stop.windowStart ?? ''} onValueChange={windowStart => updateStop(stop.id, { windowStart: windowStart || undefined })} timeZone={timeZone} />
                     : <DateTimePicker aria-label={`Stop ${i + 1} deliver by`} datePlaceholder="Date" futureOnly={futureOnly} after={futureOnly ? latestPickup : undefined} value={stop.windowEnd ?? ''} onValueChange={windowEnd => updateStop(stop.id, { windowEnd: windowEnd || undefined })} timeZone={timeZone} />}
-                  {pickupClosed && stop.type === 'PICKUP' && stop.windowStart === value.scheduledAt && <p role={outsideHours === 'block' ? 'alert' : 'status'} className={`mt-1 text-xs ${outsideHours === 'block' ? 'text-rose-700' : 'text-amber-700'}`}>
-                    {outsideHours === 'block' ? `${pickupClosed} Choose a time when we're open.` : `Outside work hours. ${pickupClosed} You can still save; AUTO dispatch won't assign it.`}</p>}
+                  {pickupClosed && stop.type === 'PICKUP' && stop.windowStart === value.scheduledAt && <p role="alert" className="mt-1 text-xs text-rose-700">{pickupClosed} Choose a time when we're open.</p>}
                 </div>
               </div>
               {stop.type === 'DROPOFF' && pickups.length > 1 && <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600"><span>Picked up at:</span>{pickups.map(pickup => <label key={pickup.id} className="inline-flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={(stop.pickupIds ?? []).includes(pickup.id)} onChange={e => updateStop(stop.id, { pickupIds: e.target.checked ? [...(stop.pickupIds ?? []), pickup.id] : (stop.pickupIds ?? []).filter(p => p !== pickup.id) })} className={checkbox} />Stop {value.stops.indexOf(pickup) + 1}</label>)}</div>}
@@ -262,10 +295,10 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
       </div>
 
       {/* Packages */}
-      <div className={sectionClass}>
+      {!fullTruck && <div className={sectionClass}>
         <div className="flex items-center justify-between mb-3">
           <h4 className={sectionTitle}><Package className="w-3.5 h-3.5 text-slate-700" /><span>Packages</span></h4>
-          <button type="button" onClick={() => patch({ packages: [...value.packages, { ...newPackage(), pickupStopId: pickups.length === 1 ? pickups[0].id : undefined, deliveryStopId: drops.length === 1 ? drops[0].id : undefined }] })} className={smallBtn}>+ Package</button>
+          <button type="button" onClick={() => patch({ packages: [...value.packages, ...prefillPackageTypes([{ ...newPackage(), pickupStopId: pickups.length === 1 ? pickups[0].id : undefined, deliveryStopId: drops.length === 1 ? drops[0].id : undefined }], value.loadSize, catalogue.packageTypes)] })} className={smallBtn}>+ Package</button>
         </div>
         <div ref={packageGrid} role="group" aria-label="Packages" className={`app-package-grid${packagesCompact ? ' is-compact' : ''}`} style={{ '--package-columns': packageColumns } as React.CSSProperties}>
           <div aria-hidden="true" className="package-head">
@@ -301,7 +334,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
           {weightFree ? <span>Weight doesn’t change this rate card’s price.</span>
             : (snapshot.method === 'ZONE' || snapshot.inputs.dimensionalPricingEnabled) && snapshot.inputs.chargeableWeightKg > 0 && <span title="The larger of actual and dimensional weight is used for pricing." className="font-medium text-slate-700">Chargeable {weightText(snapshot.inputs.chargeableWeightKg)}</span>}
         </div>
-      </div>
+      </div>}
 
       {/* Accessorials */}
       <details className={`${sectionClass} group/acc`}>
@@ -323,7 +356,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                 <label key={acc.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none min-w-0">
                   <input type="checkbox" checked={on} onChange={() => setQty(acc.id, on ? 0 : 1)} className={checkbox} />
                   <span className="flex-1 min-w-0 truncate text-sm text-slate-800" title={acc.name}>{acc.name}</span>
-                  <span className="shrink-0 text-sm text-slate-500 tabular-nums">${acc.rate.toFixed(2)}{acc.code === 'FRAGILE' || acc.code === 'DG' ? ' / package' : ''}</span>
+                  <span className="shrink-0 text-sm text-slate-500 tabular-nums">${acc.rate.toFixed(2)}{!fullTruck && (acc.code === 'FRAGILE' || acc.code === 'DG') ? ' / package' : ''}</span>
                 </label>
               );
             })}

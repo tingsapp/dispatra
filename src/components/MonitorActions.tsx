@@ -2,7 +2,7 @@ import { openDispatcherChat } from '../chat/navigation';
 import { FloatingPanel } from './ui/FloatingPanel';
 import React, { useEffect, useRef, useState } from 'react';
 import { companySlugForCurrentPath } from '../lib/pageRoutes';
-import { NotificationPanel, useUnreadNotifications } from '../portal/Notifications';
+import { MonitorNotificationPanel, useMonitorNotifications } from './monitor/MonitorNotifications';
 import { MonitorActivity } from './activity/MonitorActivity';
 import type { AssistantReference } from '../operations/api';
 import { MonitorBadge } from './monitor/MonitorBadge';
@@ -97,7 +97,8 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   ]);
 
   // Company workspaces read the API inbox; /prototype keeps its static sample alerts.
-  const apiUnread = useUnreadNotifications(slug ?? '');
+  const monitorInbox = useMonitorNotifications(slug ?? '', timeZone ?? 'UTC', jobs, active);
+  const apiUnread = monitorInbox.unread;
   const unreadCount = slug ? apiUnread : alerts.filter((a) => a.unread).length;
 
   const changeNotification = (next: boolean) => {
@@ -136,7 +137,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
           </span>
         </button>
         }>
-        {slug ? isNotificationOpen && <NotificationPanel slug={slug} onClose={() => setIsNotificationOpen(false)} onOpen={row => {
+        {slug ? isNotificationOpen && <MonitorNotificationPanel slug={slug} inbox={monitorInbox} onClose={() => setIsNotificationOpen(false)} onOpen={row => {
           const job = jobs.find(item => item.id === row.order_id);
           if (row.conversation_id) openDispatcherChat({ conversationId: row.conversation_id });
           else if (job) onSelectJob?.(job.jobNumber);

@@ -7,6 +7,7 @@ import type { Job } from '../../types';
 import type { PricingStopInput } from '../../types/pricing';
 import { orderOrigin } from '../../domain/orderOrigin';
 import { dateTime as formatWhen } from '../../lib/dateTimeFormat';
+import { loadSizeLabel } from '../../lib/loadSize';
 
 const trimUnit = (s: string) => s.replace(/\s\S+$/, '');
 export { formatWhen };
@@ -30,7 +31,8 @@ export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, s
       <h4 className="app-section-title flex items-center gap-1.5 mb-3"><Building2 className="w-3.5 h-3.5 text-slate-700" /><span>{showShipper ? 'Shipper & Service' : 'Service'}</span></h4>
       <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
         {showShipper && <Detail label="Shipper" value={job.customerName} hint={job.customerPhone} />}
-        <Detail label="Service" value={job.serviceLevel || job.jobType} />
+        {job.loadSize && <Detail label="Load size" value={loadSizeLabel(job.loadSize)} />}
+        <Detail label="Service" value={job.serviceLevel || (job.loadSize === 'FTL' ? 'None (full truckload)' : job.jobType)} />
         <Detail label="Order source" value={origin.label} />
         {origin.tmsReference !== null && <Detail label="TMS reference number" value={origin.tmsReference} />}
       </dl>

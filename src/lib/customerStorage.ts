@@ -1,3 +1,4 @@
+import type { LoadSize } from './loadSize';
 import { scopedStorageKey } from './scopedStorage';
 import { CustomerOperations } from '../domain/operations';
 import { Discount } from '../types/pricing';
@@ -19,8 +20,12 @@ export interface Customer extends CustomerOperations {
   /** Retained for older saved records; the shipper's single `email` is used for quotes and delivery updates. */
   billingEmail: string;
   // ---- Pricing relationship (see types/pricing.ts) ----
-  /** Customer-specific Rate Card. `null` = inherit from organization. */
+  /** Customer-specific default Rate Card (the first attached card). `null` = inherit from organization. */
   rateCardId: string | null;
+  /** Every attached Rate Card, at most one per load size, default first; absent on older records, which use `rateCardId`. */
+  rateCardIds?: string[];
+  /** Load size of each attached card (API), same order; the Shipper portal cannot read the cards themselves. */
+  rateCardLoadSizes?: LoadSize[];
   /** Standing driver for new Orders; absent on older records. */
   assignedDriverId?: string | null;
   assignedDriverName?: string | null;
@@ -264,6 +269,11 @@ export function loadCustomers(): Customer[] {
   });
   try { saveCustomers(customers); } catch { /* Keep demo data usable when browser storage is unavailable. */ }
   return customers;
+}
+
+/** Attached Rate Cards in order; older records carry only `rateCardId`. */
+export function shipperRateCardIds(customer: Pick<Customer, 'rateCardId' | 'rateCardIds'>): string[] {
+  return customer.rateCardIds?.length ? customer.rateCardIds : customer.rateCardId ? [customer.rateCardId] : [];
 }
 
 export function saveCustomers(customers: Customer[]): void {

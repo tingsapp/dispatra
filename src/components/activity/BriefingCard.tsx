@@ -17,8 +17,10 @@ export function dispatchSummary(data: Briefing) {
 }
 
 export function BriefingCard({ slug, reply }: { slug?: string; reply: AssistantReply }) {
-  const live = useLiveBriefing(slug, reply);
-  if (!live) return null;
+  const { totals: live, error, refresh } = useLiveBriefing(slug, reply);
+  if (!live) return error
+    ? <p role="alert" className="text-xs text-app-muted">Today’s briefing is unavailable. <button type="button" className="underline" onClick={() => void refresh()}>Try again</button></p>
+    : <p role="status" className="text-xs text-app-muted">Loading today’s briefing…</p>;
   const data = live.briefing;
   const attention = data.open_incidents > 0;
   const Icon = attention ? CircleAlert : CircleCheck;
@@ -30,6 +32,7 @@ export function BriefingCard({ slug, reply }: { slug?: string; reply: AssistantR
         <h4>{data.evening ? 'Today’s summary' : 'Today so far'}</h4>
         <time dateTime={live.observed_at} title={`Updated in ${data.time_zone}`} aria-label={`Updated ${updated}`}><span className="briefing-live" aria-hidden="true" />{updated}</time>
       </div>
+      <p className="text-[10px] text-slate-500">Today’s scheduled pickups only · {data.day} · {data.time_zone}</p>
       <div className="briefing-total"><strong>{data.received.toLocaleString()}</strong><span>{data.received === 1 ? 'order for today' : 'orders for today'}</span></div>
       <div className="briefing-bar" aria-hidden="true">{STATUSES.map(([, key]) => data[key] > 0 && <span key={key} data-status={key} style={{ flexGrow: data[key] }} />)}</div>
       <dl className="briefing-counts" aria-label="Status of today’s orders">
@@ -38,7 +41,7 @@ export function BriefingCard({ slug, reply }: { slug?: string; reply: AssistantR
     </section>
     <ul className="briefing-guidance">
       <li className="briefing-dispatch"><Mode size={15} className="shrink-0 text-slate-500" aria-hidden="true" /><span>{dispatchSummary(data)}</span></li>
-      <li className={`briefing-issues ${attention ? 'text-amber-700' : 'text-emerald-700'}`}><Icon size={15} className="shrink-0" aria-hidden="true" />{attention ? `${data.open_incidents} open ${data.open_incidents === 1 ? 'issue' : 'issues'} to review` : 'No open issues recorded'}<span className="sr-only"> across your workspace</span></li>
+      <li className={`briefing-issues ${attention ? 'text-amber-700' : 'text-emerald-700'}`}><Icon size={15} className="shrink-0" aria-hidden="true" />{attention ? `${data.open_incidents} open ${data.open_incidents === 1 ? 'issue' : 'issues'} to review` : 'No open issues recorded'}<span className="sr-only"> for today’s orders</span></li>
     </ul>
   </div>;
 }

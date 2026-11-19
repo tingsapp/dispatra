@@ -6,6 +6,7 @@ import { canadianAddress } from './adapters';
 import { bookingInstant } from './time';
 import { fromDisplayDimension, fromDisplayWeight, type Units } from '../lib/units';
 import { zoneForAddress } from '../lib/zoneAddress';
+import { loadFields, loadSizeLabel } from '../lib/loadSize';
 
 const amount = (value: number | string | null | undefined) => Number(value ?? 0);
 const validStatus = (status: string): Job['lifecycleStatus'] =>
@@ -43,6 +44,7 @@ export function orderToInput(order: Order): PricingOrderInput {
     externalSource: null, externalReference: facts.external_reference, adjustments: facts.adjustments.map((a, i) => ({ id: String(i), amount: Number(a.amount), reason: a.reason, taxable: a.taxable })),
     requiredDriverId: shipperAssignment(order)?.id ?? null, requiredDriverName: shipperAssignment(order)?.name ?? null,
     rateCardOverrideId: facts.rate_card_id ?? null, preferredDriverId: facts.preferred_driver_id ?? null, stage: order.pricing.stage,
+    loadSize: facts.load_size ?? null,
   };
 }
 
@@ -140,9 +142,9 @@ export function orderToUi(order: Order, shippers: Shipper[], catalog: CatalogIte
     riskText: order.pricing.review_reason ?? undefined,
     customerName: shipper?.name ?? 'Unknown shipper', customerPhone: shipper?.phone ?? '', customerEmail: shipper?.email,
     pickupAddress: pickup?.address.text ?? '', dropoffAddress: drop?.address.text ?? '',
-    scheduledTime: order.scheduled_at, jobType: service?.data.name ?? 'Delivery', serviceLevel: service?.data.name,
-    assignedDriverId: assignment?.driver_id, serviceId: order.service_id, customerId: order.shipper_id,
-    vehicleId: order.facts.vehicle_type_id ?? null, routeId: order.route_id ?? undefined,
+    scheduledTime: order.scheduled_at, jobType: service?.data.name ?? (loadSizeLabel(order.facts.load_size) || 'Delivery'), serviceLevel: service?.data.name,
+    assignedDriverId: assignment?.driver_id, serviceId: order.service_id ?? undefined, customerId: order.shipper_id,
+    vehicleId: order.facts.vehicle_type_id ?? null, loadSize: order.facts.load_size ?? null, routeId: order.route_id ?? undefined,
     cargoWeight: `${order.facts.items.reduce((sum, item) => sum + item.quantity * Number(item.weight_kg), 0).toFixed(1)} kg`,
     stopsCount: order.facts.stops.length, handlingInstructions: order.facts.internal_notes,
     lat: drop?.address.latitude ?? NaN, lng: drop?.address.longitude ?? NaN,
@@ -154,9 +156,13 @@ export function orderToUi(order: Order, shippers: Shipper[], catalog: CatalogIte
 /** Preserve all stop and item links when the form is submitted to the API. */
 export function inputToBooking(input: PricingOrderInput, notes = '', timeZone = 'America/Vancouver'): Booking {
   if (!input.scheduledAt || Number.isNaN(new Date(input.scheduledAt).getTime())) throw new Error('Choose a valid pickup date and time.');
-  if (!input.serviceId) throw new Error('Choose a service level.');
+  const fields = loadFields(input.loadSize);
+  if (fields.service && !input.serviceId) throw new Error('Choose a service level.');
+  if (fields.vehicle === 'required' && !input.vehicleId) throw new Error('Choose a vehicle type for a full truckload.');
   if (input.stops.filter(stop => stop.type === 'PICKUP').length === 0 || input.stops.filter(stop => stop.type === 'DROPOFF').length === 0) throw new Error('Add a pickup and delivery stop.');
-  const missing = input.packages.flatMap((item, index) => (item.missingFields ?? []).map(field => `Package ${index + 1}: ${field === 'weightKg' ? 'weight' : field.replace('Cm', '')}`));
+  // A full truckload asks for no weight or size: the API uses the vehicle type's payload and cargo space.
+  const missing = input.packages.flatMap((item, index) => (item.missingFields ?? []).filter(() => fields.packageSizes)
+    .map(field => `Package ${index + 1}: ${field === 'weightKg' ? 'weight' : field.replace('Cm', '')}`));
   if (missing.length) throw new Error(`Complete the missing details: ${missing.join(', ')}.`);
   return serializeBooking(input, notes, timeZone, false) as Booking;
 }
@@ -171,9 +177,15 @@ function serializeBooking(input: PricingOrderInput, notes: string, timeZone: str
   const stopIds = new Map(input.stops.map(stop => [stop.id, /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(stop.id) ? stop.id : crypto.randomUUID()]));
   const pickups = input.stops.filter(stop => stop.type === 'PICKUP');
   const drops = input.stops.filter(stop => stop.type === 'DROPOFF');
+  // Drafts (email/shipper completion) have no load size yet; the API suggests one when the order is created.
+  const fields = loadFields(partial ? null : input.loadSize);
+  const fullTruck = !fields.packageSizes;
+  const size = (item: PricingPackageInput, key: 'lengthCm' | 'widthCm' | 'heightCm') => fullTruck ? null : packageValue(item, key);
   return {
     shipper_id: input.customerId, billing_shipper_id: input.billingCustomerId ?? input.customerId,
-    rate_card_id: input.rateCardOverrideId, service_id: input.serviceId || null, vehicle_type_id: input.vehicleId, preferred_driver_id: input.preferredDriverId ?? null,
+    ...(partial ? {} : { load_size: input.loadSize ?? null }),
+    rate_card_id: input.rateCardOverrideId, service_id: fields.service ? input.serviceId || null : null,
+    vehicle_type_id: fields.vehicle === 'hidden' ? null : input.vehicleId, preferred_driver_id: input.preferredDriverId ?? null,
     scheduled_at: instant(input.scheduledAt),
     stops: input.stops.map(stop => ({ id: stopIds.get(stop.id)!, kind: stop.type, address: partial ? { text: stop.label ?? '', city: stop.city ?? '', province: stop.provinceCode ?? '', postal_code: stop.postalCode ?? '', country: 'CA' as const, latitude: stop.latitude ?? null, longitude: stop.longitude ?? null } : canadianAddress(stop.label ?? '', undefined, { latitude: stop.latitude ?? null, longitude: stop.longitude ?? null, city: stop.city, province: stop.provinceCode, postalCode: stop.postalCode, country: stop.countryCode }),
       contact_name: stop.contactName ?? '', phone: stop.contactPhone ?? '', instructions: stop.instructions ?? '',
@@ -181,9 +193,11 @@ function serializeBooking(input: PricingOrderInput, notes: string, timeZone: str
       service_minutes: stop.handlingMinutes ?? 10, unattended_allowed: false, photo_required: stop.podRequirement === 'PHOTO' || stop.podRequirement === 'PHOTO_AND_SIGNATURE' })),
     items: input.packages.map(item => ({ id: /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(item.id) ? item.id : crypto.randomUUID(),
       pickup_id: stopIds.get(item.pickupStopId ?? (pickups.length === 1 ? pickups[0].id : '')) ?? null, delivery_id: stopIds.get(item.deliveryStopId ?? (drops.length === 1 ? drops[0].id : '')) ?? null,
-      quantity: packageValue(item, 'quantity'), weight_kg: packageValue(item, 'weightKg'), length_cm: packageValue(item, 'lengthCm'), width_cm: packageValue(item, 'widthCm'), height_cm: packageValue(item, 'heightCm'),
+      // A full truckload line is one load whose weight is the line total.
+      quantity: fullTruck ? 1 : packageValue(item, 'quantity'), weight_kg: fullTruck ? null : packageValue(item, 'weightKg'),
+      length_cm: size(item, 'lengthCm'), width_cm: size(item, 'widthCm'), height_cm: size(item, 'heightCm'),
       pallets: item.palletsPerUnit ?? (item.handlingUnit === 'PALLET' ? 1 : 0), fragile: item.fragile ?? false,
-      dangerous_goods: item.handlingTags?.includes('DANGEROUS_GOODS') ?? false, description: item.description ?? '', package_type_id: item.packageTypeId ?? null })),
+      dangerous_goods: item.handlingTags?.includes('DANGEROUS_GOODS') ?? false, description: item.description ?? '', package_type_id: fullTruck ? null : item.packageTypeId ?? null })),
     accessorials: input.accessorials.map(a => ({ id: a.accessorialId, quantity: a.quantity })),
     distance_km: input.routeKm, estimated_minutes: input.estimatedMinutes,
     adjustments: input.adjustments.map(a => ({ amount: a.amount, reason: a.reason, taxable: a.taxable })),

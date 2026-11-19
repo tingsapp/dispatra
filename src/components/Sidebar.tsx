@@ -23,6 +23,8 @@ import { Notice } from '../portal/ui';
 interface SidebarProps {
   tmsWorkspace?: boolean;
   unreadMessages?: number;
+  ordersAttentionCount?: number;
+  ordersAttentionCapped?: boolean;
   chatEnabled?: boolean;
   loggingOut?: boolean;
   logoutError?: unknown;
@@ -46,6 +48,8 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   tmsWorkspace = false,
   unreadMessages = 0,
+  ordersAttentionCount = 0,
+  ordersAttentionCapped = false,
   chatEnabled = false,
   loggingOut = false,
   logoutError,
@@ -156,12 +160,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onActionNotification(`Navigated to ${item.label}`);
                   }}
                   aria-current={isActive ? 'page' : undefined}
-                  aria-label={item.id === 'messages' && unreadMessages ? `Chat, ${unreadMessages} unread` : item.label}
+                  aria-label={item.id === 'jobs' && ordersAttentionCount ? `Orders, ${ordersAttentionCount}${ordersAttentionCapped ? '+' : ''} need attention` : item.id === 'messages' && unreadMessages ? `Chat, ${unreadMessages} unread` : item.label}
                   title={collapsed ? item.label : undefined}
                   className="app-nav-item relative"
                 >
                   <WorkspaceIcon label={item.label} fallback={Icon} />
                   <span className={collapsed ? 'sr-only' : undefined}>{item.label}</span>
+                  {item.id === 'jobs' && ordersAttentionCount > 0 && <span aria-hidden className={collapsed ? 'absolute right-1 top-1 size-2 rounded-full bg-rose-500' : 'ml-auto rounded-full bg-rose-100 px-1.5 text-xs text-rose-700'}>{!collapsed && `${ordersAttentionCount}${ordersAttentionCapped ? '+' : ''}`}</span>}
                   {item.id === 'messages' && unreadMessages > 0 && <span aria-hidden className={collapsed ? 'absolute right-1 top-1 size-2 rounded-full bg-rose-500' : 'ml-auto rounded-full bg-rose-100 px-1.5 text-xs text-rose-700'}>{!collapsed && unreadMessages}</span>}
                 </button>
               );

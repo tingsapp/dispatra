@@ -230,6 +230,7 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     return points ? [[job.id, points.map(([lat, lng]) => ({ lat, lng }))]] : [];
   }));
   const approaches = useRouteApproaches(slug, props.routes ?? [], visibleJobs.map(({ job }) => job), props.vehicles ?? [], props.active !== false);
+  const [hoveredRoute, setHoveredRoute] = useState<string | null>(null);
   const hasPreview = pathQueries.some(query => query.data?.preview && query.data.points.length > 1);
   const failedPaths = pathQueries.filter(query => query.isError).length;
   const locatedDrivers = (props.demo === false && props.vehicles === undefined ? props.drivers ?? [] : [])
@@ -246,6 +247,10 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
     ...visibleJobs.map(({ job }) => `order:${job.id}`), ...locatedDrivers.map(driver => `driver:${driver.id}`),
     ...(props.vehicles ?? []).map(vehicle => `vehicle:${vehicle.id}`),
   ], props.demo === false && props.active !== false);
+
+  // Hovering any line of a route (vehicle approach or an order's pickup-to-drop-off path) highlights all of them.
+  const routeHover = (group: string) => ({ highlighted: hoveredRoute === group,
+    onHoverChange: (hovered: boolean) => setHoveredRoute(current => hovered ? group : current === group ? null : current) });
 
   return <>
     <GoogleTraffic enabled={props.active !== false && props.layerConfig.traffic} />
@@ -270,11 +275,13 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
       </div>
     </GoogleOverlayMarker>
     </>}
-    {approaches.paths.map(path => <GoogleRoundedRoute key={path.id} radius={24} id={`approach-${path.id}`} points={path.points} selected={true} />)}
+    {approaches.paths.map(path => <GoogleRoundedRoute key={path.id} radius={24} id={`approach-${path.id}`} points={path.points} selected={true}
+      approach {...routeHover(path.id)} />)}
     {visibleJobs.map(({ job, stops }) => {
       const path = roadPaths[job.id];
       return <Fragment key={job.id}>
-        {path && path.length > 1 && <GoogleRoundedRoute radius={24} id={job.id} points={path.map(point => [point.lat, point.lng])} selected={true} />}
+        {path && path.length > 1 && <GoogleRoundedRoute radius={24} id={job.id} points={path.map(point => [point.lat, point.lng])} selected={true}
+          {...routeHover(job.routeId ?? job.id)} />}
         <GoogleOrderMarkers job={job} stops={stops} onSelect={props.onSelectJob} />
       </Fragment>;
     })}

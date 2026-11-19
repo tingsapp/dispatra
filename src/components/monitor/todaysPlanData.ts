@@ -16,21 +16,27 @@ export const companyDay = (date: Date, timeZone: string) => {
   return ['year', 'month', 'day'].map(type => parts.find(part => part.type === type)!.value).join('-');
 };
 
+/** Incomplete requests have no confirmed schedule, so use their received day. */
+export function receivedOnDay(value: string, today: string, timeZone: string) {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) && companyDay(date, timeZone) === today;
+}
+
 /** The company-local day of an order's scheduled pickup, never its creation time. */
 export function pickupDay(job: Job, timeZone: string): string | undefined {
   const date = new Date(job.scheduledTime);
   return job.scheduledTime && Number.isFinite(date.getTime()) ? companyDay(date, timeZone) : undefined;
 }
 
-/** Today's work: orders picked up today, plus earlier pickups that are still open. Later pickups wait for their day. */
+/** Today's work: only orders whose scheduled pickup falls on the company's current day. */
 export function isTodaysOrder(job: Job, today: string, timeZone: string) {
   const day = pickupDay(job, timeZone), status = orderLifecycle(job);
-  return !!day && status !== 'CANCELLED' && (day === today || day < today && status !== 'COMPLETED');
+  return !!day && status !== 'CANCELLED' && day === today;
 }
 
 export function todaysPlan(jobs: Job[], today: string, timeZone: string, attentionIds: ReadonlySet<string>) {
   const all = jobs.filter(job => isTodaysOrder(job, today, timeZone))
-    .sort((a, b) => Date.parse(a.scheduledTime) - Date.parse(b.scheduledTime) || a.id.localeCompare(b.id));
+    .sort((a, b) => (Date.parse(b.createdAt ?? "") || Date.parse(b.scheduledTime)) - (Date.parse(a.createdAt ?? "") || Date.parse(a.scheduledTime)) || b.id.localeCompare(a.id));
   const groups: Record<PlanFilter, Job[]> = {
     all,
     unassigned: all.filter(job => orderLifecycle(job) === 'NEW'),

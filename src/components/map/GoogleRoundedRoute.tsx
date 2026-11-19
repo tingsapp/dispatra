@@ -6,12 +6,22 @@ import { roundedRoutePath } from './roundedRoutePath';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ROUTE_COLOR = '#171717';
 
+type RouteProps = {
+  id: string; points: number[][]; selected: boolean; radius?: number;
+  /** Vehicle-to-pickup approach: the same black at reduced opacity, so it reads gray beside the order path. */
+  approach?: boolean;
+  /** Set while a linked line (the same route's approach or order path) is hovered. */
+  highlighted?: boolean;
+  onHoverChange?: (hovered: boolean) => void;
+};
+
 /** A Google-projected SVG route with explicit rounded caps, joins and turns; hovering highlights it in the accent blue. */
-export function GoogleRoundedRoute({ id, points, selected, radius = 10 }: { id: string; points: number[][]; selected: boolean; radius?: number }) {
+export function GoogleRoundedRoute({ id, points, selected, radius = 10, approach = false, highlighted = false, onHoverChange }: RouteProps) {
   const map = useMap();
-  const current = useRef({ id, points, selected, radius });
-  current.current = { id, points, selected, radius };
+  const current = useRef({ id, points, selected, radius, approach, highlighted, onHoverChange });
+  current.current = { id, points, selected, radius, approach, highlighted, onHoverChange };
   const overlay = useRef<google.maps.OverlayView | null>(null);
+  const paintRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!map) return;
     const svg = document.createElementNS(SVG_NS, 'svg'), path = document.createElementNS(SVG_NS, 'path');
@@ -22,13 +32,15 @@ export function GoogleRoundedRoute({ id, points, selected, radius = 10 }: { id: 
     path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
     hit.setAttribute('fill', 'none'); hit.setAttribute('stroke', 'transparent'); hit.setAttribute('stroke-width', '12');
     hit.setAttribute('stroke-linecap', 'round'); hit.setAttribute('stroke-linejoin', 'round'); hit.style.pointerEvents = 'stroke';
-    hit.addEventListener('pointerenter', () => {
-      svg.dataset.hovered = 'true'; path.setAttribute('stroke', APP_ACCENT); path.setAttribute('stroke-opacity', '1');
-      svg.parentNode?.appendChild(svg);
-    });
-    hit.addEventListener('pointerleave', () => {
-      delete svg.dataset.hovered; path.setAttribute('stroke', ROUTE_COLOR); path.setAttribute('stroke-opacity', current.current.selected ? '1' : '0.6');
-    });
+    const paint = () => {
+      const { selected, approach, highlighted } = current.current, blue = !!svg.dataset.hovered || highlighted;
+      path.setAttribute('stroke', blue ? APP_ACCENT : ROUTE_COLOR);
+      path.setAttribute('stroke-opacity', blue || (selected && !approach) ? '1' : approach ? '0.4' : '0.6');
+      if (blue) svg.parentNode?.appendChild(svg);
+    };
+    paintRef.current = paint;
+    hit.addEventListener('pointerenter', () => { svg.dataset.hovered = 'true'; paint(); current.current.onHoverChange?.(true); });
+    hit.addEventListener('pointerleave', () => { delete svg.dataset.hovered; paint(); current.current.onHoverChange?.(false); });
     svg.appendChild(path); hitSvg.appendChild(hit);
     class RouteOverlay extends google.maps.OverlayView {
       onAdd() {
@@ -50,7 +62,7 @@ export function GoogleRoundedRoute({ id, points, selected, radius = 10 }: { id: 
         }
         svg.dataset.shipperRoute = current.current.id;
         path.setAttribute('stroke-width', '2.5');
-        path.setAttribute('stroke-opacity', current.current.selected || svg.dataset.hovered ? '1' : '0.6');
+        paint();
         const pixels = current.current.points.flatMap(([lat, lng]) => {
           const pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng({ lat, lng }));
           return pixel ? [pixel] : [];
@@ -63,6 +75,7 @@ export function GoogleRoundedRoute({ id, points, selected, radius = 10 }: { id: 
     const instance = new RouteOverlay(); overlay.current = instance; instance.setMap(map);
     return () => { instance.setMap(null); overlay.current = null; };
   }, [map]);
-  useEffect(() => { overlay.current?.draw(); }, [id, points, selected, radius]);
+  useEffect(() => { overlay.current?.draw(); }, [id, points, selected, radius, approach]);
+  useEffect(() => { paintRef.current(); }, [highlighted]);
   return null;
 }

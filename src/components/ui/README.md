@@ -11,6 +11,7 @@ Use these components for operational pages and authenticated portals. Keep busin
 | Command menu with flyouts | `DropdownMenu` | Radix menu semantics, hover intent, pointer transition protection, typeahead, keyboard navigation, touch, portalled submenus and collision handling |
 | Commands within a menu | `MenuList`, `MenuItem`, `MenuSeparator` | Consistent rows and icons; Arrow Up/Down and Home/End navigation skip disabled commands |
 | Choose one value | `Select` | Combobox/listbox semantics, typeahead, arrow navigation, disabled options, selected checkmark and empty state |
+| Choose several values | `MultiSelect` | `Select` behavior with a multiselectable listbox that stays open while toggling; keeps values in the order picked; an option's `group` shows a heading above it |
 | Switch local sections | `Tabs` | Linked panels, one tab stop, arrow/Home/End navigation and optional mounted draft preservation |
 | Filter a list | `SearchInput` | Search icon, accessible label and clear action |
 | Boolean preference | `Switch` | Shared dimensions and checked, disabled and keyboard states |

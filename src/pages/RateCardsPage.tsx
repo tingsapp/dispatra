@@ -13,7 +13,7 @@ import { companySettingsKey, useWorkspaceAccount } from '../portal/WorkspaceAcco
 import { apiPricingContext, rateFromUi, rateToUi } from '../operations/pricingAdapters';
 import { loadBillingConfig } from '../lib/billingStorage';
 import { loadSimplePricingConfig } from '../lib/simplePricingStorage';
-import { loadCustomers } from '../lib/customerStorage';
+import { loadCustomers, shipperRateCardIds } from '../lib/customerStorage';
 import {
   createEmptyRateCard,
   loadPricingConfig,
@@ -193,7 +193,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
   /** Cards are archived, never deleted: orders already priced keep their frozen snapshot of the card. */
   const archiveCard = async (card: RateCard) => {
     if (isDefault(card)) { onNotification?.('Set another card as Default before archiving this one.', 'warning'); return; }
-    const attached = customers.filter(c => c.rateCardId === card.id).length;
+    const attached = customers.filter(c => shipperRateCardIds(c).includes(card.id)).length;
     const impact = attached ? `${attached} shipper${attached === 1 ? '' : 's'} attached to it will use the Default card for new orders.` : 'No shippers are attached to it.';
     if (!(await confirmDialog({ title: `Archive "${card.name}"?`, message: `It leaves the list and every selector; orders already priced with it are unchanged. ${impact}`, confirmLabel: 'Archive card', tone: 'danger' }))) return;
     if (slug) {

@@ -1,3 +1,57 @@
+2026-11-20: New Order and Shipper portal preselect the load size from the shipper's default card and prefill package type by size (LTL → Pallet, else company Default; replaced automatic types clear their sizes). Types regenerated.
+Checks: lint clean (2 known loadSize.test errors); loadSize 6/6, packageTypes 3/3, shipperOrders 11/11, shipperProfile 4/4 pass; orderVehicle 1-4 known failures; checked in the browser.
+
+2026-11-19: Shipper Rate cards list groups cards under their load size (MultiSelect `group` headings; empty sizes say so).
+Checks: lint clean (2 known loadSize.test errors); entityForms + settings 107 pass, 9 known failures; checked in the browser.
+
+2026-11-19: Shipper form shows Default rate card only when two or more cards are attached.
+Checks: lint clean (2 known loadSize.test errors); shipper rate card test passes.
+
+2026-11-19: Rate card editor has a required Load size (list shows it); Shipper Rate cards multi-select lists "Name (size)" and keeps one card per size (a new pick replaces the same-size card); Default rate card select prices sizes without their own card; preview resolves the size's card, then the default card. Types regenerated.
+Checks: lint (only the 2 pre-existing loadSize.test type errors); settings, entityForms, loadSize: 111 pass, 9 known failures.
+
+2026-11-19: Order form Vehicle type lists only types offered for the load size (new Settings → Vehicle Types "Offered for" FTL/LTL + table column); changing size keeps, re-suggests or clears the type. FTL drops the Packages/Load section: Fragile/DG via Accessorials, load lines follow the stops (`fullTruckLoad`). Types regenerated.
+Checks: lint, build, loadSize 4/4, tomtomRouting 5/5, chatWorkspace 13/13 pass. All other files run; failures are known (appActionLoading 5, pricing 22/29/43, entityForms 2, orderVehicle 1-4, unitDefaults 4, settings 7, rateCardSettings 1, emailDraftForm 1) or stale copy (autoDispatchGate 7, settingsMailbox 1). Not checked in a browser.
+
+2026-11-19: Dispatcher New/Edit Order no longer warns about pickups outside work hours (Shipper portal still refuses them); Outside work hours attention label removed.
+Checks: `npm run lint`, operatingCalendar and loadSize tests 8/8 pass.
+
+2026-11-19: Shippers form: Default rate card select (from the attached cards, saved first) replaces the Default load size field; "(Company default)" labels the company card; details show the default card. Types regenerated.
+Checks: lint, build, entityForms 30/32 (the 2 known order-test failures), loadSize 2/2, listPages 12/12, shipperOrders 11/11, shipperProfile 4/4; settings has 3 earlier rate-card failures. Not checked in a browser.
+
+2026-11-19: FTL Load row no longer shows weight (sent as null; API uses the vehicle type's payload); "+ Load line" only with several pickups/drop-offs. Types regenerated.
+Checks: `npm run lint` and tests/loadSize.test.tsx (3/3) pass.
+
+2026-11-19: FTL Load row's weight column is a fixed 9rem instead of stretching across the form.
+Checks: `npm run lint` and tests/loadSize.test.tsx (3/3) pass.
+
+2026-11-19: Order load size: Load size field and per-size field rules in the order form (company routes only), adapters send `load_size` and drop service/vehicle/sizes per size, Shipper Default load size, list/details display; schema regenerated.
+Checks: new tests/loadSize.test.tsx 3/3, shipperOrders 11/11, monitorReview 18/18, listPages 12/12, emailOrders, addressAutocomplete, packageTypes passed; `tsc --noEmit` and `npm run build` passed. entityForms 2 and emailDraftForm 1 failures are in untouched code; not checked in a live browser.
+
+2026-11-19: Shipper form Rate cards is now a multi-select (new shared `MultiSelect`); list/details show all attached cards; adapters send `rate_card_ids` with the first card as `rate_card_id`; schema regenerated.
+Checks: new entityForms multi-select test, listPages 12/12, monitorReview 18/18, `tsc --noEmit` and `npm run build` passed; entityForms 2 and settings 7 failures also fail without this change; not checked in a live browser.
+
+2026-11-19: Dispatcher Shipper password change moved from the Shipper details popup to the Edit Shipper form (separate Change password action below the profile fields; not on New Shipper). Spec updated.
+Checks: new monitorReview placement test, monitorReview 18/18, listPages 12/12, directoryPasswords 3/3, `tsc --noEmit` and `npm run build` passed; entityForms 29/31 (2 order-test failures also fail without this change); not checked in a live browser.
+
+2026-11-19: Monitor route lines: vehicle→pickup approach is black at 0.4 opacity (gray), order pickup→drop-off paths stay black; hovering any line of a route turns its approach and all its order paths accent blue.
+Checks: monitorMarkers 9/9 (new linked-hover test) and `tsc --noEmit` passed; not checked in a live browser.
+
+2026-11-19: Added red Orders sidebar count for unique unresolved Orders and intake reviews, refreshed through sync and polling; visits do not clear it. Removed Active orders sort/timezone text and aligned View all orders with its scheduled-day description.
+Checks: sidebar/review/notification tests passed; follow-up run: todaysPlan, monitorReview, monitorOrderVisibility, notifications, navigation, activityFeed 81/81, `tsc --noEmit` and `npm run build` passed.
+
+2026-11-19: Active orders subtitle now reads “Today’s scheduled orders · [company date]”; View all orders sits on the secondary row so it does not run into the description.
+Checks: Active Orders tests, TypeScript and production build passed.
+
+2026-11-19: Moved Monitor temporary notification/feedback stack to bottom right with a reserved map-control lane; narrow screens place it above the measured chat height. Shared non-Monitor placement is unchanged.
+Checks: both LiveNotices checks and 10 other chat checks passed; one unrelated chat-history unread-label assertion failed. Production build passed; TypeScript validation recorded separately. Browser verification unavailable because the browser connection failed.
+
+2026-11-19: Monitor now labels the company-local day explicitly, orders scheduled-today lists newest-created first, and interleaves request review with alerts by timestamp. Notification list/count covers today only and excludes other-day orders.
+Checks: 72 distinct client checks passed across the main run and corrected activity-fixture rerun; TypeScript/build passed; live localhost labels, zero-day summary, Needs Attention and notification empty state verified in browser.
+
+2026-11-18 Active orders and the Monitor map now include only pickups scheduled today in company time; overdue open orders move to Needs Attention and appear separately in the opening Dispatra briefing with oldest dates/statuses.
+Checks: OpenAPI/client types regenerated and `npm run build` passed. `npm run lint` did not finish after 60 seconds and was interrupted; tests not run.
+
 2026-11-17 Default work hours 06:00–19:00 daily (`DEFAULT_WORK_HOURS`); the order form checks hours only when the company's hours are loaded, so /prototype is unrestricted; schema.d.ts regenerated.
 Checks: lint, `operatingCalendar.test.tsx` 5/5.
 2026-11-17 Preferences: Work hours and Holidays use short one-line descriptions, the weekly summary and Copy Monday button are removed, and Holidays sits beside Work hours from `xl` up (stacked below on smaller screens).

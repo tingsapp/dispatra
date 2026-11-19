@@ -33,12 +33,14 @@ import { MapControls } from './components/MapControls';
 import { ConfirmDialogHost, confirmDialog } from './components/ui/ConfirmDialog';
 import { DispatchRecommendation } from './components/monitor/DispatchRecommendation';
 import { Sidebar } from './components/Sidebar';
+import { useOrdersAttentionCount } from './components/monitor/useOrdersAttentionCount';
 import { TopMetrics } from './components/TopMetrics';
 import { TodaysPlan } from './components/monitor/TodaysPlan';
 import { GoogleMonitorMap, type MapController, VANCOUVER_CENTER_LNG_LAT } from './components/GoogleMonitorMap';
 import { companyMapCenter } from './components/monitor/mapScene';
 import { isActiveMonitorOrder, isTodaysMonitorOrder } from './components/monitor/orderVisibility';
 import { useCompanyDay } from './components/monitor/useCompanyDay';
+import { isTodaysOrder } from './components/monitor/todaysPlanData';
 import {
 INITIAL_DRIVERS,
 INITIAL_JOBS,
@@ -64,7 +66,7 @@ import { Driver,Job,MapLayerConfig,ModalDialogState,NeedsAttentionItem } from '.
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ default: module.ReportsPage })));
 
 /** API attention kinds as dispatcher-facing labels. */
-const attentionLabel = (kind: string) => ({ LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', OPERATIONAL: 'Operational risk', NO_DRIVER: 'No driver', OUTSIDE_HOURS: 'Outside work hours' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
+const attentionLabel = (kind: string) => ({ OVERDUE: 'Overdue', LATE_START: 'Late start', AT_RISK: 'At risk', PRICING: 'Pricing review', OPEN_ISSUE: 'Open issue', OPERATIONAL: 'Operational risk', NO_DRIVER: 'No driver', DUE: 'Pickup due' } as Record<string, string>)[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase().replace(/_/g, ' ');
 
 export default function App({ onSignOut, loggingOut = false, logoutError }: { onSignOut?: () => void; loggingOut?: boolean; logoutError?: unknown } = {}) {
   const savedTmsWorkspace = useWorkspaceAccount()?.settings.data.tms_workspace === true;
@@ -74,6 +76,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = usePageNavigation();
   const unreadMessages = useUnreadMessages(slug);
+  const {count:ordersAttentionCount,capped:ordersAttentionCapped} = useOrdersAttentionCount(slug);
   const [chatTarget] = useState<ChatTarget | null>(() => {
     const id = new URLSearchParams(location.search).get('conversation');
     return id ? { conversationId: id } : null;
@@ -100,33 +103,39 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     mobile.addEventListener('change', fitSettings);
     return () => mobile.removeEventListener('change', fitSettings);
   }, [activeTab]);
-  const [localDrivers, setDrivers] = useState<Driver[]>(() => slug ? [] : loadDrivers(INITIAL_DRIVERS));
-  const drivers = slug ? (driverQuery.data ?? []).map(row => {
-    const current = routeQuery.data?.find(route => route.driver_id === row.id && ['PLANNED', 'IN_PROGRESS'].includes(route.status));
-    const vehicle = vehicleQuery.data?.find(item => item.id === row.vehicle_id);
-    const driver = driverToUi(row, vehicle, monitorQuery.data?.drivers.find(item => item.id === row.id), current, vehicleQuery.isSuccess);
-    const onRoute = driver.status === 'on_route';
-    const nextVisit = current?.stops.find(stop => stop.status !== 'COMPLETED');
-    const timing = monitorTiming(onRoute && !nextVisit?.arrived_at && !monitorQuery.isError
-      ? monitorQuery.data?.routes.find(route => route.id === current?.id)?.estimate : null,
-      nextVisit?.stop_id, loadPricingContext().billing.general, settingsQuery.data?.data.time_zone);
-    return { ...driver,
-      currentJob: orderQuery.data?.find(order => order.route_id === current?.id)?.number,
-      nextStop: nextVisit?.stop.address.text ?? 'Not set', routeId: current?.id, ...timing,
-      lastUpdate: row.last_seen_at ? dateTime(row.last_seen_at) : 'Not set' };
-  }) : localDrivers;
-  useEffect(() => { if (!slug) try { saveDrivers(localDrivers); } catch { showToast('Driver changes could not be saved in this browser.', 'error'); } }, [localDrivers, slug]);
   // Every order carries a PricingSnapshot from the shared engine, including the static mocks.
   const [localJobs, setJobs] = useState<Job[]>(() => slug ? [] : loadSavedOrders(INITIAL_JOBS));
   const jobs = slug ? (orderQuery.data ?? []).map(row => orderToUi(row, shipperQuery.data ?? [], catalogQuery.data ?? [], rateQuery.data ?? [], routeQuery.data?.find(route => route.id === row.route_id))) : localJobs;
   const [hiddenOrderIds, setHiddenOrderIds] = useState<ReadonlySet<string>>(() => new Set());
   const monitorTimeZone = settingsQuery.data?.data.time_zone ?? loadPricingContext().billing.general.timeZone;
   const { day: monitorDay } = useCompanyDay(monitorTimeZone);
+  const todaysJobs = jobs.filter(job => isTodaysOrder(job, monitorDay, monitorTimeZone));
+  const todaysJobIds = new Set(todaysJobs.map(job => job.id));
+  const todaysStopIds = new Set(todaysJobs.flatMap(job => job.pricingInput?.stops.map(stop => stop.id) ?? []));
+  const todaysRouteIds = new Set((orderQuery.data ?? []).filter(order => todaysJobIds.has(order.id)).map(order => order.route_id));
+  const monitorRoutes = (routeQuery.data ?? []).filter(route => todaysRouteIds.has(route.id));
+  const [localDrivers, setDrivers] = useState<Driver[]>(() => slug ? [] : loadDrivers(INITIAL_DRIVERS));
+  const drivers = slug ? (driverQuery.data ?? []).map(row => {
+    const current = (activeTab === 'monitor' ? monitorRoutes : routeQuery.data)?.find(route => route.driver_id === row.id && ['PLANNED', 'IN_PROGRESS'].includes(route.status));
+    const vehicle = vehicleQuery.data?.find(item => item.id === row.vehicle_id);
+    const driver = driverToUi(row, vehicle, monitorQuery.data?.drivers.find(item => item.id === row.id), current, vehicleQuery.isSuccess);
+    const onRoute = driver.status === 'on_route';
+    const nextVisit = current?.stops.find(stop => stop.status !== 'COMPLETED' && (activeTab !== 'monitor' || todaysStopIds.has(stop.stop_id)));
+    const timing = monitorTiming(onRoute && !nextVisit?.arrived_at && !monitorQuery.isError
+      ? monitorQuery.data?.routes.find(route => route.id === current?.id)?.estimate : null,
+      nextVisit?.stop_id, loadPricingContext().billing.general, settingsQuery.data?.data.time_zone);
+    return { ...driver,
+      currentJob: orderQuery.data?.find(order => order.route_id === current?.id && (activeTab !== 'monitor' || todaysJobIds.has(order.id)))?.number,
+      nextStop: nextVisit?.stop.address.text ?? 'Not set', routeId: current?.id, ...timing,
+      lastUpdate: row.last_seen_at ? dateTime(row.last_seen_at) : 'Not set' };
+  }) : localDrivers;
+  useEffect(() => { if (!slug) try { saveDrivers(localDrivers); } catch { showToast('Driver changes could not be saved in this browser.', 'error'); } }, [localDrivers, slug]);
   // The live map shows only today's orders, matching the Active orders panel; the prototype's mocks have no creation day.
   const mapOrders = jobs.filter(job => (slug ? isTodaysMonitorOrder(job, monitorDay, monitorTimeZone) : isActiveMonitorOrder(job)) && !hiddenOrderIds.has(job.id));
   const [dossierJob, setDossierJob] = useState<Job | null>(null);
-  const review = useMonitorReview(slug);
+  const review = useMonitorReview(slug, monitorTimeZone);
   const reviewAttention = {
+    reviewLatestAt: [...(review.drafts.data ?? []), ...(review.imports.data ?? [])].map(row => row.received_at).sort((a,b) => Date.parse(b)-Date.parse(a))[0],
     reviewCount: (review.drafts.data?.length ?? 0) + (review.imports.data?.length ?? 0),
     reviewCapped: (review.drafts.data?.length ?? 0) >= 200 || (review.imports.data?.length ?? 0) >= 50,
     reviewPending: !!slug && (review.drafts.isPending || review.imports.isPending),
@@ -145,9 +154,9 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
   useEffect(() => { if (!slug) try { saveOrders(localJobs); } catch { showToast('Order changes weren’t saved in this browser. Free up storage before reloading.', 'error'); } }, [localJobs, slug]);
   const [operationalAttentionItems, setNeedsAttentionItems] = useState<NeedsAttentionItem[]>(INITIAL_NEEDS_ATTENTION);
   // Orders that could not be priced (no card, conflict, zone no-match, missing distance) join the list.
-  const needsAttentionItems = slug ? (monitorQuery.data?.needs_attention ?? []).map(item => {
+  const needsAttentionItems = slug ? (monitorQuery.data?.needs_attention ?? []).filter(item => todaysJobIds.has(item.order_id)).map(item => {
     const order = orderQuery.data?.find(row => row.id === item.order_id);
-    return { id: item.id ?? `${item.order_id}-${item.kind}`, jobNumber: order?.number ?? '', statusType: 'at_risk' as const, statusLabel: attentionLabel(item.kind), subtitle: item.description,
+    return { id: item.id ?? `${item.order_id}-${item.kind}`, jobNumber: order?.number ?? '', at: item.at, statusType: 'at_risk' as const, statusLabel: attentionLabel(item.kind), subtitle: item.description,
       pickupAddress: order?.facts.stops.find(stop => stop.kind === 'PICKUP')?.address.text ?? '', badgeColor: item.kind === 'AT_RISK' ? 'red' as const : 'amber' as const,
       ...(item.id && item.version != null ? { issue: { id: item.id, version: item.version } } : {}) };
   }) : [...pricingAttentionItems(jobs), ...operationalAttentionItems];
@@ -586,6 +595,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
         tmsWorkspace={tmsWorkspace}
         chatEnabled={!!slug}
         unreadMessages={unreadMessages}
+        ordersAttentionCount={ordersAttentionCount}
+        ordersAttentionCapped={ordersAttentionCapped}
         loggingOut={loggingOut}
         logoutError={logoutError}
         activeTab={activeTab}
@@ -697,7 +708,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               mapInstanceRef={mapRef}
               drivers={drivers}
               jobs={mapOrders}
-              routes={slug ? routeQuery.data ?? [] : undefined}
+              routes={slug ? monitorRoutes : undefined}
               vehicles={slug ? vehicleMapLocations(vehicleQuery.data ?? [], driverQuery.data ?? [], monitorQuery.isError ? [] : monitorQuery.data?.drivers ?? []) : undefined}
               onOpenVehicle={id => openRecordOverlay('vehicle', id)}
               selectedDriverId={selectedDriverId}
@@ -828,7 +839,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
 
           </div>}
 
-        {/* Page feedback and new notifications share one bottom-center stack. */}
+        {/* Page feedback and new notifications share the Monitor’s bottom-right stack. */}
         <LiveNotices slug={slug} feedback={toastMessage} onOpen={row => {
           if (row.conversation_id) openDispatcherChat({ conversationId: row.conversation_id });
           else if (row.order_id) { const order = jobs.find(job => job.id === row.order_id); if (order) handleOpenJobDossier(order); }

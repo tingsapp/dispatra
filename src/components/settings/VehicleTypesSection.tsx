@@ -12,6 +12,7 @@ import { toDisplayDimension, toDisplayWeight } from '../../lib/units';
 import { VehicleType } from '../../types/simplePricing';
 import { VehicleTypeModal } from '../pricing/VehicleTypeModal';
 import { listedVehicleTypes } from '../../lib/vehicleTypes';
+import { VEHICLE_LOAD_SIZES } from '../../lib/loadSize';
 import type { Notify } from '../ui/popupFeedback';
 
 const typeCode = (name: string) => `${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'VEHICLE'}_${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
@@ -57,11 +58,12 @@ export function VehicleTypesSection({ onNotification, onChanged }: { onNotificat
     {slug && catalogQuery.error && <p role="alert" className="text-sm text-rose-700">{catalogQuery.error.message}</p>}
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="app-section-title text-slate-900">Vehicle types</h2><p className="text-xs text-slate-500 mt-1">Offered when registering or editing a vehicle.</p></div>
       <button type="button" onClick={() => setEditing(null)} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shrink-0"><Plus className="w-3.5 h-3.5" />Add Vehicle Type</button></div>
-    <div className="app-table-shell overflow-x-auto rounded-xl border border-slate-200 bg-white"><table className="app-table w-full min-w-[620px] text-left text-xs"><thead className="bg-slate-50 text-slate-500"><tr>
-      <th className="px-4 py-3 font-medium">Name</th><th className="px-4 py-3 font-medium">Max payload ({units.weightUnit})</th><th className="px-4 py-3 font-medium">Pallet capacity</th>
+    <div className="app-table-shell overflow-x-auto rounded-xl border border-slate-200 bg-white"><table className="app-table w-full min-w-[700px] text-left text-xs"><thead className="bg-slate-50 text-slate-500"><tr>
+      <th className="px-4 py-3 font-medium">Name</th><th className="px-4 py-3 font-medium">Load sizes</th><th className="px-4 py-3 font-medium">Max payload ({units.weightUnit})</th><th className="px-4 py-3 font-medium">Pallet capacity</th>
       <th className="px-4 py-3 font-medium">Cargo L × W × H ({units.dimensionUnit})</th><th className="px-4 py-3 font-medium">Surcharge</th><th className="px-4 py-3 font-medium">Action</th>
     </tr></thead><tbody>{types.map(type => <tr key={type.id} className="border-t border-slate-100">
       <td className="px-4 py-3 font-medium text-slate-900">{type.name}</td>
+      <td className="px-4 py-3 text-slate-600">{(type.loadSizes ?? VEHICLE_LOAD_SIZES).join(' · ')}</td>
       <td className="px-4 py-3 text-slate-600 tabular-nums">{Number(toDisplayWeight(type.payloadCapacityKg, units).toFixed(1)).toLocaleString('en-CA')}</td>
       <td className="px-4 py-3 text-slate-600 tabular-nums">{type.palletCapacity}</td>
       <td className="px-4 py-3 text-slate-600 tabular-nums">{dimension(type.cargoLengthCm)} × {dimension(type.cargoWidthCm)} × {dimension(type.cargoHeightCm)}</td>
@@ -70,7 +72,7 @@ export function VehicleTypesSection({ onNotification, onChanged }: { onNotificat
         <ActionButton type="button" aria-label={`Delete ${type.name}`} title={`Delete ${type.name}`} onClick={() => remove(type)} className="rounded p-1.5 text-rose-700 hover:bg-rose-50"><Trash2 aria-hidden="true" className="h-3.5 w-3.5" /></ActionButton>
         <button type="button" aria-label={`Edit ${type.name}`} onClick={() => setEditing(type)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Pencil className="w-3.5 h-3.5" /></button>
       </div></td>
-    </tr>)}{!types.length && !(slug && catalogQuery.isPending) && <tr><td colSpan={6} className="p-6 text-center text-slate-500">No vehicle types yet.</td></tr>}</tbody></table></div>
+    </tr>)}{!types.length && !(slug && catalogQuery.isPending) && <tr><td colSpan={7} className="p-6 text-center text-slate-500">No vehicle types yet.</td></tr>}</tbody></table></div>
     {editing !== undefined && <VehicleTypeModal initialVehicle={editing} onClose={() => setEditing(undefined)} onSave={save} />}
   </section>;
 }

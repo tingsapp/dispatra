@@ -70,6 +70,7 @@ import { formatPhone } from '../lib/phone';
 import { formatWhen } from '../components/orders/OrderDossierSections';
 import { OrderTrackingDialog, trackable } from '../components/orders/OrderTracking';
 import type { Notify } from '../components/ui/popupFeedback';
+import { loadSizeLabel } from '../lib/loadSize';
 
 interface JobsPageProps {
   /** Render shared record dialogs over the Monitor without the list page. */
@@ -337,6 +338,7 @@ export function JobsPage({
     }
     if (slug) {
       try {
+        if (!newOrderInput.loadSize) throw new Error('Choose a load size.');
         const driver = newDriverId === 'unassigned' ? undefined : drivers.find(row => row.id === newDriverId);
         if (newDriverId !== 'unassigned') {
           if (!driver?.currentVehicleId) throw new Error('The selected driver needs an attached vehicle before assignment.');
@@ -444,6 +446,7 @@ export function JobsPage({
 
   const sendLiveQuote = async (recipient: string) => {
     if (!slug) return;
+    if (!newOrderInput.loadSize) throw new Error('Choose a load size.');
     const scheduleErrors = validateBookingSchedule(newOrderInput, pricingCtx.billing.general.timeZone);
     if (scheduleErrors.length) throw new Error(scheduleErrors.join(' '));
     const booking = inputToBooking(newOrderInput, '', pricingCtx.billing.general.timeZone);
@@ -694,7 +697,7 @@ export function JobsPage({
 
                       {/* Service & Price */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="font-medium text-slate-800">{job.serviceLevel || job.jobType}</span>
+                        <span className="font-medium text-slate-800">{[loadSizeLabel(job.loadSize), job.serviceLevel].filter(Boolean).join(' · ') || job.jobType}</span>
                         {(() => {
                           const price = describePrice(job);
                           return (
@@ -767,7 +770,7 @@ export function JobsPage({
                   {!!formErrors.length && <p role="alert" className="text-xs text-rose-700">{formErrors.join(" ")}</p>}
 
                   <OrderPricingForm
-                    showVehicleSelection suggestVehicle={!editingOrder && !emailSource}
+                    showVehicleSelection suggestVehicle={!editingOrder && !emailSource} loadSizes={!!slug}
                     customerMode={createMode === 'quote' ? 'rateCard' : 'shipper'}
                     value={newOrderInput}
                     onChange={v => { if (!emailSource && v.customerId !== newOrderInput.customerId) { const c = pricingCtx.customers.find(c => c.id === v.customerId); setOrderFields({ ...orderFields, notificationPreferences: c?.communicationPreferences }); setNewInstructions(c?.instructions ?? ''); } setNewOrderInput(v); }}
@@ -775,7 +778,6 @@ export function JobsPage({
                     snapshot={newOrderSnapshot}
                     showStopAddresses
                     futureOnly={!editingOrder}
-                    outsideHours={createMode === 'order' ? 'warn' : undefined}
                     onAddAccessorial={() => setShowAddAccessorial(true)}
                   />
 

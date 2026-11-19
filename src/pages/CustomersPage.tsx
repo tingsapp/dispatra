@@ -32,9 +32,11 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { SearchInput } from '../components/ui/SearchInput';
 import { AddressAutocomplete, type SelectedAddress } from '../components/ui/AddressAutocomplete';
 import { Select } from '../components/ui/Select';
+import { MultiSelect } from '../components/ui/MultiSelect';
 import { validateCustomer } from '../domain/validation';
 import { confirmDialog } from '../components/ui/ConfirmDialog';
-import { Customer,EMPTY_PRICING_RELATIONSHIP,loadCustomers,normalizeCustomer,saveCustomers } from '../lib/customerStorage';
+import { Customer,EMPTY_PRICING_RELATIONSHIP,loadCustomers,normalizeCustomer,saveCustomers,shipperRateCardIds } from '../lib/customerStorage';
+import { cardLoadSize, LOAD_SIZE_OPTIONS, loadSizeShort } from '../lib/loadSize';
 import { loadPricingConfig } from '../lib/pricingStorage';
 import { Job } from '../types';
 import { ContactInput } from '../components/ui/ContactInput';
@@ -80,13 +82,16 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const [initialCredential, setInitialCredential] = useState<{ name: string; email: string; password: string } | null>(null);
   // Pricing lookups for the relationship section, read-only here, edited under Organization Settings.
   const [pricing] = useState(() => loadPricingConfig());
-  const customerCards = slug ? (ratesQuery.data ?? []).filter(c => c.active).map(c => ({ id: c.id, name: c.data.name })) : pricing.rateCards.filter(c => c.status === 'ACTIVE');
+  const customerCards = slug ? (ratesQuery.data ?? []).filter(c => c.active).map(c => ({ id: c.id, name: c.data.name, loadSize: c.data.load_size })) : pricing.rateCards.filter(c => c.status === 'ACTIVE');
   // Imported cards price only orders that carry an external price, so they cannot be attached to a shipper yet.
   const importedCardIds = new Set(slug ? (ratesQuery.data ?? []).filter(c => c.data.method === 'IMPORTED').map(c => c.id) : pricing.rateCards.filter(c => c.pricingMethod === 'IMPORTED').map(c => c.id));
   const defaultCard = slug ? customerCards.find(c => c.id === ratesQuery.data?.find(r => r.active && r.is_default)?.id) : pricing.rateCards.find(c => c.status === 'ACTIVE' && c.scope === 'ORGANIZATION');
   const defaultCardName = defaultCard?.name ?? 'Default';
   // A deleted card no longer names the customer's pricing; the Default applies.
   const cardName = (id: string | null) => customerCards.find((c) => c.id === id)?.name ?? null;
+  const cardSize = (id: string) => loadSizeShort(cardLoadSize(customerCards.find(c => c.id === id)));
+  /** Attached cards in order with their load size, or the company Default for shippers without one. */
+  const cardNames = (customer: Customer) => shipperRateCardIds(customer).filter(id => cardName(id)).map(id => `${cardName(id)} (${cardSize(id)})`).join(', ') || null;
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | Customer['status']>('ALL');
 
@@ -115,6 +120,18 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     notes: '',
     ...EMPTY_PRICING_RELATIONSHIP
   });
+  const formCardIds = shipperRateCardIds({ rateCardId: formData.rateCardId ?? null, rateCardIds: formData.rateCardIds });
+  const chosenCardIds = formCardIds.length ? formCardIds : defaultCard ? [defaultCard.id] : [];
+  /** One card per load size: picking a card replaces the attached card of the same size. */
+  const pickCards = (picked: string[]) => { const added = picked.find(id => !chosenCardIds.includes(id)); return added ? picked.filter(id => id === added || cardSize(id) !== cardSize(added)) : picked; };
+  /** Cards grouped under their load size, one pick per group; a size without cards says so. */
+  const cardGroups = LOAD_SIZE_OPTIONS.flatMap(({ value: size, label: group }) => {
+    const cards = customerCards.filter(c => cardLoadSize(c) === size && (!importedCardIds.has(c.id) || chosenCardIds.includes(c.id)));
+    return cards.length ? cards.map(c => ({ value: c.id, group, label: c.id === defaultCard?.id ? `${c.name} · Company default` : c.name }))
+      : [{ value: `none-${size}`, group, label: 'No cards for this size yet', disabled: true }];
+  });
+  /** The shipper's default card goes first; it prices load sizes without their own card. */
+  const withDefaultCard = (ids: string[], first?: string) => first && ids.includes(first) ? [first, ...ids.filter(id => id !== first)] : ids;
 
   // Filtering
   const filteredCustomers = useMemo(() => {
@@ -239,7 +256,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         status: formData.status as any || 'Active',
         defaultRequirements: formData.defaultRequirements || [],
         billingEmail: '',
-        rateCardId: formData.rateCardId ?? defaultCard?.id ?? null,
+        rateCardId: chosenCardIds[0] ?? null,
+        rateCardIds: chosenCardIds,
         discount: formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount,
         taxProfileId: formData.taxProfileId ?? null,
         taxExempt: !!formData.taxExempt,
@@ -336,7 +354,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   <th scope="col">Shipper</th>
                   <th scope="col">Contact</th>
                   <th scope="col">Address</th>
-                  <th scope="col">Rate card</th>
+                  <th scope="col">Rate cards</th>
                   <th scope="col" className="text-center">Active orders</th>
                   <th scope="col" className="text-center">Status</th>
                   <th scope="col" className="text-right">Actions</th>
@@ -388,7 +406,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
                       {/* Rate card */}
                       <td>
-                        {cardName(customer.rateCardId) ?? `${defaultCardName} (Default)`}
+                        {cardNames(customer) ?? `${defaultCardName} (Default)`}
                       </td>
 
                       {/* Active Orders */}
@@ -496,7 +514,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
             <section className="space-y-3" aria-label="Pricing relationship">
               <h4 className="app-section-title">Pricing relationship</h4>
-              <ReadFields values={{ 'Rate card': cardName(selectedCustomerForView.rateCardId) ?? `Default (${defaultCardName})` }} />
+              <ReadFields values={{ 'Rate cards': cardNames(selectedCustomerForView) ?? `Default (${defaultCardName})`,
+                'Default rate card': cardName(shipperRateCardIds(selectedCustomerForView)[0] ?? null) ?? defaultCardName }} />
             </section>
 
             {selectedCustomerForView.notes && (
@@ -505,8 +524,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{selectedCustomerForView.notes}</p>
               </section>
             )}
-
-            {slug && <DirectoryPasswordForm key={selectedCustomerForView.id} slug={slug} kind="shipper" record={shipperQuery.data?.find(row => row.id === selectedCustomerForView.id)} />}
 
               </> },
               { id: 'orders', label: 'Orders', content: <>
@@ -548,7 +565,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       {isModalOpen && (
         <Dialog size="form" onClose={() => setIsModalOpen(false)}>
           <DialogHeader onClose={() => setIsModalOpen(false)} title={editingCustomer ? 'Edit Shipper' : 'New Shipper'} />
-          <DialogBody>
+          <DialogBody className="space-y-5">
             <form id="shipper-form" onSubmit={handleSaveCustomer} className="space-y-5">
               <FormSection title="Shipper">
                 <label className="block"><span className="app-label">Shipper name</span><input type="text" required placeholder="e.g. Alex Morgan" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="app-input w-full" /></label>
@@ -564,7 +581,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </FormSection>
 
               <FormSection title="Billing">
-                <div className="sm:col-span-2"><span className="app-label">Rate card</span><Select aria-label="Shipper rate card" className="w-full" value={formData.rateCardId ?? defaultCard?.id ?? ''} onValueChange={(v) => setFormData({ ...formData, rateCardId: v || null })} options={customerCards.filter(c => !importedCardIds.has(c.id) || c.id === formData.rateCardId).map((c) => ({ value: c.id, label: c.id === defaultCard?.id ? `${c.name} (Default)` : c.name }))} /><span className="mt-1 block text-xs text-slate-500">Default for new orders. Editable per order.</span></div>
+                <div className="sm:col-span-2"><span className="app-label">Rate cards</span><MultiSelect aria-label="Shipper rate cards" className="w-full" value={chosenCardIds} onValueChange={(picked) => { const ids = withDefaultCard(pickCards(picked), chosenCardIds[0]); setFormData({ ...formData, rateCardIds: ids, rateCardId: ids[0] ?? null }); }} options={cardGroups} /><span className="mt-1 block text-xs text-slate-500">Pick up to one card under each load size; each order uses the card for its size. Set a card's load size in Settings → Rate Cards.</span></div>
+                {chosenCardIds.length > 1 && <div className="sm:col-span-2"><span className="app-label">Default rate card</span><Select aria-label="Default rate card" className="w-full" value={chosenCardIds[0]} onValueChange={(id) => { const ids = withDefaultCard(chosenCardIds, id); setFormData({ ...formData, rateCardIds: ids, rateCardId: ids[0] ?? null }); }} options={chosenCardIds.map(id => ({ value: id, label: `${cardName(id) ?? defaultCardName} (${cardSize(id)})` }))} /><span className="mt-1 block text-xs text-slate-500">Prices load sizes without their own card. Editable per order.</span></div>}
               </FormSection>
 
               <FormSection title="Driver assignment">
@@ -592,6 +610,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 <label className="block"><span className="app-label">Pickup & delivery notes</span><textarea rows={3} placeholder="Gate access, paperwork or receiving details…" value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="app-input w-full" /></label>
               </section>
             </form>
+            {slug && editingCustomer && <DirectoryPasswordForm key={editingCustomer.id} slug={slug} kind="shipper" record={shipperQuery.data?.find(row => row.id === editingCustomer.id)} />}
           </DialogBody>
           <DialogFooter><Button loading={handleSaveCustomerAction.pending} type="submit" form="shipper-form">{editingCustomer ? 'Save Changes' : 'Create Shipper'}</Button></DialogFooter>
         </Dialog>

@@ -8,6 +8,7 @@ import { VehicleType } from '../../types/simplePricing';
 import { useEntityDialog } from '../entities/useEntityDialog';
 import { WeightInput } from './WeightInput';
 import { TruckRoutingFields, truckRoutingError } from '../entities/TruckRoutingFields';
+import { LOAD_SIZE_OPTIONS, VEHICLE_LOAD_SIZES } from '../../lib/loadSize';
 
 const DIMENSIONS = [['cargoLengthCm', 'Box length'], ['cargoWidthCm', 'Box width'], ['cargoHeightCm', 'Box height']] as const;
 
@@ -18,11 +19,12 @@ function DimensionInput({ label, value, onChange, units }: { label: string; valu
       onChange={event => onChange(event.target.value === '' ? undefined : fromDisplayDimension(Number(event.target.value), units))} /></label>;
 }
 
-/** Name, payload, pallets and inside cargo dimensions. Pricing fields the form does not show are kept as they are. */
+/** Name, the load sizes it is offered for, payload, pallets and inside cargo dimensions. Pricing fields the form does not show are kept as they are. */
 export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialVehicle: VehicleType | null; onSave: (vehicle: VehicleType) => void | Promise<void>; onClose: () => void }) {
   const [units] = useState(() => loadBillingConfig().general);
   useEntityDialog(true, onClose);
-  const [draft, setDraft] = useState<Partial<VehicleType>>(() => ({ ...initialVehicle, truckRouting: initialVehicle?.truckRouting ?? { lengthM: 0, widthM: 0, heightM: 0, grossWeightKg: 0 } }));
+  const [draft, setDraft] = useState<Partial<VehicleType>>(() => ({ ...initialVehicle, loadSizes: initialVehicle?.loadSizes ?? VEHICLE_LOAD_SIZES, truckRouting: initialVehicle?.truckRouting ?? { lengthM: 0, widthM: 0, heightM: 0, grossWeightKg: 0 } }));
+  const loadSizes = draft.loadSizes ?? VEHICLE_LOAD_SIZES;
   const [error, setError] = useState('');
   const patch = (change: Partial<VehicleType>) => { setDraft(current => ({ ...current, ...change })); setError(''); };
   const saveAction = usePendingAction();
@@ -30,6 +32,7 @@ export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialV
     event.preventDefault();
     const { name, payloadCapacityKg: payload, palletCapacity: pallets, cargoLengthCm: l, cargoWidthCm: w, cargoHeightCm: h } = draft;
     if (!name?.trim()) return setError('Enter a vehicle type name.');
+    if (!loadSizes.length) return setError('Choose at least one load size.');
     if (payload == null || !(payload > 0)) return setError('Enter a max payload greater than 0.');
     if (pallets == null || !Number.isInteger(pallets) || pallets < 0) return setError('Enter a whole number of pallets (0 or more).');
     if ([l, w, h].some(value => value == null || !(value > 0))) return setError('Enter box length, width and height greater than 0.');
@@ -39,7 +42,7 @@ export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialV
     if (draft.truckRouting && draft.truckRouting.grossWeightKg < payload) return setError('Loaded gross weight must cover the max payload.');
     return onSave({
       fuelEligible: true, hasLiftgate: false, requiresCommercialLicense: false, active: true,
-      ...initialVehicle, truckRouting: draft.truckRouting, id: initialVehicle?.id ?? `veh_${crypto.randomUUID()}`, name: name.trim(),
+      ...initialVehicle, truckRouting: draft.truckRouting, id: initialVehicle?.id ?? `veh_${crypto.randomUUID()}`, name: name.trim(), loadSizes,
       baseSurcharge: Math.round(Number(draft.baseSurcharge ?? 0) * 100) / 100, payloadCapacityKg: payload, palletCapacity: pallets, cargoLengthCm: l, cargoWidthCm: w, cargoHeightCm: h,
       cargoBedFeet: l! / 30.48, cargoVolumeCbm: l! * w! * h! / 1e6,
     });
@@ -48,6 +51,11 @@ export function VehicleTypeModal({ initialVehicle, onSave, onClose }: { initialV
     <DialogHeader onClose={onClose} closeLabel="Close vehicle type form" title={initialVehicle ? 'Edit Vehicle Type' : 'Add Vehicle Type'} description="Capacity, cargo size and outside dimensions." />
     <form onSubmit={event => { event.preventDefault(); void saveAction.run(() => submit(event)); }} noValidate className="app-dialog-body space-y-4">
       <label className="block"><span className="app-label">Name</span><input className="app-input w-full" aria-label="Name" required value={draft.name ?? ''} onChange={event => patch({ name: event.target.value })} placeholder="e.g. 16ft Cube Truck" /></label>
+      <fieldset><legend className="app-label">Offered for</legend><div className="flex flex-wrap gap-x-5 gap-y-2">
+        {LOAD_SIZE_OPTIONS.filter(option => VEHICLE_LOAD_SIZES.some(size => size === option.value)).map(option => <label key={option.value} className="inline-flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
+          <input type="checkbox" className="app-checkbox" checked={loadSizes.some(size => size === option.value)}
+            onChange={event => patch({ loadSizes: VEHICLE_LOAD_SIZES.filter(size => size === option.value ? event.target.checked : loadSizes.includes(size)) })} />{option.label}</label>)}
+      </div><span className="mt-1 block text-xs text-slate-500">Orders of these load sizes can require this vehicle type.</span></fieldset>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block"><span className="app-label">Max payload ({units.weightUnit})</span><WeightInput value={draft.payloadCapacityKg ?? null} units={units} label="Max payload" labelWithUnit min={0.000001} required className="app-input w-full" onChange={weight => patch({ payloadCapacityKg: weight ?? undefined })} /></label>
         <label className="block"><span className="app-label">Pallet capacity</span><input className="app-input w-full" aria-label="Pallet capacity" type="number" min="0" step="1" required value={draft.palletCapacity ?? ''} onChange={event => patch({ palletCapacity: event.target.value === '' ? undefined : Number(event.target.value) })} /></label>

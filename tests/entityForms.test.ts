@@ -104,6 +104,45 @@ test('driver vehicle menu registers and selects a vehicle without losing the new
   assert.ok(saved); assert.equal(saved.maxActiveOrders,undefined); assert.equal(saved.currentVehicleId,loadVehicles().find(v=>v.unitNumber==='V99')?.id);
   assert.equal(loadVehicles().find(v=>v.unitNumber==='V99')?.currentDriverId,saved.id);
 });
+test('Shipper rate cards are a multi-select with one card per load size, and orders use the card for their size', async()=>{
+  const user=userEvent.setup({document});
+  const {loadPricingContext,createDefaultOrderInput}=await import('../src/lib/orderPricing');
+  const {loadPricingConfig,savePricingConfig}=await import('../src/lib/pricingStorage');
+  // Fixed per delivery prices full truckloads; the other cards are LTL.
+  const config=loadPricingConfig();savePricingConfig({...config,rateCards:config.rateCards.map(c=>c.id==='rc_nordic_direct'?{...c,loadSize:'FTL' as const}:c)});
+  render(React.createElement(CustomersPage,{onBackToMonitor:()=>{}}));
+  const edit=async()=>user.click(within(screen.getByRole('row',{name:/Pacific Fresh Logistics/})).getByTitle('Edit shipper account'));
+  await edit();
+  const cards=screen.getByRole('combobox',{name:'Shipper rate cards'});
+  assert.equal(cards.textContent,'Zone to zone · Company default');
+  // A single card needs no default choice.
+  assert.equal(screen.queryByRole('combobox',{name:'Default rate card'}),null);
+  await user.click(cards);
+  assert.equal(screen.getByRole('listbox',{name:'Shipper rate cards'}).getAttribute('aria-multiselectable'),'true');
+  // Cards sit under their load size; a size without cards says so.
+  assert.ok(screen.getByText('Full truckload (FTL)') && screen.getByText('Less than truckload (LTL)'));
+  assert.equal(screen.getAllByRole('option',{name:'No cards for this size yet'}).length,1);
+  await user.click(screen.getByRole('option',{name:'Fixed per delivery'}));
+  // Picking a second LTL card replaces the first one.
+  const ltl=screen.getAllByRole('option').map(o=>o.textContent!).find(name=>!/Fixed per delivery|Zone to zone|No cards/.test(name));
+  if(ltl){await user.click(screen.getByRole('option',{name:ltl}));assert.equal(screen.getByRole('option',{name:'Zone to zone · Company default'}).getAttribute('aria-selected'),'false');await user.click(screen.getByRole('option',{name:'Zone to zone · Company default'}));}
+  await user.click(cards);
+  // The Default rate card prices sizes without their own card and is saved first.
+  await user.click(screen.getByRole('combobox',{name:'Default rate card'}));
+  await user.click(screen.getByRole('option',{name:'Zone to zone (LTL)'}));
+  await user.click(screen.getByRole('button',{name:'Save Changes'}));
+  const saved=loadCustomers().find(c=>c.id==='cust-1')!;
+  assert.deepEqual(saved.rateCardIds,['rc_pacific_fresh','rc_nordic_direct']);
+  assert.ok(within(screen.getByRole('row',{name:/Pacific Fresh Logistics/})).getByText('Zone to zone (LTL), Fixed per delivery (FTL)'));
+  const {customerToShipper}=await import('../src/operations/adapters');
+  assert.deepEqual(customerToShipper({...saved,address:'100 Main St, Vancouver, BC V6A 2S5'}).rate_card_ids,['rc_pacific_fresh','rc_nordic_direct']);
+  const {resolveRateCard}=await import('../src/lib/pricingEngine');
+  const ctx=loadPricingContext();const order={...createDefaultOrderInput(ctx),customerId:'cust-1'};
+  assert.equal(resolveRateCard({...order,loadSize:'FTL'},ctx).card?.id,'rc_nordic_direct');
+  assert.equal(resolveRateCard({...order,loadSize:'LTL'},ctx).card?.id,'rc_pacific_fresh');
+  // A size without its own card uses the shipper's default card.
+  assert.equal(resolveRateCard({...order,loadSize:'SMALL_PARCEL'},ctx).card?.id,'rc_pacific_fresh');
+});
 test('Shipper form saves one complete warehouse address with no Service Area input', async()=>{
   const user=userEvent.setup({document});
   render(React.createElement(CustomersPage,{onBackToMonitor:()=>{}}));

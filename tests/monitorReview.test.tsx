@@ -20,12 +20,12 @@ const original = {...operations}, originalAll = {...allOperations}, originalApi 
 let cache: QueryClient;
 afterEach(()=>{cleanup();cache?.clear();Object.assign(operations, original);Object.assign(allOperations, originalAll);Object.assign(api,originalApi);localStorage.clear();});
 after(()=>dom.window.close());
-const email = {id:'draft-1',version:1,status:'NEEDS_REVIEW',received_at:'2026-11-09T12:00:00Z',from_name:'Khan',from_address:'khan@example.com',shipper_name:'Books',subject:'Tomorrow’s delivery',missing:['Drop-off postal code'],summary:'One pallet',draft:{items:[],stops:[]},body:'One pallet',extraction:null,shipper_id:null,sender_verified:true} as any;
+const email = {id:'draft-1',version:1,status:'NEEDS_REVIEW',received_at:new Date().toISOString(),from_name:'Khan',from_address:'khan@example.com',shipper_name:'Books',subject:'Tomorrow’s delivery',missing:['Drop-off postal code'],summary:'One pallet',draft:{items:[],stops:[]},body:'One pallet',extraction:null,shipper_id:null,sender_verified:true} as any;
 const settings={id:'settings',version:1,data:{time_zone:'America/Vancouver',currency:'CAD',weight_unit:'lb',dimension_unit:'in',distance_unit:'km',dispatch_mode:'MANUAL',quote_validity_days:14}} as any;
-function mount(child: React.ReactNode, overrides: Partial<typeof operations> = {}) {
+function mount(child: React.ReactNode, overrides: Partial<typeof operations> = {}, records: Partial<typeof allOperations> = {}) {
  cache = new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0,staleTime:Infinity},mutations:{retry:false}}});
  Object.assign(api,{companySettings:async()=>settings});
- Object.assign(allOperations,{orders:async()=>[],shippers:async()=>[],rates:async()=>[],catalog:async()=>[],vehicles:async()=>[],drivers:async()=>[],routes:async()=>[]});
+ Object.assign(allOperations,{orders:async()=>[],shippers:async()=>[],rates:async()=>[],catalog:async()=>[],vehicles:async()=>[],drivers:async()=>[],routes:async()=>[]},records);
  Object.assign(operations,{emailIntakes:async()=>[email],tmsInbox:async()=>[],emailIntake:async()=>email}, overrides);
  return render(<QueryClientProvider client={cache}>{child}</QueryClientProvider>);
 }
@@ -60,6 +60,22 @@ test('failed source is visible rather than showing a false empty queue',async()=
  await waitFor(()=>assert.ok(screen.getByText('Review queue unavailable')));
 });
 
+test('Monitor review excludes old and future requests without filtering the shared inbox cache', async()=>{
+ const old={...email,id:'old',shipper_name:'Old request',received_at:'2000-01-01T12:00:00Z'};
+ const future={...email,id:'future',shipper_name:'Future request',received_at:'2099-01-01T12:00:00Z'};
+ const imported=(id:string,received_at:string)=>({id,external_id:id,received_at,missing:['Pickup missing']} as never);
+ function Harness(){const review=useMonitorReview('acme','America/Vancouver');return <><MonitorReviewNotice review={review} onOpen={()=>{}}/><MonitorReviewDialog slug="acme" review={review} onClose={()=>{}} onOpenDraft={()=>{}}/></>;}
+ mount(<Harness/>,{emailIntakes:async()=>[old,email,future],tmsInbox:async()=>[imported('old-import',old.received_at),imported('today-import',email.received_at),imported('future-import',future.received_at)]});
+ assert.ok(await screen.findByText('2 orders need review'));
+ assert.ok(await screen.findByRole('button',{name:'Retry TMS order today-import'}));
+ assert.equal(screen.queryByText('Old request'),null);
+ assert.equal(screen.queryByText('Future request'),null);
+ assert.equal(screen.queryByRole('button',{name:'Retry TMS order old-import'}),null);
+ assert.equal(screen.queryByRole('button',{name:'Retry TMS order future-import'}),null);
+ assert.equal(cache.getQueryData<any[]>(['operations','acme','email-intakes','drafts'])?.length,3);
+ assert.equal(cache.getQueryData<any[]>(['operations','acme','tms-inbox'])?.length,3);
+});
+
 const jobProps={jobs:[],drivers:[],onSelectJob:()=>{},onUpdateJob:()=>{},onCreateJob:()=>{},onNotification:()=>{}};
 test('draft opens the shared form directly over the Monitor and saves without navigation',async()=>{
  let saved=0, closed=0;
@@ -89,6 +105,18 @@ for (const kind of ['vehicle','driver','shipper'] as const) test(`${kind} overla
  assert.ok(await screen.findByText('This record is no longer available.'));
  assert.equal(screen.queryByText(kind==='vehicle'?'Register Vehicle':kind==='driver'?'Add Driver':'New Shipper'),null);
  fireEvent.click(screen.getByRole('button',{name:'Close dialog'}));assert.equal(closed,1);assert.equal(location.pathname,'/acme/');
+});
+
+test('shipper password change lives in Edit Shipper, not the details popup', async()=>{
+ const shipper={id:'shipper-1',version:3,number:'CUST-1001',name:'Alex Morgan',kind:'BUSINESS',company_name:'Pacific Fresh',email:'alex@example.com',phone:'',status:'ACTIVE',warehouse:{text:'1420 Derwent Way, Delta, BC V3M 6M7',city:'Delta'},assigned_driver_id:null,assigned_driver_name:null,rate_card_id:null,discount:{kind:'NONE',value:'0'},instructions:'',created_at:new Date().toISOString()} as any;
+ function Harness(){const[id,setId]=React.useState<string|undefined>('shipper-1');return <CustomersPage dialogsOnly openCustomerId={id} onOpenHandled={()=>setId(undefined)} onDialogsClose={()=>{}} onNotification={()=>{}} onBackToMonitor={()=>{}}/>;}
+ mount(<Harness/>,{},{shippers:async()=>[shipper]});
+ const details=await screen.findByRole('dialog',{name:'Alex Morgan'});
+ assert.equal(screen.queryByRole('region',{name:'Account password'}),null);
+ fireEvent.click(screen.getByRole('button',{name:'Edit Account'}));
+ await screen.findByRole('heading',{name:'Edit Shipper'});assert.ok(!details.isConnected);
+ assert.ok(screen.getByRole('region',{name:'Account password'}));
+ assert.equal(document.querySelector('#shipper-form [aria-label="Account password"]'),null);
 });
 
 for (const kind of ['vehicle','driver','shipper'] as const) test(`${kind} shared details open and dismiss over the retained map`,async()=>{
@@ -130,7 +158,7 @@ for (const surface of ['menu', 'full list'] as const) test(`Needs Attention ${su
  rows=[];
  await act(async()=>{await cache.invalidateQueries({queryKey:['operations','acme','email-intakes']});});
  assert.ok(await screen.findByText('No requests need review.'));
- if(surface==='menu')assert.ok(screen.getByRole('button',{name:'0 Needs Attention'}));
+ if(surface==='menu')assert.ok(screen.getByRole('button',{name:/^0\s*Needs Attention$/}));
 });
 
 test('Needs Attention full list preserves combined capped counts and partial failures',async()=>{
@@ -140,4 +168,33 @@ test('Needs Attention full list preserves combined capped counts and partial fai
  assert.ok(screen.getByText('201+ alerts'));assert.ok(screen.getByText('200+ need review'));
  assert.ok(screen.getByText('Some requests could not be loaded. Open review to try again.'));
  assert.ok(screen.getByText('Driver unavailable'));
+});
+
+
+test('Monitor notifications exclude adjacent days and future timestamps and page all of today',async()=>{
+ const {todaysNotifications}=await import('../src/components/monitor/MonitorNotifications');
+ const calls:(string|undefined)[]=[];
+ const at=new Date().toISOString();
+ const rows=Array.from({length:50},(_,i)=>({id:`n-${i}`,created_at:at,read_at:null} as any));
+ operations.notifications=async(_slug,before)=>{calls.push(before);return before ? [{id:'last-today',created_at:at},{id:'old',created_at:'2000-01-01T12:00:00Z'}] as any : rows;};
+ const day=new Intl.DateTimeFormat('en-CA',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ const result=await todaysNotifications('acme',day,'UTC');
+ assert.equal(result.length,51);assert.deepEqual(calls,[undefined,'n-49']);
+ operations.notifications=async()=>[{id:'future',created_at:'2099-01-01T12:00:00Z'},{id:'old',created_at:'2000-01-01T12:00:00Z'}] as any;
+ assert.equal((await todaysNotifications('acme',day,'UTC')).length,0);
+});
+
+
+test('Orders sidebar badge persists on selection and disappears when issues are resolved',async()=>{
+ const {Sidebar}=await import('../src/components/Sidebar');
+ window.matchMedia=(()=>({matches:false,addEventListener(){},removeEventListener(){}})) as any;
+ let selected='';
+ const props={activeTab:'monitor',isOpen:true,onToggle(){},setActiveTab:(tab:string)=>{selected=tab;},showAccountPopover:false,setShowAccountPopover:()=>{},onActionNotification(){},dispatchMode:'MANUAL' as const,onDispatchModeChange(){}};
+ const view=mount(<Sidebar {...props} ordersAttentionCount={3}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Orders, 3 need attention'}));
+ assert.equal(selected,'jobs');
+ assert.ok(screen.getByRole('button',{name:'Orders, 3 need attention'}));
+ view.rerender(<QueryClientProvider client={cache}><Sidebar {...props} ordersAttentionCount={0}/></QueryClientProvider>);
+ assert.ok(screen.getByRole('button',{name:/^Orders$/}));
+ assert.equal(screen.queryByRole('button',{name:'Orders, 3 need attention'}),null);
 });

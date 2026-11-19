@@ -1,4 +1,5 @@
 import { StopOperations, ItemOperations } from '../domain/operations';
+import type { LoadSize } from '../lib/loadSize';
 // Commercial pricing model: Rate Cards, Zones, and the
 // Order-side inputs/outputs of the pricing engine.
 //
@@ -62,6 +63,8 @@ export interface RateCard {
   currency: 'CAD' | 'USD';
 
   pricingMethod: PricingMethod;
+  /** The one load size this card prices; unset reads as LTL. A shipper attaches at most one card per size. */
+  loadSize?: LoadSize;
 
   // ---- BASE_PLUS_DISTANCE --------------------------------------------------
   baseFee: number;
@@ -229,6 +232,8 @@ export interface PricingOrderInput {
   overrideReason?: string;
   scheduledEndAt?: string | null;
   customerId: string | null;
+  /** FTL, LTL or Small parcel; company orders only (older orders and `/prototype` have none). */
+  loadSize?: LoadSize | null;
   serviceId: string;
   vehicleId: string | null;
   stops: PricingStopInput[];

@@ -1,3 +1,4 @@
+import type { LoadSize } from './lib/loadSize';
 import { DriverOperations, OrderOperations } from './domain/operations';
 import { PricingOrderInput, PricingSnapshot } from './types/pricing';
 
@@ -58,6 +59,7 @@ export interface Order extends OrderOperations {
   customerId?: string | null;
   serviceId?: string;
   vehicleId?: string | null;
+  loadSize?: LoadSize | null;
   /** Order facts the price was calculated from. */
   pricingInput?: PricingOrderInput;
   /** Frozen result. Re-priced only by an explicit action; FINAL stage locks it. */
@@ -65,6 +67,8 @@ export interface Order extends OrderOperations {
 }
 
 export interface NeedsAttentionItem {
+  /** Time this alert arose, for newest-first Monitor ordering. */
+  at?: string;
   id: string;
   jobNumber: string;
   statusType: 'at_risk' | 'late_start' | 'no_driver' | 'gps_stale' | 'pricing';

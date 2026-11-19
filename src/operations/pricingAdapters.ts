@@ -1,3 +1,4 @@
+import { cardLoadSize } from '../lib/loadSize';
 import { loadPricingContext } from '../lib/orderPricing';
 import { createEmptyRateCard, INITIAL_PRICING_CONFIG } from '../lib/pricingStorage';
 import { INITIAL_BILLING_CONFIG } from '../lib/billingStorage';
@@ -32,7 +33,7 @@ export function rateToUi(row: RateCard): UiRateCard {
     minimumOrderSubtotal: row.data.method === 'HOURLY' ? 0 : n(row.data.minimum_subtotal),
     dimensionalDivisor: n(row.data.dimensional_divisor), zoneRates,
     applyFuelSurcharge: row.data.apply_fuel, applyServiceMultiplier: row.data.apply_service,
-    applyVehicleSurcharge: row.data.apply_vehicle, applyAccessorials: row.data.apply_accessorials,
+    applyVehicleSurcharge: row.data.apply_vehicle, applyAccessorials: row.data.apply_accessorials, loadSize: row.data.load_size,
     updatedAt: row.created_at,
   });
 }
@@ -52,7 +53,7 @@ export function rateFromUi(card: UiRateCard, zones: PricingContext['pricing']['z
     increment_minutes: card.billingIncrementMinutes,
     minimum_subtotal: card.pricingMethod === 'HOURLY' ? 0 : card.minimumOrderSubtotal ?? 0, dimensional_divisor: card.dimensionalDivisor ?? 5000,
     zones: activeZones, weight_bands, apply_fuel: card.applyFuelSurcharge, apply_service: card.applyServiceMultiplier,
-    apply_vehicle: card.applyVehicleSurcharge, apply_accessorials: card.applyAccessorials,
+    apply_vehicle: card.applyVehicleSurcharge, apply_accessorials: card.applyAccessorials, load_size: cardLoadSize(card),
   };
 }
 
@@ -81,9 +82,9 @@ export function packageTypeToCatalog(type: PackageType, previous?: CatalogItem):
 
 /** Every catalogue consumer (dispatcher and shipper order forms, settings) sees one order: company setup order, then code. */
 const catalogOrder = (a: CatalogItem, b: CatalogItem) => a.created_at.localeCompare(b.created_at) || a.code.localeCompare(b.code);
-export function catalogueFromApi(items: CatalogItem[], defaultServiceId?: string | null): PricingContext['catalogue'] {
+export function catalogueFromApi(items: CatalogItem[], defaultServiceId?: string | null, defaultPackageTypeId?: string | null): PricingContext['catalogue'] {
   const of = (kind: string) => items.filter(item => item.kind === kind).sort(catalogOrder);
-  return { services: of('SERVICE').map(row => ({ ...catalogToService(row), isDefault: row.id === defaultServiceId })), accessorials: of('ACCESSORIAL').map(catalogToAccessorial), vehicles: of('VEHICLE_TYPE').map(catalogToVehicleType), packageTypes: of('PACKAGE_TYPE').map(catalogToPackageType) };
+  return { services: of('SERVICE').map(row => ({ ...catalogToService(row), isDefault: row.id === defaultServiceId })), accessorials: of('ACCESSORIAL').map(catalogToAccessorial), vehicles: of('VEHICLE_TYPE').map(catalogToVehicleType), packageTypes: of('PACKAGE_TYPE').map(row => ({ ...catalogToPackageType(row), isDefault: row.id === defaultPackageTypeId })) };
 }
 
 /** Builds the same context shape the existing controls expect, using only API-owned operational records. */
@@ -101,7 +102,7 @@ export function apiPricingContext(settings: Settings, catalog: CatalogItem[], ra
       fuelSurcharge: { ...base.billing.fuelSurcharge, enabled: data.fuel_enabled, percent: n(data.fuel_percent) },
       dispatch: { ...base.billing.dispatch, maxActiveOrdersPerDriver: data.maximum_active_orders },
     },
-    catalogue: catalogueFromApi(catalog, data.default_service_id),
+    catalogue: catalogueFromApi(catalog, data.default_service_id, data.default_package_type_id),
     pricing: { ...base.pricing, rateCards: cards, zones, zoneRates: cards.flatMap(card => card.zoneRates ?? []) },
     customers: shippers.map(shipperToCustomer),
   };
@@ -130,7 +131,7 @@ export function shipperPricingContext(preferences: BookingPreferences, options: 
       quoteSettings: { ...billing.quoteSettings, currency: preferences.currency },
       companyTax: { enabled: preferences.gst_enabled, ratePercent: n(preferences.gst_percent), provincialEnabled: preferences.provincial_enabled, provincialRatePercent: n(preferences.provincial_percent) },
       fuelSurcharge: { ...billing.fuelSurcharge, mode: 'fixed_percent', enabled: preferences.fuel_enabled, percent: n(preferences.fuel_percent) } },
-    catalogue: catalogueFromApi(options, preferences.default_service_id),
+    catalogue: catalogueFromApi(options, preferences.default_service_id, preferences.default_package_type_id),
     pricing: { ...structuredClone(INITIAL_PRICING_CONFIG), rateCards: [], zones: [], zoneRates: [] },
     customers: [shipperToCustomer(shipper)],
   };

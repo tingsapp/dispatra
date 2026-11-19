@@ -1394,6 +1394,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/order-attention-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Order Attention Count */
+        get: operations["order_attention_count_api_v1_companies__slug__order_attention_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/monitor": {
         parameters: {
             query?: never;
@@ -3667,6 +3684,8 @@ export interface components {
              * @default
              */
             service_name: string;
+            /** Load Size */
+            load_size?: ("FTL" | "LTL" | "SMALL_PARCEL") | null;
             /** Delivered At */
             delivered_at?: string | null;
             /**
@@ -4012,11 +4031,10 @@ export interface components {
             billing_shipper_id?: string | null;
             /** Rate Card Id */
             rate_card_id?: string | null;
-            /**
-             * Service Id
-             * Format: uuid
-             */
-            service_id: string;
+            /** Load Size */
+            load_size?: ("FTL" | "LTL" | "SMALL_PARCEL") | null;
+            /** Service Id */
+            service_id?: string | null;
             /** Vehicle Type Id */
             vehicle_type_id?: string | null;
             /** Preferred Driver Id */
@@ -4061,11 +4079,10 @@ export interface components {
             billing_shipper_id?: string | null;
             /** Rate Card Id */
             rate_card_id?: string | null;
-            /**
-             * Service Id
-             * Format: uuid
-             */
-            service_id: string;
+            /** Load Size */
+            load_size?: ("FTL" | "LTL" | "SMALL_PARCEL") | null;
+            /** Service Id */
+            service_id?: string | null;
             /** Vehicle Type Id */
             vehicle_type_id?: string | null;
             /** Preferred Driver Id */
@@ -4157,6 +4174,8 @@ export interface components {
             holidays: components["schemas"]["Holiday"][];
             /** Default Service Id */
             default_service_id?: string | null;
+            /** Default Package Type Id */
+            default_package_type_id?: string | null;
         };
         /**
          * BriefingTotals
@@ -4380,6 +4399,11 @@ export interface components {
              * @default 1
              */
             required_crew: number;
+            /**
+             * Load Sizes
+             * @description Vehicle Type only: the load sizes an order may require it for. Records saved before this field read as both.
+             */
+            load_sizes?: ("FTL" | "LTL")[];
         };
         /** CatalogData */
         "CatalogData-Output": {
@@ -4441,6 +4465,11 @@ export interface components {
              * @default 1
              */
             required_crew: number;
+            /**
+             * Load Sizes
+             * @description Vehicle Type only: the load sizes an order may require it for. Records saved before this field read as both.
+             */
+            load_sizes?: ("FTL" | "LTL")[];
         };
         /** CatalogUpdate */
         CatalogUpdate: {
@@ -5160,6 +5189,13 @@ export interface components {
             in_progress: number;
             /** Completed */
             completed: number;
+            /**
+             * Overdue Count
+             * @default 0
+             */
+            overdue_count: number;
+            /** Overdue Orders */
+            overdue_orders?: components["schemas"]["OverdueOrderSummary"][];
             /** Open Incidents */
             open_incidents: number;
             /**
@@ -5867,6 +5903,8 @@ export interface components {
             route_status: string;
             /** Service Name */
             service_name: string;
+            /** Load Size */
+            load_size?: ("FTL" | "LTL" | "SMALL_PARCEL") | null;
             shipper: components["schemas"]["DriverShipperContact"];
             /** Stops */
             stops: components["schemas"]["DriverOrderStop"][];
@@ -6505,13 +6543,13 @@ export interface components {
             /** Quantity */
             quantity: number;
             /** Weight Kg */
-            weight_kg: number | string;
+            weight_kg?: number | string | null;
             /** Length Cm */
-            length_cm: number | string;
+            length_cm?: number | string | null;
             /** Width Cm */
-            width_cm: number | string;
+            width_cm?: number | string | null;
             /** Height Cm */
-            height_cm: number | string;
+            height_cm?: number | string | null;
             /**
              * Pallets
              * @default 0
@@ -6558,13 +6596,13 @@ export interface components {
             /** Quantity */
             quantity: number;
             /** Weight Kg */
-            weight_kg: string;
+            weight_kg?: string | null;
             /** Length Cm */
-            length_cm: string;
+            length_cm?: string | null;
             /** Width Cm */
-            width_cm: string;
+            width_cm?: string | null;
             /** Height Cm */
-            height_cm: string;
+            height_cm?: string | null;
             /**
              * Pallets
              * @default 0
@@ -7083,11 +7121,8 @@ export interface components {
              * Format: uuid
              */
             billing_shipper_id: string;
-            /**
-             * Service Id
-             * Format: uuid
-             */
-            service_id: string;
+            /** Service Id */
+            service_id: string | null;
             /** Route Id */
             route_id: string | null;
             /** Source */
@@ -7165,6 +7200,21 @@ export interface components {
              * @default false
              */
             payment_required: boolean;
+        };
+        /** OverdueOrderSummary */
+        OverdueOrderSummary: {
+            /** Order Number */
+            order_number: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "NEW" | "ASSIGNED" | "IN_PROGRESS";
         };
         /** OverviewDispatcherUpdate */
         OverviewDispatcherUpdate: {
@@ -7555,6 +7605,13 @@ export interface components {
              * @default true
              */
             apply_accessorials: boolean;
+            /**
+             * Load Size
+             * @description The one load size this card prices. Cards saved before this field read as LTL.
+             * @default LTL
+             * @enum {string}
+             */
+            load_size: "FTL" | "LTL" | "SMALL_PARCEL";
         };
         /** RateData */
         "RateData-Output": {
@@ -7634,6 +7691,13 @@ export interface components {
              * @default true
              */
             apply_accessorials: boolean;
+            /**
+             * Load Size
+             * @description The one load size this card prices. Cards saved before this field read as LTL.
+             * @default LTL
+             * @enum {string}
+             */
+            load_size: "FTL" | "LTL" | "SMALL_PARCEL";
         };
         /** RateUpdate */
         RateUpdate: {
@@ -8191,6 +8255,11 @@ export interface components {
             warehouse: components["schemas"]["Address"];
             /** Rate Card Id */
             rate_card_id?: string | null;
+            /**
+             * Rate Card Ids
+             * @description Attached Rate Cards, at most one per load size.
+             */
+            rate_card_ids?: string[] | null;
             /** Assigned Driver Id */
             assigned_driver_id?: string | null;
             discount?: components["schemas"]["Discount-Input"];
@@ -8282,6 +8351,15 @@ export interface components {
             rate_card_id: string | null;
             /** Rate Card Name */
             rate_card_name?: string | null;
+            /** Rate Card Ids */
+            rate_card_ids?: string[];
+            /** Rate Card Names */
+            rate_card_names?: string[];
+            /**
+             * Rate Card Load Sizes
+             * @description Load size of each attached card, in the same order; the first is the default card's, which new Orders start with.
+             */
+            rate_card_load_sizes?: ("FTL" | "LTL" | "SMALL_PARCEL")[];
             /** Assigned Driver Id */
             assigned_driver_id?: string | null;
             /** Assigned Driver Name */
@@ -18841,6 +18919,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DriverActivityView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    order_attention_count_api_v1_companies__slug__order_attention_count_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
                 };
             };
             /** @description Bad Request */

@@ -3,6 +3,7 @@ import { MonitorBadge } from './MonitorBadge';
 
 export interface ReviewAttentionProps {
   reviewCount?: number;
+  reviewLatestAt?: string;
   reviewCapped?: boolean;
   reviewPending?: boolean;
   reviewFailed?: boolean;
