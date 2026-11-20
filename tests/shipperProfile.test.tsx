@@ -24,7 +24,7 @@ const logo = 'data:image/png;base64,iVBORw0KGgo=';
 const initial: Shipper = {
   id: 'shipper', version: 1, created_at: '', name: 'Shipper One', number: 'S-001',
   status: 'ACTIVE', kind: 'BUSINESS', company_name: 'One', email: 'one@example.com', phone: '6045550101',
-  warehouse: { text: '123 Main St, Vancouver, BC V5Y 1V4', city: 'Vancouver', province: 'BC', postal_code: 'V5Y 1V4', country: 'CA' },
+  warehouse: { text: '123 Main St, Vancouver, BC V5Y 1V4', city: 'Vancouver', province: 'BC', postal_code: 'V5Y 1V4', country: 'CA', latitude: 49.26, longitude: -123.11 },
   rate_card_id: null, discount: { kind: 'NONE', value: '0' }, instructions: '', email_updates: true, logo_url: '',
 };
 

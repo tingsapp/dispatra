@@ -8,8 +8,8 @@ import { ChatThread } from './ChatThread';
 const channelKey = (channel: ChatChannel) => `${channel.kind}:${channel.driver_id ?? ''}`;
 
 /** Contact entry points stay on that conversation; general Order messages can browse authorized chats. */
-export function OrderChat({ slug, orderId, initialKind, initialConversation, expectedDriverId, orderNumber, orderPicker, driverOnly = false, onClose }: {
-  slug: string; orderId: string; initialKind?: ChatKind; initialConversation?: string; expectedDriverId?: string; orderNumber?: string; orderPicker?: ReactNode; driverOnly?: boolean; onClose?: () => void;
+export function OrderChat({ slug, orderId, initialKind, initialConversation, expectedDriverId, orderNumber, orderPicker, driverOnly = false, onClose, timeZone }: {
+  slug: string; orderId: string; initialKind?: ChatKind; initialConversation?: string; expectedDriverId?: string; orderNumber?: string; orderPicker?: ReactNode; driverOnly?: boolean; onClose?: () => void; timeZone?: string;
 }) {
   const channels = useOrderChannels(slug, orderId);
   const [selected, setSelected] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function OrderChat({ slug, orderId, initialKind, initialConversation, exp
         </button>;
       })}
     </div>}
-    <div className="flex min-h-0 flex-1 flex-col" role={rows.length > 1 ? 'tabpanel' : undefined}><ChatThread key={channelKey(current)} slug={slug} orderId={orderId} channel={current} /></div>
+    <div className="flex min-h-0 flex-1 flex-col" role={rows.length > 1 ? 'tabpanel' : undefined}><ChatThread key={channelKey(current)} slug={slug} orderId={orderId} channel={current} timeZone={timeZone} /></div>
   </div>;
   return onClose ? <ChatPopup slug={slug} channel={!channels.isPending && !channels.error ? current : undefined} orderNumber={orderNumber} onClose={onClose}>{orderPicker}{content}</ChatPopup> : content;
 }

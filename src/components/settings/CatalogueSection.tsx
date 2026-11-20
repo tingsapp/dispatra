@@ -14,6 +14,7 @@ import { loadBillingConfig } from '../../lib/billingStorage';
 import { loadSimplePricingConfig, saveSimplePricingConfig } from '../../lib/simplePricingStorage';
 import { AccessorialItem, DeliveryService, SimplePricingConfig } from '../../types/simplePricing';
 import { AccessorialModal } from '../pricing/AccessorialModal';
+import { HOLIDAY_WEEKEND_CODE } from '../../lib/packageAccessorials';
 import { ServiceModal } from '../pricing/ServiceModal';
 import type { Notify } from '../ui/popupFeedback';
 
@@ -105,7 +106,7 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       <td className="px-4 py-3 font-medium text-slate-900">{item.name}{item.id === defaultId && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">Default</span>}</td>
       {section === 'services' ? <><td className="px-4 py-3 text-slate-600">{clockText((item as DeliveryService).estimatedTime || 'Not specified')}</td><td className="px-4 py-3 text-slate-500">{(item as DeliveryService).bookingCutoffTime ? `Book by ${(item as DeliveryService).bookingCutoffTime}` : 'No cutoff'} · {(item as DeliveryService).exclusiveVehicle ? 'Exclusive vehicle' : 'Shared vehicle'}</td></> : <>
         <td className="px-4 py-3 text-slate-600">${(item as AccessorialItem).rate.toFixed(2)} <span className="text-slate-400">{item.code === 'FRAGILE' || item.code === 'DG' ? 'per package' : 'per order'}</span></td>
-        <td className="px-4 py-3 text-slate-500">{item.code === 'FRAGILE' || item.code === 'DG' ? 'Package checkbox' : 'Selected on order'}</td>
+        <td className="px-4 py-3 text-slate-500">{item.code === 'FRAGILE' || item.code === 'DG' ? 'Package checkbox' : item.code === HOLIDAY_WEEKEND_CODE ? 'Automatic: weekend or holiday delivery' : 'Selected on order'}</td>
       </>}
       {section === 'services' && <td className="px-4 py-3 text-slate-600 tabular-nums">{(item as DeliveryService).additionalCharge == null ? 'Set charge' : `$${(item as DeliveryService).additionalCharge!.toFixed(2)}`}</td>}
       <td className="px-4 py-3"><div className="inline-flex items-center gap-1">

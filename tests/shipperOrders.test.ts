@@ -12,6 +12,8 @@ const { ClipboardList } = await import('lucide-react');
 const { PortalShell } = await import('../src/portal/PortalShell');
 const { OrderPricingForm } = await import('../src/components/pricing/OrderPricingForm');
 const { shipperPricingContext, catalogueFromApi } = await import('../src/operations/pricingAdapters');
+const { shipperToCustomer, customerToShipper } = await import('../src/operations/adapters');
+const { applyCustomerDefaults } = await import('../src/domain/orderAdapters');
 const { inputToShipperBooking, orderToInput, orderToUi } = await import('../src/operations/orderAdapters');
 const { ShipperOrderDialog } = await import('../src/portal/ShipperOrderDialog');
 const { TrackingDetails } = await import('../src/components/orders/TrackingSections');
@@ -76,7 +78,7 @@ test('shipper bookings strip dispatcher-only commercial fields', () => {
   const input = createDefaultOrderInput(ctx);
   input.customerId = 'someone-else'; input.rateCardOverrideId = 'card'; input.routeKm = 12; input.importedPrice = 99;
   input.adjustments = [{ id: '1', amount: 5, reason: 'x', taxable: true }];
-  input.stops = input.stops.map((stop, i) => ({ ...stop, label: i ? '200 King St W, Toronto, ON M5H 1J9' : '100 Main St, Vancouver, BC V6A 2S5', windowStart: i ? undefined : '2026-10-01T09:00' }));
+  input.stops = input.stops.map((stop, i) => ({ ...stop, label: i ? '200 King St W, Toronto, ON M5H 1J9' : '100 Main St, Vancouver, BC V6A 2S5', latitude: i ? 43.65 : 49.28, longitude: i ? -79.38 : -123.1, windowStart: i ? undefined : '2026-10-01T09:00' }));
   input.scheduledAt = '2026-10-01T09:00';
   const booking = inputToShipperBooking(input, 'America/Toronto');
   assert.equal(booking.shipper_id, null); assert.equal(booking.billing_shipper_id, null); assert.equal(booking.rate_card_id, null);
@@ -139,7 +141,7 @@ test('dispatcher and shipper order forms get the same catalogue order and a vehi
 const driverA = { id: '66666666-6666-4666-8666-666666666666', name: 'Dana Driver' };
 const bookable = (ctx: ReturnType<typeof shipperPricingContext>) => {
   const input = createDefaultOrderInput(ctx);
-  input.stops = input.stops.map((stop, i) => ({ ...stop, label: i ? '200 King St W, Toronto, ON M5H 1J9' : '100 Main St, Vancouver, BC V6A 2S5' }));
+  input.stops = input.stops.map((stop, i) => ({ ...stop, label: i ? '200 King St W, Toronto, ON M5H 1J9' : '100 Main St, Vancouver, BC V6A 2S5', latitude: i ? 43.65 : 49.28, longitude: i ? -79.38 : -123.1 }));
   input.scheduledAt = '2026-10-01T09:00';
   return input;
 };
@@ -164,11 +166,12 @@ test('the optional preferred driver travels with the booking and back from the o
   }
 });
 
-test('shipper order form offers an optional "Want specific driver?" choice and names its rate card only in the live estimate', async () => {
+test('shipper order form offers an optional "Preferred driver" choice and names its rate card only in the live estimate', async () => {
   const user = userEvent.setup({ document });
   const ctx = shipperPricingContext(preferences, options, shipper);
   render(React.createElement(ShipperOrderDialog, { slug: 'demo', ctx, initial: bookable(ctx), drivers: [driverA], rateCardName: 'Fixed Demo', onClose: () => {}, onSaved: () => {} }));
-  const field = screen.getByRole('combobox', { name: 'Want specific driver?' });
+  const field = screen.getByRole('combobox', { name: 'Preferred driver' });
+  assert.equal(screen.queryByRole('combobox', { name: 'Vehicle type' }), null);
   assert.match(field.textContent ?? '', /No preference/);
   assert.equal(screen.queryByText(/Priced with your rate card/), null);
   assert.equal(screen.queryByText('Resolved via'), null); assert.equal(screen.queryByText('Method'), null);
@@ -178,7 +181,42 @@ test('shipper order form offers an optional "Want specific driver?" choice and n
   await user.click(field);
   assert.deepEqual(screen.getAllByRole('option').map(o => o.textContent), ['No preference', 'Dana Driver']);
   await user.click(screen.getByRole('option', { name: 'Dana Driver' }));
-  assert.match(screen.getByRole('combobox', { name: 'Want specific driver?' }).textContent ?? '', /Dana Driver/);
+  assert.match(screen.getByRole('combobox', { name: 'Preferred driver' }).textContent ?? '', /Dana Driver/);
+});
+
+test('the shipper warehouse prefills the pickup with its map point, for dispatcher and Shipper bookings alike', () => {
+  const ctx = shipperPricingContext(preferences, options, shipper);
+  const blank = createBookingInput(ctx); blank.stops = blank.stops.map(stop => ({ ...stop, label: '', latitude: null, longitude: null }));
+  const pickup = applyCustomerDefaults(blank, shipperToCustomer(shipper)).stops.find(stop => stop.type === 'PICKUP')!;
+  assert.deepEqual([pickup.label, pickup.latitude, pickup.longitude, pickup.postalCode], ['100 Main St, Vancouver, BC V6A 2S5', 49.28, -123.1, 'V6A 2S5']);
+  const unlocated = { ...(shipper as object), warehouse: { ...(shipper as { warehouse: object }).warehouse, latitude: null, longitude: null } } as never;
+  assert.equal(applyCustomerDefaults(blank, shipperToCustomer(unlocated)).stops.find(stop => stop.type === 'PICKUP')!.latitude, null);
+});
+
+test('an order stop or warehouse typed without choosing a suggestion is refused before saving', () => {
+  const ctx = shipperPricingContext(preferences, options, shipper);
+  const typed = bookable(ctx); typed.stops = typed.stops.map(stop => stop.type === 'PICKUP' ? { ...stop, latitude: null, longitude: null } : stop);
+  assert.throws(() => inputToShipperBooking(typed, 'America/Vancouver'), /Choose the pickup address from the suggestions/);
+  assert.equal(inputToShipperBooking(bookable(ctx), 'America/Vancouver').stops[0].address.latitude, 49.28);
+  const form = { name: 'Acme', email: 'a@example.ca', address: '100 Main St, Vancouver, BC V6A 2S5' };
+  assert.throws(() => customerToShipper(form), /Choose the warehouse address from the suggestions/);
+  assert.equal(customerToShipper(form, undefined, { latitude: 49.28, longitude: -123.1 }).warehouse.latitude, 49.28);
+});
+
+test('shipper booking has no vehicle type choice: a full truckload takes the suggested type, other load sizes book none', async () => {
+  const user = userEvent.setup({ document });
+  const ctx = shipperPricingContext(preferences, options, shipper);
+  let current: ReturnType<typeof bookable> = { ...bookable(ctx), loadSize: 'LTL' };
+  function Form() { const [value, setValue] = React.useState(current); current = value; return React.createElement(OrderPricingForm, { value, onChange: setValue, ctx, snapshot: priceOrder(value, ctx), customerMode: 'self', showVehicleSelection: false, showStopAddresses: true, loadSizes: true, suggestVehicle: true }); }
+  render(React.createElement(Form));
+  const choose = async (label: string) => { await user.click(screen.getByRole('combobox', { name: 'Load size' })); await user.click(screen.getByRole('option', { name: label })); };
+  assert.equal(current.vehicleId, null);
+  await choose('Full truckload (FTL)');
+  assert.equal(current.vehicleId, '33333333-3333-4333-8333-333333333333');
+  assert.equal(screen.queryByRole('combobox', { name: 'Vehicle type' }), null);
+  assert.equal(screen.queryByText(/weight and size come from the vehicle type/), null);
+  await choose('Less than truckload (LTL)');
+  assert.equal(current.vehicleId, null);
 });
 
 test('the live estimate shows company GST/HST and fuel rates only when enabled in the dispatch account', () => {

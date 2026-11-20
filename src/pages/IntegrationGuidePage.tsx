@@ -62,7 +62,7 @@ export default function IntegrationGuidePage() {
             <p>The Orders list returns a JSON array. Send the last order’s <code>id</code> in <code>after</code> for the next page; an empty array means there are no more orders.</p>
             <h3>Supported resources</h3>
             <ul className="guide-resource-list">{apiResources('example').map(resource => <li key={resource.id}><strong>{resource.title}</strong><span>{resource.description}</span></li>)}</ul>
-            <p>See the exact company endpoints and an example order payload in your workspace’s Dispatra API section. Current order imports support Canadian addresses.</p>
+            <p>See the exact company endpoints and an example order payload in your workspace’s Dispatra API section. Current order imports support Canadian and US addresses.</p>
             <h3>Changes and retries</h3>
             <p>Send an <code>Idempotency-Key</code> with changes. Reuse it only when retrying the same request. Updates also require the current record version. Validation, access and version errors must be resolved before retrying.</p>
             <h3>Receive order events</h3>

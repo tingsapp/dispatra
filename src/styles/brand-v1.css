@@ -30,7 +30,7 @@
 .app-button[data-variant="link"] { color: var(--color-app-accent); }
 
 /* Map overlays transmit colour softly; labels themselves remain fully opaque. */
-.shipper-tracking-card { background: var(--app-glass); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: var(--app-surface-shadow); }
+.shipper-tracking-card { border: 1px solid rgb(255 255 255 / 82%); background: rgb(255 255 255 / 88%); backdrop-filter: blur(24px) saturate(115%); -webkit-backdrop-filter: blur(24px) saturate(115%); box-shadow: 0 0 0 1px rgb(30 35 42 / 5%), 0 3px 8px rgb(30 35 42 / 5%), 0 16px 40px rgb(30 35 42 / 10%); }
 .machine-monitor { border-radius: var(--app-radius-card); }
 .machine-mode button[aria-pressed="true"] { color: var(--color-app-accent); }
 .machine-telemetry { color: #60666f; }

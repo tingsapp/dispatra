@@ -1,0 +1,44 @@
+.driver-dashboard { position: relative; height: 100%; min-height: 0; }
+.driver-day-panel { position: absolute; top: var(--workspace-inset, 12px); max-height: calc(100% - 2 * var(--workspace-inset, 12px)); left: var(--workspace-content-left, 1.5rem); z-index: 20; display: flex; flex-direction: column; width: 26rem; max-width: calc(100% - var(--workspace-content-left, 1.5rem) - 1.5rem); min-height: 0; overflow: hidden; border: 1px solid rgb(255 255 255 / 82%); border-radius: var(--app-radius-card); background: rgb(255 255 255 / 88%); backdrop-filter: blur(24px) saturate(115%); -webkit-backdrop-filter: blur(24px) saturate(115%); box-shadow: 0 0 0 1px rgb(30 35 42 / 5%), 0 3px 8px rgb(30 35 42 / 5%), 0 16px 40px rgb(30 35 42 / 10%); }
+.driver-day-heading { flex-shrink: 0; padding: .75rem .875rem .5rem; }
+.driver-day-heading h2 { font-size: .8125rem; line-height: 1.15rem; }
+.driver-day-heading > p { font-size: .6875rem; line-height: 1rem; }
+.driver-day-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .125rem .625rem .625rem; font-size: .75rem; line-height: 1.1rem; }
+.driver-day-empty { padding: 2rem .5rem; text-align: center; }
+.driver-day-empty > svg { margin: auto; }
+.driver-stop-timeline { margin: 0; padding: 0; list-style: none; }
+.driver-timeline-stop { position: relative; padding: .45rem .125rem .625rem .125rem; }
+.driver-timeline-stop:not(:last-child)::after { content: ''; position: absolute; top: 1.15rem; bottom: -.45rem; left: .375rem; width: 1px; background: #d7dce2; pointer-events: none; }
+.driver-stop-heading { display: flex; min-width: 0; align-items: center; gap: .375rem; }
+.driver-stop-select { display: flex; min-width: 0; flex: 1; align-items: center; gap: .5rem; padding: .125rem 0; text-align: left; border-radius: 6px; }
+.driver-stop-select:hover .driver-stop-title { color: var(--color-app-accent); }
+.driver-stop-select:focus-visible, .driver-stop-location:focus-visible { outline: 2px solid var(--color-app-accent); outline-offset: 2px; }
+.driver-stop-title { overflow: hidden; color: #24262b; font-size: .75rem; font-weight: 600; line-height: 1rem; text-overflow: ellipsis; white-space: nowrap; }
+.driver-stop-status { flex-shrink: 0; color: var(--color-app-muted); font-size: .625rem; line-height: .875rem; }
+.driver-stop-status.is-next { color: var(--color-app-accent); font-weight: 600; }
+.driver-open-order { height: auto; padding: 0; font-size: .625rem; line-height: .875rem; text-decoration: none; }
+.driver-stop-dot { flex-shrink: 0; width: .5rem; height: .5rem; border-radius: 50%; background: #cbd0d5; position: relative; z-index: 1; }
+.driver-stop-dot.is-selected { background: var(--color-app-accent); }
+.driver-stop-location { display: block; width: 100%; padding: .125rem 0 0 1rem; color: #62656e; text-align: left; font-size: .6875rem; line-height: 1rem; }
+.driver-stop-contact { display: flex; min-width: 0; align-items: center; gap: .5rem; padding: .25rem 0 0 1rem; color: #44474f; font-size: .6875rem; line-height: 1rem; }
+.driver-stop-contact-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-stop-phone { flex-shrink: 0; color: #62656e; font-size: .65625rem; }
+.driver-stop-chat { margin-left: auto; }
+.driver-stop-window, .driver-stop-instructions, .driver-stop-warning { padding: .125rem 0 0 1rem; color: #62656e; font-size: .65625rem; line-height: .9375rem; }
+.driver-stop-actions { display: flex; justify-content: flex-end; padding: .25rem 0 0 1rem; }
+.driver-stop-report { height: 1.5rem; padding-inline: .5rem; font-size: .625rem; }
+.driver-dashboard-map { position: absolute; inset: 0; background: #f1f5f9; }
+.driver-map-message { position: absolute; top: 45%; left: max(1.5rem, 64%); right: 1.5rem; text-align: center; font-size: .875rem; color: var(--color-app-muted); z-index: 1; }
+.driver-map-route-note { position: absolute; top: 1rem; right: 1rem; z-index: 2; border-radius: .75rem; background: white; padding: .5rem .75rem; font-size: .75rem; color: var(--color-app-muted); box-shadow: var(--app-surface-shadow); }
+.driver-map-attribution { position: absolute; bottom: .75rem; left: max(1.5rem, var(--workspace-content-left, 1.5rem)); z-index: 2; border-radius: .25rem; background: rgb(255 255 255 / 85%); padding: .2rem .4rem; font-size: .625rem; color: var(--color-app-muted); }
+@media (max-width: 767px) {
+  .driver-day-panel { top: auto; bottom: 1rem; right: 1rem; width: auto; max-width: none; max-height: 48%; }
+  .driver-map-message { top: 24%; left: 1.5rem; }
+  .driver-day-heading { padding: .75rem .875rem .5rem; }
+  .driver-day-scroll { padding: .375rem .5rem .5rem; }
+  .driver-dashboard-map { min-height: 0; }
+}
+@media (max-width: 639px) {
+  .driver-day-panel { left: 1rem; }
+}
+@media (prefers-reduced-transparency: reduce) { .driver-day-panel { background: white; backdrop-filter: none; -webkit-backdrop-filter: none; } }

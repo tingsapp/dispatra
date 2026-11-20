@@ -138,6 +138,11 @@ try {
   await page.getByRole('heading', { name: 'No orders to track', exact: true }).waitFor();
   await checkHeader();
   await nav.getByRole('link', { name: 'Orders', exact: true }).click();
+  await page.getByRole('button', { name: 'Collapse menu', exact: true }).click();
+  await page.getByRole('button', { name: 'Dispatra, Orders', exact: true }).click();
+  await page.waitForURL(origin + '/demo/shipper/tracking');
+  assert.equal(await header.getByRole('searchbox', { name: 'Search your orders' }).count(), 0, 'Tracking has no order search field');
+  await nav.getByRole('link', { name: 'Orders', exact: true }).click();
   const originalBell = await bell.elementHandle();
   await page.screenshot({ path: '/tmp/dispatra-shipper-header-orders.png', fullPage: true });
   await page.getByRole('button', { name: 'Shipper account', exact: true }).click();
@@ -243,7 +248,7 @@ try {
     assert.equal(await deliveryMarker.getAttribute('aria-expanded'), 'true');
     await deliveryMarker.press('Escape');
     assert.equal(await deliveryMarker.locator('[role="tooltip"]').count(), 0);
-    await header.getByRole('searchbox', { name: 'Search your orders' }).focus();
+    assert.equal(await header.getByRole('searchbox', { name: 'Search your orders' }).count(), 0, 'Tracking has no order search field');
     assert.deepEqual([...new Set(roadReads)].sort(), ['1', '2', '5'], 'Only open own orders request road geometry');
     await checkMapBounds(); // Initial framing must work without pressing Fit.
     // Marker focus/Escape must not disable automatic bounds on layout changes.
@@ -271,20 +276,13 @@ try {
   await page.screenshot({ path: '/tmp/dispatra-shipper-tracking-desktop.png', fullPage: true });
   assert.equal(await page.getByRole('combobox', { name: 'Order to track' }).count(), 0);
   assert.equal(await page.locator('.shipper-tracking-card').count(), 1, 'Progress, stops and timeline share one card');
-  const search = header.getByRole('searchbox', { name: 'Search your orders' });
-  const selectOrder = async number => {
-    await search.fill(number);
-    await page.getByRole('dialog', { name: 'Your order search results' }).getByRole('button', { name: new RegExp(`^${number}`) }).click();
-  };
-  await search.fill('REF-2');
-  await page.getByRole('dialog', { name: 'Your order search results' }).getByRole('button', { name: /^DDO-1042/ }).waitFor();
-  await search.fill('another-shipper-order');
-  await page.getByText('No matching orders.', { exact: true }).waitFor();
-  await page.keyboard.press('Escape');
-  assert.ok(!trackingReads.includes('another-shipper-order'));
-  await search.fill('1045');
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
+  assert.equal(await header.getByRole('searchbox', { name: 'Search your orders' }).count(), 0, 'Tracking has no order search field');
+  await nav.getByRole('link', { name: 'Orders', exact: true }).click();
+  const orderSearch = header.getByRole('searchbox', { name: 'Search your orders' });
+  await orderSearch.fill('REF-2');
+  await page.getByRole('dialog', { name: 'Your order search results' }).getByRole('button', { name: /^DDO-1042/ }).click();
+  await page.waitForURL(origin + '/demo/shipper/tracking?order=2');
+  await page.goto(origin + '/demo/shipper/tracking?order=5');
   await page.waitForURL(origin + '/demo/shipper/tracking?order=5');
   if (liveMap) {
     const pickup = page.getByRole('button', { name: /^DDO-1041 · Pickup:/ });
@@ -292,8 +290,9 @@ try {
     await page.waitForURL(origin + '/demo/shipper/tracking?order=1');
   }
 
-  await selectOrder('DDO-1042');
-  await page.waitForURL(origin + '/demo/shipper/tracking?order=2');
+  await page.goto(origin + '/demo/shipper/tracking?order=1');
+  await page.getByText('Out for delivery – your stop is next', { exact: true }).waitFor();
+  await page.goto(origin + '/demo/shipper/tracking?order=2');
   await page.getByText('Booked – waiting for a driver', { exact: true }).waitFor();
   await page.goBack();
   await page.getByText('Out for delivery – your stop is next', { exact: true }).waitFor();
@@ -301,9 +300,9 @@ try {
   await page.getByText('Booked – waiting for a driver', { exact: true }).waitFor();
   await page.reload();
   await page.getByText('Booked – waiting for a driver', { exact: true }).waitFor();
-  await selectOrder('DDO-1043');
+  await page.goto(origin + '/demo/shipper/tracking?order=3');
   await page.getByRole('region', { name: 'Tracking' }).getByText(/^Delivered /).first().waitFor();
-  await selectOrder('DDO-1044');
+  await page.goto(origin + '/demo/shipper/tracking?order=4');
   await page.getByText('Order cancelled', { exact: true }).waitFor();
   if (liveMap) {
     assert.equal(await page.getByRole('button', { name: /^DDO-104[34] · (Pickup|Drop-off):/ }).count(), 0, 'Historical selection never draws terminal orders');

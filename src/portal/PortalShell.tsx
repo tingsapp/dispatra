@@ -10,7 +10,9 @@ import { NavBadge } from '../components/layout/NavBadge';
 const initials = (name: string) => name.trim().split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('') || '?';
 
 /** Presentational workspace shell. Authentication and customer data remain in PortalApp. */
-export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, titleBadge, headerActions, reading = false, map = false, chat = false, canvas = false, monitorNav = true, footer, children }: {
+export function PortalShell({ company, login, primary, icon: Icon, settings, onHome, onSettings, onLogout, loggingOut, navigation, onNavigate, account, description, actions, titleBadge, headerActions, reading = false, map = false, chat = false, canvas = false, monitorNav = true, homeOnExpand = false, footer, children }: {
+  /** The compact logo also opens the role's home when expanding navigation. */
+  homeOnExpand?: boolean;
   /** Sidebar card styled like the dispatcher Monitor's; platform administration keeps its own. */
   monitorNav?: boolean;
   /** Sidebar controls under the Logout card (or the account card), such as the driver's duty switch. */
@@ -46,7 +48,7 @@ export function PortalShell({ company, login, primary, icon: Icon, settings, onH
     {open && mobile && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/20 sm:hidden" onClick={() => setOpen(false)} />}
     <aside ref={panelRef} role={open && mobile ? 'dialog' : undefined} aria-modal={open && mobile ? true : undefined} aria-label="Workspace sidebar" aria-hidden={hidden} inert={hidden} data-collapsed={collapsed}
       className={`app-workspace-sidebar app-portal-sidebar border-r border-app-border fixed inset-y-0 left-0 z-50 md:sticky md:top-0 transition-[width] duration-300 ${hidden ? 'hidden' : collapsed ? 'app-sidebar-rail' : ''}`}>
-      <SidebarHeader collapsed={collapsed} mobile={mobile} label={`Dispatra, ${primary}`} current={!settings} onHome={() => navigate(onHome)} onToggle={() => setOpen(value => !value)} />
+      <SidebarHeader collapsed={collapsed} mobile={mobile} label={`Dispatra, ${primary}`} current={!settings} homeOnExpand={homeOnExpand} onHome={() => navigate(onHome)} onToggle={() => setOpen(value => !value)} />
       <p className="sr-only" title={company}>{company}</p>
       <nav aria-label="Portal navigation" className="px-1.5">
         {navigation ? navigation.map(({ label, href, icon: NavIcon, current, badge = 0, badgeLabel = 'unread' }) => <a key={href} href={href} onClick={event => { if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(() => onNavigate(href)); }} className="app-nav-item relative" aria-label={badge ? `${label}, ${badge} ${badgeLabel}` : label} title={collapsed ? label : undefined} aria-current={current ? 'page' : undefined}><WorkspaceIcon label={label} fallback={NavIcon} /><span className={collapsed ? 'sr-only' : undefined}>{label}</span><NavBadge count={badge} collapsed={collapsed} /></a>) : <>

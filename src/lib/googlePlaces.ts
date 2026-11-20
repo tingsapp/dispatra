@@ -10,7 +10,7 @@ export async function loadPlacesLibrary(): Promise<google.maps.PlacesLibrary> {
   const apiKey = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY?.trim();
   if (!apiKey) throw new Error('Google Maps key missing');
   if (!configured) {
-    setOptions({ key: apiKey, language: 'en', region: 'CA' });
+    setOptions({ key: apiKey, language: 'en' });
     configured = true;
   }
   return importLibrary('places');
@@ -29,10 +29,11 @@ export interface ResolvedAddress { address: string; selected: SelectedAddress }
 
 const STREET_ADDRESS_TYPES = new Set(['street_address', 'premise', 'subpremise']);
 const CITY_TYPES = ['locality', 'postal_town', 'sublocality', 'administrative_area_level_2'];
-const FULL_POSTAL_CODE = /^[A-Z]\d[A-Z][ -]?\d[A-Z]\d$/i;
+const FULL_POSTAL_CODE = /^(?:[A-Z]\d[A-Z][ -]?\d[A-Z]\d|\d{5}(?:-\d{4})?)$/i;
+const COUNTRIES = new Set(['CA', 'US']);
 
 /**
- * Resolve a Places prediction into a full Canadian street address (number, street, city, province, postal code),
+ * Resolve a Places prediction into a full Canada/US street address (number, street, city, province/state, postal/ZIP code),
  * or null when Google cannot supply every part. Throws only when Google lookups fail.
  */
 export async function resolveCompleteAddress(prediction: google.maps.places.PlacePrediction, includeCoordinates: boolean): Promise<ResolvedAddress | null> {
@@ -52,7 +53,7 @@ export async function resolveCompleteAddress(prediction: google.maps.places.Plac
   let country = component('country')?.shortText ?? undefined;
   let latitude = includeCoordinates ? place.location?.lat() ?? null : null;
   let longitude = includeCoordinates ? place.location?.lng() ?? null : null;
-  const complete = () => !!(streetNumber && street && city && province && postalCode && country?.toUpperCase() === 'CA');
+  const complete = () => !!(streetNumber && street && city && province && postalCode && COUNTRIES.has(country?.toUpperCase() ?? ''));
   if (!complete()) {
     const { Geocoder } = await google.maps.importLibrary('geocoding') as google.maps.GeocodingLibrary;
     const result = await new Geocoder().geocode({ placeId: prediction.placeId });

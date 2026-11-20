@@ -17,6 +17,8 @@ export interface DriverOperations extends AuditFields {
   locationPermissionStatus?: 'GRANTED' | 'DENIED' | 'UNKNOWN'; notes?: string;
   /** People who work together on this driver's routes; extras such as Helper need 2. Defaults to 1. */
   crewSize?: number;
+  /** Load sizes the driver handles; orders of other sizes cannot be assigned to them. Unset = all three. */
+  loadSizes?: import('../lib/loadSize').LoadSize[];
 }
 export interface TruckRoutingMeasurements {
   lengthM: number; widthM: number; heightM: number; grossWeightKg: number; axleWeightKg?: number;

@@ -5,7 +5,7 @@ import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/acme/driver/orders', pretendToBeVisual: true });
 for (const name of ['window','document','navigator','HTMLElement','HTMLInputElement','HTMLCanvasElement','Element','Node','Event','CustomEvent','MutationObserver','getComputedStyle','localStorage','location','history']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof typeof dom.window]});
 HTMLElement.prototype.scrollIntoView=()=>{};
-const { render, screen, cleanup, waitFor, within, fireEvent } = await import('@testing-library/react');
+const { render, screen, cleanup, waitFor, within, fireEvent, act } = await import('@testing-library/react');
 const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { operations } = await import('../src/operations/api');
@@ -19,7 +19,7 @@ afterEach(() => { cleanup(); history.replaceState(null, '', '/acme/driver/orders
 const address = (text: string) => ({ text, city: 'Vancouver', province: 'BC', postal_code: 'V6B 1A1', country: 'CA', latitude: 49.28, longitude: -123.1 });
 const duty = { id: 'duty-1', version: 1, created_at: '2026-10-02T08:00:00Z', driver_id: 'd1', started_at: '2026-10-02T08:00:00Z', ended_at: null };
 const profile = (online: boolean) => ({ time_zone: 'America/Vancouver', id: 'd1', version: 3, number: 'DCO-0001', name: 'Dana Driver', email: 'dana@example.com', phone: '6045550102', address: address('1 Driver St, Vancouver'), service_city: 'Vancouver', vehicle_id: 'v1', vehicle_name: 'Test Van · TEST123', duty: online ? duty : null, location_permission: 'GRANTED' });
-const order = { id: 'o1', number: 'DCO-1001', status: 'ASSIGNED', scheduled_at: '2026-10-02T16:00:00Z', completed_at: null, route_id: 'r1', route_status: 'PLANNED', service_name: 'Same day',
+const order = { id: 'o1', number: 'DCO-1001', shipper: { name: 'Alice Shipper', company_name: 'Fresh Test', phone: '6045550101', email: 'alice@example.com' }, status: 'ASSIGNED', scheduled_at: '2026-10-02T16:00:00Z', completed_at: null, route_id: 'r1', route_status: 'PLANNED', service_name: 'Same day',
   stops: [{ id: 's1', kind: 'PICKUP', address: address('100 Main St, Vancouver'), contact_name: 'Dock', phone: '6045550000', instructions: '', window_start: null, window_end: null, unattended_allowed: false, photo_required: false },
     { id: 's2', kind: 'DROPOFF', address: address('200 King St, Vancouver'), contact_name: 'Pat', phone: '', instructions: 'Ring bell', window_start: null, window_end: null, unattended_allowed: false, photo_required: false }],
   items: [{ id: 'i1', pickup_id: 's1', delivery_id: 's2', quantity: 2, weight_kg: '5', length_cm: '10', width_cm: '10', height_cm: '10', pallets: 0, fragile: false, dangerous_goods: false, description: 'Boxes' }] };
@@ -69,11 +69,11 @@ test('missing company timezone waits for the profile instead of displaying brows
   } finally { stub('driverProfile', () => profile(online)); }
 });
 
-test('driver sidebar lists Profile, Orders and Chat and ends with a Logout card above the duty switch', async () => {
+test('driver sidebar lists Orders, Chat and Profile and ends with a Logout card above the duty switch', async () => {
   const user = userEvent.setup({ document }); online = true; calls.length = 0;
   mount();
   const nav = screen.getByRole('navigation', { name: 'Portal navigation' });
-  assert.deepEqual(within(nav).getAllByRole('link').map(link => link.getAttribute('aria-label')), ['Profile', 'Orders', 'Chat']);
+  assert.deepEqual(within(nav).getAllByRole('link').map(link => link.getAttribute('aria-label')), ['Orders', 'Chat', 'Profile']);
   assert.equal(screen.queryByText('My routes'), null);
   assert.equal(screen.queryByRole('button', { name: /Driver account/ }), null);
   const toggle = await screen.findByRole('switch', { name: 'Duty status' });
@@ -106,6 +106,30 @@ test('driver orders list opens an order with its stops; starting the route needs
   assert.ok(screen.getByText(/Go On Duty from the sidebar switch/));
   await user.click(screen.getByRole('button', { name: 'Close dialog' }));
   assert.equal(screen.queryByRole('dialog'), null);
+});
+
+test('order execution reports use the same progress badges as the dashboard', async () => {
+  const user = userEvent.setup({ document });
+  const original = operations.reportStopIssue;
+  const executingRoute = { ...route, status: 'IN_PROGRESS', started_at: new Date().toISOString(), plan: { live_updates_supported: true } };
+  stub('driverRoutes', [executingRoute]);
+  let submitted: unknown[] = [];
+  stub('reportStopIssue', (...args: unknown[]) => { submitted = args; return { id: 'issue-2' }; });
+  try {
+    mount();
+    const row = (await screen.findByText('DCO-1001')).closest('tr')!;
+    await user.click(row);
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Report issue' }));
+    const itemsNotReady = within(dialog).getByRole('button', { name: 'Items not ready' });
+    assert.equal(itemsNotReady.getAttribute('data-size'), 'xs');
+    await user.click(itemsNotReady);
+    await user.click(within(dialog).getByRole('button', { name: 'Submit issue' }));
+    await waitFor(() => assert.deepEqual(submitted, ['acme', 's1', 'OTHER', 'Items not ready']));
+  } finally {
+    operations.reportStopIssue = original;
+    stub('driverRoutes', [route]);
+  }
 });
 
 test('location sharing starts from Start route and stops locally even when End Duty fails', { timeout: 15_000 }, async () => {
@@ -192,4 +216,194 @@ test('order tracking shows the shipment stage, ETA, timeline and when live locat
   const map = await screen.findByRole('img', { name: /Map of the pickup/ });
   assert.equal(map.getAttribute('src'), '/api/v1/companies/acme/orders/o1/tracking/map?v=3&at=49.2601%2C-123.1100');
   fireEvent.click(screen.getByRole('button', { name: 'Open on Monitor' })); assert.equal(opened, 1);
+});
+
+test('driver login home opens today’s jobs and stop map, with Orders remaining a separate page', async () => {
+  const user = userEvent.setup({ document });
+  const todayOrder = { ...order, scheduled_at: new Date().toISOString() };
+  const tomorrowOrder = { ...order, id: 'tomorrow', number: 'DCO-TOMORROW', scheduled_at: new Date(Date.now() + 86_400_000).toISOString() };
+  const yesterdayOrder = { ...order, id: 'yesterday', number: 'DCO-YESTERDAY', scheduled_at: new Date(Date.now() - 86_400_000).toISOString() };
+  stub('driverOrders', [todayOrder, tomorrowOrder, yesterdayOrder]);
+  history.replaceState(null, '', '/acme/driver');
+  calls.length = 0;
+  try {
+    mount();
+    assert.ok(screen.getByRole('heading', { name: 'Dashboard' }));
+    assert.ok(screen.getByRole('heading', { name: 'Today’s jobs' }));
+    const timeline = await screen.findByRole('list', { name: "Today's stops" });
+    assert.equal(within(timeline).getAllByRole('listitem').length, 2);
+    assert.ok(screen.getByText('1 order · 2 stops · 0 completed'));
+    assert.equal(screen.queryByText('DCO-TOMORROW'), null);
+    assert.equal(screen.queryByText('DCO-YESTERDAY'), null);
+    assert.ok(screen.getByRole('region', { name: "Today's order map" }));
+    assert.ok(screen.getByText('Map is unavailable. All stops are listed in the timeline.'));
+    assert.ok(screen.getByRole('button', { name: /Stop 1: Pickup/ }).getAttribute('aria-pressed') === 'true');
+    assert.ok(screen.getByText('Dock'));
+    assert.ok(screen.getByRole('link', { name: '(604) 555-0000' }));
+    assert.equal(within(timeline).getAllByRole('button', { name: /Chat with shipper/ }).length, 2);
+    await user.click(screen.getByRole('button', { name: /Stop 2: Delivery/ }));
+    assert.equal(screen.getByRole('button', { name: /Stop 2: Delivery/ }).getAttribute('aria-pressed'), 'true');
+    assert.equal(within(timeline).getAllByRole('button', { name: /Report issue for/ }).length, 2);
+    await user.click(screen.getAllByRole('button', { name: 'Open order' })[0]);
+    assert.ok(await screen.findByRole('dialog'));
+    assert.equal(calls.includes('position'), false, 'opening the dashboard must not start device tracking');
+    await user.click(screen.getByRole('button', { name: 'Close dialog' }));
+    await user.click(screen.getByRole('link', { name: 'Orders' }));
+    assert.equal(location.pathname, '/acme/driver/orders');
+    assert.ok(await screen.findByRole('table', { name: 'Orders' }));
+    await user.click(screen.getByRole('button', { name: 'Dispatra, Orders' }));
+    assert.equal(location.pathname, '/acme/driver');
+    assert.ok(await screen.findByRole('list', { name: "Today's stops" }));
+  } finally { stub('driverOrders', [order]); }
+});
+
+test('every open dashboard stop can report an issue in a popup', async () => {
+  const user = userEvent.setup({ document });
+  const original = operations.reportStopIssue;
+  let submitted: unknown[] = [];
+  stub('reportStopIssue', (...args: unknown[]) => { submitted = args; return { id: 'issue-1' }; });
+  stub('driverOrders', [{ ...order, scheduled_at: new Date().toISOString() }]);
+  history.replaceState(null, '', '/acme/driver');
+  try {
+    mount();
+    const timeline = await screen.findByRole('list', { name: "Today's stops" });
+    const reportButton = within(timeline).getAllByRole('button').find(button => button.textContent?.trim() === 'Report');
+    assert.ok(reportButton);
+    assert.equal(reportButton.getAttribute('aria-label'), 'Report issue for Pickup DCO-1001');
+    await user.click(reportButton);
+    const dialog = await screen.findByRole('dialog');
+    assert.ok(within(dialog).getByRole('heading', { name: 'Report a stop issue' }));
+    const unsafe = within(dialog).getByRole('button', { name: 'Unsafe situation' });
+    assert.equal(unsafe.getAttribute('data-size'), 'xs');
+    await user.click(unsafe);
+    await user.type(within(dialog).getByRole('textbox', { name: 'Additional details (optional)' }), 'The gate is blocked');
+    await user.click(within(dialog).getByRole('button', { name: 'Send report' }));
+    await waitFor(() => assert.equal(screen.queryByRole('dialog'), null));
+    assert.deepEqual(submitted, ['acme', 's1', 'UNSAFE', 'Unsafe situation: The gate is blocked']);
+  } finally { operations.reportStopIssue = original; }
+});
+
+test('each dashboard stop opens its shipper conversation', async () => {
+  const user = userEvent.setup({ document });
+  const originalChannels = chat.channels;
+  chat.channels = async () => [{ kind: 'DRIVER_SHIPPER', conversation_id: null, title: 'Fresh Test Shipper', driver_id: 'd1', can_send: true, closed_reason: null, unread: 0, last_message_at: null }];
+  stub('driverOrders', [{ ...order, scheduled_at: new Date().toISOString() }]);
+  history.replaceState(null, '', '/acme/driver');
+  try {
+    mount();
+    const timeline = await screen.findByRole('list', { name: "Today's stops" });
+    await user.click(within(timeline).getAllByRole('button', { name: /Chat with shipper/ })[0]);
+    const dialog = await screen.findByRole('dialog', { name: /Fresh Test Shipper/ });
+    assert.ok(within(dialog).getByText(/No messages yet\. Write to Fresh Test Shipper/));
+  } finally { chat.channels = originalChannels; stub('driverOrders', [order]); }
+});
+
+test('driver dashboard exposes empty and recoverable error states', async () => {
+  history.replaceState(null, '', '/acme/driver');
+  stub('driverOrders', []);
+  try {
+    mount();
+    assert.ok(await screen.findByText('No orders today'));
+    cleanup();
+    stub('driverOrders', () => { throw new Error('Orders connection unavailable'); });
+    mount();
+    assert.ok(await screen.findByRole('alert'));
+    stub('driverOrders', []);
+    await userEvent.setup({ document }).click(screen.getByRole('button', { name: 'Try again' }));
+    assert.ok(await screen.findByText('No orders today'));
+  } finally { stub('driverOrders', [order]); }
+});
+
+test('driver day plan uses company midnight and authoritative interleaved route stops', async () => {
+  const { driverDayPlan, driverStopStatus } = await import('../src/portal/driverDayPlan');
+  const first = { ...order, scheduled_at: '2026-07-01T17:00:00Z' };
+  const second = { ...first, id: 'o2', number: 'DCO-1002', stops: first.stops.map(stop => ({ ...stop, id: `two-${stop.id}` })) };
+  const future = { ...first, id: 'future', scheduled_at: '2026-07-02T07:00:00Z' };
+  const past = { ...first, id: 'past', scheduled_at: '2026-07-01T06:59:59Z' };
+  const cancelled = { ...first, id: 'cancelled', status: 'CANCELLED' };
+  const sequence = [first.stops[0], second.stops[0], first.stops[1], second.stops[1]];
+  const interleaved = { ...route, stops: sequence.map((stop, position) => ({ ...route.stops[0], stop, stop_id: stop.id, id: `visit-${position}`, position, status: position === 0 ? 'COMPLETED' : 'PLANNED' })).reverse() };
+  const plan = driverDayPlan([future, past, cancelled, second, first] as never, [interleaved] as never, 'America/Vancouver', '2026-07-02T06:59:00Z');
+  assert.deepEqual(plan.orders.map(row => row.id).sort(), ['o1', 'o2']);
+  assert.deepEqual(plan.stops.map(row => row.stop.id), sequence.map(stop => stop.id));
+  assert.deepEqual(plan.stops.map(driverStopStatus), ['Completed', 'Next stop', 'Upcoming', 'Upcoming']);
+  assert.equal(interleaved.stops[0].position, 3, 'planning must not mutate server data');
+  const tomorrow = driverDayPlan([future, first] as never, [route] as never, 'America/Vancouver', '2026-07-02T07:00:00Z');
+  assert.deepEqual(tomorrow.orders.map(row => row.id), ['future']);
+});
+
+test('driver day plan retains completed stops and stops without map coordinates when route data is unavailable', async () => {
+  const { driverDayPlan, driverStopStatus } = await import('../src/portal/driverDayPlan');
+  const completed = { ...order, status: 'COMPLETED', stops: order.stops.map(stop => ({ ...stop, address: { ...stop.address, latitude: null, longitude: null } })) };
+  const plan = driverDayPlan([completed] as never, [], 'UTC', order.scheduled_at);
+  assert.equal(plan.stops.length, 2);
+  assert.ok(plan.stops.every(row => row.point === null && !row.next && driverStopStatus(row) === 'Completed'));
+});
+
+test('driver route map starts at its vehicle source and omits completed visits while executing', async () => {
+  const { driverDayPlan, driverRouteSequence } = await import('../src/portal/driverDayPlan');
+  const mappedOrder = { ...order, stops: order.stops.map((stop, index) => ({ ...stop,
+    address: { ...stop.address, latitude: index === 0 ? 49.26 : 49.28, longitude: index === 0 ? -123.11 : -123.1 } })) };
+  const plan = driverDayPlan([mappedOrder] as never, [route] as never, 'UTC', order.scheduled_at);
+  const planned = driverRouteSequence({ ...route, map_origin: { latitude: 49.25, longitude: -123.12, source: 'PARKING' } } as never, plan.stops);
+  assert.deepEqual(planned.points, [{ lat: 49.25, lng: -123.12 }, { lat: 49.26, lng: -123.11 }, { lat: 49.28, lng: -123.1 }]);
+  const active = { ...route, status: 'IN_PROGRESS', stops: route.stops.map((visit, index) => ({ ...visit, status: index === 0 ? 'COMPLETED' : 'PLANNED' })) };
+  const remaining = driverRouteSequence({ ...active, map_origin: { latitude: 49.27, longitude: -123.1, source: 'GPS' } } as never, plan.stops);
+  assert.deepEqual(remaining.points, [{ lat: 49.27, lng: -123.1 }, { lat: 49.28, lng: -123.1 }]);
+});
+
+test('driver logo returns to Dashboard from Orders and Profile, including compact navigation', async () => {
+  const user = userEvent.setup({ document });
+  mount();
+  await screen.findByRole('table', { name: 'Orders' });
+  await user.click(screen.getByRole('button', { name: 'Dispatra, Orders' }));
+  assert.equal(location.pathname, '/acme/driver');
+  assert.ok(screen.getByRole('heading', { name: 'Dashboard' }));
+  await user.click(screen.getByRole('link', { name: 'Profile' }));
+  await screen.findByRole('heading', { name: 'Profile' });
+  await user.click(screen.getByRole('button', { name: 'Collapse menu' }));
+  const sidebar = screen.getByRole('complementary', { name: 'Workspace sidebar' });
+  assert.equal(sidebar.getAttribute('data-collapsed'), 'true');
+  await user.click(screen.getByRole('button', { name: 'Dispatra, Profile' }));
+  assert.equal(location.pathname, '/acme/driver');
+  assert.ok(screen.getByRole('heading', { name: 'Dashboard' }));
+  assert.equal(sidebar.getAttribute('data-collapsed'), 'false');
+});
+
+test('pending progress requests do not appear on Orders or the Today’s jobs card', async () => {
+  const user = userEvent.setup({ document });
+  const question = { id: 'progress-1', version: 1, order_id: order.id, order_number: order.number, prompt: 'What is happening at pickup?', choices: [{ value: 'ITEMS_NOT_READY' as const, label: 'Items not ready' }], status: 'OPEN' as const, reason: null, details: '', estimated_ready_at: null, created_at: new Date().toISOString(), answered_at: null };
+  let questionRequests = 0;
+  api.driverOperationalQuestions = async () => { questionRequests++; return [question]; };
+  try {
+    mount();
+    await screen.findByRole('table', { name: 'Orders' });
+    assert.equal(screen.queryByText('Progress updates requested'), null);
+    assert.equal(screen.queryByRole('button', { name: 'Review updates' }), null);
+    await user.click(screen.getByRole('button', { name: 'Dispatra, Orders' }));
+    const panel = screen.getByRole('complementary', { name: "Today's jobs" });
+    assert.equal(within(panel).queryByRole('region', { name: 'Supervisor agent questions' }), null);
+    assert.equal(within(panel).queryByRole('button', { name: 'Review updates' }), null);
+    assert.equal(questionRequests, 0);
+  } finally { api.driverOperationalQuestions = async () => []; }
+});
+
+
+test('sign-in waits for saved duty instead of showing Off duty or changing availability', async () => {
+  const original = operations.driverProfile;
+  let resolve!: (value: ReturnType<typeof profile>) => void;
+  const pending = new Promise<ReturnType<typeof profile>>(done => { resolve = done; });
+  operations.driverProfile = () => pending as ReturnType<typeof operations.driverProfile>;
+  calls.length = 0;
+  try {
+    mount();
+    assert.ok(screen.getByText('Checking duty…'));
+    assert.equal(screen.queryByText('Off duty'), null);
+    assert.equal((screen.getByRole('switch', { name: 'Duty status' }) as HTMLButtonElement).disabled, true);
+    await act(async () => { resolve(profile(true)); });
+    await screen.findByText('On duty');
+    assert.equal(screen.getByRole('switch', { name: 'Duty status' }).getAttribute('aria-checked'), 'true');
+    assert.equal(calls.includes('endDuty'), false);
+    assert.equal(calls.includes('startDuty'), false);
+  } finally { resolve(profile(true)); operations.driverProfile = original; }
 });

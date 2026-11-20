@@ -1,12 +1,12 @@
 import { SidebarToggleIcon } from './WorkspaceIcon';
 import { AppBrand } from './AppBrand';
 
-export function SidebarHeader({ collapsed, mobile, label, current, onHome, onToggle }: {
-  collapsed: boolean; mobile: boolean; label: string; current: boolean; onHome: () => void; onToggle: () => void;
+export function SidebarHeader({ collapsed, mobile, label, current, onHome, onToggle, homeOnExpand = false }: {
+  collapsed: boolean; mobile: boolean; label: string; current: boolean; onHome: () => void; onToggle: () => void; homeOnExpand?: boolean;
 }) {
   const toggleLabel = mobile ? 'Hide menu' : 'Collapse menu';
   return <div className={collapsed ? 'app-sidebar-header flex h-16 shrink-0 items-center justify-center' : 'app-sidebar-header flex h-16 shrink-0 items-center gap-3 px-4'}>
-    <AppBrand label={collapsed ? 'Expand menu' : label} current={!collapsed && current} compact={collapsed} onClick={collapsed ? onToggle : onHome} />
+    <AppBrand label={collapsed && !homeOnExpand ? 'Expand menu' : label} current={!collapsed && current} compact={collapsed} onClick={collapsed ? () => { if (homeOnExpand) onHome(); onToggle(); } : onHome} />
     {!collapsed && <button type="button" className="app-icon-button app-sidebar-toggle ml-auto"
       title={toggleLabel} aria-label={toggleLabel} aria-expanded onClick={onToggle}>
       <SidebarToggleIcon className="h-4.5 w-4.5" strokeWidth={1.5} aria-hidden="true" />

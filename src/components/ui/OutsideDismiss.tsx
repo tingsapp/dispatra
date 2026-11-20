@@ -46,7 +46,10 @@ export function useOutsideDismissContent({ ref, onPointerDownOutside, onInteract
     let pointer: PointerEvent | undefined;
     const remember = (event: PointerEvent) => { pointer = event; };
     const dismiss = (event: MouseEvent) => {
-      const originalEvent = pointer ?? event as PointerEvent;
+      // A click with no pointerdown since opening ends the press that opened the popup (menus open on pointerdown).
+      // Its target is often <html> because modal menus disable body pointer events, so it is not an outside click.
+      if (!pointer) return;
+      const originalEvent = pointer;
       pointer = undefined;
       const target = event.target;
       const id = latest.current.scope?.ids.at(-1);

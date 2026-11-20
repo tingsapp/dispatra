@@ -52,7 +52,7 @@ const getFAQs = (units: Units): FAQItem[] => [
     category: 'fleet',
     categoryLabel: 'Fleet & Capacities',
     answer:
-      `Vehicle types describe the kind of vehicle used in Canadian moving and transportation: Cargo Van, Refrigerated Van, Cube Van, Box Truck, Refrigerated Truck, Flatbed Truck, Dry Van Trailer, Refrigerated Trailer and Flatbed Trailer. Size is not part of the type: each type carries typical max payload, pallet capacity and cargo dimensions that a vehicle can override, and refrigerated types tick Refrigeration on the vehicle. Manage them under Settings → Vehicle Types; registering a vehicle fills its capacity from the chosen type.`,
+      `Vehicle types describe the kind of vehicle used in Canadian and US moving and transportation: Cargo Van, Refrigerated Van, Cube Van, Box Truck, Refrigerated Truck, Flatbed Truck, Dry Van Trailer, Refrigerated Trailer and Flatbed Trailer. Size is not part of the type: each type carries typical max payload, pallet capacity and cargo dimensions that a vehicle can override, and refrigerated types tick Refrigeration on the vehicle. Manage them under Settings → Vehicle Types; registering a vehicle fills its capacity from the chosen type.`,
   },
   {
     id: 'faq-4',

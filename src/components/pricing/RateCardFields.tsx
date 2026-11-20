@@ -74,7 +74,6 @@ export const DiscountEditor: React.FC<{ value: Discount; onChange: (d: Discount)
       suffix={value.type === 'PERCENT' ? '%' : undefined}
       disabled={value.type !== 'PERCENT' && value.type !== 'FIXED'}
       step={0.5}
-      hint="Taken off freight, service charge, minimum and vehicle surcharge. Fuel, Accessorials, service fee and tax are never discounted."
     />
   </div>
 );

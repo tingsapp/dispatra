@@ -202,7 +202,7 @@ test('chat closes above a details dialog without losing its edits or closing the
  assert.equal(document.activeElement,trigger);
 });
 
-test('dispatcher order details open only the chosen shipper or assigned driver on the same page', async () => {
+test('dispatcher order message tabs isolate recipients and preserve drafts on the same page', async () => {
  const { OrderDetailsDialog } = await import('../src/components/orders/OrderDetailsDialog');
  const { DispatcherChatPopup } = await import('../src/components/chat/DispatcherChatPopup');
  const { INITIAL_JOBS, INITIAL_DRIVERS } = await import('../src/data/mockData');
@@ -215,18 +215,23 @@ test('dispatcher order details open only the chosen shipper or assigned driver o
  chat.channels = async (_slug,id) => {assert.equal(id,'o1');return [row(),row('other',{kind:'DRIVER_SHIPPER',title:'Oversight',can_send:false})];};
  chat.messages = async () => ({messages:[],has_more:false});
  mount(<><OrderDetailsDialog job={job} ctx={loadPricingContext()} drivers={INITIAL_DRIVERS} onClose={() => closes++} onReassign={() => {}} /><DispatcherChatPopup slug="acme" /></>);
- await user.click(screen.getByRole('button',{name:'Chat with shipper'}));
- await screen.findByRole('textbox',{name:'Message Fresh Foods'});
+ assert.deepEqual(screen.getAllByRole('tab').map(tab=>tab.textContent), ['Details', 'Message shipper', 'Message driver']);
+ assert.equal(screen.queryByRole('button',{name:'Chat with shipper'}),null);
+ assert.equal(screen.queryByRole('button',{name:'Chat with driver'}),null);
+ assert.equal(screen.queryByRole('textbox',{name:'Message Fresh Foods'}),null);
+ await user.click(screen.getByRole('tab',{name:'Message shipper'}));
+ await user.type(await screen.findByRole('textbox',{name:'Message Fresh Foods'}),'Shipper draft');
  assert.equal(screen.queryByRole('textbox',{name:'Message Dana'}),null);
- await user.keyboard('{Escape}');
- await user.click(screen.getByRole('button',{name:'Chat with driver'}));
+ await user.click(screen.getByRole('tab',{name:'Message driver'}));
  await screen.findByRole('textbox',{name:'Message Dana'});
- assert.equal(screen.queryByRole('tablist'),null);
+ assert.equal(screen.getAllByRole('tablist').length,1);
  assert.equal(screen.queryByRole('textbox',{name:'Message Fresh Foods'}),null);
  assert.equal(location.pathname,'/acme/orders');
- await user.keyboard('{Escape}');
+ await user.click(screen.getByRole('tab',{name:'Message shipper'}));
+ assert.equal((await screen.findByRole('textbox',{name:'Message Fresh Foods'}) as HTMLTextAreaElement).value,'Shipper draft');
+ await user.click(screen.getByRole('tab',{name:'Details'}));
+ assert.equal(screen.queryByRole('textbox',{name:'Message Fresh Foods'}),null);
  assert.equal(closes,0);
- assert.ok(screen.getByRole('button',{name:'Chat with driver'}));
 });
 
 test('shipper inbox pins the always-open dispatch chat and keeps one driver chat per order',async()=>{

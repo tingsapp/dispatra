@@ -236,27 +236,31 @@ test('Help topic dropdown combines with search, clears correctly and supports ke
   assert.ok(screen.getByRole('heading', { name: 'Standard Operational Guides (6)' }));
 });
 
-test('driver assignment uses the shared keyboard menu, restores focus and reports the selected driver', async () => {
+test('driver assignment popup searches drivers, navigates by keyboard, restores focus and closes after selecting', async () => {
   const { DriverAssignmentMenu } = await import('../src/components/entities/DriverAssignmentMenu');
   const user = userEvent.setup({ document }); const selected: string[] = [];
+  const names = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth'];
   function Example() {
     const [open, setOpen] = React.useState(false);
-    return React.createElement(DriverAssignmentMenu, { open, onOpenChange: setOpen, onSelect: id => selected.push(id), drivers: [
-      { id: 'first', name: 'First Driver', avatar: '/dispatra-icon-v2.svg', statusLabel: 'Available' },
-      { id: 'second', name: 'Second Driver', avatar: '/dispatra-icon-v2.svg', statusLabel: 'Available' },
-    ] });
+    return React.createElement(DriverAssignmentMenu, { open, onOpenChange: setOpen, onSelect: id => selected.push(id),
+      drivers: names.map(name => ({ id: name.toLowerCase(), name: `${name} Driver`, avatar: '/dispatra-icon-v2.svg', statusLabel: 'Available' })) });
   }
   render(React.createElement(Example));
   const trigger = screen.getByRole('button', { name: 'Assign Driver' });
-  trigger.focus(); await user.keyboard('{ArrowDown}');
-  const menu = screen.getByRole('menu', { name: 'Assign Driver' });
-  assert.equal(trigger.parentElement!.contains(menu), false, 'The menu escapes table clipping through the shared portal');
-  await user.keyboard('{End}{Enter}');
-  assert.deepEqual(selected, ['second']);
-  assert.equal(screen.queryByRole('menu', { name: 'Assign Driver' }), null);
+  await user.click(trigger);
+  const popup = screen.getByRole('dialog', { name: 'Assign driver' });
+  assert.equal(trigger.parentElement!.contains(popup), false, 'The popup escapes table clipping through the shared portal');
+  assert.equal(document.activeElement, screen.getByRole('searchbox', { name: 'Search drivers' }));
+  await user.keyboard('s');
+  assert.deepEqual(within(popup).getAllByRole('button', { name: /Driver/ }).map(row => row.textContent?.split('Driver')[0]), ['First ', 'Second ', 'Sixth ']);
+  await user.keyboard('{ArrowDown}{End}{Enter}');
+  assert.deepEqual(selected, ['sixth']);
+  assert.equal(screen.queryByRole('dialog', { name: 'Assign driver' }), null);
   assert.equal(document.activeElement, trigger);
-  await user.keyboard('{ArrowDown}{Escape}');
-  assert.equal(screen.queryByRole('menu', { name: 'Assign Driver' }), null);
+  await user.click(trigger);
+  assert.equal((screen.getByRole('searchbox', { name: 'Search drivers' }) as HTMLInputElement).value, '', 'Search resets after closing');
+  await user.keyboard('{Escape}');
+  assert.equal(screen.queryByRole('dialog', { name: 'Assign driver' }), null);
   assert.equal(document.activeElement, trigger);
-  assert.deepEqual(selected, ['second']);
+  assert.deepEqual(selected, ['sixth']);
 });

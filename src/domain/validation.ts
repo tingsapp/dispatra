@@ -48,7 +48,7 @@ export function validateDriver(d: Driver, all: Driver[]): string[] {
   if (d.maxActiveOrders != null && (!Number.isSafeInteger(d.maxActiveOrders) || d.maxActiveOrders < 1)) return ['Maximum active orders must be a whole number of at least 1.'];
   if (!d.name.trim() || !d.phone?.trim()) return ['Driver name and phone are required.'];
   if (!d.address?.trim()) return ['Driver address is required.'];
-  if (!cityFromAddress(d.address)) return ['Driver address must include a Canadian city and province.'];
+  if (!cityFromAddress(d.address)) return ['Driver address must include a city and a province or state.'];
   if (!d.email?.trim() || !emailOK(d.email)) return ['Enter a valid driver email for portal login.'];
   if (!d.driverNumber?.trim()) return ['Driver number could not be assigned.'];
   if (all.some(x => x.id !== d.id && (x.driverNumber ?? x.id).toLowerCase() === d.driverNumber!.trim().toLowerCase())) return ['Driver number already exists.'];
@@ -65,7 +65,7 @@ export function validateVehicle(v: VehicleAsset, all: VehicleAsset[]): string[] 
   if ([v.cargoLengthCm,v.cargoWidthCm,v.cargoHeightCm].some(value => value == null || !Number.isFinite(value) || value <= 0)) return ['Box length, width and height must be greater than zero.'];
   if (v.maxStops != null && (!Number.isSafeInteger(v.maxStops) || v.maxStops < 1)) return ['Maximum stops must be a positive whole number.'];
   if (!v.parkingAddress?.trim()) return ['Vehicle parking address is required.'];
-  if (!cityFromAddress(v.parkingAddress) && !v.parkingAddressCoordinates?.city) return ['Parking address must include a Canadian city and province.'];
+  if (!cityFromAddress(v.parkingAddress) && !v.parkingAddressCoordinates?.city) return ['Parking address must include a city and a province or state.'];
   if (v.availability === 'UNAVAILABLE' && !v.unavailableReason?.trim()) return ['Enter the reason this vehicle is unavailable.'];
   return windowErrors(v.unavailableFrom, v.unavailableUntil, 'Unavailability');
 }

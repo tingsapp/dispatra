@@ -1,5 +1,5 @@
 import { RecordDialogBoundary } from '../components/monitor/RecordDialogBoundary';
-import { openDispatcherChat } from '../chat/navigation';
+import { CompanyChatPanel } from '../components/chat/CompanyChatDialog';
 import { ActionButton } from '../components/ui/button';
 import { usePendingAction } from '../components/ui/usePendingAction';
 import { useWorkspaceAccount } from '../portal/WorkspaceAccount';
@@ -13,7 +13,6 @@ Route,
 CircleCheck,
 Coffee,
 MapPin,
-MessageSquare,
 Plus,
 Users,
 Trash2
@@ -360,17 +359,17 @@ export function DriversPage({
             title={<>{activeDriverDrawer.name}<span className="text-xs font-mono font-medium bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">{activeDriverDrawer.driverNumber ?? activeDriverDrawer.id}</span></>}
             description={formatPhone(activeDriverDrawer.phone)} />
           <DialogBody>
-            <Tabs label="Driver details tabs" items={[
+            <Tabs key={activeDriverDrawer.id} label="Driver details tabs" items={[
               { id: 'details', label: 'Details', content: <><section aria-label="Driver profile">
                 <DriverEditor driver={drivers.find(row => row.id === activeDriverDrawer.id) ?? activeDriverDrawer} drivers={drivers} vehicleOptions={vehicleOptions} onRegisterVehicle={openVehicleModal} createdVehicle={createdVehicle} formId="driver-details-form" hideActions onCancel={() => setActiveDriverDrawer(null)} onSave={saveDriver} />
               </section>
               <DriverActivity driver={drivers.find(row => row.id === activeDriverDrawer.id) ?? activeDriverDrawer} jobs={jobs} />
               {slug && <DirectoryPasswordForm key={activeDriverDrawer.id} slug={slug} kind="driver" record={driverQuery.data?.find(row => row.id === activeDriverDrawer.id)} />}</> },
               { id: 'orders', label: 'Orders', content: <DriverOrders driver={activeDriverDrawer} jobs={jobs} /> },
+              { id: 'message', label: 'Message', hidden: !slug, keepMounted: false, content: slug && <CompanyChatPanel slug={slug} driverId={activeDriverDrawer.id} /> },
             ]} />
           </DialogBody>
           <DialogFooter>
-            {slug && <Button type="button" variant="outline" onClick={() => openDispatcherChat({ driverId: activeDriverDrawer.id })}><MessageSquare /> Chat with driver</Button>}
             <Button type="button" variant="outline" onClick={() => { onSelectDriver(activeDriverDrawer.id); setActiveDriverDrawer(null); }}><MapPin /> Locate on Monitor</Button>
             <Button loading={saveDriverAction.pending} type="submit" form="driver-details-form">Save driver</Button>
           </DialogFooter>

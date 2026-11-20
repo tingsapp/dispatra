@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { AccessorialItem } from '../../types/simplePricing';
 import { useEntityDialog } from '../entities/useEntityDialog';
 import { normalizeAccessorial } from '../../lib/simplePricingStorage';
+import { HOLIDAY_WEEKEND_CODE } from '../../lib/packageAccessorials';
 
 interface AccessorialModalProps {
   isOpen: boolean;
@@ -85,7 +86,7 @@ export const AccessorialModal: React.FC<AccessorialModalProps> = ({
 
   return (
     <Dialog size="form" onClose={onClose}>
-      <DialogHeader onClose={onClose} closeLabel="Close Accessorial" title={initialAccessorial ? 'Edit Accessorial' : 'Add New Accessorial'} description={initialAccessorial?.code === 'FRAGILE' || initialAccessorial?.code === 'DG' ? 'A fixed dollar charge for each package with this box checked.' : 'A fixed dollar charge, added once when selected on an order.'} />
+      <DialogHeader onClose={onClose} closeLabel="Close Accessorial" title={initialAccessorial ? 'Edit Accessorial' : 'Add New Accessorial'} description={initialAccessorial?.code === 'FRAGILE' || initialAccessorial?.code === 'DG' ? 'A fixed dollar charge for each package with this box checked.' : initialAccessorial?.code === HOLIDAY_WEEKEND_CODE ? 'A fixed dollar charge, added once when a delivery falls on a weekend or company holiday.' : 'A fixed dollar charge, added once when selected on an order.'} />
         <form onSubmit={handleSubmit} className="app-dialog-body space-y-4">
           {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">

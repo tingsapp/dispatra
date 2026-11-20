@@ -19,8 +19,8 @@ export function TagsField({ label, value, onChange, placeholder, hint, className
   return <label className={`block ${className ?? ''}`}><span className="app-label">{label} (comma separated)</span><input key={(value ?? []).join('|')} className={`${fieldClass} w-full`} defaultValue={(value ?? []).join(', ')} placeholder={placeholder} onBlur={e => onChange(splitTags(e.target.value))} /><Hint>{hint}</Hint></label>;
 }
 /** Titled group of fields inside a form dialog. */
-export function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="space-y-3"><h4 className="app-section-title">{title}</h4><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">{children}</div></section>;
+export function FormSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return <section className="space-y-3"><div><h4 className="app-section-title">{title}</h4>{description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">{children}</div></section>;
 }
 export function CheckField({ label, value, onChange }: { label: string; value?: boolean; onChange: (v: boolean) => void }) {
   return <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={!!value} onChange={e => onChange(e.target.checked)} className="accent-slate-900" />{label}</label>;

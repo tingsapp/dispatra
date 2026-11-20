@@ -4,7 +4,7 @@ import { AddressField, Field, Button, Card, Notice } from './ui';
 import type { SelectedAddress } from '../components/ui/AddressAutocomplete';
 import { operations, type Shipper } from '../operations/api';
 import { LogoUpload } from '../components/settings/LogoUpload';
-import { canadianAddress } from '../operations/adapters';
+import { warehouseAddress } from '../operations/adapters';
 
 export function CustomerProfile({ slug }: { slug: string }) {
   const query = useQuery({ queryKey: ['shipper-profile', slug], queryFn: () => operations.ownShipper(slug) });
@@ -18,7 +18,7 @@ function ProfileForm({ slug, profile }: { slug: string; profile: Shipper }) {
   const [selectedAddress, setSelectedAddress] = useState<SelectedAddress>();
   const [saved, setSaved] = useState(false);
   const mutation = useMutation({
-    mutationFn: () => operations.updateOwnShipper(slug, { version: profile.version, logo_url: form.logo_url, contact_name: form.contact_name.trim(), phone: form.phone.trim(), warehouse: canadianAddress(form.address, profile.warehouse, selectedAddress) }),
+    mutationFn: () => operations.updateOwnShipper(slug, { version: profile.version, logo_url: form.logo_url, contact_name: form.contact_name.trim(), phone: form.phone.trim(), warehouse: warehouseAddress(form.address, profile.warehouse, selectedAddress) }),
     onSuccess: data => { setSaved(true); client.setQueryData(['shipper-profile', slug], data); client.invalidateQueries({ queryKey: ['operations', slug, 'shippers'] }); },
   });
   return <Card plain title="Contact details" description={`${profile.name} · ${profile.number}`}><form className="space-y-5" onSubmit={e => { e.preventDefault(); mutation.mutate(); }}>

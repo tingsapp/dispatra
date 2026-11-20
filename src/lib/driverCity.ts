@@ -1,10 +1,14 @@
-const PROVINCE = /^(?:AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT|Alberta|British Columbia|Manitoba|New Brunswick|Newfoundland and Labrador|Nova Scotia|Northwest Territories|Nunavut|Ontario|Prince Edward Island|Quebec|Québec|Saskatchewan|Yukon)(?:\b|\s)/i;
+import { CANADIAN_PROVINCES, US_STATES } from './northAmerica';
 
-/** Canada-formatted street address: street, city, province/postal code, country. */
+const REGION_NAMES = [...Object.entries(CANADIAN_PROVINCES), ...Object.entries(US_STATES)].flat().concat('Québec').sort((a, b) => b.length - a.length);
+const PROVINCE = new RegExp(`^(?:${REGION_NAMES.join('|')})(?:\\b|\\s)`, 'i');
+
+/** Canada/US-formatted street address: street, city, province or state with postal/ZIP code, country. */
 export function cityFromAddress(address?: string): string | null {
   if (!address) return null;
   const parts = address.split(',').map(part => part.trim()).filter(Boolean);
-  const province = parts.findIndex(part => PROVINCE.test(part));
+  // The last match is the region: a street or city can carry a state name (Washington Ave, Washington, DC).
+  const province = parts.map(part => PROVINCE.test(part)).lastIndexOf(true);
   if (province < 1) return null;
   const city = parts[province - 1];
   return city && !/\d/.test(city) ? city : null;

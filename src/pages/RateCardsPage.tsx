@@ -121,11 +121,11 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
       return;
     }
     if (draft.pricingMethod === 'ZONE' && config.zones.some(zone => !zone.name.trim() || !zone.postalCodes?.length)) {
-      setSaveError('Give every zone a name and at least one Canadian postal area, such as V6A, before saving its prices.');
+      setSaveError('Give every zone a name and at least one postal area, such as V6A or 981, before saving its prices.');
       return;
     }
     if (draft.pricingMethod === 'ZONE' && config.zones.some(zone => hasInvalidZonePostalCodes(zone.postalCodes))) {
-      setSaveError('Use Canadian three-character postal areas, such as V6A. A full postal code is automatically shortened to its first three characters.');
+      setSaveError('Use Canadian three-character postal areas, such as V6A, or US ZIP codes and 3-digit ZIP prefixes, such as 98101 or 981. A full Canadian postal code is automatically shortened to its first three characters.');
       return;
     }
     if (draft.pricingMethod === 'ZONE') {

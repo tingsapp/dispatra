@@ -33,7 +33,7 @@ export function applyCustomerDefaults(input: PricingOrderInput, c?: Customer, pr
     stops: input.stops.map(s => {
       const replacePickup = !defaultPickupApplied && s.type === 'PICKUP' && (!s.label?.trim() || !!previousWarehouse && s.label.trim() === previousWarehouse);
       if (replacePickup) defaultPickupApplied = true;
-      return { ...s, ...(replacePickup ? addressChange(warehouse) : {}), instructions: s.instructions || c.instructions };
+      return { ...s, ...(replacePickup ? { ...addressChange(warehouse), ...c.warehouse } : {}), instructions: s.instructions || c.instructions };
     }) };
 }
 export function removeOrderStop(input: PricingOrderInput, id: string): PricingOrderInput {

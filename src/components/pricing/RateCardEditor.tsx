@@ -21,7 +21,7 @@ export function RateCardEditor({ draft, isNew, config, catalogue, billing, patch
       <h3 className="app-section-title text-slate-900">Rate Card</h3>
       <p className="text-xs text-slate-500 mt-0.5 mb-4">Set delivery prices for your shippers. Fuel and Accessorials apply separately.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className={hasMinimum ? undefined : 'sm:col-span-2'}>
+        <div>
           <label className={labelClass}>Name</label>
           <input aria-label="Rate card name" type="text" value={draft.name} onChange={(e) => patchDraft({ name: e.target.value })} className={fieldClass} />
         </div>

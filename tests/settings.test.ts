@@ -910,7 +910,7 @@ test('discount moves from every card to shipper creation and editing, and persis
   await user.click(screen.getByRole('button', { name: 'New Shipper' }));
   await user.type(screen.getByRole('textbox', { name: 'Shipper name' }), 'Discount Shipper');
   await user.type(screen.getByRole('textbox', { name: 'Company name' }), 'Discount Logistics');
-  await user.type(screen.getByRole('textbox', { name: /^Email / }), 'discount@example.ca');
+  await user.type(screen.getByRole('textbox', { name: 'Email' }), 'discount@example.ca');
   assert.equal(screen.queryByRole('combobox', { name: 'Discount scope' }), null);
   await user.click(screen.getByRole('combobox', { name: 'Discount type' }));
   assert.deepEqual(screen.getAllByRole('option').map(o => o.textContent), ['No discount', 'Percentage', 'Fixed amount']);
@@ -1156,7 +1156,7 @@ test('customer create form is flat and minimal; status appears only on edit and 
   for (const gone of ['Account / Code', 'Account Tier', 'Status', 'Default Accessorials / Requirements', 'Legal name', 'Saved locations & delivery defaults', 'Communication preferences']) assert.equal(within(dialog).queryByText(gone), null, gone);
   assert.equal(within(dialog).queryByRole('checkbox', { name: /tax exemption/ }), null); assert.equal(within(dialog).queryByRole('combobox', { name: 'Shipper status' }), null);
   assert.ok(within(dialog).getByRole('combobox', { name: 'Shipper type' })); assert.ok(within(dialog).getByRole('textbox', { name: 'Company name' })); assert.equal(within(dialog).queryByRole('textbox', { name: 'Contact name' }), null); assert.ok(within(dialog).getByText('Pickup & delivery notes'));
-  await user.type(within(dialog).getByRole('textbox', { name: 'Shipper name' }), 'Mo Lee'); await user.type(within(dialog).getByRole('textbox', { name: 'Company name' }), 'Harbour Bakery'); await user.type(within(dialog).getByRole('textbox', { name: /^Email / }), 'mo@example.ca');
+  await user.type(within(dialog).getByRole('textbox', { name: 'Shipper name' }), 'Mo Lee'); await user.type(within(dialog).getByRole('textbox', { name: 'Company name' }), 'Harbour Bakery'); await user.type(within(dialog).getByRole('textbox', { name: 'Email' }), 'mo@example.ca');
   await user.click(within(dialog).getByRole('button', { name: 'Create Shipper' }));
   const created = loadCustomers().find(c => c.name === 'Mo Lee')!;
   assert.match(created.code, /^CUST-\d{4}$/); assert.equal(created.name, 'Mo Lee'); assert.equal(created.legalName, 'Harbour Bakery'); assert.equal(created.contactName, 'Mo Lee'); assert.equal(created.customerType, 'BUSINESS'); assert.equal(created.status, 'Active');
@@ -1205,7 +1205,7 @@ test('zone validation appears above Save Card instead of in a snackbar and FSA l
   assertFieldIssue('Zone name: Zone 1', null);
   assertFieldIssue('Postal areas for Zone 1', 'At least one postal area is required');
   await user.click(screen.getByRole('button', { name: 'Save Card' }));
-  assert.match(screen.getByRole('alert').textContent!, /at least one Canadian postal area/i);
+  assert.match(screen.getByRole('alert').textContent!, /at least one postal area, such as V6A or 981/i);
   assert.equal(notices.length, 0);
   const codes = screen.getByRole('textbox', { name: 'Postal areas for Zone 1' });
   await user.type(codes, 'v6b 1a1; V6B1A1');
@@ -1221,7 +1221,7 @@ test('zone validation appears above Save Card instead of in a snackbar and FSA l
   assert.equal((reopened as HTMLInputElement).value, 'V6B');
   await user.clear(reopened); await user.type(reopened, 'not a postal area');
   await user.click(screen.getByRole('button', { name: 'Save Card' }));
-  assert.match(screen.getByRole('alert').textContent!, /Use Canadian three-character postal areas/i);
+  assert.match(screen.getByRole('alert').textContent!, /Use Canadian three-character postal areas, such as V6A, or US ZIP codes/i);
   await user.keyboard('{Escape}');
   assert.deepEqual(loadPricingConfig().zones[0].postalCodes, ['NOT A POSTAL AREA']);
   assert.equal((screen.getByRole('spinbutton', { name: 'Zone 1 price' }) as HTMLInputElement).value, '25');

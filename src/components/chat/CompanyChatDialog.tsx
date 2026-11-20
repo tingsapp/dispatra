@@ -3,12 +3,19 @@ import { ChatPopup } from './ChatPopup';
 import { ChatThread } from './ChatThread';
 import { Button } from '../ui/button';
 
-type Target = { slug: string; driverId?: string; shipperId?: string };
+type Target = { slug: string; driverId?: string; shipperId?: string; timeZone?: string };
 type Query = ReturnType<typeof useCompanyChannel>;
-function CompanyThread({ slug, driverId, shipperId, query, page }: Target & { query: Query; page?: boolean }) {
+function CompanyThread({ slug, driverId, shipperId, query, page, timeZone }: Target & { query: Query; page?: boolean }) {
   return query.isPending ? <p role="status" className={page ? 'm-auto text-sm text-app-muted' : undefined}>Loading company conversation…</p>
     : query.error ? <div className={page ? 'm-auto text-center' : undefined}><p role="alert">This company conversation could not be loaded.</p><Button variant="outline" onClick={() => query.refetch()}>Try again</Button></div>
-    : query.data ? <ChatThread key={shipperId ?? driverId} slug={slug} driverId={driverId} shipperId={shipperId} channel={query.data} page={page} /> : null;
+    : query.data ? <ChatThread key={shipperId ?? driverId} slug={slug} driverId={driverId} shipperId={shipperId} channel={query.data} page={page} timeZone={timeZone} /> : null;
+}
+/** Embedded company conversation; the host controls when it is visible. */
+export function CompanyChatPanel(target: Target) {
+  const query = useCompanyChannel(target.slug, target.driverId, target.shipperId);
+  return <section aria-label={target.shipperId ? 'Shipper messages' : 'Driver messages'} className="flex min-h-0 flex-col">
+    <CompanyThread {...target} query={query} />
+  </section>;
 }
 export function CompanyChatDialog({ slug, driverId, shipperId, onClose }: Target & { onClose: () => void }) {
   const query = useCompanyChannel(slug, driverId, shipperId);

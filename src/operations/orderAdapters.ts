@@ -2,7 +2,8 @@ import { shipperAssignment } from './shipperAssignment';
 import type { Job } from '../types';
 import type { PricingOrderInput, PricingSnapshot, ChargeLine, PricingPackageInput, Zone } from '../types/pricing';
 import type { Order, Shipper, RateCard, CatalogItem, Booking, EmailIntake, DraftBooking, DraftShipment } from './api';
-import { canadianAddress } from './adapters';
+import { streetAddress } from './adapters';
+import { postalCountry } from '../lib/northAmerica';
 import { bookingInstant } from './time';
 import { fromDisplayDimension, fromDisplayWeight, type Units } from '../lib/units';
 import { zoneForAddress } from '../lib/zoneAddress';
@@ -51,11 +52,11 @@ export function orderToInput(order: Order): PricingOrderInput {
 /** An Order agent draft (possibly incomplete) as order-form input; missing values stay blank for the dispatcher to fill. */
 export function draftToInput(draft: Record<string, unknown>, extraction?: Record<string, unknown> | null, units?: Units): PricingOrderInput {
   const facts = draft as unknown as Partial<DraftBooking>;
-  const blank = { text: '', city: '', province: '', postal_code: '', country: 'CA' as const };
+  const blank = { text: '', city: '', province: '', postal_code: '', country: 'CA' as 'CA' | 'US' };
   const extractedStops = extraction?.stops as Array<{ address?: { street?: string; city?: string; province?: string; postal_code?: string } }> | undefined;
   const stops = (facts.stops ?? []).map((stop, index) => {
     const original = extractedStops?.[index]?.address;
-    const recovered = !stop.address && original ? { text: [original.street, original.city, original.province, original.postal_code].filter(Boolean).join(', '), city: original.city ?? '', province: original.province ?? '', postal_code: original.postal_code ?? '' } : {};
+    const recovered = !stop.address && original ? { text: [original.street, original.city, original.province, original.postal_code].filter(Boolean).join(', '), city: original.city ?? '', province: original.province ?? '', postal_code: original.postal_code ?? '', country: postalCountry(original.postal_code) ?? 'CA' } : {};
     return { ...stop, id: stop.id || crypto.randomUUID(), address: { ...blank, ...recovered, ...stop.address }, contact_name: stop.contact_name ?? '', phone: stop.phone ?? '', instructions: stop.instructions ?? '' };
   });
   for (const kind of ['PICKUP', 'DROPOFF'] as const) {
@@ -164,6 +165,9 @@ export function inputToBooking(input: PricingOrderInput, notes = '', timeZone = 
   const missing = input.packages.flatMap((item, index) => (item.missingFields ?? []).filter(() => fields.packageSizes)
     .map(field => `Package ${index + 1}: ${field === 'weightKg' ? 'weight' : field.replace('Cm', '')}`));
   if (missing.length) throw new Error(`Complete the missing details: ${missing.join(', ')}.`);
+  // Every stop must be on the map for dispatch, routing and the Monitor.
+  const unplaced = input.stops.findIndex(stop => stop.label?.trim() && (stop.latitude == null || stop.longitude == null));
+  if (unplaced >= 0) throw new Error(`Choose the ${input.stops[unplaced].type === 'PICKUP' ? 'pickup' : 'delivery'} address${input.stops.length > 2 ? ` (stop ${unplaced + 1})` : ''} from the suggestions so it can be placed on the map.`);
   return serializeBooking(input, notes, timeZone, false) as Booking;
 }
 
@@ -187,7 +191,7 @@ function serializeBooking(input: PricingOrderInput, notes: string, timeZone: str
     rate_card_id: input.rateCardOverrideId, service_id: fields.service ? input.serviceId || null : null,
     vehicle_type_id: fields.vehicle === 'hidden' ? null : input.vehicleId, preferred_driver_id: input.preferredDriverId ?? null,
     scheduled_at: instant(input.scheduledAt),
-    stops: input.stops.map(stop => ({ id: stopIds.get(stop.id)!, kind: stop.type, address: partial ? { text: stop.label ?? '', city: stop.city ?? '', province: stop.provinceCode ?? '', postal_code: stop.postalCode ?? '', country: 'CA' as const, latitude: stop.latitude ?? null, longitude: stop.longitude ?? null } : canadianAddress(stop.label ?? '', undefined, { latitude: stop.latitude ?? null, longitude: stop.longitude ?? null, city: stop.city, province: stop.provinceCode, postalCode: stop.postalCode, country: stop.countryCode }),
+    stops: input.stops.map(stop => ({ id: stopIds.get(stop.id)!, kind: stop.type, address: partial ? { text: stop.label ?? '', city: stop.city ?? '', province: stop.provinceCode ?? '', postal_code: stop.postalCode ?? '', country: stop.countryCode === 'US' || postalCountry(stop.postalCode) === 'US' ? 'US' as const : 'CA' as const, latitude: stop.latitude ?? null, longitude: stop.longitude ?? null } : streetAddress(stop.label ?? '', undefined, { latitude: stop.latitude ?? null, longitude: stop.longitude ?? null, city: stop.city, province: stop.provinceCode, postalCode: stop.postalCode, country: stop.countryCode }),
       contact_name: stop.contactName ?? '', phone: stop.contactPhone ?? '', instructions: stop.instructions ?? '',
       window_start: stop.windowStart ? bookingInstant(stop.windowStart, timeZone) : null, window_end: stop.windowEnd ? bookingInstant(stop.windowEnd, timeZone) : null,
       service_minutes: stop.handlingMinutes ?? 10, unattended_allowed: false, photo_required: stop.podRequirement === 'PHOTO' || stop.podRequirement === 'PHOTO_AND_SIGNATURE' })),

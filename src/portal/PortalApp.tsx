@@ -18,7 +18,7 @@ type PortalRoute = { slug?: string; portal: LoginInput['portal'] | 'driver'; wor
 /** Old portal URLs → clean ones: /{company}, /{company}/shipper, /{company}/driver. */
 const LEGACY: Record<string, string> = {
   '/shipper-portal': '/shipper', '/shipper-portal/orders': '/shipper', '/shipper-portal/invoices': '/shipper', '/shipper/invoices': '/shipper', '/shipper-portal/profile': '/shipper/profile',
-  '/shipper-portal/settings': '/shipper/profile', '/shipper-portal/payment-methods': '/shipper', '/shipper/orders': '/shipper', '/driver/orders': '/driver',
+  '/shipper-portal/settings': '/shipper/profile', '/shipper-portal/payment-methods': '/shipper', '/shipper/orders': '/shipper',
   '/customer': '/shipper', '/customer/login': '/shipper', '/customer/settings': '/shipper/profile', '/dispatch': '/', '/dispatch/login': '/', '/dispatch/settings': '/profile',
 };
 export function canonicalPortalPath(path: string): string | undefined {
@@ -32,7 +32,7 @@ export function parsePortal(path: string): PortalRoute | null {
   const slug = companySlugForPath(path);
   if (!slug) return null;
   if (pageForPath(path)) return { slug, portal:'dispatch', workspace:true };
-  if (new RegExp(`^/${slug}/driver(?:/(?:profile|messages))?/?$`).test(path)) return { slug, portal:'driver' };
+  if (new RegExp(`^/${slug}/driver(?:/(?:dashboard|orders|profile|messages))?/?$`).test(path)) return { slug, portal:'driver' };
   if (new RegExp(`^/${slug}/shipper(?:/(?:profile|tracking|messages))?/?$`).test(path)) return { slug, portal:'customer' };
   return null;
 }

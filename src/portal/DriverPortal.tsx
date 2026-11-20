@@ -2,51 +2,40 @@ import { NotificationChat } from '../components/chat/NotificationChat';
 import { LiveNotices } from '../components/chat/LiveNotices';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleCheck, ChevronRight, ClipboardList, Clock, MessageSquare, Package, Phone, Shield, Truck, UserRound } from 'lucide-react';
+import { CircleCheck, ChevronRight, ClipboardList, Clock, MessageSquare, Package, Map, Shield, Truck, UserRound } from 'lucide-react';
 import { operations, allOperations } from '../operations/api';
 import { ORDER_LIFECYCLES, ORDER_LIFECYCLE_LABELS, type OrderLifecycle } from '../domain/operations';
 import { ListSummary } from '../components/layout/ListSummary';
 import { OrderDateFilter, type OrderDateSelection } from '../components/orders/OrderDateFilter';
 import { formatWhen } from '../components/orders/OrderDossierSections';
-import { evidenceUrl } from '../components/orders/ProofOfDelivery';
 import { SearchInput } from '../components/ui/SearchInput';
 import { Select } from '../components/ui/Select';
 import { Switch } from '../components/ui/Switch';
-import { Dialog, DialogBody, DialogHeader } from '../components/ui/Dialog';
-import { useEntityDialog } from '../components/entities/useEntityDialog';
-import { OrderChatSection } from '../components/chat/OrderChat';
 import { CompanyChatPage } from '../components/chat/CompanyChatDialog';
 import { useCompanyChannel, useChatInbox } from '../chat/api';
 import { PortalShell } from './PortalShell';
-import { DriverQuestions } from './DriverQuestions';
+import { DriverDashboard } from './DriverDashboard';
+import { DriverOrderDialog } from './DriverOrderDialog';
 import { NotificationBell } from './Notifications';
 import { useSync } from './sync';
 import { PasswordPage } from './PasswordPage';
-import { SignaturePad } from './SignaturePad';
 import { Button, Card, Field, Notice } from './ui';
 import type { components } from './schema';
-import { formatPhone, phoneHref } from '../lib/phone';
 
 type Route = components['schemas']['RouteView'];
-type Visit = components['schemas']['RouteVisitView'];
 type DriverOrder = components['schemas']['DriverOrderView'];
 type Profile = components['schemas']['DriverProfileView'];
 const dateIn = (iso: string | null | undefined, timeZone: string) => iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone }) : '';
 const statusLabel = (status: string) => ORDER_LIFECYCLE_LABELS[status as OrderLifecycle] ?? status;
 const position = () => new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 }));
-const contentBase64 = (file: File) => new Promise<string>((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(String(reader.result).split(',')[1] ?? ''); reader.onerror = () => reject(reader.error);
-  reader.readAsDataURL(file);
-});
-
 export const driverPages = [
-  { path: 'profile', label: 'Profile', icon: UserRound },
   { path: 'orders', label: 'Orders', icon: ClipboardList },
   { path: 'messages', label: 'Chat', icon: MessageSquare },
+  { path: 'profile', label: 'Profile', icon: UserRound },
 ];
+const dashboardPage = { path: 'dashboard', label: 'Dashboard', icon: Map };
 
-/** Driver workspace: Profile and Orders, with the On duty/Off duty switch in the sidebar. */
+/** Driver workspace opens on today’s map; duty sharing remains an explicit driver action. */
 export function DriverPortal({ slug, company, login, onLogout, loggingOut, logoutError }: {
   slug: string; company: string; login: string; onLogout: () => void; loggingOut: boolean; logoutError: unknown;
 }) {
@@ -57,7 +46,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
   const go = (href: string) => { if (href !== location.pathname) history.pushState(null, '', href); setPathname(href); window.scrollTo(0, 0); };
   const base = `/${slug}/driver`;
   const suffix = pathname.replace(/\/+$/, '').split('/')[3];
-  const page = driverPages.find(item => item.path === suffix) ?? driverPages[1];
+  const page = suffix ? driverPages.find(item => item.path === suffix) ?? dashboardPage : dashboardPage;
   useSync(slug, 'DRIVER');
   const profile = useQuery({ queryKey: ['driver-profile', slug], queryFn: () => operations.driverProfile(slug) });
   const orderChats = useChatInbox(slug);
@@ -65,6 +54,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
   const companyChat = useCompanyChannel(slug, profile.data?.id);
   const unreadMessages = companyChat.data?.unread ?? 0;
   const online = !!profile.data?.duty;
+  const dutyLabel = profile.data ? (online ? 'On duty' : 'Off duty') : profile.isPending ? 'Checking duty…' : 'Duty unavailable';
   const tracking = useRef<string | null>(null);
   const trackingIntent = useRef(0);
   const [trackingDutyId, setTrackingDutyId] = useState<string | null>(null);
@@ -106,24 +96,26 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     let active = true;
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible' && tracking.current === dutyId) position().then(here => {
-        if (active && tracking.current === dutyId) return operations.driverLocation(slug, dutyId, here);
+        if (active && tracking.current === dutyId) return operations.driverLocation(slug, dutyId, here).then(() => Promise.all([
+          cache.invalidateQueries({ queryKey: ['driver-routes', slug] }),
+          cache.invalidateQueries({ queryKey: ['driver-route-road-path', slug] }),
+        ]));
       }).catch(() => undefined);
     }, 120_000);
     return () => { active = false; window.clearInterval(timer); };
   }, [slug, profile.data?.duty?.id, trackingDutyId]);
   useEffect(() => () => { trackingIntent.current++; tracking.current = null; }, [slug]);
-  return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false} reading={page.path === 'profile'} chat={page.path === 'messages'}
-    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'messages' ? 'Chats with dispatch and shippers about your assigned orders.' : online ? 'Your assigned orders. Open an order to work its stops.' : 'Your assigned orders. Go On Duty to receive and start a route.'}
-    navigation={driverPages.map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path, badge: item.path === 'messages' ? unreadMessages : item.path === 'orders' ? orderUnread : 0 }))}
-    footer={collapsed => <div className={`mt-1 flex items-center py-3 ${collapsed ? 'justify-center' : 'justify-between px-3'}`} title={collapsed ? (online ? 'On duty' : 'Off duty') : undefined}>
-      <span className={collapsed ? 'sr-only' : `text-sm font-normal ${online ? 'text-app-text' : 'text-slate-700'}`}>{duty.isPending ? (duty.variables ? 'Going on duty…' : 'Going off duty…') : online ? 'On duty' : 'Off duty'}</span>
+  return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false} homeOnExpand map={page.path === 'dashboard'} reading={page.path === 'profile' || page.path === 'messages'} chat={page.path === 'messages'}
+    description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'messages' ? 'Your conversation with Dispatch.' : online ? 'Your assigned orders. Open an order to work its stops.' : 'Your assigned orders. Go On Duty to receive and start a route.'}
+    navigation={driverPages.map(item => ({ ...item, href: `${base}/${item.path}`, current: item.path === page.path, badge: item.path === 'messages' ? unreadMessages : item.path === 'orders' ? orderUnread : 0 }))}
+    footer={collapsed => <div className={`mt-1 flex items-center py-3 ${collapsed ? 'justify-center' : 'justify-between px-3'}`} title={collapsed ? dutyLabel : undefined}>
+      <span className={collapsed ? 'sr-only' : `text-sm font-normal ${online ? 'text-app-text' : 'text-slate-700'}`}>{duty.isPending ? (duty.variables ? 'Going on duty…' : 'Going off duty…') : dutyLabel}</span>
       <Switch checked={online} aria-label="Duty status" disabled={!profile.data || duty.isPending} onCheckedChange={next => duty.mutate(next)} />
     </div>}
-    headerActions={<NotificationBell slug={slug} surface onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} />}
+    headerActions={<NotificationBell slug={slug} surface={page.path === 'dashboard' ? 'white' : true} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} />}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
-    <Notice error={logoutError || dutyError} />
-    {page.path === 'orders' && profile.data && <DriverQuestions slug={slug} driverId={profile.data.id} />}
-    {page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : <CompanyChatPage slug={slug} driverId={profile.data?.id} company={company} />) : <DriverOrders timeZone={profile.data?.time_zone} slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
+    {page.path !== 'dashboard' && <Notice error={logoutError || dutyError} />}
+    {page.path === 'dashboard' ? <DriverDashboard slug={slug} profile={profile.data} profileError={profile.error} error={logoutError || dutyError} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} /> : page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : profile.data && <div className="mx-auto flex min-h-0 w-full max-w-[var(--app-reading-width)] flex-1 flex-col"><CompanyChatPage slug={slug} driverId={profile.data.id} company={company} /></div>) : <DriverOrders timeZone={profile.data?.time_zone} slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
     <LiveNotices slug={slug} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} />
     {notificationChat && <NotificationChat key={notificationChat} slug={slug} identity={notificationChat} onClose={() => setNotificationChat(null)} />}
   </PortalShell>;
@@ -234,108 +226,4 @@ function DriverOrders({ timeZone, slug, online, onStartRoute, onFinishRoute }: {
     </>}
     {detail && timeZone && <DriverOrderDialog timeZone={timeZone} slug={slug} order={detail} orders={rows} route={routes.data?.find(route => route.id === detail.route_id)} online={online} onStartRoute={onStartRoute} onFinishRoute={onFinishRoute} onOpen={setDetailId} onClose={() => setDetailId(null)} />}
   </div>;
-}
-
-function DriverOrderDialog({ timeZone, slug, order, orders, route, online, onStartRoute, onFinishRoute, onOpen, onClose }: {
-  timeZone: string; slug: string; order: DriverOrder; orders: DriverOrder[]; route?: Route; online: boolean; onStartRoute: (route: Route) => Promise<void>; onFinishRoute: (route: Route) => Promise<void>; onOpen: (id: string) => void; onClose: () => void;
-}) {
-  useEntityDialog(true, onClose);
-  const cache = useQueryClient();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>();
-  const refresh = () => Promise.all(['driver-orders', 'driver-routes', 'driver-profile'].map(key => cache.invalidateQueries({ queryKey: [key, slug] })));
-  const call = async (action: () => Promise<unknown>) => { setBusy(true); setError(undefined); try { await action(); } catch (cause) { setError(cause); } finally { await refresh(); setBusy(false); } };
-  const stopIds = new Set(order.stops.map(stop => stop.id));
-  const visits = route?.stops.filter(visit => stopIds.has(visit.stop_id)) ?? [];
-  const next = route?.stops.find(visit => visit.status !== 'COMPLETED');
-  const reviewKey = useRef(crypto.randomUUID());
-  const needsReview = route?.status === 'IN_PROGRESS' && (!!route.plan.requires_acknowledgement || !route.plan.live_updates_supported);
-  const nextOrder = next && !stopIds.has(next.stop_id) ? orders.find(row => row.stops.some(stop => stop.id === next.stop_id)) : undefined;
-  const done = ['COMPLETED'].includes(order.status);
-  return <Dialog size="md" onClose={onClose}>
-    <DialogHeader onClose={onClose} title={<><span>{order.number}</span><span className="px-2 py-0.5 text-xs font-medium rounded-full bg-slate-100 text-slate-700">{statusLabel(order.status)}</span></>} description={`${order.service_name || 'Delivery'} · scheduled ${formatWhen(order.scheduled_at, timeZone)}`} />
-    <DialogBody className="space-y-5">
-      <section className="rounded-xl border border-slate-200 p-5 space-y-4 text-sm">
-        <h4 className="app-section-title">Stops</h4>
-        {order.stops.map((stop, index) => {
-          const items = order.items.filter(item => (stop.kind === 'PICKUP' ? item.pickup_id : item.delivery_id) === stop.id);
-          return <div key={stop.id} className="space-y-1 border-t border-slate-100 pt-3 first-of-type:border-0 first-of-type:pt-0">
-            <p className="font-medium text-slate-900"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${stop.kind === 'PICKUP' ? 'bg-emerald-500' : 'bg-app-accent'}`} />{index + 1}. {stop.kind === 'PICKUP' ? 'Pickup' : 'Delivery'} · {stop.address.text}</p>
-            {(stop.contact_name || stop.phone) && <p className="text-slate-600">{stop.contact_name}{phoneHref(stop.phone) ? <> · <a className="inline-flex items-center gap-1 text-inherit hover:underline" href={phoneHref(stop.phone)} aria-label={`Call ${stop.contact_name || 'stop contact'}`}><Phone className="h-3 w-3" aria-hidden="true" />{formatPhone(stop.phone)}</a></> : stop.phone ? <> · {formatPhone(stop.phone)}</> : null}</p>}
-            {(stop.window_start || stop.window_end) && <p className="text-xs text-slate-500">{stop.kind === 'PICKUP' ? 'Ready' : 'Deliver'} {stop.window_start ? `from ${formatWhen(stop.window_start, timeZone)}` : ''} {stop.window_end ? `by ${formatWhen(stop.window_end, timeZone)}` : ''}</p>}
-            {stop.instructions && <p className="text-xs text-slate-600">Instructions: {stop.instructions}</p>}
-            {items.length > 0 && <p className="text-xs text-slate-500">{items.map(item => `${item.quantity} × ${item.description || 'package'}${item.fragile ? ' (fragile)' : ''}`).join(', ')}</p>}
-          </div>;
-        })}
-      </section>
-      <section className="rounded-xl border border-slate-200 p-5 space-y-3 text-sm">
-        <h4 className="app-section-title">Delivery</h4>
-        <Notice error={error} />
-        {done && <p className="text-emerald-700">Delivered {formatWhen(order.completed_at, timeZone)}.</p>}
-        {!done && !route && <p role="status" className="text-slate-500">Loading route…</p>}
-        {!done && route?.status === 'PLANNED' && <div className="space-y-2">
-          <p className="text-slate-600">This order is on your next route ({route.stops.length} stops).</p>
-          <Button type="button" disabled={busy || !online} onClick={() => call(() => onStartRoute(route))}>Start route</Button>
-          {!online && <p className="text-xs text-amber-700">Go On Duty from the sidebar switch to start the route.</p>}
-        </div>}
-        {!done && route?.status === 'IN_PROGRESS' && needsReview && <div className="space-y-3"><p>When safely stopped, review the remaining stops to enable compatible assignments during delivery.</p><ol className="list-decimal pl-5">{route.stops.filter(v => v.status !== 'COMPLETED').map(v => <li key={v.id}>{v.stop.address.text}</li>)}</ol><Button type="button" disabled={busy} onClick={() => call(() => operations.acknowledgeRoute(slug, route, reviewKey.current))}>Acknowledge updated route</Button></div>}
-        {!done && route?.status === 'IN_PROGRESS' && !needsReview && <>
-          {nextOrder && <p className="text-slate-600">Next stop is on order <button type="button" className="font-medium text-app-accent hover:underline" onClick={() => onOpen(nextOrder.id)}>{nextOrder.number}</button>. Complete stops in the planned order.</p>}
-          <ol className="space-y-3">{visits.map(visit => <VisitControls key={visit.id} slug={slug} route={route} visit={visit} current={next?.id === visit.id} onChange={refresh} />)}</ol>
-        </>}
-        {route?.status === 'IN_PROGRESS' && !needsReview && route.stops.every(visit => visit.status === 'COMPLETED') && <Button type="button" disabled={busy} onClick={() => call(() => onFinishRoute(route))}>Complete job</Button>}
-      </section>
-      <OrderChatSection slug={slug} orderId={order.id} />
-    </DialogBody>
-  </Dialog>;
-}
-
-function VisitControls({ slug, route, visit, current, onChange }: { slug: string; route: Route; visit: Visit; current: boolean; onChange: () => Promise<unknown> }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>();
-  const [recipient, setRecipient] = useState('');
-  const [unattended, setUnattended] = useState(false);
-  const [safePlacement, setSafePlacement] = useState(false);
-  const cache = useQueryClient();
-  const evidenceQuery = useQuery({ queryKey: ['driver-evidence', slug, visit.stop_id], queryFn: () => operations.stopEvidence(slug, visit.stop_id), enabled: visit.stop.kind === 'DROPOFF' && route.status === 'IN_PROGRESS' && !!visit.arrived_at && visit.status !== 'COMPLETED' });
-  const evidence = evidenceQuery.data ?? [];
-  const signature = [...evidence].reverse().find(item => item.kind === 'SIGNATURE');
-  const photo = [...evidence].reverse().find(item => item.kind === 'PHOTO');
-  const [issueKind, setIssueKind] = useState<'FAILED_PICKUP' | 'FAILED_DELIVERY' | 'SHORT_LOAD' | 'WRONG_ADDRESS' | 'UNSAFE' | 'VEHICLE' | 'OTHER'>('OTHER');
-  const [issueText, setIssueText] = useState('');
-  const [issueOpen, setIssueOpen] = useState(false);
-  const call = async (action: () => Promise<unknown>) => { setBusy(true); setError(undefined); try { await action(); await onChange(); } catch (cause) { setError(cause); } finally { setBusy(false); } };
-  const save = async (kind: 'PHOTO' | 'SIGNATURE', content: string, mediaType: 'image/png' | 'image/jpeg') => {
-    setBusy(true); setError(undefined);
-    try { const saved = await operations.uploadEvidence(slug, visit.stop_id, kind, content, mediaType); if (typeof saved.id !== 'string') throw new Error('Evidence response was incomplete.'); await cache.invalidateQueries({ queryKey: ['driver-evidence', slug, visit.stop_id] }); }
-    catch (cause) { setError(cause); } finally { setBusy(false); }
-  };
-  const uploadPhoto = async (file?: File) => {
-    if (!file) return;
-    if (file.size > 2_000_000 || !['image/png', 'image/jpeg'].includes(file.type)) { setError(new Error('Choose a PNG or JPEG photo up to 2 MB.')); return; }
-    await save('PHOTO', await contentBase64(file), file.type as 'image/png' | 'image/jpeg');
-  };
-  const linked = route.items?.filter(item => visit.stop.kind === 'PICKUP' ? item.pickup_id === visit.stop_id : item.delivery_id === visit.stop_id) ?? [];
-  const quantities = Object.fromEntries(linked.map(item => [item.id, item.quantity]));
-  const dropoff = visit.stop.kind === 'DROPOFF';
-  const proofReady = !dropoff || (unattended ? safePlacement && !!photo : !!recipient.trim() && !!signature && (!visit.stop.photo_required || !!photo));
-  const evidenceIds = [signature, photo].filter(Boolean).map(item => item!.id);
-  return <li className="rounded-lg border border-slate-200 p-4 space-y-3">
-    <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium">{visit.position + 1}. {dropoff ? 'Delivery' : 'Pickup'}</p><p className="text-sm text-slate-600">{visit.stop.address.text}</p></div><span className="text-xs text-slate-500">{visit.status === 'COMPLETED' ? 'Completed' : visit.arrived_at ? 'Arrived' : current ? 'Next stop' : 'Upcoming'}</span></div>
-    <Notice error={error || evidenceQuery.error} />
-    {current && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => setIssueOpen(value => !value)}>Report issue</Button>{issueOpen && <div className="flex flex-wrap gap-2"><select aria-label="Issue type" className="app-input" value={issueKind} onChange={event => setIssueKind(event.target.value as typeof issueKind)}><option value="OTHER">Other</option><option value="FAILED_PICKUP">Failed pickup</option><option value="FAILED_DELIVERY">Failed delivery</option><option value="SHORT_LOAD">Short load</option><option value="WRONG_ADDRESS">Wrong address</option><option value="UNSAFE">Unsafe location</option><option value="VEHICLE">Vehicle issue</option></select><input aria-label="Issue details" className="app-input flex-1" minLength={3} value={issueText} onChange={event => setIssueText(event.target.value)} placeholder="Describe the issue" /><Button type="button" disabled={busy || issueText.trim().length < 3} onClick={() => call(async () => { await operations.reportStopIssue(slug, visit.stop_id, issueKind, issueText.trim()); setIssueOpen(false); setIssueText(''); })}>Submit issue</Button></div>}</div>}
-    {current && !visit.arrived_at && <Button type="button" disabled={busy} onClick={() => call(() => operations.arriveStop(slug, route, visit.id))}>Record arrival</Button>}
-    {current && visit.arrived_at && <div className="space-y-3">
-      {dropoff && <>
-        {visit.stop.unattended_allowed && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={unattended} onChange={event => setUnattended(event.target.checked)} />Recipient not available – leave unattended</label>}
-        {unattended ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={safePlacement} onChange={event => setSafePlacement(event.target.checked)} />Safe placement confirmed</label> : <>
-          <label className="block text-sm">Recipient name<input className="app-input mt-1 w-full" value={recipient} onChange={event => setRecipient(event.target.value)} required /></label>
-          {signature ? <div className="space-y-1"><p className="text-sm">Signature saved</p><img src={evidenceUrl(slug, signature.id)} alt="Saved signature" className="h-24 rounded-lg border border-slate-200 bg-white object-contain" /></div> : <SignaturePad disabled={busy} onSave={content => save('SIGNATURE', content, 'image/png')} />}
-        </>}
-        {(unattended || visit.stop.photo_required) && <label className="block text-sm">{unattended ? 'Delivery photo' : 'Required delivery photo'}<input className="app-input mt-1 w-full" type="file" accept="image/png,image/jpeg" capture="environment" disabled={busy} onChange={event => void uploadPhoto(event.target.files?.[0])} /></label>}
-        {photo && <img src={evidenceUrl(slug, photo.id)} alt="Saved delivery photo" className="h-24 rounded-lg border border-slate-200 bg-white object-contain" />}
-      </>}
-      <Button type="button" disabled={busy || !proofReady} onClick={() => call(() => operations.completeStop(slug, route, visit.id, { quantities, recipient_name: unattended ? '' : recipient.trim(), unattended, safe_placement: unattended && safePlacement, evidence_ids: unattended ? (photo ? [photo.id] : []) : evidenceIds }))}>Confirm {dropoff ? 'delivery' : 'pickup'}</Button>
-    </div>}
-  </li>;
 }

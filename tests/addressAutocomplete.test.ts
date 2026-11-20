@@ -57,7 +57,7 @@ test('address suggestions wait for meaningful input, renew the session after det
   assert.notEqual(requests[0].sessionToken, requests[1].sessionToken);
   assert.equal(requests[1].sessionToken, requests[2].sessionToken);
   await waitFor(() => assert.ok(screen.getByRole('button', { name: place.formattedAddress })));
-  assert.deepEqual(requests[0].includedRegionCodes, ['ca']);
+  assert.deepEqual(requests[0].includedRegionCodes, ['ca', 'us']);
   assert.equal(requests[0].locationBias, undefined);
   fireEvent.click(screen.getByRole('button', { name: place.formattedAddress }));
   await waitFor(() => assert.equal(input.value, place.formattedAddress));
@@ -143,13 +143,19 @@ test('selecting a delivery address keeps coordinates in order stop data', async 
 
 // Google components are authoritative even if the formatted line has a different layout.
 test('selected Google components become the structured API address', async () => {
-  const { canadianAddress } = await import('../src/operations/adapters');
-  const result = canadianAddress('1420 Derwent Way, Delta, British Columbia, Canada', undefined, { city: 'Delta', province: 'BC', postalCode: 'V3M 6M7', country: 'CA', latitude: 49.1901, longitude: -122.9412 });
+  const { streetAddress } = await import('../src/operations/adapters');
+  const result = streetAddress('1420 Derwent Way, Delta, British Columbia, Canada', undefined, { city: 'Delta', province: 'BC', postalCode: 'V3M 6M7', country: 'CA', latitude: 49.1901, longitude: -122.9412 });
   assert.equal(result.city, 'Delta'); assert.equal(result.province, 'BC'); assert.equal(result.postal_code, 'V3M 6M7'); assert.equal(result.country, 'CA');
   assert.equal(result.text, '1420 Derwent Way, Delta, British Columbia V3M 6M7, Canada');
   assert.equal(result.latitude, 49.1901);
-  assert.equal(canadianAddress('1420 Derwent Way, Delta, BC, V3M 6M7').postal_code, 'V3M 6M7');
-  assert.throws(() => canadianAddress('Seattle', undefined, { city: 'Seattle', province: 'WA', postalCode: '98101', country: 'US', latitude: 1, longitude: 1 }), /Canada/);
+  assert.equal(streetAddress('1420 Derwent Way, Delta, BC, V3M 6M7').postal_code, 'V3M 6M7');
+  const seattle = streetAddress('400 Broad St, Seattle, WA 98109, USA', undefined, { city: 'Seattle', province: 'WA', postalCode: '98109', country: 'US', latitude: 47.62, longitude: -122.35 });
+  assert.deepEqual([seattle.country, seattle.province, seattle.postal_code, seattle.text], ['US', 'WA', '98109', '400 Broad St, Seattle, WA 98109, USA']);
+  const typed = streetAddress('1600 Pennsylvania Ave NW, Washington, DC 20500-0003');
+  assert.deepEqual([typed.country, typed.city, typed.province, typed.postal_code], ['US', 'Washington', 'DC', '20500-0003']);
+  assert.throws(() => streetAddress('Tijuana', undefined, { city: 'Tijuana', province: 'BC', postalCode: '22000', country: 'MX', latitude: 1, longitude: 1 }), /Canada or the United States/);
+  assert.throws(() => streetAddress('400 Broad St, Seattle, BC 98109'), /different countries/);
+  assert.throws(() => streetAddress('400 Broad St, Seattle, ZZ 98109'), /US state code/);
 });
 
 test('driver address suggestions appear only after Google confirms the complete address', async () => {
@@ -256,8 +262,8 @@ test('partial suggestions are skipped and only complete street addresses are lis
   assert.deepEqual(geocodedIds.sort(), ['no-postal', 'postal-prefix']);
   fireEvent.click(screen.getByRole('button', { name: complete }));
   await waitFor(() => assert.equal(chosen?.postalCode, 'V6A 1E9'));
-  const { canadianAddress } = await import('../src/operations/adapters');
-  assert.equal(canadianAddress(chosen!.address, undefined, chosen!).postal_code, 'V6A 1E9');
+  const { streetAddress } = await import('../src/operations/adapters');
+  assert.equal(streetAddress(chosen!.address, undefined, chosen!).postal_code, 'V6A 1E9');
 });
 
 test('a clear empty state appears when no complete street address matches', async () => {

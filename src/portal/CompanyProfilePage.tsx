@@ -5,7 +5,7 @@ import { PasswordPage } from './PasswordPage';
 import { PageHeader } from '../components/layout/PageHeader';
 import { CompanyIdentity } from '../components/settings/CompanyIdentity';
 import { companyAddress } from '../lib/serverCompanySettings';
-import { canadianAddress } from '../operations/adapters';
+import { streetAddress } from '../operations/adapters';
 import { SaveSettings } from './CompanySettingsEditors';
 import { useSettingsDraft } from './useSettingsDraft';
 
@@ -16,7 +16,7 @@ function CompanyEditor() {
     <fieldset disabled={editor.pending} className="contents">
       <CompanyIdentity value={{ name: data.company_name, address: companyAddress(data), logoDataUrl: data.logo_url }} onChange={change => editor.patch({
         ...(change.name !== undefined ? { company_name: change.name } : {}),
-        ...(change.address !== undefined ? { address: change.selectedAddress ? canadianAddress(change.address, undefined, change.selectedAddress) : change.address || null } : {}),
+        ...(change.address !== undefined ? { address: change.selectedAddress ? streetAddress(change.address, undefined, change.selectedAddress) : change.address || null } : {}),
         ...(change.logoDataUrl !== undefined ? { logo_url: change.logoDataUrl } : {}),
       })}>
         <div><h4 className="app-section-title text-slate-900 mb-4">Contact Information</h4>

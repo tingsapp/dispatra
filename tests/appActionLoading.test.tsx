@@ -118,10 +118,19 @@ test('assignment menu keeps the selected action visible and busy until it settle
   const request = deferred<void>(); let calls = 0; let open = true;
   render(<DriverAssignmentMenu open onOpenChange={value => { open = value; }} drivers={[{ id: 'd1', name: 'Driver One', avatar: '', statusLabel: 'Available', driverNumber: 'D01' }]}
     onSelect={() => { calls++; return request.promise; }} />);
-  const user = userEvent.setup({ document }); const row = screen.getByRole('menuitem', { name: /Driver One/ });
+  const user = userEvent.setup({ document }); const row = screen.getByRole('button', { name: /Driver One/ });
   await user.click(row); assert.ok(row.querySelector('[data-button-spinner]')); assert.equal(row.getAttribute('aria-busy'), 'true');
   await user.click(row); assert.equal(calls, 1); assert.equal(open, true);
   await act(async () => request.resolve()); assert.equal(open, false);
+});
+
+test('assignment popup stays open when the assignment does not save', async () => {
+  const { DriverAssignmentMenu } = await import('../src/components/entities/DriverAssignmentMenu');
+  let open = true;
+  render(<DriverAssignmentMenu open onOpenChange={value => { open = value; }} drivers={[{ id: 'd1', name: 'Driver One', avatar: '', statusLabel: 'Available', driverNumber: 'D01' }]}
+    onSelect={async () => false} />);
+  const user = userEvent.setup({ document }); const row = screen.getByRole('button', { name: /Driver One/ });
+  await user.click(row); assert.equal(open, true); assert.equal((row as HTMLButtonElement).disabled, false);
 });
 
 test('logout menu stays visible during the pending request and permits a retry after failure', async () => {

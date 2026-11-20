@@ -1,6 +1,9 @@
 import { Select } from '../ui/Select';
 import { cardClass, labelClass } from './BillingFields';
 import { BillingEditor } from './useBillingSettings';
+// Canadian zones, then US zones from east to west.
+const TIME_ZONES = ['America/Vancouver', 'America/Edmonton', 'America/Winnipeg', 'America/Toronto', 'America/Halifax', 'America/St_Johns',
+  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix', 'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu', 'UTC'];
 export function RegionalSettings({ editor }: { editor: Pick<BillingEditor, 'config' | 'patch'> }) {
   const { config, patch } = editor;
   return <section className={`${cardClass} app-panel-plain`} aria-labelledby="regional-settings-heading">
@@ -14,20 +17,19 @@ export function RegionalSettings({ editor }: { editor: Pick<BillingEditor, 'conf
         <label className={labelClass}>Currency</label>
         <Select
           aria-label="Currency"
-          disabled
           className="w-full"
           value={config.quoteSettings.currency}
-          onValueChange={() => { }}
+          onValueChange={currency => patch('quoteSettings', { currency: currency as 'CAD' | 'USD' })}
           options={[
             { value: 'CAD', label: 'CAD, Canadian Dollar' },
             { value: 'USD', label: 'USD, US Dollar' }
           ]}
         />
-        <p className="text-xs text-slate-500 mt-1">Currency is fixed for existing rates.</p>
+        <p className="text-xs text-slate-500 mt-1">Rates are not converted. Priced orders keep their quoted currency.</p>
       </div>
       <div>
         <label className={labelClass}>Organization timezone</label>
-        <Select aria-label="Organization timezone" className="w-full" value={config.general.timeZone ?? 'America/Vancouver'} onValueChange={timeZone => patch('general', { timeZone })} options={['America/Vancouver', 'America/Edmonton', 'America/Winnipeg', 'America/Toronto', 'America/Halifax', 'America/St_Johns', 'UTC'].map(value => ({ value, label: value.replace('America/', '').replaceAll('_', ' ') }))} />
+        <Select aria-label="Organization timezone" className="w-full" value={config.general.timeZone ?? 'America/Vancouver'} onValueChange={timeZone => patch('general', { timeZone })} options={TIME_ZONES.map(value => ({ value, label: value.replace(/^(America|Pacific)\//, '').replaceAll('_', ' ') }))} />
       </div>
     </div>
     <div className="mt-5 grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-3">

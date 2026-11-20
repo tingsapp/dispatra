@@ -25,6 +25,7 @@ export function resolveDestinationTax(order: PricingOrderInput, billing: Billing
   for (const [index, location] of locations.entries()) {
     if (!location.stop.label?.trim() || location.conflict) return fail(`Correct the address and country/province for stop ${index + 1}; the location is missing or conflicting.`);
     if (!location.country) return fail(`Confirm the country and province for stop ${index + 1} to calculate tax.`);
+    if (location.country === 'US') return fail('Destination tax rates cover Canadian provinces only. Use company tax rates for US deliveries.');
     if (location.country !== 'CA') return fail('International freight needs tax review. Automatic domestic tax has not been applied.');
     if (!location.province) return fail(`Confirm the province for stop ${index + 1} to calculate tax.`);
   }

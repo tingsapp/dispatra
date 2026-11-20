@@ -27,24 +27,18 @@ import { ShipperOrderDialog } from './ShipperOrderDialog';
 import { OrderChatSection } from '../components/chat/OrderChat';
 import { Notice } from './ui';
 
-type Shipper = Awaited<ReturnType<typeof operations.ownShipper>>;
 const dateIn = (iso: string | null | undefined, timeZone: string) => iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone }) : '';
 /** The API accepts shipper edits only while an order is unassigned. */
 const shipperEditable = (job: Job) => job.lifecycleStatus === 'NEW' && orderEditable(job);
 
-function newOrderInput(ctx: PricingContext, shipper: Shipper): PricingOrderInput {
+/** The shipper's warehouse (with its map point) is the default pickup. */
+function newOrderInput(ctx: PricingContext): PricingOrderInput {
   const self = ctx.customers[0];
   const base = applyCustomerDefaults(createBookingInput(ctx), self);
   // New bookings start with the load size of the shipper's default card and that size's package type.
   const loadSize = base.loadSize ?? shipperLoadSize(self, ctx.pricing.rateCards);
   const input = loadSize ? { ...base, loadSize, packages: prefillPackageTypes(base.packages, loadSize, ctx.catalogue.packageTypes, base.loadSize) } : base;
-  const w = shipper.warehouse;
-  let applied = false;
-  return { ...input, customerId: null, stops: input.stops.map(stop => {
-    if (applied || stop.type !== 'PICKUP' || stop.label?.trim() !== w.text.trim()) return stop;
-    applied = true;
-    return { ...stop, latitude: w.latitude, longitude: w.longitude, city: w.city, provinceCode: w.province, postalCode: w.postal_code, countryCode: w.country, normalizedAddress: w.text };
-  }) };
+  return { ...input, customerId: null };
 }
 
 export function ShipperOrders({ slug, open, onClose, onNavigate, draftId }: { draftId?: string | null; slug: string; open: boolean; onClose: () => void; onNavigate: (href: string) => void }) {
@@ -179,6 +173,6 @@ export function ShipperOrders({ slug, open, onClose, onNavigate, draftId }: { dr
       onClose={() => onNavigate(`/${slug}/shipper`)} onSubmitted={() => { setMessage('Details sent to your dispatcher for review.'); onNavigate(`/${slug}/shipper`); }} />}
     {ctx && profile.data && (open || editing) && <ShipperOrderDialog key={editing?.id ?? 'new'} slug={slug} ctx={ctx} editing={editing ?? undefined} onClose={closeForm} onSaved={saved}
       drivers={drivers.data ?? []} rateCardName={profile.data.rate_card_name ?? null}
-      initial={editingJob?.pricingInput ? normalizeOrderInput({ ...structuredClone(editingJob.pricingInput), taxCalculation: 'COMPANY' }) : newOrderInput(ctx, profile.data)} />}
+      initial={editingJob?.pricingInput ? normalizeOrderInput({ ...structuredClone(editingJob.pricingInput), taxCalculation: 'COMPANY' }) : newOrderInput(ctx)} />}
   </div>;
 }

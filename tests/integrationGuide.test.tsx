@@ -37,7 +37,7 @@ test('developer details reuse supported resources and events with placeholders a
   assert.ok(screen.getByText(/Orders list returns a JSON array/));
   for (const resource of apiResources('example')) assert.ok(screen.getByText(resource.title));
   assert.ok(screen.getByText(new RegExp(ORDER_EVENTS[0].event.replaceAll('.', '\\.'))));
-  assert.ok(screen.getByText(/Current order imports support Canadian addresses/));
+  assert.ok(screen.getByText(/Current order imports support Canadian and US addresses/));
   assert.equal(screen.queryByRole('textbox'), null);
 });
 

@@ -2,7 +2,7 @@ import { scopedStorageKey } from './scopedStorage';
 import { loadBillingConfig } from './billingStorage';
 import { CENTRAL_PICKUP_ZONE_ID } from './centralZoneRates';
 import { fromDisplayWeight, Units } from './units';
-import { postalFsa } from './zonePostalCodes';
+import { postalArea } from './zonePostalCodes';
 import { Discount, PricingConfig, RateCard, Zone, ZoneRate } from '../types/pricing';
 
 export const PRICING_STORAGE_KEY = 'dispatra_pricing_v1';
@@ -249,7 +249,7 @@ export const loadPricingConfig = (): PricingConfig => {
       ).map(zone => zone.id) : []);
       const keepRate = (rate: ZoneRate) => !retired.has(rate.originZoneId) && !retired.has(rate.destinationZoneId);
       const zones: Zone[] = storedZones.filter(zone => !retired.has(zone.id)).map(zone => ({ ...zone,
-        postalCodes: (zone.postalCodes ?? []).flatMap(code => postalFsa(code) ? [postalFsa(code)!] : []) }));
+        postalCodes: (zone.postalCodes ?? []).flatMap(code => postalArea(code) ? [postalArea(code)!] : []) }));
       // Add missing starter zones once. An older zone that only shares a starter name is replaced.
       const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
       const seedStarter = (parsed.schemaVersion ?? 0) < 11 && INITIAL_ZONES.some(seed => !zones.some(zone => zone.id === seed.id) || zones.some(zone => zone.id !== seed.id && sameName(zone.name, seed.name)));

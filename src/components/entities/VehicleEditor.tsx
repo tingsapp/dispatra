@@ -80,7 +80,7 @@ export function VehicleEditor({ vehicle, vehicles, onSave, onCancel, formId, hid
       <TextField label="Make and model" value={draft.makeModel} onChange={makeModel => patch({ makeModel })} placeholder="e.g. Ford Transit 350" />
       <NumberField label="Year" step="1" value={draft.year || undefined} onChange={year => patch({ year: year ?? 0 })} />
       <TextField label="Licence plate" value={draft.plateNumber} required onChange={plateNumber => patch({ plateNumber })} placeholder="e.g. CVK 421" />
-      <TextField label="Plate province" value={draft.plateProvince} onChange={plateProvince => patch({ plateProvince })} />
+      <TextField label="Plate province/state" value={draft.plateProvince} onChange={plateProvince => patch({ plateProvince })} />
       <div className="sm:col-span-2">
         <label htmlFor="vehicle-parking-address" className="app-label">Parking address <span aria-hidden="true">*</span></label>
         <AddressAutocomplete id="vehicle-parking-address" aria-label="Parking address" value={draft.parkingAddress ?? ''} includeCoordinates required

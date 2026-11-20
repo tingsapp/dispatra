@@ -12,7 +12,14 @@ const TIME_ZONE_CENTERS: Record<string, { label: string; center: [number, number
   'America/Winnipeg': { label: 'Winnipeg', center: [-97.1384, 49.8951] },
   'America/Toronto': { label: 'Toronto', center: [-79.3832, 43.6532] },
   'America/Halifax': { label: 'Halifax', center: [-63.5752, 44.6488] },
-  'America/St_Johns': { label: "St. John's", center: [-52.7126, 47.5615] }
+  'America/St_Johns': { label: "St. John's", center: [-52.7126, 47.5615] },
+  'America/New_York': { label: 'New York', center: [-74.006, 40.7128] },
+  'America/Chicago': { label: 'Chicago', center: [-87.6298, 41.8781] },
+  'America/Denver': { label: 'Denver', center: [-104.9903, 39.7392] },
+  'America/Phoenix': { label: 'Phoenix', center: [-112.074, 33.4484] },
+  'America/Los_Angeles': { label: 'Los Angeles', center: [-118.2437, 34.0522] },
+  'America/Anchorage': { label: 'Anchorage', center: [-149.9003, 61.2181] },
+  'Pacific/Honolulu': { label: 'Honolulu', center: [-157.8583, 21.3069] }
 };
 
 type CompanyAddress = { city?: string; latitude?: number | null; longitude?: number | null } | string | null | undefined;

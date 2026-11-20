@@ -38,7 +38,7 @@ function ZonePostalCodesField({ zone, patchZone }: { zone: Zone; patchZone: Zone
         window.requestAnimationFrame(() => input.setSelectionRange(start + text.length, start + text.length));
       }} />
     <span id={`${id}-hint`} className="sr-only">
-      {missing ? 'At least one postal area is required. ' : ''}Enter Canadian three-character postal areas, separated with commas. A full postal code is reduced to its first three characters.
+      {missing ? 'At least one postal area is required. ' : ''}Enter Canadian three-character postal areas or US ZIP codes and 3-digit ZIP prefixes, separated with commas. A full Canadian postal code is reduced to its first three characters.
     </span>
   </>;
 }

@@ -2,22 +2,31 @@ import { bookingInstant } from './time';
 import type { SelectedAddress } from '../components/ui/AddressAutocomplete';
 import { shipperRateCardIds, type Customer } from '../lib/customerStorage';
 import type { Address, Shipper, ShipperInput } from './api';
+import { type Country, normalizePostal, postalCountry, regionCountry } from '../lib/northAmerica';
 
-/** Accept the complete Canadian address shown by the existing one-field forms. */
-export function canadianAddress(text: string, previous?: Address, coordinates?: SelectedAddress): Address {
+const POSTAL_TEXT = /\b[A-Z]\d[A-Z][ -]?\d[A-Z]\d\b|(?<=\b[A-Z]{2}[,\s]+)\d{5}(?:-\d{4})?\b/i;
+const COUNTRY_SUFFIX = /(,\s*(?:Canada|USA|US|United States(?: of America)?))?$/i;
+
+/** Accept the complete Canada/US address shown by the existing one-field forms. */
+export function streetAddress(text: string, previous?: Address, coordinates?: SelectedAddress): Address {
   const clean = text.trim();
   if (previous && previous.text === clean && !coordinates) return previous;
-  const match = clean.match(/^(.*?),\s*([^,]+),\s*([A-Za-z]{2})[,\s]+([A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d)(?:,\s*Canada)?$/i);
-  const postalInText = clean.match(/\b([A-Za-z]\d[A-Za-z])[ -]?(\d[A-Za-z]\d)\b/i);
+  const match = clean.replace(COUNTRY_SUFFIX, '').match(/^(.*?),\s*([^,]+),\s*([A-Za-z]{2})[,\s]+([A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d|\d{5}(?:-\d{4})?)$/i);
+  const postalInText = clean.match(POSTAL_TEXT);
   const city = coordinates?.city?.trim() || match?.[2]?.trim();
   const province = coordinates?.province?.trim().toUpperCase() || match?.[3]?.toUpperCase();
   const postal = coordinates?.postalCode?.trim() || postalInText?.[0];
-  if (coordinates?.country && coordinates.country.toUpperCase() !== 'CA') throw new Error('Choose an address in Canada.');
-  if (!city || !province || !postal || !clean) throw new Error('Enter a full Canadian address: street, city, province and postal code.');
-  const postalCode = postal.toUpperCase().replace(/[\s-]/g, '').replace(/^(.{3})(.{3})$/, '$1 $2');
-  if (!/^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(postalCode)) throw new Error('Enter a valid Canadian postal code.');
-  const fullText = postalInText ? clean : clean.replace(/(,\s*Canada)?$/i, `${clean.endsWith(',') ? '' : ' '}${postalCode}$1`);
-  return { text: fullText, city, province, postal_code: postalCode, country: 'CA', latitude: coordinates?.latitude ?? null, longitude: coordinates?.longitude ?? null };
+  const selectedCountry = coordinates?.country?.toUpperCase();
+  if (selectedCountry && selectedCountry !== 'CA' && selectedCountry !== 'US') throw new Error('Choose an address in Canada or the United States.');
+  if (!city || !province || !postal || !clean) throw new Error('Enter a full address: street, city, province or state, and postal or ZIP code.');
+  const country = (selectedCountry as Country | undefined) ?? postalCountry(postal);
+  const postalCode = normalizePostal(postal, country);
+  if (!country || !postalCode) throw new Error('Enter a valid Canadian postal code or US ZIP code.');
+  const regionIn = regionCountry(province);
+  if (regionIn && regionIn !== country) throw new Error('The province or state and the postal code are in different countries.');
+  if (country === 'US' && !regionIn) throw new Error('Enter the two-letter US state code, such as WA.');
+  const fullText = postalInText ? clean : clean.replace(COUNTRY_SUFFIX, `${clean.endsWith(',') ? '' : ' '}${postalCode}$1`);
+  return { text: fullText, city, province, postal_code: postalCode, country, latitude: coordinates?.latitude ?? null, longitude: coordinates?.longitude ?? null };
 }
 
 export function shipperToCustomer(row: Shipper): Customer {
@@ -26,6 +35,8 @@ export function shipperToCustomer(row: Shipper): Customer {
     id: row.id, code: row.number, name: row.name, legalName: row.company_name,
     customerType: row.kind === 'INDIVIDUAL' ? 'INDIVIDUAL' : 'BUSINESS', contactName: row.name,
     email: row.email, phone: row.phone, address: row.warehouse.text, city: row.warehouse.city,
+    ...(row.warehouse.latitude != null && row.warehouse.longitude != null ? { warehouse: { latitude: row.warehouse.latitude, longitude: row.warehouse.longitude, city: row.warehouse.city,
+      provinceCode: row.warehouse.province, postalCode: row.warehouse.postal_code, countryCode: row.warehouse.country, normalizedAddress: row.warehouse.text } } : {}),
     accountType: 'Standard Freight', status, defaultRequirements: [], billingEmail: '',
     assignedDriverId: row.assigned_driver_id, assignedDriverName: row.assigned_driver_name,
     rateCardId: row.rate_card_id, rateCardIds: row.rate_card_ids?.length ? row.rate_card_ids : row.rate_card_id ? [row.rate_card_id] : [], rateCardLoadSizes: row.rate_card_load_sizes, discount: { type: row.discount.kind, value: Number(row.discount.value), scope: 'TRANSPORT_ONLY' },
@@ -35,12 +46,19 @@ export function shipperToCustomer(row: Shipper): Customer {
   };
 }
 
+/** A warehouse is the shipper's default pickup, so it must be on the map: an address typed without choosing a suggestion is refused. */
+export function warehouseAddress(text: string, previous?: Address, coordinates?: SelectedAddress): Address {
+  const address = streetAddress(text, previous, coordinates);
+  if (address.latitude == null || address.longitude == null) throw new Error('Choose the warehouse address from the suggestions so it can be placed on the map.');
+  return address;
+}
+
 export function customerToShipper(form: Partial<Customer>, previous?: Shipper, coordinates?: SelectedAddress): ShipperInput {
   const kind = form.customerType === 'INDIVIDUAL' ? 'INDIVIDUAL' : 'BUSINESS';
   return {
     name: form.name?.trim() ?? '', kind, company_name: kind === 'BUSINESS' ? form.legalName?.trim() ?? '' : '',
     email: form.email?.trim().toLowerCase() ?? '', phone: form.phone?.trim() ?? '',
-    warehouse: canadianAddress(form.address ?? '', previous?.warehouse, coordinates),
+    warehouse: warehouseAddress(form.address ?? '', previous?.warehouse, coordinates),
     rate_card_id: shipperRateCardIds({ rateCardId: form.rateCardId ?? null, rateCardIds: form.rateCardIds })[0] ?? null,
     rate_card_ids: shipperRateCardIds({ rateCardId: form.rateCardId ?? null, rateCardIds: form.rateCardIds }),
     assigned_driver_id: form.assignedDriverId === undefined ? previous?.assigned_driver_id ?? null : form.assignedDriverId,
@@ -68,7 +86,7 @@ export function driverToUi(row: ApiDriver, vehicle?: ApiVehicle, monitor?: { on_
     currentVehicleId: row.vehicle_id, nextStop: 'Not set', eta: '-', distance: '-', lastUpdate: row.last_seen_at ?? 'Not set',
     phone: row.phone, email: row.email, address: row.address.text,
     shiftStart: details.shift_start ?? '', shiftEnd: details.shift_end ?? '',
-    skills: details.qualifications ?? [], maximumWorkMinutes: details.maximum_work_minutes ?? 480, crewSize: details.crew_size ?? 1,
+    skills: details.qualifications ?? [], maximumWorkMinutes: details.maximum_work_minutes ?? 480, crewSize: details.crew_size ?? 1, loadSizes: details.load_sizes,
     accountStatus: row.active ? 'ACTIVE' : 'INACTIVE',
     dutyStatus: onDuty ? 'ON_DUTY' : 'OFF_DUTY', locationPermissionStatus: row.location_permission as UiDriver['locationPermissionStatus'],
     appLastSeenAt: row.last_seen_at, createdAt: row.created_at,
@@ -80,9 +98,10 @@ export function driverFromUi(form: UiDriver, previous?: ApiDriver, coordinates?:
   const old = previous?.data as Partial<DriverInput> | undefined;
   return {
     name: form.name.trim(), avatar_url: form.avatar.startsWith('http') ? form.avatar : '', email: form.email?.trim() ?? '',
-    phone: form.phone?.trim() ?? '', address: canadianAddress(form.address ?? '', previous?.address, coordinates),
+    phone: form.phone?.trim() ?? '', address: streetAddress(form.address ?? '', previous?.address, coordinates),
     vehicle_id: form.currentVehicleId || null,
     qualifications: form.skills ?? old?.qualifications ?? [], crew_size: form.crewSize ?? old?.crew_size ?? 1,
+    load_sizes: form.loadSizes ?? old?.load_sizes ?? ['FTL', 'LTL', 'SMALL_PARCEL'],
     shift_start: form.shiftStart === undefined ? old?.shift_start ?? null : form.shiftStart ? bookingInstant(form.shiftStart, timeZone) : null,
     shift_end: form.shiftEnd === undefined ? old?.shift_end ?? null : form.shiftEnd ? bookingInstant(form.shiftEnd, timeZone) : null,
     maximum_work_minutes: form.maximumWorkMinutes ?? old?.maximum_work_minutes ?? 480,
@@ -122,7 +141,7 @@ export function vehicleFromUi(form: VehicleAsset, previous?: ApiVehicle): Vehicl
   const old = previous?.data;
   return {
     name: form.unitNumber.trim(), unit_number: form.unitNumber.trim(), make_model: form.makeModel ?? '',
-    parking_address: canadianAddress(form.parkingAddress ?? '', old?.parking_address ?? undefined, form.parkingAddressCoordinates),
+    parking_address: streetAddress(form.parkingAddress ?? '', old?.parking_address ?? undefined, form.parkingAddressCoordinates),
     year: form.year || null, vin: form.vin ?? '',
     availability: form.availability === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE',
     unavailable_reason: form.availability === 'UNAVAILABLE' ? form.unavailableReason ?? '' : '',

@@ -41,14 +41,14 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   const orderUnread = orderChats.data?.filter(row => row.kind === 'DRIVER_SHIPPER').reduce((sum,row) => sum + row.unread,0) ?? 0;
   const companyChat = useCompanyChannel(slug, undefined, profile.data?.id);
   const unreadMessages = companyChat.data?.unread ?? 0;
-  return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false}
-    headerActions={<>{page.path !== 'messages' && <ShipperOrderSearch slug={slug} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}<NotificationBell slug={slug} surface={page.path === 'tracking' ? 'white' : true} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} /></>}
+  return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false} homeOnExpand
+    headerActions={<>{page.path !== 'messages' && page.path !== 'tracking' && <ShipperOrderSearch slug={slug} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}<NotificationBell slug={slug} surface={page.path === 'tracking' ? 'white' : true} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} /></>}
     actions={page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}
     reading={page.path === 'profile'} map={page.path === 'tracking'} chat={page.path === 'messages'}
     account={{ logoUrl: profile.data?.logo_url, name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}
     description={page.path === 'profile' ? 'Your details and account security.' : page.path === 'messages' ? 'Conversations with dispatch and your drivers.' : page.path === 'tracking' ? 'Follow your order from pickup to delivery.' : 'Create and track your deliveries.'}
     navigation={shipperPages.filter(item => item.path !== 'profile').map(item => ({ ...item, href: item.path === 'orders' ? base : `${base}/${item.path}`, current: item.path === page.path, badge: item.path === 'messages' ? unreadMessages : item.path === 'orders' ? orderUnread : 0 }))}
-    onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
+    onNavigate={go} onHome={() => go(`${base}/tracking`)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     {page.path !== 'tracking' && <Notice error={logoutError} />}
     {page.path === 'profile' && <>
       <div className="flex items-center gap-2" aria-label="Profile sections">

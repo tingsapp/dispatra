@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { Dialog, DialogFooter, DialogHeader } from '../components/ui/Dialog';
 import { Button } from '../components/ui/button';
-import { Select } from '../components/ui/Select';
 import { companyRateRows } from '../lib/companyTax';
 import { OrderPricingForm } from '../components/pricing/OrderPricingForm';
 import { PriceBreakdown } from '../components/pricing/PriceBreakdown';
@@ -17,8 +16,8 @@ import type { PricingOrderInput } from '../types/pricing';
 
 type BookingDriver = { id: string; name: string };
 
-/** The dispatcher's order form for the signed-in shipper: no shipper, rate card choice, vehicle, assignment or internal notes.
- *  The shipper may name an optional preferred driver; their own rate card prices the order and is named in the live estimate. */
+/** The order form for the signed-in shipper: no shipper, rate card choice, assignment, internal notes or field hints.
+ *  Their own rate card prices the order and is named in the live estimate. */
 export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateCardName, onClose, onSaved, draft, onDraftSubmitted }: {
   slug: string; ctx: PricingContext; initial: PricingOrderInput; editing?: Order; drivers: BookingDriver[]; rateCardName: string | null;
   draft?: ShipperDraft; onDraftSubmitted?: () => void;
@@ -32,18 +31,10 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
   const snapshot = useOrderPreview({ slug, input, ctx, enabled: true, toBooking: value => inputToShipperBooking(value, timeZone), rateCardName });
   const close = () => { if (!busy) onClose(); };
   const instructionStop = [...input.stops].reverse().find(stop => stop.type === 'DROPOFF');
-  const requested = input.preferredDriverId ?? '';
-  const driverOptions = [{ value: '', label: 'No preference' }, ...drivers.map(d => ({ value: d.id, label: d.name })),
-    ...(requested && !drivers.some(d => d.id === requested) ? [{ value: requested, label: 'Previously requested driver (unavailable)' }] : [])];
   const serviceExtras = input.requiredDriverId ? <div>
       <span className="app-label">Assigned driver</span>
       <p className="text-sm text-slate-700">{input.requiredDriverName ?? drivers.find(d => d.id === input.requiredDriverId)?.name ?? 'Saved driver (unavailable)'}</p>
-      <p className="mt-1 text-xs text-slate-500">Your orders require this driver. Dispatch waits until they are available.</p>
-    </div> : <div>
-      <label className="app-label">Want specific driver?</label>
-      <Select aria-label="Want specific driver?" className="w-full" value={requested} onValueChange={v => setInput({ ...input, preferredDriverId: v || null })} options={driverOptions} />
-      <span className="mt-1 block text-xs text-slate-500">Optional. Dispatch uses this driver when they are available.</span>
-    </div>;
+    </div> : undefined;
   useEntityDialog(true, close);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setErrors([]); setBusy(true);
@@ -67,7 +58,7 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
     finally { setBusy(false); }
   };
   return <Dialog size="xl" onClose={close}>
-    <DialogHeader onClose={close} title={editing ? 'Edit Order' : 'New Order'} description="Enter the order details on the left to see its live price estimate on the right." />
+    <DialogHeader onClose={close} title={editing ? 'Edit Order' : 'New Order'} />
     <form id="shipper-order-form" onSubmit={submit} className="app-dialog-body bg-slate-50 pt-5">
       <fieldset disabled={busy} className="min-w-0"><div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-7 space-y-5 text-xs">
@@ -75,7 +66,7 @@ export function ShipperOrderDialog({ slug, ctx, initial, editing, drivers, rateC
           <OrderPricingForm customerMode="self" showVehicleSelection loadSizes={!draft} suggestVehicle={!editing && !draft} showStopAddresses futureOnly={!editing} outsideHours="block" value={input} onChange={setInput} ctx={ctx} snapshot={snapshot} serviceExtras={serviceExtras} />
           <div>
             <label className="app-label" htmlFor="shipper-order-instructions">Delivery instructions (optional)</label>
-            <textarea id="shipper-order-instructions" className="app-input w-full" rows={3} maxLength={2000} placeholder="Access details, delivery preferences, or other instructions…" value={instructionStop?.instructions ?? ''} onChange={event => setInput({ ...input, stops: input.stops.map(stop => stop.id === instructionStop?.id ? { ...stop, instructions: event.target.value } : stop) })} />
+            <textarea id="shipper-order-instructions" className="app-input w-full" rows={3} maxLength={2000} value={instructionStop?.instructions ?? ''} onChange={event => setInput({ ...input, stops: input.stops.map(stop => stop.id === instructionStop?.id ? { ...stop, instructions: event.target.value } : stop) })} />
           </div>
         </div>
         <div className="lg:col-span-5 lg:sticky lg:top-0">

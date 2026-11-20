@@ -8,6 +8,7 @@ const ROUTE_COLOR = '#171717';
 
 type RouteProps = {
   id: string; points: number[][]; selected: boolean; radius?: number;
+  dashed?: boolean;
   /** Vehicle-to-pickup approach: the same black at reduced opacity, so it reads gray beside the order path. */
   approach?: boolean;
   /** Set while a linked line (the same route's approach or order path) is hovered. */
@@ -16,10 +17,10 @@ type RouteProps = {
 };
 
 /** A Google-projected SVG route with explicit rounded caps, joins and turns; hovering highlights it in the accent blue. */
-export function GoogleRoundedRoute({ id, points, selected, radius = 10, approach = false, highlighted = false, onHoverChange }: RouteProps) {
+export function GoogleRoundedRoute({ id, points, selected, radius = 10, approach = false, dashed = false, highlighted = false, onHoverChange }: RouteProps) {
   const map = useMap();
-  const current = useRef({ id, points, selected, radius, approach, highlighted, onHoverChange });
-  current.current = { id, points, selected, radius, approach, highlighted, onHoverChange };
+  const current = useRef({ id, points, selected, radius, approach, dashed, highlighted, onHoverChange });
+  current.current = { id, points, selected, radius, approach, dashed, highlighted, onHoverChange };
   const overlay = useRef<google.maps.OverlayView | null>(null);
   const paintRef = useRef<() => void>(() => {});
   useEffect(() => {
@@ -33,9 +34,10 @@ export function GoogleRoundedRoute({ id, points, selected, radius = 10, approach
     hit.setAttribute('fill', 'none'); hit.setAttribute('stroke', 'transparent'); hit.setAttribute('stroke-width', '12');
     hit.setAttribute('stroke-linecap', 'round'); hit.setAttribute('stroke-linejoin', 'round'); hit.style.pointerEvents = 'stroke';
     const paint = () => {
-      const { selected, approach, highlighted } = current.current, blue = !!svg.dataset.hovered || highlighted;
+      const { selected, approach, dashed, highlighted } = current.current, blue = !!svg.dataset.hovered || highlighted;
       path.setAttribute('stroke', blue ? APP_ACCENT : ROUTE_COLOR);
       path.setAttribute('stroke-opacity', blue || (selected && !approach) ? '1' : approach ? '0.4' : '0.6');
+      path.setAttribute('stroke-dasharray', dashed ? '6 6' : 'none');
       if (blue) svg.parentNode?.appendChild(svg);
     };
     paintRef.current = paint;
@@ -75,7 +77,7 @@ export function GoogleRoundedRoute({ id, points, selected, radius = 10, approach
     const instance = new RouteOverlay(); overlay.current = instance; instance.setMap(map);
     return () => { instance.setMap(null); overlay.current = null; };
   }, [map]);
-  useEffect(() => { overlay.current?.draw(); }, [id, points, selected, radius, approach]);
-  useEffect(() => { paintRef.current(); }, [highlighted]);
+  useEffect(() => { overlay.current?.draw(); }, [id, points, selected, radius, approach, dashed]);
+  useEffect(() => { paintRef.current(); }, [highlighted, dashed]);
   return null;
 }

@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, Plus } from 'lucide-react';
 import { Choice, TextField, FormSection } from './Fields';
 import { AddressAutocomplete } from '../ui/AddressAutocomplete';
+import { LOAD_SIZE_OPTIONS, type LoadSize } from '../../lib/loadSize';
 export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehicle, createdVehicle, formId, hideActions = false, vehicleOptions }: { driver?: Driver; drivers: Driver[]; onSave: (d: Driver) => unknown; onCancel: () => void; onRegisterVehicle?: () => void; createdVehicle?: VehicleAsset | null; formId?: string; hideActions?: boolean; vehicleOptions?: VehicleAsset[] }) {
   const action = usePendingAction();
   const isEditing = !!driver;
@@ -28,6 +29,8 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
   const patch = (p: Partial<Driver>) => setDraft(current => ({ ...current, ...p }));
   const selectedVehicle = vehicles.find(vehicle => vehicle.id === draft.currentVehicleId);
   const dgQualified = draft.skills?.includes('DG') ?? false;
+  const loadSizes = draft.loadSizes ?? LOAD_SIZE_OPTIONS.map(option => option.value);
+  const loadSizeLabels: Record<LoadSize, string> = { FTL: 'Drives full truckloads (FTL)', LTL: 'Takes less than truckload (LTL) shipments', SMALL_PARCEL: 'Delivers small parcels' };
   return <form id={formId} className="space-y-6" onSubmit={async e => { e.preventDefault(); if (isEditing && (!draft.accountStatus || !draft.dutyStatus)) { setErrors(['Account and duty are required when editing a driver.']); return; } const number = isEditing ? draft.driverNumber : nextDriverNumber(drivers); const next = syncDriver({ ...draft, id: isEditing ? draft.id : number!, driverNumber: number }); const problems = validateDriver(next, drivers); setErrors(problems); if (!problems.length) { try { await action.run(() => onSave(next)); } catch (error) { setErrors([error instanceof Error ? error.message : 'Driver could not be saved.']); } } }}>
     <FormSection title="Contact">
       <TextField className="sm:col-span-2" label="Driver name" value={draft.name} onChange={name => patch({ name })} required placeholder="Full name" />
@@ -58,18 +61,18 @@ export function DriverEditor({ driver, drivers, onSave, onCancel, onRegisterVehi
             {vehicles.map(v => <DropdownMenuItem key={v.id} onSelect={() => patch({ currentVehicleId: v.id, vehicle: `${v.vehicleNumber ?? v.unitNumber} · ${v.plateNumber}` })}>{v.unitNumber} · {v.plateNumber}</DropdownMenuItem>)}
           </DropdownMenuContent>
         </DropdownMenu>      </div>
-      <label className="sm:col-span-2 mt-2 flex items-start gap-2.5 cursor-pointer text-sm text-slate-800">
-        <input type="checkbox" className="app-checkbox mt-0.5" checked={(draft.crewSize ?? 1) >= 2} onChange={event => patch({ crewSize: event.target.checked ? Math.max(2, draft.crewSize ?? 1) : 1 })} />
-        <span><span className="font-medium">Works with a helper</span>
-          <span className="block text-xs text-slate-500 mt-0.5">Check if this driver always has a second person on board. Orders with the Helper extra go only to drivers with a helper.</span></span>
-      </label>
-      <label className="sm:col-span-2 mt-2 flex items-start gap-2.5 cursor-pointer text-sm text-slate-800">
-        <input type="checkbox" className="app-checkbox mt-0.5" checked={dgQualified} onChange={event => patch({ skills: event.target.checked
-          ? [...(draft.skills ?? []).filter(skill => skill !== 'DG'), 'DG']
-          : (draft.skills ?? []).filter(skill => skill !== 'DG') })} />
-        <span><span className="font-medium">Qualified to handle dangerous goods (DG)</span>
-          <span className="block text-xs text-slate-500 mt-0.5">Check only after confirming the driver’s qualification. DG orders require this before assignment.</span></span>
-      </label>
+    </FormSection>
+    <FormSection title="Qualifications" description="Keep at least one load size.">
+      <div role="group" aria-label="Qualifications" className="sm:col-span-2 space-y-2.5 rounded-xl border border-slate-200 p-4">
+        {LOAD_SIZE_OPTIONS.map(option => { const checked = loadSizes.includes(option.value); return <label key={option.value} className="flex items-center gap-3 cursor-pointer text-sm text-slate-800 has-[:disabled]:cursor-default">
+          <input type="checkbox" className="app-checkbox" checked={checked} disabled={checked && loadSizes.length === 1} onChange={event => patch({ loadSizes: LOAD_SIZE_OPTIONS.map(o => o.value).filter(v => v === option.value ? event.target.checked : loadSizes.includes(v)) })} />{loadSizeLabels[option.value]}
+        </label>; })}
+        <label className="flex items-center gap-3 cursor-pointer text-sm text-slate-800">
+          <input type="checkbox" className="app-checkbox" checked={dgQualified} onChange={event => patch({ skills: event.target.checked
+            ? [...(draft.skills ?? []).filter(skill => skill !== 'DG'), 'DG']
+            : (draft.skills ?? []).filter(skill => skill !== 'DG') })} />Certified for dangerous goods (DG)
+        </label>
+      </div>
     </FormSection>
     {!!errors.length && <p role="alert" className="text-xs text-rose-700">{errors.join(' ')}</p>}
     {!hideActions && <div className="flex justify-end gap-2"><Button loading={action.pending} type="submit">Save driver</Button></div>}

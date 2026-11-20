@@ -304,9 +304,10 @@ export function JobsPage({
   const reassign = useOrderAssignment({ slug, jobs, drivers, onUpdateJob, onNotification });
   const handleReassignDriver = async (job: Job, driverId: string) => {
     const result = await reassign(job, driverId);
-    if (!result) return;
+    if (!result) return false;
     setReassigningJobId(null);
     if (result.updated && activeJobDossier?.id === job.id) setActiveJobDossier(result.updated);
+    return true;
   };
   const complete = useOrderCompletion({ slug, onUpdateJob, onNotification });
   const handleCompleteOrder = async (job: Job) => {
@@ -753,7 +754,7 @@ export function JobsPage({
 
       {/* ORDER DETAILS DIALOG */}
       {activeJobDossier && <OrderDetailsDialog job={jobs.find(row => row.id === activeJobDossier.id) ?? activeJobDossier} ctx={pricingCtx} drivers={drivers} onClose={() => setActiveJobDossier(null)}
-        onReassign={handleReassignDriver} onEdit={openEditOrder} onComplete={handleCompleteOrder} onLocate={job => { onSelectJob(job.jobNumber); setActiveJobDossier(null); }} />}
+        onReassign={async (job, driverId) => { await handleReassignDriver(job, driverId); }} onEdit={openEditOrder} onComplete={handleCompleteOrder} onLocate={job => { onSelectJob(job.jobNumber); setActiveJobDossier(null); }} />}
 
       {trackingJob && slug && <OrderTrackingDialog slug={slug} orderId={trackingJob.id} orderNumber={trackingJob.jobNumber} timeZone={pricingCtx.billing.general.timeZone}
         version={jobs.find(job => job.id === trackingJob.id)?.version} onClose={() => setTrackingJob(null)}

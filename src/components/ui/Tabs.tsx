@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
-export type TabItem = { id: string; label: string; content: ReactNode; disabled?: boolean; hidden?: boolean; pageWidth?: 'reading' | 'wide' };
+export type TabItem = { id: string; label: string; content: ReactNode; disabled?: boolean; hidden?: boolean; keepMounted?: boolean; pageWidth?: 'reading' | 'wide' };
 
 /** Accessible local navigation. Mounted panels preserve drafts and navigation guards. */
 export function Tabs({ label, items, keepMounted = true, initialActiveId, hideTabList = false }: { label: string; items: TabItem[]; keepMounted?: boolean; initialActiveId?: string; hideTabList?: boolean }) {
@@ -29,7 +29,7 @@ export function Tabs({ label, items, keepMounted = true, initialActiveId, hideTa
     </div>
     {items.map(item => <div key={item.id} role={hideTabList ? 'region' : 'tabpanel'} id={`${id}-panel-${item.id}`}
       aria-label={hideTabList ? item.label : undefined} aria-labelledby={hideTabList ? undefined : `${id}-tab-${item.id}`} hidden={item.hidden || activeId !== item.id} tabIndex={0} className="space-y-5">
-      {(keepMounted || activeId === item.id) && item.content}
+      {((item.keepMounted ?? keepMounted) || activeId === item.id) && item.content}
     </div>)}
   </div>;
 }

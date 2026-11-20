@@ -5,6 +5,7 @@ import { applyCustomerDefaults, removeOrderStop, shipperLoadSize } from '../../d
 import React from 'react';
 import { Trash2, Package, MapPin, AlertTriangle, Building2, Layers, Route, Tag, ChevronDown } from 'lucide-react';
 import { PricingOrderInput, PricingPackageInput, PricingSnapshot, PricingStopInput } from '../../types/pricing';
+import type { AccessorialItem } from '../../types/simplePricing';
 import { PricingContext, resolveRateCard } from '../../lib/pricingEngine';
 import { createStop } from '../../lib/orderPricing';
 import { fromDisplayDimension, fromDisplayDistance, fromDisplayWeight, toDisplayDimension, toDisplayDistance, toDisplayWeight, Units } from '../../lib/units';
@@ -13,7 +14,7 @@ import { listedVehicleTypes, offersLoadSize, suggestVehicleType } from '../../li
 import { DateTimePicker } from '../ui/DateTimePicker';
 import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 import { ContactInput } from '../ui/ContactInput';
-import { packageHasCharge, setPackageCharge, syncPackageAccessorials, type PackageChargeCode } from '../../lib/packageAccessorials';
+import { HOLIDAY_WEEKEND_CODE, packageHasCharge, setPackageCharge, syncPackageAccessorials, type PackageChargeCode } from '../../lib/packageAccessorials';
 import { organizationTime } from '../../lib/organizationWorkflows';
 import { closedReason } from '../../lib/operatingCalendar';
 import { applyPackageType, packageTypeOptions, prefillPackageTypes } from '../../lib/packageTypes';
@@ -30,7 +31,8 @@ interface OrderPricingFormProps {
   snapshot: PricingSnapshot;
   /** Show address fields on stops (Order form). */
   showStopAddresses?: boolean;
-  /** Show the order's required vehicle type (set at booking; it decides any vehicle surcharge, never the assigned driver). */
+  /** Show the order's required vehicle type (set at booking; it decides any vehicle surcharge, never the assigned driver).
+   *  Hidden (Shipper booking): a full truckload still takes the suggested type, other load sizes book none. */
   showVehicleSelection?: boolean;
   /** New orders follow the load: the smallest fitting general vehicle type is suggested until someone picks one. */
   suggestVehicle?: boolean;
@@ -104,6 +106,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   const fields = loadFields(value.loadSize);
   const showService = !loadSizes || fields.service;
   const showVehicle = showVehicleSelection && (!loadSizes || fields.vehicle !== 'hidden');
+  /** Shipper self-service keeps the form to what the shipper knows; dispatcher hints are left out. */
+  const self = customerMode === 'self';
   /** A full truckload has no Packages section: the load fills the vehicle, and Fragile/DG come from Accessorials. */
   const fullTruck = loadSizes && !fields.packageSizes;
   const offeredVehicles = loadSizes ? activeVehicles.filter(type => offersLoadSize(type, value.loadSize)) : activeVehicles;
@@ -159,25 +163,31 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   const addStop = (type: PricingStopInput['type']) => patch({ stops: [...value.stops, createStop(type, type === 'DROPOFF' && pickups.length === 1 ? { pickupIds: [pickups[0].id] } : {})] });
 
   const suggested = suggestVehicleType(catalogue.vehicles, value.packages, loadSizes ? value.loadSize : null);
-  /** A new load size keeps the chosen vehicle type when it is offered for it; otherwise the suggestion (new orders) or none. */
-  const vehicleFor = (loadSize: LoadSize) => loadFields(loadSize).vehicle === 'hidden' ? null
-    : value.vehicleId && catalogue.vehicles.some(type => type.id === value.vehicleId && offersLoadSize(type, loadSize)) ? value.vehicleId
-    : suggestVehicle ? suggestVehicleType(catalogue.vehicles, value.packages, loadSize) : null;
+  /** A new load size keeps the chosen vehicle type when it is offered for it; otherwise the suggestion (new orders, or a hidden required type) or none. */
+  const vehicleFor = (loadSize: LoadSize) => {
+    const need = loadFields(loadSize).vehicle;
+    if (need === 'hidden' || (!showVehicleSelection && need !== 'required')) return null;
+    if (value.vehicleId && catalogue.vehicles.some(type => type.id === value.vehicleId && offersLoadSize(type, loadSize))) return value.vehicleId;
+    return suggestVehicle || !showVehicleSelection ? suggestVehicleType(catalogue.vehicles, value.packages, loadSize) : null;
+  };
   /** A new load size also brings its vehicle type and package type (see `prefillPackageTypes`). */
   const withLoadSize = (input: PricingOrderInput, loadSize: LoadSize): PricingOrderInput =>
     ({ ...input, loadSize, vehicleId: vehicleFor(loadSize), packages: prefillPackageTypes(input.packages, loadSize, catalogue.packageTypes, input.loadSize) });
   const lastSuggested = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!suggestVehicle || !showVehicle) return;
+    if (!suggestVehicle || !(showVehicle || (!showVehicleSelection && fields.vehicle === 'required'))) return;
     if ((value.vehicleId == null || value.vehicleId === lastSuggested.current) && value.vehicleId !== suggested) onChange({ ...value, vehicleId: suggested });
     lastSuggested.current = suggested;
   }, [suggestVehicle, suggested]); // eslint-disable-line react-hooks/exhaustive-deps
   const currentVehicle = activeVehicles.find((v) => v.id === value.vehicleId);
   // A full truckload line has no quantity; it is one load (the API books it as quantity 1).
   const totalWeight = fullTruck ? 0 : value.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
-  const capacityWarning = currentVehicle && totalWeight > currentVehicle.payloadCapacityKg
+  const capacityWarning = showVehicle && currentVehicle && totalWeight > currentVehicle.payloadCapacityKg
     ? `Cargo (${Math.round(toDisplayWeight(totalWeight, units))} ${units.weightUnit}) exceeds ${currentVehicle.name} payload. Choose a larger vehicle type.` : null;
-  const selectedAccessorials = activeAccessorials.filter(a => qtyOf(a.id) > 0);
+  /** Holiday / Weekend comes from the priced delivery days, so it shows as on when the price includes it. */
+  const automaticOn = (acc: AccessorialItem) => snapshot.lines.some(l => l.group === 'ACCESSORIAL' && l.label === acc.name);
+  const accessorialOn = (acc: AccessorialItem) => acc.code === HOLIDAY_WEEKEND_CODE ? automaticOn(acc) : qtyOf(acc.id) > 0;
+  const selectedAccessorials = activeAccessorials.filter(accessorialOn);
   React.useEffect(() => {
     const packages = fullTruck ? fullTruckLoad(value.packages, value.stops) : value.packages;
     const accessorials = syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials);
@@ -226,7 +236,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
           </div>}
           {serviceExtras}
         </div>
-        {fullTruck && <p className="mt-3 text-xs text-slate-500">The load fills the vehicle. Its weight and size come from the vehicle type; add Fragile or Dangerous goods under Accessorials.</p>}
+        {fullTruck && !self && <p className="mt-3 text-xs text-slate-500">The load fills the vehicle. Its weight and size come from the vehicle type; add Fragile or Dangerous goods under Accessorials.</p>}
         {capacityWarning && <p className="mt-3 p-2 rounded-lg text-xs flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200"><AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />{capacityWarning}</p>}
       </div>
 
@@ -261,7 +271,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                   <label htmlFor={`${sid}-address`} className={labelClass}>{stop.type === 'PICKUP' ? 'Pickup address' : 'Delivery address'}</label>
                   <AddressAutocomplete id={`${sid}-address`} value={stop.label ?? ''} includeCoordinates placeholder="Street, city, province, postal code" onChange={(address, selected) => updateStop(stop.id, { label: address, ...(selected ? { latitude: selected.latitude, longitude: selected.longitude, city: selected.city, provinceCode: selected.province, postalCode: selected.postalCode, countryCode: selected.country, normalizedAddress: address } : {}) })} className={`${fieldClass} w-full`} aria-label="Stop address" />
                   {unresolved && <p className="mt-1 text-xs text-amber-700">Include the province and postal code so tax can be calculated for this stop.</p>}
-                  {zonePriced && (!centralPickup || stop.type === 'DROPOFF') && !!stop.label?.trim() && <p className={`mt-1 text-xs ${stop.zoneId ? 'text-slate-500' : 'text-amber-700'}`}>{stop.zoneId ? `Pricing zone: ${pricing.zones.find(zone => zone.id === stop.zoneId)?.name ?? 'Matched'}` : 'No pricing zone matches this postal code. Add it under Pricing → Zones.'}</p>}
+                  {zonePriced && (!self || !stop.zoneId) && (!centralPickup || stop.type === 'DROPOFF') && !!stop.label?.trim() && <p className={`mt-1 text-xs ${stop.zoneId ? 'text-slate-500' : 'text-amber-700'}`}>{stop.zoneId ? `Pricing zone: ${pricing.zones.find(zone => zone.id === stop.zoneId)?.name ?? 'Matched'}` : self ? 'No delivery zone covers this postal code.' : 'No pricing zone matches this postal code. Add it under Pricing → Zones.'}</p>}
                 </div>}
                 {zonePriced && !showStopAddresses && (!centralPickup || stop.type === 'DROPOFF') && <div className="sm:col-span-2">
                   <label className={labelClass}>{centralPickup ? 'Delivery zone' : 'Zone'}</label>
@@ -330,8 +340,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
         <div className="app-package-summary">
           {pieces > 0 && snapshot.inputs.actualWeightKg > 0
             ? <span>{pieces} {pieces === 1 ? 'piece' : 'pieces'} · {weightText(snapshot.inputs.actualWeightKg)}{snapshot.inputs.dimensionalPricingEnabled && <> · dimensional {weightText(snapshot.inputs.dimensionalWeightKg)}</>}</span>
-            : <span>Enter quantity and weight for each package.</span>}
-          {weightFree ? <span>Weight doesn’t change this rate card’s price.</span>
+            : !self && <span>Enter quantity and weight for each package.</span>}
+          {self ? null : weightFree ? <span>Weight doesn’t change this rate card’s price.</span>
             : (snapshot.method === 'ZONE' || snapshot.inputs.dimensionalPricingEnabled) && snapshot.inputs.chargeableWeightKg > 0 && <span title="The larger of actual and dimensional weight is used for pricing." className="font-medium text-slate-700">Chargeable {weightText(snapshot.inputs.chargeableWeightKg)}</span>}
         </div>
       </div>}
@@ -351,11 +361,12 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
         {activeAccessorials.length === 0 ? <p className="mt-4 rounded-lg border border-slate-200 p-4 text-xs text-slate-500">No active accessorials configured.</p> : (
           <div className="mt-4 rounded-lg border border-slate-200 p-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
             {activeAccessorials.map((acc) => {
-              const on = qtyOf(acc.id) > 0;
+              const on = accessorialOn(acc);
+              const automatic = acc.code === HOLIDAY_WEEKEND_CODE;
               return (
-                <label key={acc.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 cursor-pointer select-none min-w-0">
-                  <input type="checkbox" checked={on} onChange={() => setQty(acc.id, on ? 0 : 1)} className={checkbox} />
-                  <span className="flex-1 min-w-0 truncate text-sm text-slate-800" title={acc.name}>{acc.name}</span>
+                <label key={acc.id} title={automatic ? 'Added automatically when a delivery falls on a weekend or company holiday.' : undefined} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg select-none min-w-0 ${automatic ? 'cursor-default' : 'hover:bg-slate-50 cursor-pointer'}`}>
+                  <input type="checkbox" checked={on} disabled={automatic} onChange={() => setQty(acc.id, on ? 0 : 1)} className={checkbox} />
+                  <span className="flex-1 min-w-0 truncate text-sm text-slate-800" title={acc.name}>{acc.name}{automatic && <span className="ml-1.5 text-xs text-slate-400">Auto</span>}</span>
                   <span className="shrink-0 text-sm text-slate-500 tabular-nums">${acc.rate.toFixed(2)}{!fullTruck && (acc.code === 'FRAGILE' || acc.code === 'DG') ? ' / package' : ''}</span>
                 </label>
               );

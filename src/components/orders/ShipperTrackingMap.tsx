@@ -85,7 +85,7 @@ export function ShipperTrackingMap(props: Props) {
   }, [apiKey, loaded, onError]);
   return <div className="absolute inset-0 bg-slate-100" data-map-provider="google" aria-label="Shipment map">
     {!apiKey || failed ? <p role="status" className="shipper-map-unavailable text-sm text-app-muted">Map is unavailable. Your order progress and stops are shown in the card.</p>
-      : <APIProvider apiKey={apiKey} language="en" region="CA" onLoad={onLoad} onError={onError}>
+      : <APIProvider apiKey={apiKey} language="en" onLoad={onLoad} onError={onError}>
         {!loaded && <p role="status" className="shipper-map-unavailable text-sm text-app-muted">Loading map…</p>}
         <Map defaultCenter={initialShipperCenter(props.warehouse, props.timeZone)} defaultZoom={13} maxZoom={19} isFractionalZoomEnabled
           disableDefaultUI clickableIcons={false} gestureHandling="greedy" keyboardShortcuts aria-label="Shipment map">

@@ -1,7 +1,7 @@
 import type { LoadSize } from './loadSize';
 import { scopedStorageKey } from './scopedStorage';
 import { CustomerOperations } from '../domain/operations';
-import { Discount } from '../types/pricing';
+import { Discount, PricingStopInput } from '../types/pricing';
 import { loadPricingConfig, NO_DISCOUNT } from './pricingStorage';
 
 export interface Customer extends CustomerOperations {
@@ -12,6 +12,8 @@ export interface Customer extends CustomerOperations {
   email: string;
   phone: string;
   address: string;
+  /** The API warehouse behind `address`, so a default pickup keeps its map point; absent for unlocated or browser-stored shippers. */
+  warehouse?: Pick<PricingStopInput, 'latitude' | 'longitude' | 'city' | 'provinceCode' | 'postalCode' | 'countryCode' | 'normalizedAddress'>;
   /** Legacy location text; new shippers enter one complete warehouse address. */
   city: string;
   accountType: 'Enterprise' | 'Scheduled Contract' | 'Express / On-Demand' | 'Standard Freight';

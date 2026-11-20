@@ -89,6 +89,11 @@
 /* As on the Monitor, a portal map runs beneath the floating sidebar card; its controls stay beside it. */
 .app-workspace.app-portal-map > .app-workspace-body { margin: 0; height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
 .app-workspace.app-portal-map > .app-workspace-body > header { left: var(--workspace-content-left); }
+/* Keep floating map notifications on the same right edge as map controls. */
+.app-workspace.app-portal-map > .app-workspace-body > header > .page-content { padding-right: 1.5rem; }
+@media (max-width: 767px) {
+  .app-workspace.app-portal-map > .app-workspace-body > header > .page-content { padding-right: 1rem; }
+}
 .app-workspace .app-page:not(.app-page-machine) { padding-top: clamp(24px, 6vh, 64px); }
 .app-workspace .app-page.app-page-with-header { padding-top: 20px; }
 .app-workspace .app-page-header { min-height: 64px; }

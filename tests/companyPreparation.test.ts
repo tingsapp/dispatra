@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 import { cityFromAddress } from '../src/lib/driverCity';
 import { companySlugForPath, pageForPath, pathForPage, PAGE_PATHS, RESERVED_SLUGS } from '../src/lib/pageRoutes';
 import { scopedStorageKey } from '../src/lib/scopedStorage';
-import { canonicalPortalPath, parsePortal, roleHome } from '../src/portal/PortalApp';
+import { canonicalPortalPath, loginDestination, parsePortal, roleHome } from '../src/portal/PortalApp';
 import { normalizeDriver, syncDriver } from '../src/lib/driverStorage';
 import { INITIAL_DRIVERS } from '../src/data/mockData';
 import { validateDriver } from '../src/domain/validation';
@@ -26,7 +26,7 @@ test('public, admin and company paths stay separate', () => {
   assert.equal(parsePortal('/acme/shipper/integrations'), null);
   assert.equal(parsePortal('/acme/driver/integrations'), null);
   for (const path of ['/acme/shipper', '/acme/shipper/', '/acme/shipper/profile', '/acme/shipper/tracking', '/acme/shipper/tracking/']) assert.deepEqual(parsePortal(path), { slug:'acme', portal:'customer' });
-  for (const path of ['/acme/driver', '/acme/driver/profile']) assert.deepEqual(parsePortal(path), { slug:'acme', portal:'driver' });
+  for (const path of ['/acme/driver', '/acme/driver/dashboard', '/acme/driver/orders', '/acme/driver/orders/', '/acme/driver/profile']) assert.deepEqual(parsePortal(path), { slug:'acme', portal:'driver' });
   for (const path of ['/acme/shipper-portal', '/acme/shipper/payment-methods', '/acme/driver/unknown', '/acme/driver/tracking', '/acme/tracking', '/acme/customer']) assert.equal(parsePortal(path), null);
 });
 
@@ -37,10 +37,12 @@ test('singular portals never collide with plural dispatcher pages, and reserved 
 
 test('old portal links redirect to the clean paths and each role has one home', () => {
   const cases: [string, string | undefined][] = [['/acme/shipper-portal', '/acme/shipper'], ['/acme/shipper-portal/orders/', '/acme/shipper'], ['/acme/shipper-portal/invoices', '/acme/shipper'], ['/acme/shipper/invoices', '/acme/shipper'],
-    ['/acme/shipper-portal/settings', '/acme/shipper/profile'], ['/acme/shipper-portal/payment-methods', '/acme/shipper'], ['/acme/shipper/orders', '/acme/shipper'], ['/acme/driver/orders', '/acme/driver'],
+    ['/acme/shipper-portal/settings', '/acme/shipper/profile'], ['/acme/shipper-portal/payment-methods', '/acme/shipper'], ['/acme/shipper/orders', '/acme/shipper'],
     ['/acme/customer/login', '/acme/shipper'], ['/acme/dispatch', '/acme/'], ['/acme/dispatch/settings', '/acme/profile'], ['/acme/shipper', undefined], ['/acme/orders', undefined], ['/admin', undefined]];
   for (const [path, next] of cases) assert.equal(canonicalPortalPath(path), next, path);
   assert.deepEqual(['DISPATCHER', 'SHIPPER', 'DRIVER'].map(role => roleHome('acme', role)), ['/acme/', '/acme/shipper', '/acme/driver']);
+  assert.equal(canonicalPortalPath('/acme/driver/orders'), undefined, 'Orders is now a reloadable page');
+  assert.equal(loginDestination({ role: 'DRIVER', organization: { slug: 'acme' } } as never, '/acme/driver/orders'), '/acme/driver', 'sign-in lands on the dashboard');
 });
 
 test('local demo keys are company-scoped and never inherit old global records', () => {

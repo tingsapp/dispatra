@@ -36,10 +36,10 @@ function SavedDispatchPlanningSettings({ workspace }: { workspace: NonNullable<R
   return <section className="space-y-4 mt-8" aria-labelledby="dispatch-planning-heading">
     <h2 id="dispatch-planning-heading" className="app-section-title">Dispatch planning</h2>
     <p className="text-sm text-slate-500">Orders are grouped by area and balanced by each driver’s workload.</p>
-    <p className="text-sm text-slate-500">Optional zones use postal prefixes like V5Y. Other addresses are grouped automatically. Zones don’t affect price.</p>
+    <p className="text-sm text-slate-500">Optional zones use postal prefixes like V5Y or ZIP prefixes like 981. Other addresses are grouped automatically. Zones don’t affect price.</p>
     {zones.map((zone,index) => <fieldset key={index} disabled={busy} className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
       <input aria-label={`Zone ${index+1} name`} className="app-input" placeholder="Zone name" value={zone.name} onChange={e=>edit(zones.map((z,i)=>i===index?{...z,name:e.target.value}:z))} />
-      <input aria-label={`Zone ${index+1} postal prefixes`} className="app-input" placeholder="V5Y, V5Z" value={zone.postal_codes.join(', ')} onChange={e=>edit(zones.map((z,i)=>i===index?{...z,postal_codes:e.target.value.split(',').map(v=>v.trim().toUpperCase())}:z))} />
+      <input aria-label={`Zone ${index+1} postal prefixes`} className="app-input" placeholder="V5Y, V5Z or 981, 98101" value={zone.postal_codes.join(', ')} onChange={e=>edit(zones.map((z,i)=>i===index?{...z,postal_codes:e.target.value.split(',').map(v=>v.trim().toUpperCase())}:z))} />
       <Button type="button" variant="outline" onClick={()=>edit(zones.filter((_,i)=>i!==index))}>Remove zone</Button>
     </fieldset>)}
     <div className="flex gap-3 flex-wrap"><Button type="button" variant="outline" disabled={busy || zones.length>=100} onClick={()=>edit([...zones,{name:'',postal_codes:[]}])}>Add dispatch zone</Button><Button loading={busy} type="button" disabled={busy || !dirty} onClick={save}>{busy?'Saving…':'Save dispatch planning'}</Button></div>

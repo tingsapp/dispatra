@@ -567,25 +567,25 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <DialogHeader onClose={() => setIsModalOpen(false)} title={editingCustomer ? 'Edit Shipper' : 'New Shipper'} />
           <DialogBody className="space-y-5">
             <form id="shipper-form" onSubmit={handleSaveCustomer} className="space-y-5">
-              <FormSection title="Shipper">
+              <FormSection title="Shipper" description="The email is the portal login and receives quotes and updates.">
                 <label className="block"><span className="app-label">Shipper name</span><input type="text" required placeholder="e.g. Alex Morgan" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="app-input w-full" /></label>
                 <div><span className="app-label">Shipper type</span><Select aria-label="Shipper type" className="w-full" value={formData.customerType ?? 'BUSINESS'} onValueChange={(v) => setFormData({ ...formData, customerType: v as Customer['customerType'] })} options={[{ value: 'BUSINESS', label: 'Business' }, { value: 'INDIVIDUAL', label: 'Individual' }]} /></div>
                 {formData.customerType !== 'INDIVIDUAL' && <label className="block sm:col-span-2"><span className="app-label">Company name</span><input type="text" required placeholder="e.g. Pacific Fresh Logistics" value={formData.legalName || ''} onChange={(e) => setFormData({ ...formData, legalName: e.target.value })} className="app-input w-full" /></label>}
                 <label className="block"><span className="app-label">Phone</span><ContactInput type="tel" placeholder="(604) 555-0100" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="app-input w-full" /></label>
-                <label className="block"><span className="app-label">Email</span><ContactInput type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /><span className="mt-1 block text-xs text-slate-500">Portal login, quotes & updates.</span></label>
+                <label className="block"><span className="app-label">Email</span><ContactInput type="email" placeholder="logistics@company.ca" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="app-input w-full" required /></label>
                 {editingCustomer && <div><span className="app-label">Status</span><Select aria-label="Shipper status" className="w-full" value={formData.status || 'Active'} onValueChange={(v) => setFormData({ ...formData, status: v as Customer['status'] })} options={[{ value: 'Active', label: 'Active' }, { value: 'On Hold', label: 'On Hold' }, { value: 'Inactive', label: 'Inactive' }]} /></div>}
               </FormSection>
 
-              <FormSection title="Location">
-                <div className="sm:col-span-2"><label htmlFor="shipper-warehouse-address" className="app-label">Warehouse Address</label><AddressAutocomplete id="shipper-warehouse-address" aria-label="Warehouse Address" placeholder="e.g. 1420 Derwent Way, Delta, BC V3M 6M7" value={formData.address || ''} includeCoordinates onChange={(address, selected) => { setFormData(current => ({ ...current, address })); setWarehouseCoordinates(selected); }} className="app-input w-full" /><span className="mt-1 block text-xs text-slate-500">Default pickup: street, city, province & postal code.</span></div>
+              <FormSection title="Location" description="Default pickup address for this shipper’s orders.">
+                <div className="sm:col-span-2"><label htmlFor="shipper-warehouse-address" className="app-label">Warehouse Address</label><AddressAutocomplete id="shipper-warehouse-address" aria-label="Warehouse Address" placeholder="e.g. 1420 Derwent Way, Delta, BC V3M 6M7" value={formData.address || ''} includeCoordinates onChange={(address, selected) => { setFormData(current => ({ ...current, address })); setWarehouseCoordinates(selected); }} className="app-input w-full" /></div>
               </FormSection>
 
-              <FormSection title="Billing">
-                <div className="sm:col-span-2"><span className="app-label">Rate cards</span><MultiSelect aria-label="Shipper rate cards" className="w-full" value={chosenCardIds} onValueChange={(picked) => { const ids = withDefaultCard(pickCards(picked), chosenCardIds[0]); setFormData({ ...formData, rateCardIds: ids, rateCardId: ids[0] ?? null }); }} options={cardGroups} /><span className="mt-1 block text-xs text-slate-500">Pick up to one card under each load size; each order uses the card for its size. Set a card's load size in Settings → Rate Cards.</span></div>
-                {chosenCardIds.length > 1 && <div className="sm:col-span-2"><span className="app-label">Default rate card</span><Select aria-label="Default rate card" className="w-full" value={chosenCardIds[0]} onValueChange={(id) => { const ids = withDefaultCard(chosenCardIds, id); setFormData({ ...formData, rateCardIds: ids, rateCardId: ids[0] ?? null }); }} options={chosenCardIds.map(id => ({ value: id, label: `${cardName(id) ?? defaultCardName} (${cardSize(id)})` }))} /><span className="mt-1 block text-xs text-slate-500">Prices load sizes without their own card. Editable per order.</span></div>}
+              <FormSection title="Billing" description={chosenCardIds.length > 1 ? 'One rate card per load size. The default prices any other size and can be changed per order.' : 'One rate card per load size. Set a card’s size in Settings → Rate Cards.'}>
+                <div className="sm:col-span-2"><span className="app-label">Rate cards</span><MultiSelect aria-label="Shipper rate cards" className="w-full" value={chosenCardIds} onValueChange={(picked) => { const ids = withDefaultCard(pickCards(picked), chosenCardIds[0]); setFormData({ ...formData, rateCardIds: ids, rateCardId: ids[0] ?? null }); }} options={cardGroups} /></div>
+                {chosenCardIds.length > 1 && <div className="sm:col-span-2"><span className="app-label">Default rate card</span><Select aria-label="Default rate card" className="w-full" value={chosenCardIds[0]} onValueChange={(id) => { const ids = withDefaultCard(chosenCardIds, id); setFormData({ ...formData, rateCardIds: ids, rateCardId: ids[0] ?? null }); }} options={chosenCardIds.map(id => ({ value: id, label: `${cardName(id) ?? defaultCardName} (${cardSize(id)})` }))} /></div>}
               </FormSection>
 
-              <FormSection title="Driver assignment">
+              <FormSection title="Driver assignment" description="New orders go to this driver; auto dispatch waits until they’re available.">
                 <div className="sm:col-span-2">
                   <span className="app-label">Assigned driver</span>
                   <Select aria-label="Assigned driver" className="w-full" value={formData.assignedDriverId ?? ''}
@@ -594,21 +594,18 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                     options={[{ value: '', label: 'No assigned driver' }, ...driverOptions,
                       ...(formData.assignedDriverId && !driverOptions.some(d => d.value === formData.assignedDriverId)
                         ? [{ value: formData.assignedDriverId, label: `${formData.assignedDriverName ?? 'Saved driver'} (unavailable)` }] : [])]} />
-                  <p className="mt-1 text-xs text-slate-500">Required for new orders; auto dispatch waits for availability. Existing orders stay unchanged.</p>
                   {slug && driverQuery.isPending && <p role="status" className="mt-1 text-xs text-slate-500">Loading drivers…</p>}
                   {slug && driverQuery.error && <p role="alert" className="mt-1 text-xs text-rose-700">Could not load drivers. <ActionButton type="button" className="underline" onClick={() => driverQuery.refetch()}>Retry</ActionButton></p>}
                 </div>
               </FormSection>
 
-              <section aria-label="Discount" className="space-y-3">
-                <h4 className="app-section-title">Discount</h4>
-                <DiscountEditor value={formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount} onChange={discount => setFormData({ ...formData, discount })} />
-              </section>
+              <FormSection title="Discount" description="Applies to freight, service charge, minimum and vehicle surcharge. Never to fuel, accessorials, fees or tax.">
+                <div className="sm:col-span-2"><DiscountEditor value={formData.discount ?? EMPTY_PRICING_RELATIONSHIP.discount} onChange={discount => setFormData({ ...formData, discount })} /></div>
+              </FormSection>
 
-              <section className="space-y-3">
-                <h4 className="app-section-title">Instructions</h4>
-                <label className="block"><span className="app-label">Pickup & delivery notes</span><textarea rows={3} placeholder="Gate access, paperwork or receiving details…" value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="app-input w-full" /></label>
-              </section>
+              <FormSection title="Instructions">
+                <label className="block sm:col-span-2"><span className="app-label">Pickup & delivery notes</span><textarea rows={3} placeholder="Gate access, paperwork or receiving details…" value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="app-input w-full" /></label>
+              </FormSection>
             </form>
             {slug && editingCustomer && <DirectoryPasswordForm key={editingCustomer.id} slug={slug} kind="shipper" record={shipperQuery.data?.find(row => row.id === editingCustomer.id)} />}
           </DialogBody>

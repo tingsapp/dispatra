@@ -1,19 +1,32 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquare } from 'lucide-react';
 import { Dialog, DialogBody, DialogHeader } from '../components/ui/Dialog';
 import { useEntityDialog } from '../components/entities/useEntityDialog';
 import { api, type OperationalQuestion, type OperationalReply } from './api';
+import { DriverChoiceBadges } from './DriverChoiceBadges';
 import { Button, Field, Notice } from './ui';
 
 type Draft = { reason: OperationalReply['reason'] | ''; details: string; minutes: string };
 type ReplySession = { draft: Draft; attempt?: { signature: string; body: OperationalReply; key: string } };
 const questionKey = (question: OperationalQuestion) => `${question.id}:${question.version}`;
 
-function QuestionReply({ slug, question, session, position, total, onPrevious, onNext, onClose }: {
+function ReplySurface({ inline, title, busy, onClose, children }: { inline: boolean; title: string; busy: boolean; onClose: () => void; children: ReactNode }) {
+  if (inline) return <section aria-label={title} className="mt-3 space-y-4 rounded-xl border border-app-border bg-white p-4">
+    <div className="flex items-start justify-between gap-2"><h3 className="text-sm font-medium">{title}</h3><Button type="button" size="sm" variant="outline" disabled={busy} onClick={onClose}>Close</Button></div>
+    <p className="text-sm text-app-muted">Send an update when you are safely stopped.</p>
+    {children}
+  </section>;
+  return createPortal(<Dialog size="form" onClose={onClose}>
+    <DialogHeader title={title} description="Send an update when you are safely stopped." onClose={onClose} closeDisabled={busy} />
+    <DialogBody className="overscroll-contain">{children}</DialogBody>
+  </Dialog>, document.body);
+}
+
+function QuestionReply({ slug, question, session, position, total, onPrevious, onNext, onClose, inline }: {
   slug: string; question: OperationalQuestion; session: ReplySession; position: number; total: number;
-  onPrevious: () => void; onNext: () => void; onClose: () => void;
+  onPrevious: () => void; onNext: () => void; onClose: () => void; inline: boolean;
 }) {
   const [draft, setDraft] = useState(session.draft);
   const { reason, details, minutes } = draft;
@@ -34,6 +47,7 @@ function QuestionReply({ slug, question, session, position, total, onPrevious, o
   } });
   const close = () => { if (!reply.isPending) onClose(); };
   useEffect(() => {
+    if (inline) return;
     const root = document.getElementById('root');
     const canvas = document.querySelector<HTMLElement>('.app-page');
     const wasInert = root?.inert ?? false;
@@ -44,11 +58,9 @@ function QuestionReply({ slug, question, session, position, total, onPrevious, o
       if (root) root.inert = wasInert;
       if (canvas) canvas.style.overflow = overflow;
     };
-  }, []);
-  useEntityDialog(true, close, `${question.order_number} · Progress update`);
-  return createPortal(<Dialog size="form" onClose={close}>
-    <DialogHeader title={`${question.order_number} · Progress update`} description="Send an update when you are safely stopped." onClose={close} closeDisabled={reply.isPending} />
-    <DialogBody className="overscroll-contain">
+  }, [inline]);
+  useEntityDialog(!inline, close, `${question.order_number} · Progress update`);
+  return <ReplySurface inline={inline} title={`${question.order_number} · Progress update`} busy={reply.isPending} onClose={close}>
       <div className="mb-5 flex items-center justify-between gap-3">
         <p className="text-xs text-app-muted" aria-live="polite">Request {position + 1} of {total}</p>
         {total > 1 && <div className="flex gap-2">
@@ -58,18 +70,15 @@ function QuestionReply({ slug, question, session, position, total, onPrevious, o
       </div>
       <form onSubmit={event => { event.preventDefault(); reply.mutate(); }} className="space-y-4">
         <p className="text-sm text-app-muted">{question.prompt}</p>
-        <fieldset disabled={reply.isPending} className="flex flex-wrap gap-2"><legend className="mb-2 text-sm font-medium">What is happening?</legend>
-          {question.choices.map(choice => <Button key={choice.value} type="button" size="sm" variant={reason === choice.value ? 'default' : 'outline'} aria-pressed={reason === choice.value} onClick={() => update({ reason: choice.value })}>{choice.label}</Button>)}
-        </fieldset>
+        <DriverChoiceBadges choices={question.choices} value={reason} disabled={reply.isPending} onSelect={reason => update({ reason })} />
         <Field label="Additional details" value={details} maxLength={1000} onChange={event => update({ details: event.target.value })} disabled={reply.isPending} />
         <Field label="Expected ready in minutes (optional)" type="number" min={1} max={1440} step={1} value={minutes} onChange={event => update({ minutes: event.target.value })} disabled={reply.isPending} />
         <Notice error={reply.error} /><Button loading={reply.isPending} type="submit" disabled={reply.isPending || !reason || (reason === 'OTHER' && details.trim().length < 3)}>{reply.isPending ? 'Sending update…' : 'Send progress update'}</Button>
       </form>
-    </DialogBody>
-  </Dialog>, document.body);
+  </ReplySurface>;
 }
 
-export function DriverQuestions({ slug, driverId }: { slug: string; driverId: string }) {
+export function DriverQuestions({ slug, driverId, inline = false, compact = false }: { slug: string; driverId: string; inline?: boolean; compact?: boolean }) {
   const query = useQuery({ queryKey: ['driver-operational-questions', slug, driverId], queryFn: () => api.driverOperationalQuestions(slug), refetchInterval: 15_000 });
   const [selected, setSelected] = useState<string | null>(null);
   // Keep drafts and retry identities through Previous/Next and closing/reopening the popup.
@@ -94,15 +103,19 @@ export function DriverQuestions({ slug, driverId }: { slug: string; driverId: st
   if (selected !== null && query.isSuccess && questions.length === 0) setSelected(null);
   return <>
     <Notice error={query.error} />
-    {!!questions.length && <section aria-label="Supervisor agent questions" className="flex flex-wrap items-center gap-3 rounded-xl border border-app-border bg-white px-4 py-3">
+    {!!questions.length && (compact
+      ? <Button ref={reviewButton} type="button" size="sm" variant="outline" aria-label="Review updates" onClick={() => setSelected(questions[0].id)}>
+        <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />Review updates ({questions.length})
+      </Button>
+      : <section aria-label="Supervisor agent questions" className="flex flex-wrap items-center gap-3 rounded-xl border border-app-border bg-white px-4 py-3">
       <MessageSquare className="h-5 w-5 shrink-0 text-app-muted" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <h2 className="text-sm font-medium">Progress updates requested</h2>
         <p className="mt-0.5 text-xs text-app-muted">{questions.length} pending {questions.length === 1 ? 'request' : 'requests'} · {orderCount} {orderCount === 1 ? 'order' : 'orders'}</p>
       </div>
       <Button ref={reviewButton} type="button" size="sm" variant="outline" onClick={() => setSelected(questions[0].id)}>Review updates</Button>
-    </section>}
-    {current && session && <QuestionReply key={questionKey(current)} slug={slug} question={current} session={session} position={position} total={questions.length}
+    </section>)}
+    {current && session && <QuestionReply key={questionKey(current)} slug={slug} question={current} session={session} position={position} total={questions.length} inline={inline}
       onPrevious={() => setSelected(questions[position - 1].id)} onNext={() => setSelected(questions[position + 1].id)} onClose={() => setSelected(null)} />}
   </>;
 }

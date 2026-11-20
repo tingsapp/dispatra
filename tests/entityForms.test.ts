@@ -37,7 +37,7 @@ test('new drivers get the next background driver number; the form has no number 
   assert.equal(screen.queryByRole('button',{name:/^Shift end date:/}),null);
   assert.equal(screen.queryByLabelText('Maximum route work (minutes)'),null);
   assert.equal(screen.queryByText('Dispatch availability'),null);
-  const dg=screen.getByRole('checkbox',{name:/Qualified to handle dangerous goods/}) as HTMLInputElement;
+  const dg=screen.getByRole('checkbox',{name:/Certified for dangerous goods/}) as HTMLInputElement;
   assert.equal(dg.checked,false);
   const address=screen.getByRole('combobox',{name:'Address'}) as HTMLInputElement; assert.equal(address.required,true);
   await user.type(screen.getByLabelText('Driver name'),'New Driver'); await user.type(screen.getByLabelText('Phone'),'604-555-0199'); await user.type(screen.getByLabelText('Email'),'driver@example.ca');
@@ -64,7 +64,7 @@ test('driver form: contact and assignment edits preserve saved scheduling withou
   const user=userEvent.setup({document}); let saved:any;
   const driver=normalizeDriver({...INITIAL_DRIVERS[0],employmentType:'CONTRACTOR',shiftStart:'2026-10-20T15:00:00Z',shiftEnd:'2026-10-20T23:00:00Z',maximumWorkMinutes:420,currentVehicleId:null,serviceAreaIds:['Vancouver','Burnaby'],skills:['Furniture','DG']});
   render(React.createElement(DriverEditor,{driver,drivers:[driver],onSave:d=>saved=d,onCancel:()=>{}}));
-  const dg=screen.getByRole('checkbox',{name:/Qualified to handle dangerous goods/}) as HTMLInputElement;
+  const dg=screen.getByRole('checkbox',{name:/Certified for dangerous goods/}) as HTMLInputElement;
   assert.equal(dg.checked,true); await user.click(dg);
   await user.clear(screen.getByLabelText('Email')); await user.type(screen.getByLabelText('Email'),'driver@example.test');
   assert.equal(screen.queryByLabelText(/Service areas/),null);
@@ -135,7 +135,7 @@ test('Shipper rate cards are a multi-select with one card per load size, and ord
   assert.deepEqual(saved.rateCardIds,['rc_pacific_fresh','rc_nordic_direct']);
   assert.ok(within(screen.getByRole('row',{name:/Pacific Fresh Logistics/})).getByText('Zone to zone (LTL), Fixed per delivery (FTL)'));
   const {customerToShipper}=await import('../src/operations/adapters');
-  assert.deepEqual(customerToShipper({...saved,address:'100 Main St, Vancouver, BC V6A 2S5'}).rate_card_ids,['rc_pacific_fresh','rc_nordic_direct']);
+  assert.deepEqual(customerToShipper({...saved,address:'100 Main St, Vancouver, BC V6A 2S5'},undefined,{latitude:49.28,longitude:-123.1}).rate_card_ids,['rc_pacific_fresh','rc_nordic_direct']);
   const {resolveRateCard}=await import('../src/lib/pricingEngine');
   const ctx=loadPricingContext();const order={...createDefaultOrderInput(ctx),customerId:'cust-1'};
   assert.equal(resolveRateCard({...order,loadSize:'FTL'},ctx).card?.id,'rc_nordic_direct');
@@ -152,14 +152,14 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
   assert.equal(screen.queryByText('Credit card'),null); assert.equal(screen.queryByRole('button',{name:'Add credit card'}),null);
   assert.equal(screen.queryByLabelText(/Card number|Expiry|CVC/i),null);
   const address=screen.getByLabelText('Warehouse Address') as HTMLInputElement;
-  assert.match(address.parentElement!.textContent!,/street, city, province & postal code/i);
+  assert.ok(address.closest('section')!.textContent!.includes('Default pickup address for this shipper’s orders.'));
   assert.ok(screen.getByRole('textbox',{name:'Shipper name'}));
   assert.ok(screen.getByRole('textbox',{name:'Company name'}));
   assert.equal(screen.queryByRole('textbox',{name:'Contact name'}),null);
   await user.type(screen.getByRole('textbox',{name:'Shipper name'}),'Warehouse Shipper');
   await user.type(screen.getByRole('textbox',{name:'Company name'}),'Warehouse Logistics Ltd');
   await user.type(address,'100 Main St, Vancouver, BC V6A 2S5');
-  await user.type(screen.getByRole('textbox',{name:/^Email /}),'warehouse@example.ca');
+  await user.type(screen.getByRole('textbox',{name:'Email'}),'warehouse@example.ca');
   await user.click(screen.getByRole('combobox',{name:'Assigned driver'}));
   await user.click(screen.getByRole('option',{name:new RegExp(INITIAL_DRIVERS[0].name)}));
   await user.click(screen.getByRole('button',{name:'Create Shipper'}));
@@ -169,7 +169,7 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
   assert.equal(shipper.contactName,'Warehouse Shipper');
   assert.equal(shipper.communicationPreferences?.email,true);
   const {customerToShipper}=await import('../src/operations/adapters');
-  assert.equal(customerToShipper(shipper).email_updates,true);
+  assert.equal(customerToShipper(shipper,undefined,{latitude:49.28,longitude:-123.1}).email_updates,true);
   assert.equal(shipper.city,'');
   assert.equal(shipper.assignedDriverId,INITIAL_DRIVERS[0].id);
   await user.click(within(screen.getByRole('row',{name:/Warehouse Shipper/})).getByTitle('Edit shipper account'));
@@ -189,7 +189,7 @@ test('Shipper form saves one complete warehouse address with no Service Area inp
   assert.ok(screen.getByRole('textbox',{name:'Shipper name'}));
   assert.equal(screen.queryByRole('textbox',{name:'Company name'}),null);
   await user.type(screen.getByRole('textbox',{name:'Shipper name'}),'Alex Morgan');
-  await user.type(screen.getByRole('textbox',{name:/^Email /}),'alex@example.ca');
+  await user.type(screen.getByRole('textbox',{name:'Email'}),'alex@example.ca');
   await user.click(screen.getByRole('button',{name:'Create Shipper'}));
   const individual=loadCustomers().find(customer=>customer.name==='Alex Morgan')!;
   assert.equal(individual.customerType,'INDIVIDUAL');
@@ -424,11 +424,27 @@ test('postal-code zone matching uses configured FSAs without guessing ambiguous 
   assert.equal(zoneForAddress('No postal code', zones), null);
 });
 
-test('zone postal input canonicalizes full Canadian codes and flags invalid areas', async()=>{
+test('zone postal input canonicalizes full Canadian codes and US ZIPs and flags invalid areas', async()=>{
   const { parseZonePostalCodes, hasInvalidZonePostalCodes } = await import('../src/lib/zonePostalCodes');
-  const areas = parseZonePostalCodes('v6a 1e9, V5Y');
-  assert.deepEqual(areas, ['V6A', 'V5Y']);
-  assert.equal(hasInvalidZonePostalCodes(parseZonePostalCodes('not a postal code')), true);
+  const areas = parseZonePostalCodes('v6a 1e9, V5Y, 981, 98101-1234');
+  assert.deepEqual(areas, ['V6A', 'V5Y', '981', '98101']);
+  assert.equal(hasInvalidZonePostalCodes(areas), false);
+  assert.equal(hasInvalidZonePostalCodes(parseZonePostalCodes('not a postal code, 9810')), true);
+});
+
+test('US ZIP areas match stops and the longest matching area wins', async()=>{
+  const { zoneForAddress } = await import('../src/lib/zoneAddress');
+  const zones = [{ id: 'seattle', code: 'SEA', name: 'Seattle', postalCodes: ['981'] }, { id: 'downtown', code: 'DT', name: 'Downtown', postalCodes: ['98101'] }];
+  assert.equal(zoneForAddress('400 Pine St, Seattle, WA 98101, USA', zones), 'downtown');
+  assert.equal(zoneForAddress('400 Broad St, Seattle, WA 98109', zones), 'seattle');
+  assert.equal(zoneForAddress('1 Main St, Portland, OR 97201', zones), null);
+});
+
+test('driver city parsing reads Canadian and US addresses', async()=>{
+  const { cityFromAddress } = await import('../src/lib/driverCity');
+  assert.equal(cityFromAddress('600 W 12th Ave, Vancouver, BC V5Z 1M9, Canada'), 'Vancouver');
+  assert.equal(cityFromAddress('100 Washington Ave, Vancouver, WA 98660, USA'), 'Vancouver');
+  assert.equal(cityFromAddress('1600 Pennsylvania Ave NW, Washington, DC 20500'), 'Washington');
 });
 
 test('zone-priced orders infer destination zones from postal codes without zone selectors', async()=>{
@@ -616,7 +632,7 @@ test('shipper standing assignment round-trips and becomes a booking constraint',
   const {shipperToCustomer,customerToShipper}=await import('../src/operations/adapters');
   const {applyCustomerDefaults}=await import('../src/domain/orderAdapters');
   const {shipperAssignment}=await import('../src/operations/shipperAssignment');
-  const row:any={id:'s1',number:'S1',name:'Shipper',kind:'INDIVIDUAL',company_name:'',email:'s@example.ca',phone:'',warehouse:{text:'100 Main St, Vancouver, BC V6A 2S5',city:'Vancouver',province:'BC',postal_code:'V6A 2S5',country:'CA'},status:'ACTIVE',rate_card_id:null,discount:{kind:'NONE',value:0},instructions:'',created_at:'2026-10-15',assigned_driver_id:'d1',assigned_driver_name:'Dana'};
+  const row:any={id:'s1',number:'S1',name:'Shipper',kind:'INDIVIDUAL',company_name:'',email:'s@example.ca',phone:'',warehouse:{text:'100 Main St, Vancouver, BC V6A 2S5',city:'Vancouver',province:'BC',postal_code:'V6A 2S5',country:'CA',latitude:49.28,longitude:-123.1},status:'ACTIVE',rate_card_id:null,discount:{kind:'NONE',value:0},instructions:'',created_at:'2026-10-15',assigned_driver_id:'d1',assigned_driver_name:'Dana'};
   const shipper=shipperToCustomer(row);
   assert.equal(customerToShipper(shipper,row).assigned_driver_id,'d1');
   assert.equal(customerToShipper({...shipper,assignedDriverId:null},row).assigned_driver_id,null);
@@ -628,16 +644,21 @@ test('shipper standing assignment round-trips and becomes a booking constraint',
   assert.deepEqual(shipperAssignment({booking:{assigned_driver:{id:'d1',name:'Dana'}}}),{id:'d1',name:'Dana'});
   assert.equal(shipperAssignment({booking:{assigned_driver:{id:3,name:'invalid'}}}),null);
 });
-test('driver form helper checkbox saves a 2-person team and unchecking returns to 1', async()=>{
+test('driver Qualifications card checks load sizes and DG; the last size stays checked, the helper checkbox is gone and the crew size is kept', async()=>{
   const user=userEvent.setup({document}); let saved:any;
-  const driver=normalizeDriver({...INITIAL_DRIVERS[0],currentVehicleId:null,email:'driver@example.ca',address:'100 Main St, Vancouver, BC V6A 2S5'});
+  const driver=normalizeDriver({...INITIAL_DRIVERS[0],currentVehicleId:null,email:'driver@example.ca',address:'100 Main St, Vancouver, BC V6A 2S5',crewSize:2,skills:[]});
   render(React.createElement(DriverEditor,{driver,drivers:[driver],onSave:d=>saved=d,onCancel:()=>{}}));
-  const helper=screen.getByRole('checkbox',{name:/Works with a helper/}) as HTMLInputElement;
-  assert.equal(helper.checked,false);
-  await user.click(helper);
+  assert.equal(screen.queryByRole('checkbox',{name:/Works with a helper/}),null);
+  assert.ok(screen.getByRole('heading',{name:'Qualifications'}));
+  const boxes=within(screen.getByRole('group',{name:'Qualifications'})).getAllByRole('checkbox') as HTMLInputElement[];
+  assert.deepEqual(boxes.map(box=>[box.labels?.[0]?.textContent,box.checked]),[['Drives full truckloads (FTL)',true],['Takes less than truckload (LTL) shipments',true],['Delivers small parcels',true],['Certified for dangerous goods (DG)',false]]);
+  const sizes=boxes.slice(0,3);
+  await user.click(sizes[0]); await user.click(sizes[2]);
+  assert.equal(sizes[1].checked,true); assert.equal(sizes[1].disabled,true,'The only remaining size cannot be cleared');
+  await user.click(sizes[2]); assert.equal(sizes[1].disabled,false);
+  await user.click(boxes[3]);
   await user.click(screen.getByRole('button',{name:'Save driver'}));
-  assert.equal(saved.crewSize,2);
-  await user.click(helper);
-  await user.click(screen.getByRole('button',{name:'Save driver'}));
-  assert.equal(saved.crewSize,1);
+  assert.deepEqual(saved.loadSizes,['LTL','SMALL_PARCEL']); assert.deepEqual(saved.skills,['DG']); assert.equal(saved.crewSize,2);
+  const {driverFromUi}=await import('../src/operations/adapters');
+  assert.deepEqual(driverFromUi(saved).load_sizes,['LTL','SMALL_PARCEL']);
 });

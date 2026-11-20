@@ -318,7 +318,7 @@ export function GoogleMonitorMap(props: GoogleMonitorMapProps) {
   </div>;
   const { mode, labels } = props.layerConfig;
   return <div className="absolute inset-0 bg-slate-100" data-map-provider="google">
-    <APIProvider apiKey={apiKey} language="en" region="CA" onError={() => setError(true)}>
+    <APIProvider apiKey={apiKey} language="en" onError={() => setError(true)}>
       <Map defaultCenter={MONITOR_CAMERA.center} defaultZoom={MONITOR_CAMERA.zoom} minZoom={4} maxZoom={19}
         mapTypeId={mode === 'map' ? 'roadmap' : labels ? 'hybrid' : 'satellite'}
         styles={mode === 'map' && !labels ? NO_LABELS : undefined}

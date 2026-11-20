@@ -15,7 +15,7 @@ const MIN_QUERY_LENGTH = 6;
 const SEARCH_DELAY_MS = 600;
 
 /**
- * A normal text field with optional Google Places suggestions. Only predictions that resolve to a full Canadian
+ * A normal text field with optional Google Places suggestions. Only predictions that resolve to a full Canada/US
  * street address are listed, so a selection is already complete. Manual entry always remains available.
  */
 export function AddressAutocomplete({ value, onChange, includeCoordinates = false, className = 'app-input w-full', ...inputProps }: Props) {
@@ -48,7 +48,7 @@ export function AddressAutocomplete({ value, onChange, includeCoordinates = fals
         const result = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
           input: query.trim(),
           sessionToken: tokenRef.current,
-          includedRegionCodes: ['ca'],
+          includedRegionCodes: ['ca', 'us'],
           language: 'en',
         });
         if (requestId !== requestRef.current) return;
@@ -136,7 +136,7 @@ export function AddressAutocomplete({ value, onChange, includeCoordinates = fals
         if (event.key === 'Enter' && activeIndex >= 0) { event.preventDefault(); select(suggestions[activeIndex]); }
       }} />
     {status === 'unavailable' && <span role="status" className="mt-1 block text-xs text-slate-500">Address search unavailable. You can enter the address manually.</span>}
-    {status === 'empty' && open && <span role="status" className="mt-1 block text-xs text-slate-500">No complete street address matches yet. Include the street number, or type the full address with city, province and postal code.</span>}
+    {status === 'empty' && open && <span role="status" className="mt-1 block text-xs text-slate-500">No complete street address matches yet. Include the street number, or type the full address with city, province or state, and postal or ZIP code.</span>}
     {status === 'loading' && <span role="status" className="sr-only">Searching addresses…</span>}
     {open && suggestions.length > 0 && placement && createPortal(
       <div ref={listRef} id={listId} role="listbox" aria-label="Address suggestions"

@@ -21,7 +21,7 @@ function useBillingDraft(editor: ReturnType<typeof useSettingsDraft>) {
     editor.patch({
       gst_enabled: next.companyTax.enabled, gst_percent: next.companyTax.ratePercent == null ? '' : String(next.companyTax.ratePercent),
       provincial_enabled: next.companyTax.provincialEnabled, provincial_percent: next.companyTax.provincialRatePercent == null ? '' : String(next.companyTax.provincialRatePercent),
-      time_zone: next.general.timeZone!, distance_unit: next.general.distanceUnit, weight_unit: next.general.weightUnit, dimension_unit: next.general.dimensionUnit,
+      currency: next.quoteSettings.currency, time_zone: next.general.timeZone!, distance_unit: next.general.distanceUnit, weight_unit: next.general.weightUnit, dimension_unit: next.general.dimensionUnit,
     });
   };
   return { config, patch };

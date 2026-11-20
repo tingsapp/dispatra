@@ -229,6 +229,20 @@ for (const kind of ['select', 'menu', 'calendar'] as const) {
   });
 }
 
+test('a menu opened on pointerdown stays open when the same press ends as a click on the page root', async () => {
+  const { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } = await import('../src/components/ui/DropdownMenu');
+  let selected = 0;
+  render(<><div>Outside target</div><DropdownMenu><DropdownMenuTrigger>Assign Driver</DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={() => { selected++; }}>Driver One</DropdownMenuItem></DropdownMenuContent></DropdownMenu></>);
+  const user = userEvent.setup({document, pointerEventsCheck: 0});
+  await user.pointer({keys: '[MouseLeft>]', target: screen.getByRole('button', {name: 'Assign Driver'})});
+  assert.ok(screen.getByRole('menu'));
+  await act(async () => { document.documentElement.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true})); await Promise.resolve(); });
+  assert.ok(screen.getByRole('menu'));
+  await user.pointer({keys: '[/MouseLeft]', target: document.documentElement});
+  await user.click(screen.getByRole('menuitem', {name: 'Driver One'}));
+  assert.equal(selected, 1);
+});
+
 test('nested portalled options stay inside the parent popup and outside clicks still reach their action', async () => {
   const { FloatingPanel } = await import('../src/components/ui/FloatingPanel');
   const { Select } = await import('../src/components/ui/Select');

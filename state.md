@@ -1,3 +1,75 @@
+2026-11-20: Driver sign-in shows Checking duty until saved availability loads. Dispatcher Order details now use Details / Message shipper / Message driver tabs, hide driver messages until assignment, retain drafts and use company-timezone timestamps; service badge is light gray.
+Checks: focused frontend tests 8/8, TypeScript, production build and diff checks pass; assigned/unassigned order tabs verified on localhost. Backend browser-duty fix activated separately; no API shape or native-app changes.
+
+2026-11-20: Dispatcher driver popup now embeds its company-driver conversation in a Message tab beside Details/Orders; removed the footer chat button. Driver edits stay mounted; chat loads only on the active tab and retains cached drafts.
+Checks: TypeScript and production build pass; chat/dialog tests 48/49 on the combined run, with the one timing failure passing in isolation; localhost popup, transcript and keyboard tab navigation visually verified. No API or driver-app contract changes.
+
+2026-11-20: Shipper Tracking notification now aligns with the map controls' right inset; the order card uses the dispatcher Monitor's 88% glass surface. The sidebar already shares the Monitor's translucent style.
+Checks: `git diff --check` passed; tests not run.
+
+2026-11-20: Shipper portal order search is hidden on Tracking (still available on Orders); the Dispatra logo now opens Tracking from expanded and collapsed navigation.
+Checks: `git diff --check` passed; E2E expectations updated but not run.
+
+2026-11-20: Shipper Tracking's desktop order card now aligns with the sidebar top inset; mobile offset is unchanged.
+Checks: `git diff --check` passed.
+
+2026-11-20: Widened the driver Dashboard ‘Today’s jobs’ panel from 21rem to 26rem on desktop; existing viewport and mobile bounds remain.
+Checks: `git diff --check` passed.
+
+2026-11-20: Driver portal Chat now opens its single Dispatch conversation in a centered 48rem column matching Profile. No conversation list.
+Checks: `git diff --check` passed; TypeScript check reports the existing unrelated DriverDashboardMap kind error. No tests run.
+
+2026-11-20: Removed the pending Supervisor “Review updates” control and polling from the Driver Dashboard.
+Checks: pending.
+
+2026-11-20: Removed pending Supervisor progress questions from the Driver Dashboard; it no longer polls for them.
+Checks: driverPortal tests 18/18, orderWatch tests 6/6, dashboard desktop/mobile E2E, TypeScript check and build pass. Driver Orders E2E remains unverified: its current flow waits for an Orders table at the dashboard URL.
+
+2026-11-20: Driver order details from Orders and the dashboard map now use Order/Message tabs; Message filters to DRIVER_SHIPPER only, removing the embedded Dispatch chat and bottom Messages card.
+Checks: TypeScript check passes; tests not run.
+
+2026-11-20: Driver map draws a dashed stop-order guide when truck road geometry is unavailable and uses the same GoogleVehicleMarkers component/source order as Dispatcher: fresh GPS then vehicle parking.
+Checks: TypeScript check passes; tests and live browser verification not run.
+
+2026-11-20: Driver dashboard vehicle marker uses route GPS origin, then assigned vehicle's saved parking coordinates, then road-path start when route origin is absent; renders above stops and badges parking with P.
+Checks: TypeScript check passes; no tests run (not requested).
+
+2026-11-20: Driver dashboard now renders every successful road-path response with the shared rounded route overlay, including provider geometry without truck-profile attestation; route-unavailable messaging is reserved for failed/empty geometry.
+Checks: no tests run for this fix (not requested); code and existing dashboard E2E expectation updated.
+
+2026-11-20: Driver dashboard timeline is compact and aligned to the sidebar; every stop shows contact/phone/chat, a same-row order link and bottom Report with progress-choice badges. Failed road routing shows labeled dashed sequence connectors.
+Checks: driverPortal tests 18/18, lint, build and desktop/mobile browser flow pass.
+
+2026-11-20: Driver sidebar no longer duplicates Dashboard; clicking the Dispatra logo remains the route home. Local demo has one order today, but it is unassigned and therefore unavailable to the Driver dashboard.
+Checks: driverPortal 14/14 and Dashboard browser test pass; build passes; lint still reports TS2322 in DriverDashboardMap.tsx.
+
+2026-11-20: Order stops and Shipper warehouses must be on the map: dispatcher shipper prefill now keeps the warehouse coordinates (`Customer.warehouse`, `applyCustomerDefaults`); order forms refuse a stop not chosen from suggestions ("Choose the pickup address from the suggestions…"); Shipper form and Shipper profile refuse a typed warehouse (`warehouseAddress`). DDO-1072 pickup re-picked; Monitor shows both stops and the road route.
+Checks: lint clean; shipperOrders + loadSize 21/21 (3 new tests), shipperProfile 4/4, entityForms 32 pass (2 known failures); full per-file run has no other failure citing the new rule (remaining failures predate it); checked in the browser.
+
+2026-11-20: Shipper New/Edit Order: Vehicle type dropdown removed (FTL books the smallest general FTL type, LTL/Small parcel none); field hints and dialog description dropped, "Want specific driver?" → "Preferred driver".
+Checks: lint clean; build ok; shipperOrders, loadSize, orderVehicle, entityForms: 52 pass, 6 failures identical on HEAD (dispatcher order form); not checked in the browser.
+
+2026-11-20: Shipper form: field hints moved to one short description under each section title (Shipper, Location, Billing, Driver assignment, Discount); Discount and Instructions use FormSection; DiscountEditor hint removed.
+Checks: lint clean; build ok; entityForms 32 pass (2 known failures), settings 77 pass (7 known failures); checked in the browser.
+
+2026-11-20: Rate Card editor: Name no longer spans the full row when there is no Minimum Charge (Hourly, imported final total); Name and Load size share one row like other methods.
+Checks: lint clean; build ok; npm test 1 failure (Rate Card Save, known, also fails on HEAD).
+
+2026-11-20: Canada and US: address autocomplete searches CA+US, one-line parser (`streetAddress`) and Places resolution accept US state + ZIP, zones take FSAs or ZIP/3-digit prefixes (longest wins), Preferences allow CAD/USD and US time zones, map region bias removed.
+Checks: lint clean; build ok; addressAutocomplete 12/12, destinationTax 19/19, vehicleParking, integrationGuide, integrations, companyPreparation pass; entityForms 2 and settings 8 failures also fail on HEAD.
+
+2026-11-20: Driver form Qualifications section (title and short description outside, one bordered card): four matching plain-language checkboxes (Drives FTL, Takes LTL, Delivers small parcels, Certified for DG; last load size locked); FormSection takes an optional description.
+Checks: lint clean; build ok; driver form tests pass (entityForms 2 known failures); checked in the browser.
+
+2026-11-20: Orders list Assign Driver is a popup (search from 6 drivers, one click assigns and closes, stays open if not saved); fixed menus opened on pointerdown closing on the same press (OutsideDismiss).
+Checks: lint clean; build ok; dialogDismissal 20/20, appearance 12/12, appActionLoading new tests pass (Rate Card Save known failure); full suite 788 pass, 28 known failures, 1 flake; checked in the browser.
+
+2026-11-20: Driver form: "Works with a helper" checkbox replaced by a Load sizes multi-select (FTL, LTL, Small parcel); crew size untouched. Types regenerated.
+Checks: lint clean; driver form test passes.
+
+2026-11-20: Holiday / Weekend Delivery (`HOLIDAY_WEEKEND`) Accessorial is read-only in the order form, ticked when the API price includes it; Settings lists it as "Automatic: weekend or holiday delivery".
+Checks: lint clean; loadSize 7/7 (new read-only test); full suite one failure, appActionLoading Rate Card Save (another session is editing that file); build passed.
+
 2026-11-20: New Order and Shipper portal preselect the load size from the shipper's default card and prefill package type by size (LTL → Pallet, else company Default; replaced automatic types clear their sizes). Types regenerated.
 Checks: lint clean (2 known loadSize.test errors); loadSize 6/6, packageTypes 3/3, shipperOrders 11/11, shipperProfile 4/4 pass; orderVehicle 1-4 known failures; checked in the browser.
 
@@ -1541,4 +1613,3 @@ Final focused Chrome verification passed: real WebGL scene at 1440/390/320px, or
 2026-11-11: Zone Rate Card controls now store and match Canadian three-character FSAs, canonicalizing a full code to its FSA. Fresh local pricing starts with Zone 1 (Vancouver), Zone 2 (Burnaby), and Zone 3 (Richmond), each with a $20 starter price. Saving invalid zone input stops locally with a human-readable notification that gives `V6A` as the required format. TypeScript/browser tests could not run in this environment because no Node runtime is installed.
 
 2026-11-11: Rate Card save failures now appear as a red inline message immediately above Save Card instead of a global snackbar. Editing the card or any zone clears the message; local zone-name, FSA, matrix, dimensional and API-save failures use the same placement. Focused source/test updates are present; the Node runtime is unavailable in this environment, so the browser test was not executed.
-

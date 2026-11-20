@@ -2,6 +2,8 @@ import type { PricingAccessorialInput, PricingPackageInput } from '../types/pric
 import type { AccessorialItem } from '../types/simplePricing';
 
 export type PackageChargeCode = 'FRAGILE' | 'DG';
+/** The API adds this once per order when a delivery falls on a weekend or company holiday; it is never ticked by hand. */
+export const HOLIDAY_WEEKEND_CODE = 'HOLIDAY_WEEKEND';
 
 export const packageHasCharge = (pkg: PricingPackageInput, code: PackageChargeCode): boolean =>
   code === 'FRAGILE' ? !!pkg.fragile : !!pkg.handlingTags?.includes('DANGEROUS_GOODS');

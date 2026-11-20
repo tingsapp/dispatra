@@ -26,7 +26,7 @@ test('parking address and coordinates survive vehicle read/edit/save, independen
   const form = vehicleToUi(row);
   assert.equal(form.parkingAddress, parking.text);
   assert.deepEqual(vehicleFromUi(form, row).parking_address, parking);
-  assert.throws(() => vehicleFromUi({ ...form, parkingAddress: '' }, row), /full Canadian address/);
+  assert.throws(() => vehicleFromUi({ ...form, parkingAddress: '' }, row), /full address: street, city, province or state/);
   const changed = vehicleFromUi({ ...form, parkingAddress: '200 Yard St, Burnaby, BC V5C 1A1', parkingAddressCoordinates: undefined }, row);
   assert.equal(changed.parking_address?.city, 'Burnaby');
   assert.equal(changed.parking_address?.latitude, null, 'editing text must not reuse old coordinates');

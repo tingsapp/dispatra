@@ -1189,6 +1189,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/driver/routes/{identity}/road-path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Route Road Path */
+        get: operations["route_road_path_api_v1_companies__slug__driver_routes__identity__road_path_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/driver/routes/{identity}/start": {
         parameters: {
             query?: never;
@@ -3484,9 +3501,9 @@ export interface components {
             /**
              * Country
              * @default CA
-             * @constant
+             * @enum {string}
              */
-            country: "CA";
+            country: "CA" | "US";
             /** Latitude */
             latitude?: number | null;
             /** Longitude */
@@ -5506,9 +5523,9 @@ export interface components {
             /**
              * Country
              * @default CA
-             * @constant
+             * @enum {string}
              */
-            country: "CA";
+            country: "CA" | "US";
             /** Latitude */
             latitude?: number | null;
             /** Longitude */
@@ -5791,6 +5808,11 @@ export interface components {
              * @default 1
              */
             crew_size: number;
+            /**
+             * Load Sizes
+             * @description Load sizes the driver handles; an Order of another size cannot be assigned to them. Drivers saved before this field handle all three.
+             */
+            load_sizes?: ("FTL" | "LTL" | "SMALL_PARCEL")[];
             /** Shift Start */
             shift_start?: string | null;
             /** Shift End */
@@ -5820,6 +5842,18 @@ export interface components {
             login_id: string;
             /** Password */
             password: string;
+        };
+        /** DriverMapOrigin */
+        DriverMapOrigin: {
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "GPS" | "PARKING";
         };
         /** DriverNotificationView */
         DriverNotificationView: {
@@ -5947,6 +5981,59 @@ export interface components {
             location_permission: string;
             /** Vehicle Name */
             vehicle_name?: string | null;
+        };
+        /** DriverRouteView */
+        DriverRouteView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Driver Id
+             * Format: uuid
+             */
+            driver_id: string;
+            /**
+             * Vehicle Id
+             * Format: uuid
+             */
+            vehicle_id: string;
+            /** Status */
+            status: string;
+            /** Locked */
+            locked: boolean;
+            /** Generation */
+            generation: number;
+            /**
+             * Planned At
+             * Format: date-time
+             */
+            planned_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Plan */
+            plan: {
+                [key: string]: unknown;
+            };
+            /** Stops */
+            stops: components["schemas"]["RouteVisitView"][];
+            /** Items */
+            items?: components["schemas"]["ItemInput-Output"][] | null;
+            /** Vehicle */
+            vehicle?: {
+                [key: string]: unknown;
+            } | null;
+            map_origin?: components["schemas"]["DriverMapOrigin"] | null;
         };
         /** DriverSession */
         DriverSession: {
@@ -17533,7 +17620,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RouteView"][];
+                    "application/json": components["schemas"]["DriverRouteView"][];
                 };
             };
             /** @description Bad Request */
@@ -17628,7 +17715,102 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RouteView"];
+                    "application/json": components["schemas"]["DriverRouteView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    route_road_path_api_v1_companies__slug__driver_routes__identity__road_path_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoadPathView"];
                 };
             };
             /** @description Bad Request */
@@ -17729,7 +17911,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RouteView"];
+                    "application/json": components["schemas"]["DriverRouteView"];
                 };
             };
             /** @description Bad Request */
@@ -17831,7 +18013,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RouteView"];
+                    "application/json": components["schemas"]["DriverRouteView"];
                 };
             };
             /** @description Bad Request */
@@ -17932,7 +18114,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RouteView"];
+                    "application/json": components["schemas"]["DriverRouteView"];
                 };
             };
             /** @description Bad Request */
@@ -18327,7 +18509,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RouteView"];
+                    "application/json": components["schemas"]["DriverRouteView"];
                 };
             };
             /** @description Bad Request */
@@ -18726,7 +18908,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RouteView"];
+                    "application/json": components["schemas"]["DriverRouteView"];
                 };
             };
             /** @description Bad Request */

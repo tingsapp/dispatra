@@ -20,7 +20,7 @@ function input(changes:Partial<PricingOrderInput>={}):PricingOrderInput{
  const base=createBookingInput(ctx);
  const [pickup,drop]=[base.stops.find(s=>s.type==='PICKUP')!,base.stops.find(s=>s.type==='DROPOFF')!];
  return {...base,serviceId:service,vehicleId:vehicle,scheduledAt:'2030-01-02T10:00',
-  stops:base.stops.map(s=>({...s,label:'100 Main St, Vancouver, BC V6A 2S5',city:'Vancouver',provinceCode:'BC',postalCode:'V6A 2S5'})),
+  stops:base.stops.map(s=>({...s,label:'100 Main St, Vancouver, BC V6A 2S5',city:'Vancouver',provinceCode:'BC',postalCode:'V6A 2S5',latitude:49.28,longitude:-123.1})),
   packages:[{id:'pkg-1',quantity:2,weightKg:500,lengthCm:120,widthCm:100,heightCm:90,declaredValue:0,pickupStopId:pickup.id,deliveryStopId:drop.id,packageTypeId:'type-1'}],...changes};
 }
 
@@ -129,4 +129,16 @@ test('choosing a shipper preselects the load size of its default card, never ove
  cleanup();current={...input({loadSize:'LTL',customerId:null})};render(<Form/>);
  await user.click(screen.getByRole('combobox',{name:'Shipper'}));await user.click(screen.getByRole('option',{name:shipper.name}));
  assert.equal(current.loadSize,'LTL');
+});
+
+test('Holiday / Weekend is read-only in the form and shows as on when the price includes it',()=>{
+ const auto={...ctx.catalogue.accessorials[0],id:'acc-holiday',code:'HOLIDAY_WEEKEND',name:'Holiday / Weekend Delivery',rate:25,active:true};
+ const withAuto={...ctx,catalogue:{...ctx.catalogue,accessorials:[...ctx.catalogue.accessorials,auto]}};
+ const value=input({loadSize:'LTL'}),snapshot=priceOrder(value,withAuto);
+ const {rerender}=render(<OrderPricingForm value={value} onChange={()=>{}} ctx={withAuto} snapshot={snapshot} showStopAddresses loadSizes />);
+ const box=()=>screen.getByRole('checkbox',{name:/Holiday \/ Weekend Delivery/}) as HTMLInputElement;
+ assert.equal(box().disabled,true);assert.equal(box().checked,false);
+ const priced={...snapshot,lines:[...snapshot.lines,{key:'ACCESSORIAL-9',group:'ACCESSORIAL' as const,label:'Holiday / Weekend Delivery',amount:25,fuelEligible:false,taxable:true}]};
+ rerender(<OrderPricingForm value={value} onChange={()=>{}} ctx={withAuto} snapshot={priced} showStopAddresses loadSizes />);
+ assert.equal(box().checked,true);
 });

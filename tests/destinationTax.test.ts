@@ -41,7 +41,7 @@ test('typed address parsing detects postal/province conflicts, foreign addresses
   assert.equal(resolveStopLocation({ label: '100 Ontario Street' }).province, undefined);
 });
 test('missing, conflicting and cross-border addresses cannot silently fall back to company taxes', () => {
-  for (const [address, pattern] of [['100 Main St', /Confirm the country/], ['100 Main St, BC M5V2T6', /conflicting/], ['100 Main St, Seattle WA 98101 USA', /International/]] as const) {
+  for (const [address, pattern] of [['100 Main St', /Confirm the country/], ['100 Main St, BC M5V2T6', /conflicting/], ['100 Main St, Seattle WA 98101 USA', /Canadian provinces only/], ['400 Broad St, Seattle, WA 98109', /Canadian provinces only/], ['10 Downing St, London, UK', /International/]] as const) {
     const s = setup(); s.order.stops[1] = { ...s.order.stops[1], ...addressChange(address) }; assertReview(s, pattern);
   }
 });
