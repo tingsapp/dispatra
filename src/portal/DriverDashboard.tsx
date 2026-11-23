@@ -1,14 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { MapPin, MessageSquare, Package } from 'lucide-react';
+import { MapPin, Package } from 'lucide-react';
 import { allOperations, operations } from '../operations/api';
 import { ChatDialog } from '../components/chat/OrderChat';
 import { clockTime, dateTime } from '../lib/dateTimeFormat';
 import { formatPhone, phoneHref } from '../lib/phone';
 import { DriverDashboardMap } from './DriverDashboardMap';
-import { DriverChoiceBadges } from './DriverChoiceBadges';
 import { DriverOrderDialog } from './DriverOrderDialog';
 import { DriverStopReportDialog } from './DriverStopReportDialog';
+import { DriverStopProofDialog } from './DriverStopProofDialog';
+import { DriverStopActions, useDriverStopSteps } from './DriverStopActions';
+import { stopRoute, type DriverFix } from './driverStopStep';
 import { driverDayPlan, driverStopStatus, type DriverDayStop, type DriverRoute } from './driverDayPlan';
 import type { components } from './schema';
 import { Button, Notice } from './ui';
@@ -21,10 +23,13 @@ interface Props {
   online: boolean;
   onStartRoute: (route: DriverRoute) => Promise<void>;
   onFinishRoute: (route: DriverRoute) => Promise<void>;
+  fix: DriverFix | null;
+  shareLocation: () => Promise<void>;
+  locate: () => Promise<DriverFix>;
 }
 
-function StopTimelineItem({ row, index, selected, timeZone, onSelect, onOpen, onChat, onReport }: {
-  row: DriverDayStop; index: number; selected: boolean; timeZone: string; onSelect: () => void; onOpen: () => void; onChat: () => void; onReport: () => void;
+function StopTimelineItem({ row, index, selected, timeZone, onSelect, onOpen, actions }: {
+  row: DriverDayStop; index: number; selected: boolean; timeZone: string; onSelect: () => void; onOpen: () => void; actions: ReactNode;
 }) {
   const ref = useRef<HTMLLIElement>(null);
   useEffect(() => { if (selected) ref.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }, [selected]);
@@ -50,25 +55,18 @@ function StopTimelineItem({ row, index, selected, timeZone, onSelect, onOpen, on
     <div className="driver-stop-contact">
       <span className="driver-stop-contact-name">{contactName || 'Contact not provided'}</span>
       {contactPhone ? (phone ? <a href={phone} className="driver-stop-phone">{formatPhone(contactPhone)}</a> : <span className="driver-stop-phone">{formatPhone(contactPhone)}</span>) : <span className="driver-stop-phone">Phone not provided</span>}
-      <Button type="button" size="icon-xs" variant="ghost" className="driver-stop-chat" aria-label={`Chat with shipper for ${row.order.number}`}
-        title="Chat with shipper" onClick={onChat}><MessageSquare aria-hidden="true" /></Button>
     </div>
     {(row.stop.window_start || row.stop.window_end) && <p className="driver-stop-window">
       {row.stop.kind === 'PICKUP' ? 'Pickup' : 'Delivery'} {row.stop.window_start ? `from ${clockTime(row.stop.window_start, timeZone)}` : ''}{row.stop.window_start && row.stop.window_end ? ' · ' : ''}{row.stop.window_end ? `by ${clockTime(row.stop.window_end, timeZone)}` : ''}
     </p>}
     {row.stop.instructions && <p className="driver-stop-instructions">{row.stop.instructions}</p>}
     {(!row.visit || !row.point) && <p className="driver-stop-warning">{!row.visit ? 'Route sequence unavailable.' : 'Map location unavailable.'}</p>}
-    <div className="driver-stop-actions">
-      <Button type="button" size="xs" variant="outline" className="driver-stop-report"
-        aria-label={`Report issue for ${name} ${row.order.number}`}
-        disabled={row.order.status === 'COMPLETED'} title={row.order.status === 'COMPLETED' ? 'Completed orders cannot receive reports.' : undefined}
-        onClick={onReport}>Report</Button>
-    </div>
+    {actions}
   </li>;
 }
 
 /** Driver-only feeds supply both the map and its accessible stop timeline. */
-export function DriverDashboard({ slug, profile, profileError, error, online, onStartRoute, onFinishRoute }: Props) {
+export function DriverDashboard({ slug, profile, profileError, error, online, onStartRoute, onFinishRoute, fix, shareLocation, locate }: Props) {
   const cache = useQueryClient();
   const panelRef = useRef<HTMLElement>(null);
   const orders = useQuery({ queryKey: ['driver-orders', slug], queryFn: () => operations.driverOrders(slug) });
@@ -84,6 +82,9 @@ export function DriverDashboard({ slug, profile, profileError, error, online, on
   const [detailId, setDetailId] = useState<string | null>(null);
   const [reportStop, setReportStop] = useState<DriverDayStop>();
   const [chatStop, setChatStop] = useState<DriverDayStop>();
+  const [proofStop, setProofStop] = useState<DriverDayStop>();
+  const steps = useDriverStopSteps({ slug, fix, shareLocation, locate, onStartRoute, onFinishRoute });
+  const proofRoute = proofStop && stopRoute(proofStop, routes.data ?? []);
   const timeZone = profile?.time_zone;
   const plan = timeZone ? driverDayPlan(orders.data ?? [], routes.data ?? [], timeZone, now) : { orders: [], stops: [] };
   const selected = plan.stops.find(row => row.id === selectedId) ?? plan.stops.find(row => row.next) ?? plan.stops[0];
@@ -108,12 +109,15 @@ export function DriverDashboard({ slug, profile, profileError, error, online, on
             {routes.isPending && <p role="status" className="mb-3 text-sm text-app-muted">Loading route sequence…</p>}
             {routes.error && <Button variant="outline" onClick={() => routes.refetch()}>Retry routes</Button>}
             {unmapped > 0 && <p className="mb-3 flex items-start gap-2 text-sm text-app-muted"><MapPin size={16} className="mt-0.5 shrink-0" />{unmapped} {unmapped === 1 ? 'stop has' : 'stops have'} no map location. All stops remain in the timeline.</p>}
-            <ol aria-label="Today's stops" className="driver-stop-timeline">{plan.stops.map((row, index) => <StopTimelineItem key={row.id} row={row} index={index} selected={selected?.id === row.id} timeZone={timeZone!} onSelect={() => setSelectedId(row.id)} onOpen={() => setDetailId(row.order.id)} onChat={() => setChatStop(row)} onReport={() => setReportStop(row)} />)}</ol>
+            <ol aria-label="Today's stops" className="driver-stop-timeline">{plan.stops.map((row, index) => <StopTimelineItem key={row.id} row={row} index={index} selected={selected?.id === row.id} timeZone={timeZone!} onSelect={() => setSelectedId(row.id)} onOpen={() => setDetailId(row.order.id)}
+              actions={<DriverStopActions row={row} route={stopRoute(row, routes.data ?? [])} fix={fix} busy={!!steps.busy} running={steps.busy === row.id} error={steps.error?.rowId === row.id ? steps.error.cause : undefined}
+                onChat={() => setChatStop(row)} onProof={() => setProofStop(row)} onReport={() => setReportStop(row)} onStep={(route, step) => void steps.run(row, route, step)} />} />)}</ol>
           </>}
       </div>
     </aside>
     <DriverDashboardMap slug={slug} stops={failure ? [] : plan.stops} routes={routes.data ?? []} selectedId={selected?.id} timeZone={timeZone} onSelect={setSelectedId} panelRef={panelRef} />
     {detail && timeZone && <DriverOrderDialog timeZone={timeZone} slug={slug} order={detail} orders={orders.data ?? []} route={routes.data?.find(route => route.id === detail.route_id)} online={online} onStartRoute={onStartRoute} onFinishRoute={onFinishRoute} onOpen={setDetailId} onClose={() => setDetailId(null)} />}
+    {proofStop && proofRoute && <DriverStopProofDialog slug={slug} row={proofStop} route={proofRoute} onClose={() => setProofStop(undefined)} />}
     {reportStop && <DriverStopReportDialog slug={slug} row={reportStop} onClose={() => setReportStop(undefined)} />}
     {chatStop && <ChatDialog slug={slug} orderId={chatStop.order.id} orderNumber={chatStop.order.number} initialKind="DRIVER_SHIPPER" driverOnly onClose={() => setChatStop(undefined)} />}
   </div>;

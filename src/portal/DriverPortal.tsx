@@ -58,7 +58,8 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
   const tracking = useRef<string | null>(null);
   const trackingIntent = useRef(0);
   const [trackingDutyId, setTrackingDutyId] = useState<string | null>(null);
-  const stopTracking = () => { trackingIntent.current++; tracking.current = null; setTrackingDutyId(null); };
+  const [fix, setFix] = useState<GeolocationPosition | null>(null);
+  const stopTracking = () => { trackingIntent.current++; tracking.current = null; setTrackingDutyId(null); setFix(null); };
   const [dutyError, setDutyError] = useState<unknown>();
   const duty = useMutation({
     mutationFn: async (next: boolean) => {
@@ -78,8 +79,17 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     tracking.current = current.id;
     try {
       await operations.driverLocation(slug, current.id, here);
-      if (tracking.current === current.id) setTrackingDutyId(current.id);
+      if (tracking.current === current.id) { setTrackingDutyId(current.id); setFix(here); }
     } catch (error) { stopTracking(); throw error; }
+  };
+  // Stop actions reuse sharing the driver already started; Navigate and arrival start it like the driver app.
+  const shareLocation = async () => { if (!profile.data?.duty || tracking.current !== profile.data.duty.id) await startSharing(); };
+  const locate = async () => {
+    await shareLocation();
+    let here: GeolocationPosition;
+    try { here = await position(); } catch { throw new Error('Allow location access in your browser to confirm arrival.'); }
+    setFix(here);
+    return here;
   };
   const startRoute = async (route: Route) => {
     await startSharing();
@@ -94,14 +104,20 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     const dutyId = profile.data?.duty?.id;
     if (!dutyId || dutyId !== trackingDutyId || !navigator.geolocation) return;
     let active = true;
+    let uploaded = Date.now();
+    // Fixes every 15 s keep arrival detection current, as in the driver app; the server still gets one every 2 minutes.
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible' && tracking.current === dutyId) position().then(here => {
-        if (active && tracking.current === dutyId) return operations.driverLocation(slug, dutyId, here).then(() => Promise.all([
+        if (!active || tracking.current !== dutyId) return;
+        setFix(here);
+        if (Date.now() - uploaded < 120_000) return;
+        uploaded = Date.now();
+        return operations.driverLocation(slug, dutyId, here).then(() => Promise.all([
           cache.invalidateQueries({ queryKey: ['driver-routes', slug] }),
           cache.invalidateQueries({ queryKey: ['driver-route-road-path', slug] }),
         ]));
       }).catch(() => undefined);
-    }, 120_000);
+    }, 15_000);
     return () => { active = false; window.clearInterval(timer); };
   }, [slug, profile.data?.duty?.id, trackingDutyId]);
   useEffect(() => () => { trackingIntent.current++; tracking.current = null; }, [slug]);
@@ -115,7 +131,7 @@ export function DriverPortal({ slug, company, login, onLogout, loggingOut, logou
     headerActions={<NotificationBell slug={slug} surface={page.path === 'dashboard' ? 'white' : true} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} />}
     onNavigate={go} onHome={() => go(base)} onSettings={() => go(`${base}/profile`)} onLogout={onLogout} loggingOut={loggingOut}>
     {page.path !== 'dashboard' && <Notice error={logoutError || dutyError} />}
-    {page.path === 'dashboard' ? <DriverDashboard slug={slug} profile={profile.data} profileError={profile.error} error={logoutError || dutyError} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} /> : page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : profile.data && <div className="mx-auto flex min-h-0 w-full max-w-[var(--app-reading-width)] flex-1 flex-col"><CompanyChatPage slug={slug} driverId={profile.data.id} company={company} /></div>) : <DriverOrders timeZone={profile.data?.time_zone} slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
+    {page.path === 'dashboard' ? <DriverDashboard slug={slug} profile={profile.data} profileError={profile.error} error={logoutError || dutyError} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} fix={fix} shareLocation={shareLocation} locate={locate} /> : page.path === 'profile' ? <DriverProfilePage slug={slug} profile={profile.data} loading={profile.isPending} error={profile.error} /> : page.path === 'messages' ? (profile.error ? <><Notice error={profile.error} /><Button variant="outline" onClick={() => profile.refetch()}>Try again</Button></> : profile.data && <div className="mx-auto flex min-h-0 w-full max-w-[var(--app-reading-width)] flex-1 flex-col"><CompanyChatPage slug={slug} driverId={profile.data.id} company={company} /></div>) : <DriverOrders timeZone={profile.data?.time_zone} slug={slug} online={online} onStartRoute={startRoute} onFinishRoute={finishRoute} />}
     <LiveNotices slug={slug} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} />
     {notificationChat && <NotificationChat key={notificationChat} slug={slug} identity={notificationChat} onClose={() => setNotificationChat(null)} />}
   </PortalShell>;

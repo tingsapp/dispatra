@@ -1,3 +1,6 @@
+2026-11-23: Driver Today's jobs stops show the driver app's actions (Message, Upload POD, Report, then the route step Start/Navigate/Confirm arrival/Complete with its 100 m/75 m/30 s arrival check) via new `driverStopStep.ts`/`DriverStopActions`; stop reports (dialog and order details) are multi-select and send one issue with the highest-priority kind and every label, like the app.
+Checks: tsc ok; driverPortal 22/22 (4 new/updated), dialogDismissal 20/20, buttonLoading 5/5; not checked in the running app (no driver sign-in in the built-in browser).
+
 2026-11-23: Email drafts keep the Order agent's load size: `inputToDraftBooking`/`inputToDraftShipment` now send `load_size`; schema types regenerated.
 Checks: tsc ok; emailOrders 11/11 (new test), loadSize 7/7, packageTypes 3/3; emailDraftForm and shipperOrders each have one failure that also fails without this change.
 

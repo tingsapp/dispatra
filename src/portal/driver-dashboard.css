@@ -23,10 +23,12 @@
 .driver-stop-contact { display: flex; min-width: 0; align-items: center; gap: .5rem; padding: .25rem 0 0 1rem; color: #44474f; font-size: .6875rem; line-height: 1rem; }
 .driver-stop-contact-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .driver-stop-phone { flex-shrink: 0; color: #62656e; font-size: .65625rem; }
-.driver-stop-chat { margin-left: auto; }
 .driver-stop-window, .driver-stop-instructions, .driver-stop-warning { padding: .125rem 0 0 1rem; color: #62656e; font-size: .65625rem; line-height: .9375rem; }
-.driver-stop-actions { display: flex; justify-content: flex-end; padding: .25rem 0 0 1rem; }
-.driver-stop-report { height: 1.5rem; padding-inline: .5rem; font-size: .625rem; }
+.driver-stop-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .375rem; padding: .375rem 0 0 1rem; }
+.driver-stop-action { height: 1.5rem; padding-inline: .5rem; font-size: .625rem; }
+.driver-stop-action-note { align-self: center; color: #62656e; font-size: .625rem; }
+.driver-stop-action-hint { padding: .25rem 0 0 1rem; color: #62656e; font-size: .625rem; line-height: .9375rem; text-align: right; }
+.driver-stop-action-error { padding: .375rem 0 0 1rem; }
 .driver-dashboard-map { position: absolute; inset: 0; background: #f1f5f9; }
 .driver-map-message { position: absolute; top: 45%; left: max(1.5rem, 64%); right: 1.5rem; text-align: center; font-size: .875rem; color: var(--color-app-muted); z-index: 1; }
 .driver-map-route-note { position: absolute; top: 1rem; right: 1rem; z-index: 2; border-radius: .75rem; background: white; padding: .5rem .75rem; font-size: .75rem; color: var(--color-app-muted); box-shadow: var(--app-surface-shadow); }

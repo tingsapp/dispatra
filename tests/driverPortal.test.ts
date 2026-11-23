@@ -240,10 +240,12 @@ test('driver login home opens today’s jobs and stop map, with Orders remaining
     assert.ok(screen.getByRole('button', { name: /Stop 1: Pickup/ }).getAttribute('aria-pressed') === 'true');
     assert.ok(screen.getByText('Dock'));
     assert.ok(screen.getByRole('link', { name: '(604) 555-0000' }));
-    assert.equal(within(timeline).getAllByRole('button', { name: /Chat with shipper/ }).length, 2);
+    assert.equal(within(timeline).getAllByRole('button', { name: /Message shipper for/ }).length, 2);
+    assert.equal(within(timeline).getAllByRole('button', { name: 'Start' }).length, 1, 'only the route’s next stop carries its step');
+    assert.equal((within(timeline).getByRole('button', { name: 'Upload POD for Delivery DCO-1001' }) as HTMLButtonElement).disabled, true);
     await user.click(screen.getByRole('button', { name: /Stop 2: Delivery/ }));
     assert.equal(screen.getByRole('button', { name: /Stop 2: Delivery/ }).getAttribute('aria-pressed'), 'true');
-    assert.equal(within(timeline).getAllByRole('button', { name: /Report issue for/ }).length, 2);
+    assert.deepEqual(within(timeline).getAllByRole('button', { name: /Report issue for/ }).map(button => (button as HTMLButtonElement).disabled), [true, true], 'reports wait for the route to start');
     await user.click(screen.getAllByRole('button', { name: 'Open order' })[0]);
     assert.ok(await screen.findByRole('dialog'));
     assert.equal(calls.includes('position'), false, 'opening the dashboard must not start device tracking');
@@ -257,30 +259,151 @@ test('driver login home opens today’s jobs and stop map, with Orders remaining
   } finally { stub('driverOrders', [order]); }
 });
 
-test('every open dashboard stop can report an issue in a popup', async () => {
+test('the order’s next stop reports several reasons at once in a popup', async () => {
   const user = userEvent.setup({ document });
   const original = operations.reportStopIssue;
   let submitted: unknown[] = [];
   stub('reportStopIssue', (...args: unknown[]) => { submitted = args; return { id: 'issue-1' }; });
   stub('driverOrders', [{ ...order, scheduled_at: new Date().toISOString() }]);
+  stub('driverRoutes', [{ ...route, status: 'IN_PROGRESS', started_at: new Date().toISOString(), plan: { live_updates_supported: true } }]);
   history.replaceState(null, '', '/acme/driver');
   try {
     mount();
     const timeline = await screen.findByRole('list', { name: "Today's stops" });
+    await waitFor(() => assert.equal((within(timeline).getByRole('button', { name: 'Report issue for Pickup DCO-1001' }) as HTMLButtonElement).disabled, false));
+    assert.equal((within(timeline).getByRole('button', { name: 'Report issue for Delivery DCO-1001' }) as HTMLButtonElement).disabled, true, 'only the order’s next stop can report');
     const reportButton = within(timeline).getAllByRole('button').find(button => button.textContent?.trim() === 'Report');
     assert.ok(reportButton);
-    assert.equal(reportButton.getAttribute('aria-label'), 'Report issue for Pickup DCO-1001');
     await user.click(reportButton);
     const dialog = await screen.findByRole('dialog');
     assert.ok(within(dialog).getByRole('heading', { name: 'Report a stop issue' }));
     const unsafe = within(dialog).getByRole('button', { name: 'Unsafe situation' });
     assert.equal(unsafe.getAttribute('data-size'), 'xs');
+    await user.click(within(dialog).getByRole('button', { name: 'Items not ready' }));
     await user.click(unsafe);
-    await user.type(within(dialog).getByRole('textbox', { name: 'Additional details (optional)' }), 'The gate is blocked');
+    await user.click(within(dialog).getByRole('button', { name: 'Traffic delay' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Traffic delay' }));
+    assert.deepEqual(within(dialog).getAllByRole('button', { pressed: true }).map(button => button.textContent), ['Items not ready', 'Unsafe situation']);
+    await user.click(within(dialog).getByRole('button', { name: 'Another issue' }));
+    assert.equal((within(dialog).getByRole('button', { name: 'Send report' }) as HTMLButtonElement).disabled, true, 'Another issue needs details');
+    await user.type(within(dialog).getByRole('textbox', { name: /Additional details/ }), 'The gate is blocked');
     await user.click(within(dialog).getByRole('button', { name: 'Send report' }));
     await waitFor(() => assert.equal(screen.queryByRole('dialog'), null));
-    assert.deepEqual(submitted, ['acme', 's1', 'UNSAFE', 'Unsafe situation: The gate is blocked']);
-  } finally { operations.reportStopIssue = original; }
+    assert.deepEqual(submitted, ['acme', 's1', 'UNSAFE', 'Items not ready; Unsafe situation; Another issue\n\nThe gate is blocked']);
+  } finally { operations.reportStopIssue = original; stub('driverOrders', [order]); stub('driverRoutes', [route]); }
+});
+
+test('stop actions run the driver app’s route step: Start, Navigate, confirm arrival nearby and confirm loading', async () => {
+  const user = userEvent.setup({ document }); online = true; calls.length = 0;
+  const today = { ...order, scheduled_at: new Date().toISOString() };
+  const started = { ...route, status: 'IN_PROGRESS', started_at: new Date().toISOString(), plan: { live_updates_supported: true } };
+  let current: Record<string, unknown> = route;
+  let here = { latitude: 49.2, longitude: -123.0 };
+  const opened: string[] = [];
+  const tab = { opener: {}, location: { href: '' }, close: () => opened.push('closed') };
+  const originalOpen = window.open, originalInterval = window.setInterval;
+  const fixes: (() => void)[] = [];
+  window.setInterval = ((fn: () => void, ms: number) => { if (ms === 15_000) fixes.push(fn); return 0; }) as typeof window.setInterval;
+  window.open = ((url?: string) => { opened.push(url ?? ''); return tab; }) as unknown as typeof window.open;
+  Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: (success: PositionCallback) =>
+    success({ timestamp: Date.now(), coords: { ...here, accuracy: 10 } } as GeolocationPosition) } });
+  stub('driverOrders', [today]);
+  stub('driverRoutes', () => [current]);
+  stub('driverLocation', {});
+  stub('startRoute', () => { current = started; return started; });
+  stub('arriveStop', (_slug: unknown, _route: unknown, visitId: unknown) => {
+    current = { ...started, stops: started.stops.map(visit => visit.id === visitId ? { ...visit, arrived_at: new Date().toISOString() } : visit) };
+    return current;
+  });
+  let loaded: unknown;
+  stub('completeStop', (_slug: unknown, _route: unknown, visitId: unknown, body: unknown) => { loaded = [visitId, body]; return current; });
+  history.replaceState(null, '', '/acme/driver');
+  try {
+    mount();
+    const timeline = await screen.findByRole('list', { name: "Today's stops" });
+    await user.click(await within(timeline).findByRole('button', { name: 'Start' }));
+    await waitFor(() => assert.ok(calls.includes('startRoute')));
+    const navigate = await within(timeline).findByRole('button', { name: 'Navigate to pickup' });
+    assert.equal(calls.filter(call => call === 'driverLocation').length, 1, 'Start shares location once');
+    await user.click(navigate);
+    await waitFor(() => assert.match(tab.location.href, /google\.com\/maps\/dir\/.*destination=200%20King.*waypoints=100%20Main/));
+    assert.equal(calls.filter(call => call === 'driverLocation').length, 1, 'Navigate reuses the sharing already started');
+
+    here = { latitude: 49.28, longitude: -123.1 };
+    // The next 15 s fix puts the driver within 100 m of the pickup.
+    await act(async () => { fixes.at(-1)!(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    await user.click(await within(timeline).findByRole('button', { name: 'Confirm pickup arrival' }));
+    await waitFor(() => assert.ok(calls.includes('arriveStop')));
+    const pickup = await within(timeline).findByRole('button', { name: 'Navigate to destination' });
+    assert.ok(within(timeline).getByText('Tapping Navigate confirms all items at this pickup are loaded.'));
+    await user.click(pickup);
+    await waitFor(() => assert.deepEqual(loaded, ['v0', { quantities: { i1: 2 }, recipient_name: '', unattended: false, safe_placement: false, evidence_ids: [] }]));
+
+    assert.equal(tab.location.href.includes('100%20Main'), false, 'directions after loading skip the completed pickup');
+  } finally {
+    window.open = originalOpen; window.setInterval = originalInterval; online = false;
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: undefined });
+    stub('driverOrders', [order]); stub('driverRoutes', [route]); stub('startRoute', route);
+  }
+});
+
+test('an arrived delivery uploads POD from its stop; a completed delivery shows POD submitted', async () => {
+  const user = userEvent.setup({ document });
+  const at = new Date().toISOString();
+  const arrived = { ...route, status: 'IN_PROGRESS', started_at: at, plan: { live_updates_supported: true },
+    stops: [{ ...route.stops[0], status: 'COMPLETED', arrived_at: at, completed_at: at }, { ...route.stops[1], arrived_at: at }] };
+  stub('driverOrders', [{ ...order, scheduled_at: at }]);
+  stub('driverRoutes', [arrived]);
+  stub('stopEvidence', []);
+  history.replaceState(null, '', '/acme/driver');
+  try {
+    mount();
+    const timeline = await screen.findByRole('list', { name: "Today's stops" });
+    const pod = await within(timeline).findByRole('button', { name: 'Upload POD for Delivery DCO-1001' });
+    await waitFor(() => assert.equal((pod as HTMLButtonElement).disabled, false));
+    assert.equal(within(timeline).queryByRole('button', { name: 'Report issue for Pickup DCO-1001' }), null, 'completed stops cannot report');
+    assert.equal((within(timeline).getByRole('button', { name: 'Complete' }) as HTMLButtonElement).disabled, true, 'Complete waits for the POD');
+    await user.click(pod);
+    const dialog = await screen.findByRole('dialog', { name: /Upload POD/ });
+    assert.ok(within(dialog).getByRole('textbox', { name: 'Recipient name' }));
+    assert.equal((within(dialog).getByRole('button', { name: 'Confirm delivery' }) as HTMLButtonElement).disabled, true);
+    assert.equal(within(dialog).queryByRole('button', { name: 'Report issue' }), null);
+    cleanup();
+    stub('driverRoutes', [{ ...arrived, stops: arrived.stops.map(visit => ({ ...visit, status: 'COMPLETED', completed_at: at })) }]);
+    mount();
+    const done = await screen.findByRole('list', { name: "Today's stops" });
+    assert.ok(await within(done).findByText('POD submitted'));
+    assert.ok(within(done).getByRole('button', { name: 'Complete' }));
+  } finally { stub('driverOrders', [order]); stub('driverRoutes', [route]); }
+});
+
+test('driver route step mirrors the driver app, including the 100 m arrival check', async () => {
+  const { driverRouteStep, stepHere, isCurrentStopNearby, issueReady, podReady } = await import('../src/portal/driverStopStep');
+  type R = Parameters<typeof driverRouteStep>[0] & {};
+  const at = '2026-10-02T09:00:00Z', now = Date.parse('2026-10-02T09:10:00Z');
+  const planned = route as unknown as R;
+  const running = { ...route, status: 'IN_PROGRESS', plan: { live_updates_supported: true } } as unknown as R;
+  const near = { timestamp: now - 5_000, coords: { latitude: 49.2804, longitude: -123.1, accuracy: 20 } };
+  assert.equal(driverRouteStep(planned)?.title, 'Start');
+  assert.ok(stepHere(driverRouteStep(planned), planned, planned.stops[0]));
+  assert.equal(stepHere(driverRouteStep(planned), planned, planned.stops[1]), false);
+  assert.equal(driverRouteStep(running, null, now)?.title, 'Navigate to pickup');
+  assert.equal(driverRouteStep(running, near, now)?.title, 'Confirm pickup arrival');
+  assert.equal(isCurrentStopNearby(running, { ...near, coords: { ...near.coords, accuracy: 80 } }, now), false, 'inaccurate fix');
+  assert.equal(isCurrentStopNearby(running, { ...near, timestamp: now - 31_000 }, now), false, 'stale fix');
+  assert.equal(isCurrentStopNearby(running, { ...near, coords: { ...near.coords, latitude: 49.282 } }, now), false, 'over 100 m');
+  assert.equal(driverRouteStep({ ...running, plan: { requires_acknowledgement: true, live_updates_supported: true } } as R)?.kind, 'sync');
+  const atPickup = { ...running, stops: [{ ...running.stops[0], arrived_at: at }, running.stops[1]] } as R;
+  assert.deepEqual([driverRouteStep(atPickup)?.kind, driverRouteStep(atPickup)?.title], ['pickup', 'Navigate to destination']);
+  assert.ok(issueReady(atPickup, atPickup.stops[0], order as never));
+  assert.equal(issueReady(atPickup, atPickup.stops[1], order as never), false);
+  const atDelivery = { ...running, stops: [{ ...running.stops[0], status: 'COMPLETED', arrived_at: at }, { ...running.stops[1], arrived_at: at }] } as R;
+  assert.deepEqual([driverRouteStep(atDelivery)?.title, driverRouteStep(atDelivery)?.disabled], ['Complete', true]);
+  assert.ok(podReady(atDelivery, atDelivery.stops[1]));
+  assert.equal(podReady(atPickup, atPickup.stops[1]), false);
+  const delivered = { ...atDelivery, stops: atDelivery.stops.map(visit => ({ ...visit, status: 'COMPLETED' })) } as R;
+  assert.deepEqual([driverRouteStep(delivered)?.title, driverRouteStep(delivered)?.disabled], ['Complete', undefined]);
+  assert.ok(stepHere(driverRouteStep(delivered), delivered, delivered.stops[1]));
 });
 
 test('each dashboard stop opens its shipper conversation', async () => {
@@ -292,7 +415,7 @@ test('each dashboard stop opens its shipper conversation', async () => {
   try {
     mount();
     const timeline = await screen.findByRole('list', { name: "Today's stops" });
-    await user.click(within(timeline).getAllByRole('button', { name: /Chat with shipper/ })[0]);
+    await user.click(within(timeline).getAllByRole('button', { name: /Message shipper for/ })[0]);
     const dialog = await screen.findByRole('dialog', { name: /Fresh Test Shipper/ });
     assert.ok(within(dialog).getByText(/No messages yet\. Write to Fresh Test Shipper/));
   } finally { chat.channels = originalChannels; stub('driverOrders', [order]); }
