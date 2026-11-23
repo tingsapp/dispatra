@@ -1,3 +1,6 @@
+2026-11-23: Added the Dispatra continuous pulse (v6) loader: public/dispatra-pulse.js draws the logo→circle→dot→logo morph; index.html shows it before the bundle loads and PageLoading (every page/workspace startup, including opening a different account type) mounts it on the same clock. Reduced motion shows the still logo.
+Checks: TypeScript and production build pass (dist includes the script and boot markup); entities/dialog tests 39/39; animation frames verified in the local browser.
+
 2026-11-22: Web password reset sends the login portal; the platform-admin login no longer offers Forgot password (admins have no company to hold a reset). API types regenerated.
 Checks: TypeScript and production build pass; npm test fails only Rate Card Save in appActionLoading, which fails identically at HEAD.
 

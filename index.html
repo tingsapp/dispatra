@@ -13,8 +13,10 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
   </head>
-  <body>
-    <div id="root"></div>
+  <body style="margin:0">
+    <!-- Shown until React mounts and replaces #root; the pulse is drawn by /dispatra-pulse.js. -->
+    <div id="root"><main style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;min-height:100dvh;margin:0;padding:0 24px;background:#fcfcfc;color:#0d0d0d;font-family:system-ui,sans-serif"><div id="boot-pulse" aria-hidden="true" style="width:132px"></div><p role="status" style="margin:0;font-size:14px;line-height:20px;color:#6b6b6b">Loading Dispatra…</p></main></div>
+    <script src="/dispatra-pulse.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
