@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking, withMatchedZones } from '../src/operations/orderAdapters';
+import { draftToInput, emailDraftRow, inputToBooking, inputToDraftBooking, inputToDraftShipment, withMatchedZones } from '../src/operations/orderAdapters';
 import { EMAIL_DRAFT_STATUSES } from '../src/components/orders/EmailIntake';
 import type { CatalogItem, EmailIntake, Shipper } from '../src/operations/api';
 import { syncInvalidations } from '../src/portal/sync';
@@ -108,4 +108,12 @@ test('legacy drafts recover stated measurements using company units without rest
   assert.equal(input.packages[0].weightKg, 90.72);
   const cleared = draftToInput({ ...original, internal_notes: '' }, extraction, units);
   assert.ok(cleared.packages[0].missingFields?.includes('lengthCm'));
+});
+
+test('the Order agent load size opens in the form and survives draft saves and shipper completion', () => {
+  const input = draftToInput({ ...draft, load_size: 'SMALL_PARCEL' });
+  assert.equal(input.loadSize, 'SMALL_PARCEL');
+  assert.equal(inputToDraftBooking(input).load_size, 'SMALL_PARCEL');
+  assert.equal(inputToDraftShipment(input, 'America/Vancouver').load_size, 'SMALL_PARCEL');
+  assert.equal(inputToDraftBooking(draftToInput(draft)).load_size, null);
 });

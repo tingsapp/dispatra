@@ -181,13 +181,13 @@ function serializeBooking(input: PricingOrderInput, notes: string, timeZone: str
   const stopIds = new Map(input.stops.map(stop => [stop.id, /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(stop.id) ? stop.id : crypto.randomUUID()]));
   const pickups = input.stops.filter(stop => stop.type === 'PICKUP');
   const drops = input.stops.filter(stop => stop.type === 'DROPOFF');
-  // Drafts (email/shipper completion) have no load size yet; the API suggests one when the order is created.
+  // Drafts (email/shipper completion) keep every entered fact, including the Order agent's load size.
   const fields = loadFields(partial ? null : input.loadSize);
   const fullTruck = !fields.packageSizes;
   const size = (item: PricingPackageInput, key: 'lengthCm' | 'widthCm' | 'heightCm') => fullTruck ? null : packageValue(item, key);
   return {
     shipper_id: input.customerId, billing_shipper_id: input.billingCustomerId ?? input.customerId,
-    ...(partial ? {} : { load_size: input.loadSize ?? null }),
+    load_size: input.loadSize ?? null,
     rate_card_id: input.rateCardOverrideId, service_id: fields.service ? input.serviceId || null : null,
     vehicle_type_id: fields.vehicle === 'hidden' ? null : input.vehicleId, preferred_driver_id: input.preferredDriverId ?? null,
     scheduled_at: instant(input.scheduledAt),
@@ -218,6 +218,6 @@ export function inputToShipperBooking(input: PricingOrderInput, timeZone: string
 
 /** Shippers may submit shipment facts, never dispatcher commercial settings or internal notes. */
 export function inputToDraftShipment(input: PricingOrderInput, timeZone: string): DraftShipment {
-  const { service_id, vehicle_type_id, preferred_driver_id, scheduled_at, stops, items, accessorials, external_reference } = inputToDraftBooking(input, '', timeZone);
-  return { service_id, vehicle_type_id, preferred_driver_id, scheduled_at, stops, items, accessorials, external_reference };
+  const { load_size, service_id, vehicle_type_id, preferred_driver_id, scheduled_at, stops, items, accessorials, external_reference } = inputToDraftBooking(input, '', timeZone);
+  return { load_size, service_id, vehicle_type_id, preferred_driver_id, scheduled_at, stops, items, accessorials, external_reference };
 }

@@ -5601,6 +5601,8 @@ export interface components {
         };
         /** DraftBooking */
         DraftBooking: {
+            /** Load Size */
+            load_size?: ("FTL" | "LTL" | "SMALL_PARCEL") | null;
             /** Service Id */
             service_id?: string | null;
             /** Vehicle Type Id */
@@ -5738,6 +5740,8 @@ export interface components {
         };
         /** DraftShipment */
         "DraftShipment-Input": {
+            /** Load Size */
+            load_size?: ("FTL" | "LTL" | "SMALL_PARCEL") | null;
             /** Service Id */
             service_id?: string | null;
             /** Vehicle Type Id */
@@ -5760,6 +5764,8 @@ export interface components {
         };
         /** DraftShipment */
         "DraftShipment-Output": {
+            /** Load Size */
+            load_size?: ("FTL" | "LTL" | "SMALL_PARCEL") | null;
             /** Service Id */
             service_id?: string | null;
             /** Vehicle Type Id */

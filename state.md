@@ -1,3 +1,6 @@
+2026-11-23: Email drafts keep the Order agent's load size: `inputToDraftBooking`/`inputToDraftShipment` now send `load_size`; schema types regenerated.
+Checks: tsc ok; emailOrders 11/11 (new test), loadSize 7/7, packageTypes 3/3; emailDraftForm and shipperOrders each have one failure that also fails without this change.
+
 2026-11-23: Added the Dispatra continuous pulse (v6) loader: public/dispatra-pulse.js draws the logo→circle→dot→logo morph; index.html shows it before the bundle loads and PageLoading (every page/workspace startup, including opening a different account type) mounts it on the same clock. Reduced motion shows the still logo.
 Checks: TypeScript and production build pass (dist includes the script and boot markup); entities/dialog tests 39/39; animation frames verified in the local browser.
 
