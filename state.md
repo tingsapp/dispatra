@@ -1,3 +1,6 @@
+2026-11-22: Web password reset sends the login portal; the platform-admin login no longer offers Forgot password (admins have no company to hold a reset). API types regenerated.
+Checks: TypeScript and production build pass; npm test fails only Rate Card Save in appActionLoading, which fails identically at HEAD.
+
 2026-11-20: Driver sign-in shows Checking duty until saved availability loads. Dispatcher Order details now use Details / Message shipper / Message driver tabs, hide driver messages until assignment, retain drafts and use company-timezone timestamps; service badge is light gray.
 Checks: focused frontend tests 8/8, TypeScript, production build and diff checks pass; assigned/unassigned order tabs verified on localhost. Backend browser-duty fix activated separately; no API shape or native-app changes.
 
@@ -1613,3 +1616,12 @@ Final focused Chrome verification passed: real WebGL scene at 1440/390/320px, or
 2026-11-11: Zone Rate Card controls now store and match Canadian three-character FSAs, canonicalizing a full code to its FSA. Fresh local pricing starts with Zone 1 (Vancouver), Zone 2 (Burnaby), and Zone 3 (Richmond), each with a $20 starter price. Saving invalid zone input stops locally with a human-readable notification that gives `V6A` as the required format. TypeScript/browser tests could not run in this environment because no Node runtime is installed.
 
 2026-11-11: Rate Card save failures now appear as a red inline message immediately above Save Card instead of a global snackbar. Editing the card or any zone clears the message; local zone-name, FSA, matrix, dimensional and API-save failures use the same placement. Focused source/test updates are present; the Node runtime is unavailable in this environment, so the browser test was not executed.
+2026-11-20: Dispatcher Order details now expose Edit order for NEW, assigned, in-progress, completed and cancelled Orders. Shipper self-service remains NEW-only.
+Checks: entities 19/19 and dialog-dismissal 20/20 pass; TypeScript lint passes. No API or native-app contract shape change.
+2026-11-21: Applied #4285F4 as the primary and web accent color across primary actions, public branding and route/monitor accents.
+Checks: Web lint/typecheck passes and production build succeeds; no API or persistence changes.
+2026-11-21: Reverted the web primary button from blue to black and retained #4285F4 only as a replacement for the existing blue accent token and brand uses.
+2026-11-21: Added Forgot password to every web login role and removed the old access/reset contact sentence. The reset dialog requests and confirms a driver email code.
+Checks: Web API schema regeneration and TypeScript lint pass; no migration runtime check yet.
+2026-11-21: Replaced the web forgot-password popup with an in-place login-card reset flow; the Forgot password action remains available for all login roles.
+Checks: Web lint and production build pass.

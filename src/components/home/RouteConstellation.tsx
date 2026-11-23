@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 type Point = { x: number; y: number; z: number };
 const TAU = Math.PI * 2;
-const BLUE = '20,71,230';
+const BLUE = '66,133,244';
 
 // A fixed, front-facing trefoil matches the logo silhouette. Particles flow
 // around one continuous woven curve instead of rotating its shape in 3D.
@@ -55,7 +55,7 @@ function draw(ctx: CanvasRenderingContext2D, time: number) {
       // Solid order signals move along the same geometry as the route ribbons.
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle * .4);
       ctx.shadowColor = `rgba(${BLUE},.22)`; ctx.shadowBlur = 12;
-      ctx.fillStyle = p.orbit === 1 ? '#172643' : '#1447e6';
+      ctx.fillStyle = p.orbit === 1 ? '#172643' : '#4285F4';
       ctx.beginPath(); ctx.roundRect(-4.5, -4.5, 9, 9, 2); ctx.fill();
       ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(-2, -.6, 4, 1.2); ctx.restore();
     } else {

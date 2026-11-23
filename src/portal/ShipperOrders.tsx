@@ -28,7 +28,7 @@ import { OrderChatSection } from '../components/chat/OrderChat';
 import { Notice } from './ui';
 
 const dateIn = (iso: string | null | undefined, timeZone: string) => iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone }) : '';
-/** The API accepts shipper edits only while an order is unassigned. */
+/** The API accepts shipper edits only while an order is unassigned; dispatchers may edit at every lifecycle stage. */
 const shipperEditable = (job: Job) => job.lifecycleStatus === 'NEW' && orderEditable(job);
 
 /** The shipper's warehouse (with its map point) is the default pickup. */

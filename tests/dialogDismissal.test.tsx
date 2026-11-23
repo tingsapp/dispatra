@@ -178,14 +178,14 @@ test('assignment errors render as red inline alerts', async () => {
 });
 
 for (const lifecycleStatus of ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const) {
-  test(`${lifecycleStatus} order details keep the saved driver read-only`, async () => {
+  test(`${lifecycleStatus} order details keep reassignment read-only but allow dispatcher editing`, async () => {
     const { OrderDetailsDialog } = await import('../src/components/orders/OrderDetailsDialog');
     const { INITIAL_JOBS, INITIAL_DRIVERS } = await import('../src/data/mockData');
     const { loadPricingContext } = await import('../src/lib/orderPricing');
     render(<OrderDetailsDialog job={{ ...INITIAL_JOBS[0], lifecycleStatus, assignedDriverId: INITIAL_DRIVERS[0].id }} ctx={loadPricingContext()} drivers={INITIAL_DRIVERS} onClose={() => {}} onReassign={() => { throw new Error('Closed order reassigned'); }} onEdit={() => {}} onComplete={() => {}} />);
     assert.equal(screen.queryByRole('combobox', { name: 'Reassign driver' }), null);
     assert.equal(screen.queryByRole('button', { name: 'Confirm' }), null);
-    assert.equal(screen.queryByRole('button', { name: 'Edit order' }), null);
+    assert.ok(screen.getByRole('button', { name: 'Edit order' }));
     if (lifecycleStatus !== 'IN_PROGRESS') assert.equal(screen.queryByRole('button', { name: 'Complete order' }), null);
     assert.ok(screen.getByText(INITIAL_DRIVERS[0].name));
   });

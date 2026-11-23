@@ -105,8 +105,8 @@ test('dangerous goods packages require a DG-qualified driver in local assignment
   assert.match(validateOperationalAssignment(order,driver,[vehicle]).join(' '),/verified DG qualification/);
   assert.doesNotMatch(validateOperationalAssignment(order,{...driver,skills:['DG']},[vehicle]).join(' '),/DG qualification/);
 });
-test('final, completed and executing orders cannot be edited; risk is independent of lifecycle', () => {
-  const order={...INITIAL_JOBS[0],status:'at_risk' as const,lifecycleStatus:'ASSIGNED' as const}; assert.equal(orderLifecycle(order),'ASSIGNED'); assert.equal(orderEditable({...order,lifecycleStatus:'IN_PROGRESS'}),false); assert.equal(orderLifecycle({...order,lifecycleStatus:'IN_EXECUTION' as any}),'IN_PROGRESS'); assert.equal(orderLifecycle({...order,lifecycleStatus:'READY_FOR_DISPATCH' as any}),'NEW'); assert.deepEqual(orderAttention(order).map(a=>a.flag),['AT_RISK']); assert.equal(orderEditable({...order,status:'completed',lifecycleStatus:'COMPLETED'}),false);
+test('dispatchers can edit orders at every lifecycle stage; risk is independent of lifecycle', () => {
+  const order={...INITIAL_JOBS[0],status:'at_risk' as const,lifecycleStatus:'ASSIGNED' as const}; assert.equal(orderLifecycle(order),'ASSIGNED'); assert.equal(orderEditable({...order,lifecycleStatus:'IN_PROGRESS'}),true); assert.equal(orderLifecycle({...order,lifecycleStatus:'IN_EXECUTION' as any}),'IN_PROGRESS'); assert.equal(orderLifecycle({...order,lifecycleStatus:'READY_FOR_DISPATCH' as any}),'NEW'); assert.deepEqual(orderAttention(order).map(a=>a.flag),['AT_RISK']); assert.equal(orderEditable({...order,status:'completed',lifecycleStatus:'COMPLETED'}),true);
 });
 test('saved order operational fields and frozen amounts survive a roundtrip', () => {
   store.clear(); const input=facts(); const order={...INITIAL_JOBS[0],pricingInput:input,pricing:priceOrder(input),priority:'URGENT' as const,referenceNumbers:'PO-42',customerSnapshot:snapshotCustomer(DEFAULT_SHIPPERS[0]),version:2}; saveOrders([order]); const loaded=loadSavedOrders([])[0]; assert.equal(loaded.referenceNumbers,'PO-42'); assert.deepEqual(loaded.pricing,JSON.parse(JSON.stringify(order.pricing))); assert.deepEqual(loaded.customerSnapshot,JSON.parse(JSON.stringify(order.customerSnapshot)));
@@ -136,7 +136,7 @@ test('legacy invoiced orders read as completed without changing their saved pric
   saveOrders([old]);
   const restored=loadSavedOrders([])[0];
   assert.equal(restored.lifecycleStatus,'COMPLETED');
-  assert.equal(orderEditable(restored),false);
+  assert.equal(orderEditable(restored),true);
   assert.equal(restored.completedAt,old.completedAt);
   assert.deepEqual(restored.pricing,JSON.parse(JSON.stringify(pricing)));
 });
@@ -146,6 +146,6 @@ test('order action rules distinguish booking edits from driver changes', async (
   for (const lifecycleStatus of ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const) {
     const job = { ...INITIAL_JOBS[0], lifecycleStatus, pricing: undefined };
     assert.equal(orderAssignable(job), lifecycleStatus === 'NEW' || lifecycleStatus === 'ASSIGNED');
-    assert.equal(orderEditable(job), lifecycleStatus === 'NEW');
+    assert.equal(orderEditable(job), true);
   }
 });

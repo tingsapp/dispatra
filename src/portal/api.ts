@@ -52,6 +52,9 @@ export type OperationalIncident = components['schemas']['IncidentView'];
 export type OperationalQuestion = components['schemas']['QuestionView'];
 export type OperationalReply = components['schemas']['Reply'];
 export const api = {
+  requestPasswordReset: async (portal: LoginInput['portal'], loginId: string) => unwrap(await client.POST('/api/v1/auth/password/reset/request', { body: { portal, login_id: loginId } })),
+  resendPasswordReset: async (resetToken: string) => unwrap(await client.POST('/api/v1/auth/password/reset/resend', { body: { reset_token: resetToken } })),
+  confirmPasswordReset: async (resetToken: string, code: string, newPassword: string) => unwrap(await client.POST('/api/v1/auth/password/reset/confirm', { body: { reset_token: resetToken, code, new_password: newPassword } })),
   publicAssistant: async (body: components['schemas']['PublicAssistantQuestion'], signal?: AbortSignal) => unwrap(await client.POST('/api/v1/public/assistant/messages', { body, signal })),
   paymentHistory: async (target: PaymentTarget, after?: string) => target.kind === 'owner'
     ? unwrap(await client.GET('/api/v1/platform/organizations/{organization_id}/payments', { params: { path: { organization_id: target.id }, query: { after } } }))

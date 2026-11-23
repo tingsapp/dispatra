@@ -1,6 +1,6 @@
 /* Neutral surfaces carry the content; blue marks interactive state and small brand cues. */
 .public-site {
- --public-brand:#1447e6;
+ --public-brand:#4285F4;
  --app-focus-color:var(--public-brand);
  --color-app-canvas:#fff;
  --color-app-accent:var(--public-brand);
