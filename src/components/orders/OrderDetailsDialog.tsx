@@ -12,6 +12,7 @@ import { companySlugForCurrentPath } from '../../lib/pageRoutes';
 import { Tabs } from '../ui/Tabs';
 import { CompanyChatPanel } from '../chat/CompanyChatDialog';
 import { OrderChat } from '../chat/OrderChat';
+import { SourceEmailDialog } from './EmailDraftSection';
 import type { PricingContext } from '../../lib/pricingEngine';
 import type { Driver, Job } from '../../types';
 
@@ -24,6 +25,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
   const savedDriver = job.assignedDriverId || 'unassigned';
   const [selectedDriver, setSelectedDriver] = useState(savedDriver);
   const [saving, setSaving] = useState(false);
+  const [sourceEmailOpen, setSourceEmailOpen] = useState(false);
   const completion = usePendingAction();
   useEffect(() => { setSelectedDriver(savedDriver); }, [job.id, savedDriver]);
   const assignable = orderAssignable(job);
@@ -50,7 +52,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
     <DialogBody className="space-y-5">
       <Tabs key={job.id} label="Order details tabs" items={[
         { id: 'details', label: 'Details', content: <>
-          <OrderDossierSections job={job} ctx={ctx} dispatch={<section className="rounded-xl border border-slate-200 p-5 space-y-3">
+          <OrderDossierSections job={job} ctx={ctx} onOpenSourceEmail={slug ? () => setSourceEmailOpen(true) : undefined} dispatch={<section className="rounded-xl border border-slate-200 p-5 space-y-3">
             <h4 className="app-section-title flex items-center gap-1.5"><Truck className="h-3.5 w-3.5" />Dispatch</h4>
             <div>
               <label className="app-label">Assigned driver</label>
@@ -86,5 +88,6 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
       {completable && <Button loading={completion.pending} variant="outline" onClick={() => completion.run(() => onComplete!(job))}><CheckCircle2 /> Complete order</Button>}
       {locatable && <Button onClick={() => onLocate!(job)}><MapPin /> Locate on Monitor</Button>}
     </DialogFooter>}
+    {slug && sourceEmailOpen && <SourceEmailDialog slug={slug} orderId={job.id} orderNumber={job.jobNumber} timeZone={ctx.billing.general.timeZone} onClose={() => setSourceEmailOpen(false)} />}
   </Dialog>;
 }

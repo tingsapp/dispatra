@@ -1,6 +1,10 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, Mail, ShieldAlert, ShieldCheck } from 'lucide-react';
-import type { EmailIntakeDetail } from '../../operations/api';
+import { operations, type EmailIntakeDetail } from '../../operations/api';
+import { Dialog, DialogBody, DialogHeader } from '../ui/Dialog';
+import { useEntityDialog } from '../entities/useEntityDialog';
 import { dateTime } from '../../lib/dateTimeFormat';
 import { reviewMessages } from '../../lib/emailDraftReview';
 
@@ -31,13 +35,36 @@ export function OriginalEmail({ email, timeZone }: { email: EmailIntakeDetail; t
       <span className="app-section-title flex items-center gap-2"><Mail className="size-4" />Original email</span>
       <ChevronDown className="size-4 text-slate-400 transition-transform group-open/email:rotate-180" />
     </summary>
-    <div className="mt-4 space-y-3 text-sm">
-      <dl className="space-y-1 text-xs text-slate-600">
-        <div><dt className="inline font-medium">From: </dt><dd className="inline break-words">{email.from_name ? `${email.from_name} <${email.from_address}>` : email.from_address}</dd></div>
-        <div><dt className="inline font-medium">Subject: </dt><dd className="inline break-words">{email.subject}</dd></div>
-        <div><dt className="inline font-medium">Received: </dt><dd className="inline">{dateTime(email.received_at, timeZone)}</dd></div>
-      </dl>
-      <div className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-slate-700">{email.body || 'No email body.'}</div>
-    </div>
+    <EmailMessage email={email} timeZone={timeZone} className="mt-4" bodyClassName="max-h-80 overflow-y-auto" />
   </details>;
+}
+
+function EmailMessage({ email, timeZone, className = '', bodyClassName = '' }: { email: EmailIntakeDetail; timeZone: string; className?: string; bodyClassName?: string }) {
+  return <div className={`space-y-3 text-sm ${className}`}>
+    <dl className="space-y-1 text-xs text-slate-600">
+      <div><dt className="inline font-medium">From: </dt><dd className="inline break-words">{email.from_name ? `${email.from_name} <${email.from_address}>` : email.from_address}</dd></div>
+      <div><dt className="inline font-medium">Subject: </dt><dd className="inline break-words">{email.subject}</dd></div>
+      <div><dt className="inline font-medium">Received: </dt><dd className="inline">{dateTime(email.received_at, timeZone)}</dd></div>
+    </dl>
+    <div className={`whitespace-pre-wrap break-words text-slate-700 ${bodyClassName}`}>{email.body || 'No email body.'}</div>
+  </div>;
+}
+
+/** The email an order was created from, opened from the order's "Order source" link above the order details. */
+export function SourceEmailDialog({ slug, orderId, orderNumber, timeZone, onClose }: { slug: string; orderId: string; orderNumber?: string; timeZone: string; onClose: () => void }) {
+  const email = useQuery({ queryKey: ['operations', slug, 'order-email', orderId], queryFn: () => operations.orderEmail(slug, orderId) });
+  useEntityDialog(true, onClose, `Source email${orderNumber ? ` · ${orderNumber}` : ''}`);
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, []);
+  return createPortal(<Dialog size="md" zIndex="z-[160]" onClose={onClose}>
+    <DialogHeader onClose={onClose} title={<span className="flex items-center gap-2"><Mail className="size-4" />Source email</span>} description={orderNumber} />
+    <DialogBody>
+      {email.isPending && <p role="status" className="text-sm text-slate-500">Loading email…</p>}
+      {email.error && <p role="alert" className="text-sm text-red-700">{email.error instanceof Error ? email.error.message : 'Could not load the email.'}</p>}
+      {email.data && <EmailMessage email={email.data} timeZone={timeZone} />}
+    </DialogBody>
+  </Dialog>, document.body);
 }

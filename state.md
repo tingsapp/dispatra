@@ -1,3 +1,5 @@
+2026-11-23: Dispatcher Order details make an Email order source a link that opens the source email in a popup (`SourceEmailDialog`, `operations.orderEmail`); schema.d.ts regenerated.
+Checks: tsc ok; emailOrders 11/11, dialogDismissal 20/20, new emailDraftForm test passes (its older 'collapsed email' test and 3 entityForms tests already failed before this change); checked DDO-3967 in the running local app, including Escape closing only the email popup.
 2026-11-23: Driver Today's jobs stops show the driver app's actions (Message, Upload POD, Report, then the route step Start/Navigate/Confirm arrival/Complete with its 100 m/75 m/30 s arrival check) via new `driverStopStep.ts`/`DriverStopActions`; stop reports (dialog and order details) are multi-select and send one issue with the highest-priority kind and every label, like the app.
 Checks: tsc ok; driverPortal 22/22 (4 new/updated), dialogDismissal 20/20, buttonLoading 5/5; not checked in the running app (no driver sign-in in the built-in browser).
 

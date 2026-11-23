@@ -5,7 +5,7 @@ import { formatDimension, formatWeight } from '../../lib/units';
 import type { PricingContext } from '../../lib/pricingEngine';
 import type { Job } from '../../types';
 import type { PricingStopInput } from '../../types/pricing';
-import { orderOrigin } from '../../domain/orderOrigin';
+import { orderOrigin, orderSource } from '../../domain/orderOrigin';
 import { dateTime as formatWhen } from '../../lib/dateTimeFormat';
 import { loadSizeLabel } from '../../lib/loadSize';
 
@@ -21,8 +21,8 @@ export function Detail({ label, value, hint, className = '' }: { label: string; 
   return <div className={className}><dt className="text-xs text-slate-500">{label}</dt><dd className="text-sm text-slate-900 break-words">{value?.trim() ? value : '-'}{hint && <span className="block text-xs text-slate-500">{hint}</span>}</dd></div>;
 }
 
-/** Order details laid out like the order form: one bordered section per form section. `dispatch` renders before the price. */
-export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, showMargin = true }: { job: Job; ctx: PricingContext; dispatch?: ReactNode; showShipper?: boolean; showMargin?: boolean }) {
+/** Order details laid out like the order form: one bordered section per form section. `dispatch` renders before the price; `onOpenSourceEmail` links an Email source. */
+export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, showMargin = true, onOpenSourceEmail }: { job: Job; ctx: PricingContext; dispatch?: ReactNode; showShipper?: boolean; showMargin?: boolean; onOpenSourceEmail?: () => void }) {
   const units = ctx.billing.general;
   const accessorials = dossierAccessorials(job, ctx);
   const origin = orderOrigin(job);
@@ -33,7 +33,9 @@ export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, s
         {showShipper && <Detail label="Shipper" value={job.customerName} hint={job.customerPhone} />}
         {job.loadSize && <Detail label="Load size" value={loadSizeLabel(job.loadSize)} />}
         <Detail label="Service" value={job.serviceLevel || (job.loadSize === 'FTL' ? 'None (full truckload)' : job.jobType)} />
-        <Detail label="Order source" value={origin.label} />
+        {onOpenSourceEmail && orderSource(job) === 'EMAIL'
+          ? <div><dt className="text-xs text-slate-500">Order source</dt><dd className="text-sm"><button type="button" className="text-app-accent underline underline-offset-4 hover:text-app-text" onClick={onOpenSourceEmail} title="Open the source email">{origin.label}</button></dd></div>
+          : <Detail label="Order source" value={origin.label} />}
         {origin.tmsReference !== null && <Detail label="TMS reference number" value={origin.tmsReference} />}
       </dl>
     </section>

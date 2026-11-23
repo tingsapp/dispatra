@@ -7,7 +7,10 @@ for (const name of ['window','document','navigator','HTMLElement','HTMLInputElem
 HTMLElement.prototype.scrollIntoView=()=>{};
 const {render,screen,cleanup,fireEvent}=await import('@testing-library/react');
 const {OrderPricingForm}=await import('../src/components/pricing/OrderPricingForm');
-const {EmailDraftSection}=await import('../src/components/orders/EmailDraftSection');
+const {EmailDraftSection,SourceEmailDialog}=await import('../src/components/orders/EmailDraftSection');
+const {OrderDossierSections}=await import('../src/components/orders/OrderDossierSections');
+const {operations}=await import('../src/operations/api');
+const {QueryClient,QueryClientProvider}=await import('@tanstack/react-query');
 const {draftToInput,inputToDraftBooking}=await import('../src/operations/orderAdapters');
 const {loadPricingContext,priceOrder}=await import('../src/lib/orderPricing');
 const {loginDestination}=await import('../src/portal/PortalApp');
@@ -51,4 +54,23 @@ test('completion deep links survive matching shipper sign-in without redirecting
  assert.equal(loginDestination(account,'/acme/shipper',`?draft=${id}`),`/acme/shipper?draft=${id}`);
  assert.equal(loginDestination(account,'/foreign/shipper',`?draft=${id}`),'/acme/shipper');
  assert.equal(loginDestination(account,'/acme/shipper','?draft=https://attacker.test'),'/acme/shipper');
+});
+
+test('an Email order source opens its source email in a popup',async()=>{
+ const opened:string[]=[];const ctx=loadPricingContext();
+ const job={id:'order-1',jobNumber:'DTO-1',creationSource:'EMAIL',customerName:'Pacific',pickupAddress:'A',dropoffAddress:'B'} as never;
+ render(<OrderDossierSections job={job} ctx={ctx} onOpenSourceEmail={()=>opened.push('email')} />);
+ fireEvent.click(screen.getByRole('button',{name:'Email'}));
+ assert.deepEqual(opened,['email']);
+ cleanup();
+ render(<OrderDossierSections job={{...(job as object),creationSource:'DISPATCHER'} as never} ctx={ctx} onOpenSourceEmail={()=>opened.push('other')} />);
+ assert.equal(screen.queryByRole('button',{name:'Dispatcher created'}),null);
+ cleanup();
+ const original=operations.orderEmail;
+ operations.orderEmail=async(slug,orderId)=>({body:`Pickup for ${orderId} at ${slug}`,from_address:'shipper@example.com',from_name:'',subject:'New order',received_at:'2026-11-09T09:00:00Z'}) as never;
+ try{
+  render(<QueryClientProvider client={new QueryClient()}><SourceEmailDialog slug="acme" orderId="order-1" orderNumber="DTO-1" timeZone="UTC" onClose={()=>{}} /></QueryClientProvider>);
+  assert.ok(await screen.findByText('Pickup for order-1 at acme'));
+  assert.ok(screen.getByText('New order'));
+ }finally{operations.orderEmail=original;}
 });
