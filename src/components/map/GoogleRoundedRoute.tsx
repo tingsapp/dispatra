@@ -17,7 +17,7 @@ type RouteProps = {
 };
 
 /** A Google-projected SVG route with explicit rounded caps, joins and turns; hovering highlights it in the accent blue. */
-export function GoogleRoundedRoute({ id, points, selected, radius = 10, approach = false, dashed = false, highlighted = false, onHoverChange }: RouteProps) {
+export function GoogleRoundedRoute({ id, points, selected, radius = 22, approach = false, dashed = false, highlighted = false, onHoverChange }: RouteProps) {
   const map = useMap();
   const current = useRef({ id, points, selected, radius, approach, dashed, highlighted, onHoverChange });
   current.current = { id, points, selected, radius, approach, dashed, highlighted, onHoverChange };
@@ -36,7 +36,7 @@ export function GoogleRoundedRoute({ id, points, selected, radius = 10, approach
     const paint = () => {
       const { selected, approach, dashed, highlighted } = current.current, blue = !!svg.dataset.hovered || highlighted;
       path.setAttribute('stroke', blue ? APP_ACCENT : ROUTE_COLOR);
-      path.setAttribute('stroke-opacity', blue || (selected && !approach) ? '1' : approach ? '0.4' : '0.6');
+      path.setAttribute('stroke-opacity', blue || (selected && !approach) ? '1' : '0.6');
       path.setAttribute('stroke-dasharray', dashed ? '6 6' : 'none');
       if (blue) svg.parentNode?.appendChild(svg);
     };

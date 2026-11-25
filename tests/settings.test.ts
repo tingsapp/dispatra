@@ -312,8 +312,8 @@ test('Settings never opens an imported editor when no native cards remain', asyn
   const native = createEmptyRateCard({ name: 'Native contract', scope: 'ORDER' });
   const config = loadPricingConfig(); config.rateCards.push(native); savePricingConfig(config);
   render(React.createElement(React.Fragment, null, React.createElement(RateCardsPage), React.createElement(ConfirmDialogHost)));
-  await user.click(screen.getByRole('button', { name: 'Archive' }));
-  await user.click(screen.getByRole('button', { name: 'Archive card' }));
+  await user.click(screen.getByRole('button', { name: 'Delete' }));
+  await user.click(screen.getByRole('button', { name: 'Delete card' }));
   assert.equal(screen.queryByLabelText('Rate card name'), null);
   assert.equal(loadPricingConfig().rateCards[0].status, 'ACTIVE');
 });
@@ -582,7 +582,7 @@ test('selecting another rate card focuses its editor without scrolling the page'
   }
 });
 
-test('rate cards show a Default badge, can be re-defaulted and archived from the footer, and the Default cannot be archived', async () => {
+test('rate cards show a Default badge, can be re-defaulted and deleted from the footer, and the Default cannot be deleted', async () => {
   const user = userEvent.setup({ document }); seedCard();
   const config = loadPricingConfig(); config.rateCards.push(createEmptyRateCard({ id: 'contract-b', name: 'Contract B', pricingMethod: 'FIXED', fixedAmount: 55 })); savePricingConfig(config);
   const notices: string[] = [];
@@ -590,21 +590,21 @@ test('rate cards show a Default badge, can be re-defaulted and archived from the
   assert.equal(screen.queryByLabelText('Show archived'), null);
   const list = within(screen.getByRole('complementary', { name: 'Rate cards' }));
   assert.match(list.getByRole('button', { name: 'Contract A' }).textContent!, /Default/); assert.doesNotMatch(list.getByRole('button', { name: 'Contract B' }).textContent!, /Default/);
-  assert.equal(screen.queryByRole('button', { name: 'Archive' }), null); assert.equal(screen.queryByRole('button', { name: 'Set as default' }), null);
+  assert.equal(screen.queryByRole('button', { name: 'Delete' }), null); assert.equal(screen.queryByRole('button', { name: 'Set as default' }), null);
   assert.equal(screen.getAllByRole('button', { name: 'Save Card' }).length, 1);
   await user.click(list.getByRole('button', { name: 'Contract B' }));
   await user.click(screen.getByRole('button', { name: 'Set as default' }));
   assert.match(list.getByRole('button', { name: 'Contract B' }).textContent!, /Default/); assert.doesNotMatch(list.getByRole('button', { name: 'Contract A' }).textContent!, /Default/);
   assert.deepEqual(loadPricingConfig().rateCards.map(card => card.scope), ['ORDER', 'ORGANIZATION']);
   await user.click(list.getByRole('button', { name: 'Contract A' }));
-  const archive = screen.getByRole('button', { name: 'Archive' }); assert.ok(archive.compareDocumentPosition(screen.getByLabelText('Minimum Charge')) & Node.DOCUMENT_POSITION_PRECEDING);
+  const archive = screen.getByRole('button', { name: 'Delete' }); assert.ok(archive.compareDocumentPosition(screen.getByLabelText('Minimum Charge')) & Node.DOCUMENT_POSITION_PRECEDING);
   let confirmText = ''; window.confirm = message => { confirmText = String(message); return true; };
   await user.click(archive);
   assert.match(confirmText, /already priced.*unchanged.*No shippers are attached/);
   assert.equal(list.queryByRole('button', { name: 'Contract A' }), null); assert.equal(loadPricingConfig().rateCards[0].status, 'ARCHIVED');
   assert.equal((screen.getByLabelText('Rate card name') as HTMLInputElement).value, 'Contract B');
-  assert.equal(screen.queryByRole('button', { name: 'Archive' }), null);
-  assert.match(notices.join(' '), /now the Default/); assert.match(notices.join(' '), /Archived "Contract A"/);
+  assert.equal(screen.queryByRole('button', { name: 'Delete' }), null);
+  assert.match(notices.join(' '), /now the Default/); assert.match(notices.join(' '), /Deleted "Contract A"/);
   await user.click(screen.getByRole('button', { name: 'Add card' }));
   await user.type(screen.getByLabelText('Rate card name'), ' C'); await user.click(screen.getByRole('button', { name: 'Save Card' }));
   const created = loadPricingConfig().rateCards.find(card => card.name === 'New Rate Card C')!;
@@ -1164,18 +1164,18 @@ test('customer create form is flat and minimal; status appears only on edit and 
   const edit = screen.getByRole('dialog'); assert.ok(within(edit).getByRole('combobox', { name: 'Shipper status' })); assert.equal((within(edit).getByRole('textbox', { name: 'Company name' }) as HTMLInputElement).value, 'Harbour Bakery'); assert.equal(within(edit).queryByRole('textbox', { name: 'Contact name' }), null); assert.equal(within(edit).queryByText('Account / Code'), null);
 });
 
-test('custom confirm dialog replaces the browser confirm: archive, discard-changes guard, Escape and cancel', async () => {
+test('custom confirm dialog replaces the browser confirm: delete, discard-changes guard, Escape and cancel', async () => {
   const { confirmDialog } = await import('../src/components/ui/ConfirmDialog');
   const user = userEvent.setup({ document }); seedCard();
   const config = loadPricingConfig(); config.rateCards.push(createEmptyRateCard({ id: 'contract-b', name: 'Contract B', pricingMethod: 'FIXED', fixedAmount: 55 })); savePricingConfig(config);
   window.confirm = () => { throw new Error('native confirm must not be used while the host is mounted'); };
   render(React.createElement(React.Fragment, null, React.createElement(ConfirmDialogHost), React.createElement(RateCardsPage, {  })));
   await user.click(screen.getByRole('button', { name: 'Contract B' }));
-  await user.click(screen.getByRole('button', { name: 'Archive' }));
-  const dialog = screen.getByRole('alertdialog', { name: 'Archive "Contract B"?' });
+  await user.click(screen.getByRole('button', { name: 'Delete' }));
+  const dialog = screen.getByRole('alertdialog', { name: 'Delete "Contract B"?' });
   assert.match(dialog.textContent!, /orders already priced with it are unchanged/); assert.equal(document.activeElement, within(dialog).getByRole('button', { name: 'Cancel' }));
   await user.keyboard('{Escape}'); assert.equal(screen.queryByRole('alertdialog'), null); assert.equal(loadPricingConfig().rateCards[1].status, 'ACTIVE');
-  await user.click(screen.getByRole('button', { name: 'Archive' })); await user.click(screen.getByRole('button', { name: 'Archive card' }));
+  await user.click(screen.getByRole('button', { name: 'Delete' })); await user.click(screen.getByRole('button', { name: 'Delete card' }));
   assert.equal(loadPricingConfig().rateCards[1].status, 'ARCHIVED'); assert.equal(screen.queryByRole('alertdialog'), null);
   await user.type(screen.getByLabelText('Rate card name'), ' edited');
   let proceeded = false; const event = new CustomEvent(SETTINGS_NAVIGATION_EVENT, { cancelable: true, detail: { proceed: () => { proceeded = true; } } });

@@ -166,7 +166,7 @@ test('unavailable connector keeps Submit separate from contact help and its X di
 });
 const dispatcher={id:'dispatcher-1',role:'DISPATCHER',login_id:'dispatcher@example.com',display_name:'Dispatcher',tms_workspace:false,organization:{id:'company-1',slug:'acme',name:'Acme',active:true}} as Account;
 function savedSettings(checked:boolean):SettingsView {
- return {id:'settings-1',version:5,created_at:'2026-10-14T00:00:00Z',data:{company_name:'Acme',tms_workspace:checked,contact_name:'Dispatcher',email:'dispatcher@example.com',phone:'6045550188',address:'Saved company address',logo_url:'',currency:'CAD',time_zone:'America/Vancouver',weight_unit:'kg',dimension_unit:'cm',distance_unit:'km',tax_registration_number:'',gst_enabled:true,gst_percent:'5',provincial_enabled:false,provincial_percent:'0',fuel_enabled:true,fuel_percent:'28.5',maximum_active_orders:3,quote_validity_days:14,dispatch_mode:'AUTO',default_service_id:null}};
+ return {id:'settings-1',version:5,created_at:'2026-10-14T00:00:00Z',data:{company_name:'Acme',tms_workspace:checked,contact_name:'Dispatcher',email:'dispatcher@example.com',phone:'6045550188',address:'Saved company address',logo_url:'',currency:'CAD',time_zone:'America/Vancouver',weight_unit:'kg',dimension_unit:'cm',distance_unit:'km',tax_registration_number:'',gst_enabled:true,gst_percent:'5',provincial_enabled:false,provincial_percent:'0',fuel_enabled:true,fuel_percent:'28.5',extra_time_minutes:30,extra_time_amount:'50',stop_minutes_small_parcel:10,stop_minutes_ltl:20,stop_minutes_ftl:45,maximum_active_orders:3,quote_validity_days:14,dispatch_mode:'AUTO',default_service_id:null}};
 }
 function WorkspacePreferences(){
  const workspace=useWorkspaceAccount()!;
@@ -419,7 +419,7 @@ test('saving Profile contact name and company logo updates the mounted authentic
  Object.defineProperty(globalThis,'FileReader',{configurable:true,value:dom.window.FileReader});
  let saved={...savedSettings(false),data:{...savedSettings(false).data,company_name:'Demo',contact_name:'John Smith',logo_url:''}};
  api.companySettings=async()=>saved;
- api.saveCompanySettings=async(_slug,body)=>{saved={...saved,version:saved.version+1,data:{...body.data,gst_percent:String(body.data.gst_percent),provincial_percent:String(body.data.provincial_percent),fuel_percent:String(body.data.fuel_percent)}};return saved;};
+ api.saveCompanySettings=async(_slug,body)=>{saved={...saved,version:saved.version+1,data:{...body.data,gst_percent:String(body.data.gst_percent),provincial_percent:String(body.data.provincial_percent),fuel_percent:String(body.data.fuel_percent),extra_time_amount:String(body.data.extra_time_amount)}};return saved;};
  const user=mount(<WorkspaceAccount account={{...dispatcher,display_name:'John Smith'}}>
   <Sidebar activeTab="profile" isOpen onToggle={()=>{}} setActiveTab={()=>{}} showAccountPopover={false}
    setShowAccountPopover={()=>{}} onActionNotification={()=>{}} dispatchMode="AUTO" onDispatchModeChange={()=>{}} />

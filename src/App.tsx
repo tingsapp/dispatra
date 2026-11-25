@@ -158,7 +158,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
     const order = orderQuery.data?.find(row => row.id === item.order_id);
     return { id: item.id ?? `${item.order_id}-${item.kind}`, jobNumber: order?.number ?? '', at: item.at, statusType: 'at_risk' as const, statusLabel: attentionLabel(item.kind), subtitle: item.description,
       pickupAddress: order?.facts.stops.find(stop => stop.kind === 'PICKUP')?.address.text ?? '', badgeColor: item.kind === 'AT_RISK' ? 'red' as const : 'amber' as const,
-      ...(item.id && item.version != null ? { issue: { id: item.id, version: item.version } } : {}) };
+      ...(item.id && item.version != null ? { issue: { id: item.id, version: item.version }, photoIds: item.photo_ids ?? [] } : {}) };
   }) : [...pricingAttentionItems(jobs), ...operationalAttentionItems];
 
   // Active Jobs & Driver counts
@@ -458,6 +458,19 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
       await changeAssignment(slug, record, driverId, driver.currentVehicleId ?? null, route);
       showToast(`Assigned ${job.jobNumber} to ${driver.name}.`, 'success');
     } catch (error) { showToast(error instanceof Error ? error.message : 'Could not assign driver.', 'error'); }
+    finally { await refreshDispatch(); }
+  };
+  const handleMonitorUnassignDriver = async (job: Job) => {
+    if (!slug) return;
+    const record = orderQuery.data?.find(order => order.id === job.id);
+    if (!record) return;
+    const route = routeQuery.data?.find(item => item.id === record.route_id);
+    try {
+      const affected = route ? orderQuery.data?.filter(order => order.route_id === route.id).length ?? 1 : 1;
+      if (!(await confirmDialog({ title: 'Unassign driver?', message: affected > 1 ? `This planned route has ${affected} orders. Releasing it will leave all of them unassigned.` : `${job.jobNumber} goes back to Unassigned and its planned route is released.`, confirmLabel: 'Unassign' }))) return;
+      await changeAssignment(slug, record, null, null, route);
+      showToast(`${job.jobNumber} is unassigned.`, 'success');
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Could not unassign the driver.', 'error'); }
     finally { await refreshDispatch(); }
   };
   const refreshDispatch = () => Promise.all(['orders', 'routes', 'monitor'].map(name => queryClient.invalidateQueries({ queryKey: ['operations', slug, name] })));
@@ -760,6 +773,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   drivers={drivers}
                   stopStatuses={Object.fromEntries((routeQuery.data?.find(route => route.id === activeJob.routeId)?.stops ?? []).map(visit => [visit.stop_id, visit.status]))}
                   onAssignDriver={driverId => handleMonitorAssignDriver(activeJob, driverId)}
+                  onUnassignDriver={slug ? () => handleMonitorUnassignDriver(activeJob) : undefined}
                   onClose={handleCloseJobDetailPopover}
                   showAssignDriver={showAssignDriver}
                   setShowAssignDriver={setShowAssignDriver}

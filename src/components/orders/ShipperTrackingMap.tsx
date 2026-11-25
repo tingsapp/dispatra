@@ -6,6 +6,7 @@ import { operations, type Address, type Order } from '../../operations/api';
 import { GoogleOverlayMarker } from '../monitor/GoogleOverlayMarker';
 import { GoogleRoundedRoute } from '../map/GoogleRoundedRoute';
 import { VehicleMarkerCircle } from '../map/VehicleMarkerCircle';
+import { CLEAN_MAP_STYLE } from '../map/mapStyle';
 import { ShipperStopMarker } from './ShipperStopMarker';
 import { useShipperMapCamera } from './useShipperMapCamera';
 import type { Tracking } from './trackingPresentation';
@@ -87,7 +88,7 @@ export function ShipperTrackingMap(props: Props) {
     {!apiKey || failed ? <p role="status" className="shipper-map-unavailable text-sm text-app-muted">Map is unavailable. Your order progress and stops are shown in the card.</p>
       : <APIProvider apiKey={apiKey} language="en" onLoad={onLoad} onError={onError}>
         {!loaded && <p role="status" className="shipper-map-unavailable text-sm text-app-muted">Loading map…</p>}
-        <Map defaultCenter={initialShipperCenter(props.warehouse, props.timeZone)} defaultZoom={13} maxZoom={19} isFractionalZoomEnabled
+        <Map defaultCenter={initialShipperCenter(props.warehouse, props.timeZone)} defaultZoom={13} maxZoom={19} isFractionalZoomEnabled styles={CLEAN_MAP_STYLE}
           disableDefaultUI clickableIcons={false} gestureHandling="greedy" keyboardShortcuts aria-label="Shipment map">
           <TrackingMapContent {...props} />
         </Map>

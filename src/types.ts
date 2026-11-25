@@ -78,6 +78,8 @@ export interface NeedsAttentionItem {
   badgeColor: 'red' | 'amber';
   /** Set for a reported issue that the dispatcher can resolve. */
   issue?: { id: string; version: number };
+  /** Driver report photos of that issue. */
+  photoIds?: string[];
 }
 
 export interface EligibleDriver {

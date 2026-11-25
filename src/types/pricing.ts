@@ -279,6 +279,7 @@ export type ChargeGroupKey =
   | 'FUEL'
   | 'COMPANY_CHARGE'
   | 'ACCESSORIAL'
+  | 'EXTRA_TIME'
   | 'DISCOUNT'
   | 'ADJUSTMENT'
   | 'TAX';
@@ -383,6 +384,8 @@ export interface PricingSnapshot {
   orderFacts?: PricingOrderInput;
   quoteExpiresAt?: string;
   imported?: { source: string | null; reference: string | null; amount: number; mode: 'FREIGHT' | 'FINAL_TOTAL' };
+  /** API Extra time per stop on a completed Order (dispatcher views only). */
+  extraTime?: import('../portal/schema').components['schemas']['ExtraTimeView'] | null;
   roundingAdjustment?: number;
   engineVersion: string;
   pricedAt: string;

@@ -1,6 +1,6 @@
 import { ActionButton } from '../ui/button';
 import { clockText } from '../../lib/dateTimeFormat';
-import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { confirmDialog } from '../ui/ConfirmDialog';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -110,7 +110,7 @@ export function CatalogueSection({ section, onNotification, onChanged }: { secti
       </>}
       {section === 'services' && <td className="px-4 py-3 text-slate-600 tabular-nums">{(item as DeliveryService).additionalCharge == null ? 'Set charge' : `$${(item as DeliveryService).additionalCharge!.toFixed(2)}`}</td>}
       <td className="px-4 py-3"><div className="inline-flex items-center gap-1">
-        {section === 'services' && item.id !== defaultId && <ActionButton type="button" aria-label={`Set ${item.name} as default`} title="Set as default" onClick={() => makeDefault(item)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Star aria-hidden="true" className="h-3.5 w-3.5" /></ActionButton>}
+        {section === 'services' && item.id !== defaultId && <ActionButton type="button" aria-label={`Set ${item.name} as default`} title="Set as default" onClick={() => makeDefault(item)} className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">Default</ActionButton>}
         <ActionButton type="button" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} onClick={() => deleteItem(item)} className="rounded p-1.5 text-rose-700 hover:bg-rose-50"><Trash2 aria-hidden="true" className="h-3.5 w-3.5" /></ActionButton>
         <button type="button" aria-label={`Edit ${item.name}`} onClick={() => setEditing(item)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Pencil className="w-3.5 h-3.5" /></button>
       </div></td>

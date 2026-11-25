@@ -1,7 +1,7 @@
 import { ActionButton } from '../ui/button';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { confirmDialog } from '../ui/ConfirmDialog';
 import { companySlugForCurrentPath } from '../../lib/pageRoutes';
 import { allOperations, operations } from '../../operations/api';
@@ -66,7 +66,7 @@ export function PackageTypesSection({ onNotification, onChanged }: { onNotificat
       <td className="px-4 py-3 text-slate-600 tabular-nums">{type.defaultWeightKg == null ? '-' : Number(toDisplayWeight(type.defaultWeightKg, units).toFixed(2))}</td>
       <td className="px-4 py-3 text-slate-600 tabular-nums">{size(type)}</td>
       <td className="px-4 py-3"><div className="inline-flex items-center gap-1">
-        {type.id !== defaultId && <ActionButton type="button" aria-label={`Set ${type.name} as default`} title="Set as default" onClick={() => makeDefault(type)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Star aria-hidden="true" className="h-3.5 w-3.5" /></ActionButton>}
+        {type.id !== defaultId && <ActionButton type="button" aria-label={`Set ${type.name} as default`} title="Set as default" onClick={() => makeDefault(type)} className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">Default</ActionButton>}
         <ActionButton type="button" aria-label={`Delete ${type.name}`} title={`Delete ${type.name}`} onClick={() => remove(type)} className="rounded p-1.5 text-rose-700 hover:bg-rose-50"><Trash2 aria-hidden="true" className="h-3.5 w-3.5" /></ActionButton>
         <button type="button" aria-label={`Edit ${type.name}`} onClick={() => setEditing(type)} className="rounded p-1.5 hover:bg-slate-100 text-slate-500"><Pencil className="w-3.5 h-3.5" /></button>
       </div></td>

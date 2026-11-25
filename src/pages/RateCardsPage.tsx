@@ -36,7 +36,7 @@ import { CatalogueSection } from '../components/settings/CatalogueSection';
 import { PricingTabs } from '../components/pricing/PricingTabs';
 import { VehicleTypesSection } from '../components/settings/VehicleTypesSection';
 import { PackageTypesSection } from '../components/settings/PackageTypesSection';
-import { PreferencesEditor, TaxEditor } from '../portal/CompanySettingsEditors';
+import { ExtraTimeEditor, PreferencesEditor, TaxEditor } from '../portal/CompanySettingsEditors';
 import { MailboxSettings } from '../components/orders/EmailIntake';
 import { SettingsLayout, SettingsPageProps } from '../components/settings/SettingsLayout';
 import type { Notify } from '../components/ui/popupFeedback';
@@ -190,22 +190,22 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
     onNotification?.(`"${card.name}" is now the Default rate card.`, 'success');
   };
 
-  /** Cards are archived, never deleted: orders already priced keep their frozen snapshot of the card. */
+  /** Delete hides the card from the dispatcher; the API archives it so orders already priced keep their frozen snapshot. */
   const archiveCard = async (card: RateCard) => {
-    if (isDefault(card)) { onNotification?.('Set another card as Default before archiving this one.', 'warning'); return; }
+    if (isDefault(card)) { onNotification?.('Set another card as Default before deleting this one.', 'warning'); return; }
     const attached = customers.filter(c => shipperRateCardIds(c).includes(card.id)).length;
     const impact = attached ? `${attached} shipper${attached === 1 ? '' : 's'} attached to it will use the Default card for new orders.` : 'No shippers are attached to it.';
-    if (!(await confirmDialog({ title: `Archive "${card.name}"?`, message: `It leaves the list and every selector; orders already priced with it are unchanged. ${impact}`, confirmLabel: 'Archive card', tone: 'danger' }))) return;
+    if (!(await confirmDialog({ title: `Delete "${card.name}"?`, message: `It leaves the list and every selector; orders already priced with it are unchanged. ${impact}`, confirmLabel: 'Delete card', tone: 'danger' }))) return;
     if (slug) {
       const record = rateQuery.data?.find(row => row.id === card.id); if (!record) return;
-      try { await operations.archiveRate(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] }); onNotification?.(`Archived "${card.name}".`); }
-      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not archive rate card.', 'error'); }
+      try { await operations.archiveRate(slug, record); await queryClient.invalidateQueries({ queryKey: ['operations', slug, 'rates'] }); onNotification?.(`Deleted "${card.name}".`); }
+      catch (error) { onNotification?.(error instanceof Error ? error.message : 'Could not delete rate card.', 'error'); }
       return;
     }
     const rateCards = config.rateCards.map(c => c.id === card.id ? stamp(c, { status: 'ARCHIVED' }) : c);
     persist({ ...config, rateCards });
     if (draft?.id === card.id) { setIsNew(false); setDraft(rateCards.find(isSettingsRateCard) ?? null); }
-    onNotification?.(`Archived "${card.name}". ${impact}`);
+    onNotification?.(`Deleted "${card.name}". ${impact}`);
   };
 
   const visibleCards = useMemo(
@@ -269,7 +269,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
             {saveError && <p role="alert" className="w-full text-right text-sm font-medium text-red-600" aria-live="polite">{saveError}</p>}
             <div className="flex flex-wrap items-center justify-end gap-2">
             {isNew && <Button type="button" variant="outline" disabled={action.pending} onClick={closeEditor}>Cancel</Button>}
-            {!isNew && !isDefault(draft) && <Button type="button" variant="outline" loading={action.pendingKey === 'archive'} disabled={action.pending} onClick={() => action.run(() => archiveCard(draft), 'archive')} className="text-rose-700">Archive</Button>}
+            {!isNew && !isDefault(draft) && <Button type="button" variant="outline" loading={action.pendingKey === 'archive'} disabled={action.pending} onClick={() => action.run(() => archiveCard(draft), 'archive')} className="text-rose-700">Delete</Button>}
             <Button type="button" loading={action.pendingKey === 'save'} disabled={action.pending} onClick={() => action.run(saveCard, 'save')}>{action.pendingKey === 'save' ? 'Saving…' : isSaved && !dirty ? 'Saved' : 'Save Card'}</Button>
             </div>
           </div>
@@ -278,6 +278,8 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
       },
       { id: 'services', label: 'Service Level', content: <CatalogueSection section="services" onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
       { id: 'accessorials', label: 'Accessorials', content: <CatalogueSection section="accessorials" onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
+      // Extra time is charged by the API when an Order completes, so /prototype has no Extra time tab.
+      ...(workspace ? [{ id: 'extra-time', label: 'Extra time', content: <ExtraTimeEditor /> }] : []),
       { id: 'fuel', label: 'Fuel Surcharge', content: <BillingSettingsForm section="fuel" onNotification={refreshDefaults} /> },
       { id: 'taxes', label: 'Taxes', content: workspace ? <TaxEditor /> : <BillingSettingsForm section="taxes" onNotification={refreshDefaults} /> },
       { id: 'vehicle-types', label: 'Vehicle Types', content: <VehicleTypesSection onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },

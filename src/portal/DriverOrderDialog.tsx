@@ -53,6 +53,7 @@ export function DriverOrderDialog({ timeZone, slug, order, orders, route, online
             {(stop.contact_name || stop.phone) && <p className="text-slate-600">{stop.contact_name}{phoneHref(stop.phone) ? <> · <a className="inline-flex items-center gap-1 text-inherit hover:underline" href={phoneHref(stop.phone)} aria-label={`Call ${stop.contact_name || 'stop contact'}`}><Phone className="h-3 w-3" aria-hidden="true" />{formatPhone(stop.phone)}</a></> : stop.phone ? <> · {formatPhone(stop.phone)}</> : null}</p>}
             {(stop.window_start || stop.window_end) && <p className="text-xs text-slate-500">{stop.kind === 'PICKUP' ? 'Ready' : 'Deliver'} {stop.window_start ? `from ${formatWhen(stop.window_start, timeZone)}` : ''} {stop.window_end ? `by ${formatWhen(stop.window_end, timeZone)}` : ''}</p>}
             {stop.instructions && <p className="text-xs text-slate-600">Instructions: {stop.instructions}</p>}
+            {stop.liftgate && <p className="text-xs font-medium text-slate-700">Power liftgate needed</p>}
             {items.length > 0 && <p className="text-xs text-slate-500">{items.map(item => `${item.quantity} × ${item.description || 'package'}${item.fragile ? ' (fragile)' : ''}`).join(', ')}</p>}
           </div>;
         })}

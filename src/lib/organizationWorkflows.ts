@@ -85,7 +85,7 @@ export const validateAssignment = (job: Pick<Job, 'id' | 'pricing' | 'pricingInp
   const weight = job.pricingInput.packages.reduce((n, p) => n + p.quantity * p.weightKg, 0);
   const volume = job.pricingInput.packages.reduce((n, p) => n + p.quantity * p.lengthCm * p.widthCm * p.heightCm / 1e6, 0);
   if (vehicle && (weight > vehicle.payloadCapacityKg || vehicle.cargoVolumeCbm != null && volume > vehicle.cargoVolumeCbm)) return ['Order exceeds the requested vehicle type capacity.'];
-  const needsLiftgate = job.pricingInput.accessorials.some(a => a.quantity > 0 && ctx.catalogue.accessorials.find(x => x.id === a.accessorialId)?.code === 'LIFTGATE');
+  const needsLiftgate = job.pricingInput.stops.some(s => s.liftgate) || job.pricingInput.accessorials.some(a => a.quantity > 0 && ctx.catalogue.accessorials.find(x => x.id === a.accessorialId)?.code.startsWith('LIFTGATE'));
   if (needsLiftgate && !vehicle?.hasLiftgate) return ['Choose a vehicle type equipped with a liftgate.'];
   return [];
 };

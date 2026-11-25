@@ -5,6 +5,8 @@ import React from 'react';
 import { APIProviderContext, APILoadingStatus, type APIProviderContextValue } from '@vis.gl/react-google-maps';
 import { GoogleRoundedRoute } from '../src/components/map/GoogleRoundedRoute';
 import { roundedRoutePath } from '../src/components/map/roundedRoutePath';
+import { APP_ACCENT } from '../src/lib/appearance';
+import { CLEAN_MAP_STYLE } from '../src/components/map/mapStyle';
 import { INITIAL_JOBS } from '../src/data/mockData';
 import { GoogleOrderMarkers, type LocatedOrderStop } from '../src/components/monitor/GoogleOrderMarkers';
 import { ShipperStopMarker } from '../src/components/orders/ShipperStopMarker';
@@ -161,9 +163,12 @@ test('shipper shows the active pickup description and opens delivery details on 
   assert.ok(screen.getByText('Warehouse'), 'The active pickup description stays visible');
 });
 
-test('rounded route keeps endpoints and confines curves to the immediate turn, including duplicate points', () => {
+test('rounded route matches the driver app corners, keeps endpoints and handles duplicate points', () => {
   const points = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }];
-  assert.equal(roundedRoutePath(points), 'M0,0L90,0Q100,0 100,10L100,100');
+  assert.equal(roundedRoutePath(points), 'M0,0L78,0Q100,0 100,22L100,100');
+  assert.equal(roundedRoutePath([{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }]), 'M0,0L11,0Q20,0 20,9L20,20', 'Short segments cap the curve at 45%');
+  const dense = [{ x: 0, y: 0 }, { x: 99, y: 1 }, { x: 100, y: 0 }, { x: 101, y: 50 }, { x: 100, y: 100 }];
+  assert.equal(roundedRoutePath(dense), 'M0,0L78,0Q100,0 100,22L100,100', 'Jitter within tolerance rounds as one corner');
   assert.equal(roundedRoutePath([{ x: 0, y: 0 }, { x: 0, y: 0 }]), '');
   assert.ok(!roundedRoutePath([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }]).includes('NaN'));
   assert.deepEqual(points.at(-1), { x: 100, y: 100 }, 'Rendering never mutates the road coordinates');
@@ -177,16 +182,16 @@ test('Google route overlay rounds caps and joins, stays projected during camera 
   assert.equal(path.getAttribute('stroke-linecap'), 'round');
   assert.equal(path.getAttribute('stroke-linejoin'), 'round');
   assert.equal(path.getAttribute('stroke-width'), '2.5');
-  assert.equal(path.getAttribute('d'), 'M0,0L90,0Q100,0 100,10L100,100');
+  assert.equal(path.getAttribute('d'), 'M0,0L78,0Q100,0 100,22L100,100');
   const hit = [...pane.querySelectorAll('svg path')].find(node => node !== path)!;
   assert.equal(hit.getAttribute('d'), path.getAttribute('d'), 'The hover target follows the visible route');
   fireEvent.pointerEnter(hit);
-  assert.equal(path.getAttribute('stroke'), '#1447e6', 'Hovering a route turns it accent blue');
+  assert.equal(path.getAttribute('stroke'), APP_ACCENT, 'Hovering a route turns it accent blue');
   fireEvent.pointerLeave(hit);
   assert.equal(path.getAttribute('stroke'), '#171717');
   cameraOffset = 40;
   overlays.forEach(overlay => overlay.draw());
-  assert.equal(path.getAttribute('d'), 'M40,0L130,0Q140,0 140,10L140,100');
+  assert.equal(path.getAttribute('d'), 'M40,0L118,0Q140,0 140,22L140,100');
   view.rerender(routeTree(false));
   assert.equal(path.getAttribute('stroke-width'), '2.5');
   view.unmount(); assert.equal(pane.childElementCount, 0);
@@ -199,16 +204,16 @@ test('vehicle approach reads gray, the order path black, and hovering either tur
     React.createElement(GoogleRoundedRoute, { id: 'order-1', points: [[0, 1], [1, 1]], selected: true, onHoverChange: hovered => hovers.push(hovered) }));
   const view = render(tree(false));
   const approach = pane.querySelector('svg[data-shipper-route="approach-r1"] path')!, order = pane.querySelector('svg[data-shipper-route="order-1"] path')!;
-  assert.deepEqual([approach.getAttribute('stroke'), approach.getAttribute('stroke-opacity')], ['#171717', '0.4']);
+  assert.deepEqual([approach.getAttribute('stroke'), approach.getAttribute('stroke-opacity')], ['#171717', '0.6']);
   assert.deepEqual([order.getAttribute('stroke'), order.getAttribute('stroke-opacity')], ['#171717', '1']);
   const orderHit = [...pane.querySelectorAll('svg path')].find(node => node.getAttribute('stroke') === 'transparent' && node.getAttribute('d') === order.getAttribute('d'))!;
   fireEvent.pointerEnter(orderHit);
   assert.deepEqual(hovers, [true], 'The map learns which route is hovered');
   view.rerender(tree(true));
-  assert.deepEqual([approach.getAttribute('stroke'), approach.getAttribute('stroke-opacity')], ['#1447e6', '1'], 'The linked approach turns blue');
+  assert.deepEqual([approach.getAttribute('stroke'), approach.getAttribute('stroke-opacity')], [APP_ACCENT, '1'], 'The linked approach turns blue');
   fireEvent.pointerLeave(orderHit); view.rerender(tree(false));
   assert.deepEqual(hovers, [true, false]);
-  assert.deepEqual([approach.getAttribute('stroke'), approach.getAttribute('stroke-opacity')], ['#171717', '0.4']);
+  assert.deepEqual([approach.getAttribute('stroke'), approach.getAttribute('stroke-opacity')], ['#171717', '0.6']);
   view.unmount();
 });
 
@@ -233,4 +238,9 @@ test('shared vehicle parking opens every vehicle, supports keyboard dismissal an
   assert.equal(live.querySelector('.bg-app-accent span'), null, 'A single live vehicle has no badge');
   assert.equal(live.title, '');
   assert.match(live.querySelector('[aria-hidden="true"].opacity-0')!.textContent!, /V1.*Live GPS.*No driver attached/, 'Vehicles show a branded hover label');
+});
+test('operational maps hide place and transit-station pins but keep street and area names', () => {
+  const hidden = CLEAN_MAP_STYLE.filter(rule => rule.stylers?.some(styler => (styler as { visibility?: string }).visibility === 'off')).map(rule => rule.featureType);
+  assert.deepEqual(hidden, ['poi', 'transit.station']);
+  assert.ok(!CLEAN_MAP_STYLE.some(rule => !rule.featureType || rule.featureType.startsWith('road') || rule.featureType.startsWith('administrative')), 'Streets and area names stay visible');
 });

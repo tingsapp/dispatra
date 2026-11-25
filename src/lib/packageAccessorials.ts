@@ -1,4 +1,4 @@
-import type { PricingAccessorialInput, PricingPackageInput } from '../types/pricing';
+import type { PricingAccessorialInput, PricingPackageInput, PricingStopInput } from '../types/pricing';
 import type { AccessorialItem } from '../types/simplePricing';
 
 export type PackageChargeCode = 'FRAGILE' | 'DG';
@@ -28,4 +28,23 @@ export function syncPackageAccessorials(
       total + (packageHasCharge(pkg, item.code as PackageChargeCode) ? pkg.quantity : 0), 0) }))
       .filter(item => item.quantity > 0),
   ];
+}
+
+/** Power Liftgate at Pickup and at Drop-off, each linked to its stops' liftgate checkboxes. */
+export const LIFTGATE_CODES: Record<PricingStopInput['type'], string> = { PICKUP: 'LIFTGATE', DROPOFF: 'LIFTGATE_DROPOFF' };
+export const isPackageCharge = (item: AccessorialItem): boolean => item.code === 'FRAGILE' || item.code === 'DG';
+export const liftgateStopType = (item: AccessorialItem): PricingStopInput['type'] | undefined =>
+  item.code === LIFTGATE_CODES.PICKUP ? 'PICKUP' : item.code === LIFTGATE_CODES.DROPOFF ? 'DROPOFF' : undefined;
+
+/** Pickups or drop-offs needing a power liftgate select their Liftgate Accessorial once per order; with none, a hand-picked one is kept unless `release`. */
+export function syncStopAccessorials(
+  stops: PricingStopInput[], selections: PricingAccessorialInput[], catalogue: AccessorialItem[], release = false,
+): PricingAccessorialInput[] {
+  return (['PICKUP', 'DROPOFF'] as const).reduce((current, type) => {
+    const liftgate = catalogue.find(item => item.active && item.code === LIFTGATE_CODES[type]);
+    if (!liftgate) return current;
+    const selected = current.some(item => item.accessorialId === liftgate.id);
+    if (stops.some(stop => stop.type === type && stop.liftgate)) return selected ? current : [...current, { accessorialId: liftgate.id, quantity: 1 }];
+    return release && selected ? current.filter(item => item.accessorialId !== liftgate.id) : current;
+  }, selections);
 }

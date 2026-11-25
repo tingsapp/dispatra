@@ -1,4 +1,4 @@
-import { orderAssignable } from '../domain/validation';
+import { orderAssignable, orderLifecycle } from '../domain/validation';
 import { BrandMark } from "./layout/AppBrand";
 import { Button } from './ui/button';
 import { Dialog, DialogBody, DialogHeader } from './ui/Dialog';
@@ -48,6 +48,8 @@ interface JobDetailPopoverProps {
   stopStatuses?: Record<string, string>;
   onMessage?: (kind: ChatKind) => void;
   onAssignDriver?: (driverId: string) => void | Promise<void>;
+  /** Return the order to Unassigned by releasing its planned route; offered only while it has a driver. */
+  onUnassignDriver?: () => void | Promise<void>;
   onClose: () => void;
   showAssignDriver: boolean;
   setShowAssignDriver: React.Dispatch<React.SetStateAction<boolean>>;
@@ -73,6 +75,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   stopStatuses = {},
   onMessage,
   onAssignDriver,
+  onUnassignDriver,
   onClose,
   showAssignDriver,
   setShowAssignDriver,
@@ -153,6 +156,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
 
   const [localAssignmentAnchor, setLocalAssignmentAnchor] = useState<HTMLButtonElement | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [unassigning, setUnassigning] = useState(false);
   useEffect(() => {
     if (!showAssignDriver) return;
     const dismiss = (event: KeyboardEvent) => {
@@ -236,7 +240,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               {/* Prototype-only AI fix demonstration */}
               {!live && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-2.5 flex items-center justify-between text-rose-600 font-medium">
                 <span className="text-xs truncate max-w-[170px]">{job.riskText}</span>
-                <button data-map-detail-toggle="recommendation" onClick={() => setShowAiRecommendation((prev) => !prev)} className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-app-accent hover:bg-app-accent/90 text-white text-xs font-medium shadow-xs transition-colors" title="Toggle AI Recommendation Fix">
+                <button data-map-detail-toggle="recommendation" onClick={() => setShowAiRecommendation((prev) => !prev)} className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-app-accent hover:bg-app-accent/90 text-white text-xs font-medium shadow-xs transition-colors" title="Toggle Recommendation">
                   <BrandMark size={14} /><span>AI Fix</span>
                 </button>
               </div>}
@@ -295,7 +299,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               {/* On-Demand AI Smart Recommendation trigger banner */}
               {(!live || recommendation) && <button
                 type="button"
-                aria-label="Toggle AI recommendation details"
+                aria-label="Toggle recommendation details"
                 aria-expanded={showAiRecommendation}
                 data-map-detail-toggle="recommendation"
                 onClick={() => setShowAiRecommendation((prev) => !prev)}
@@ -304,11 +308,11 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                     ? 'bg-slate-100 border-slate-300'
                     : 'bg-app-accent-soft/60 border-app-accent/80 hover:bg-app-accent-soft'
                 }`}
-                title="Click to view AI recommendation details"
+                title="Click to view recommendation details"
               >
                 <div className="flex items-center gap-1.5">
                   <BrandMark size={14} />
-                  <span className="text-xs font-medium text-app-accent">AI Recommendation</span>
+                  <span className="text-xs font-medium text-app-accent">Recommendation</span>
                 </div>
                 <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-app-accent" />
               </button>}
@@ -392,7 +396,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               </div>
 
               {live && !canAssign && <p className="mt-2 text-xs text-slate-500">Driver changes are unavailable after this order has started.</p>}
-              {live && <div className="flex justify-end"><Button loading={assigning} size="sm" type="button" disabled={assigning || !canAssign || selectedDriverCode === assignedCode || !eligibleDrivers.some(driver => driver.code === selectedDriverCode && !driver.unavailableReason)} onClick={async () => { const selected = eligibleDrivers.find(driver => driver.code === selectedDriverCode && !driver.unavailableReason); if (!canAssign || !selected || assigning) return; setAssigning(true); try { await onAssignDriver?.(selected.id); } finally { setAssigning(false); } }} className="mt-2">{assigning ? (job.assignedDriverId ? 'Reassigning…' : 'Assigning…') : (job.assignedDriverId ? 'Reassign' : 'Assign')}</Button></div>}
+              {live && <div className="flex justify-end gap-2">{onUnassignDriver && (job.assignedDriverId || orderLifecycle(job) === 'ASSIGNED') && <Button loading={unassigning} size="sm" variant="outline" type="button" disabled={assigning || unassigning || !canAssign} onClick={async () => { if (!canAssign || assigning || unassigning) return; setUnassigning(true); try { await onUnassignDriver(); } finally { setUnassigning(false); } }} className="mt-2">{unassigning ? 'Unassigning…' : 'Unassign'}</Button>}<Button loading={assigning} size="sm" type="button" disabled={assigning || unassigning || !canAssign || selectedDriverCode === assignedCode || !eligibleDrivers.some(driver => driver.code === selectedDriverCode && !driver.unavailableReason)} onClick={async () => { const selected = eligibleDrivers.find(driver => driver.code === selectedDriverCode && !driver.unavailableReason); if (!canAssign || !selected || assigning) return; setAssigning(true); try { await onAssignDriver?.(selected.id); } finally { setAssigning(false); } }} className="mt-2">{assigning ? (job.assignedDriverId ? 'Reassigning…' : 'Assigning…') : (job.assignedDriverId ? 'Reassign' : 'Assign')}</Button></div>}
 
             </DialogBody>
           </Dialog></div>
@@ -429,7 +433,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                   <button
                     onClick={handleGrandChildClose}
                     className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-                    title="Close AI Recommendation"
+                    title="Close Recommendation"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -440,7 +444,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
               <div className="flex items-center justify-between pt-2.5 pb-1">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-app-accent">
                   <BrandMark size={14} />
-                  <span>AI Recommendation</span>
+                  <span>Recommendation</span>
                 </div>
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/70">
                   Save 14m

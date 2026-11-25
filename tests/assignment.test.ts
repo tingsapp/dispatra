@@ -38,3 +38,20 @@ test('closed and executing orders cannot release a route or request assignment',
     assert.equal(calls, 0);
   } finally { operations.releaseRoute = originals.release; operations.assignOrder = originals.assign; allOperations.routes = originals.routes; }
 });
+
+test('unassigning releases the planned route without requesting a new assignment', async () => {
+  const { changeAssignment } = await import('../src/operations/assignment');
+  const { operations } = await import('../src/operations/api');
+  const originals = { release: operations.releaseRoute, assign: operations.assignOrder };
+  const calls: string[] = [];
+  operations.releaseRoute = (async (_slug: string, released: Route) => { calls.push(`release:${released.id}`); return released; }) as typeof operations.releaseRoute;
+  operations.assignOrder = async () => { calls.push('assign'); throw new Error('Unexpected assignment'); };
+  try {
+    const order = { id: 'order-1', status: 'ASSIGNED', route_id: 'route-1', booking: {} } as components['schemas']['OrderView'];
+    await changeAssignment('acme', order, null, null, route('PLANNED'));
+    assert.deepEqual(calls, ['release:route-1']);
+    await assert.rejects(changeAssignment('acme', order, null, null, { ...route('PLANNED'), locked: true }), /unlocked planned route/);
+    await assert.rejects(changeAssignment('acme', { ...order, status: 'NEW', route_id: null }, null, null), /already unassigned/);
+    assert.deepEqual(calls, ['release:route-1']);
+  } finally { operations.releaseRoute = originals.release; operations.assignOrder = originals.assign; }
+});

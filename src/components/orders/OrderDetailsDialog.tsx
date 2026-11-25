@@ -8,6 +8,7 @@ import { Detail, OrderDossierSections } from './OrderDossierSections';
 import { orderAssignable, orderEditable, orderLifecycle } from '../../domain/validation';
 import { orderCompletable } from './useOrderDetails';
 import { ProofOfDelivery, proofAvailable } from './ProofOfDelivery';
+import { ExtraTimeReview } from './ExtraTimeReview';
 import { companySlugForCurrentPath } from '../../lib/pageRoutes';
 import { Tabs } from '../ui/Tabs';
 import { CompanyChatPanel } from '../chat/CompanyChatDialog';
@@ -74,6 +75,7 @@ export function OrderDetailsDialog({ job, ctx, drivers, onClose, onReassign, onE
             </dl>
           </section>} />
           {slug && proofAvailable(job.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={job.id} timeZone={ctx.billing.general.timeZone} />}
+          {slug && proofAvailable(job.lifecycleStatus) && <ExtraTimeReview slug={slug} job={job} />}
         </> },
         { id: 'shipper-message', label: 'Message shipper', hidden: !slug, keepMounted: false,
           content: slug && (job.customerId

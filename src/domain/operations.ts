@@ -57,7 +57,7 @@ export interface OrderOperations extends AuditFields {
 export interface StopOperations {
   countryCode?: string; city?: string; provinceCode?: string; postalCode?: string;
   contactName?: string; contactPhone?: string; contactEmail?: string; normalizedAddress?: string; latitude?: number | null; longitude?: number | null;
-  windowStart?: string; windowEnd?: string; instructions?: string; accessRequirements?: string; referenceNumber?: string;
+  windowStart?: string; windowEnd?: string; instructions?: string; accessRequirements?: string; referenceNumber?: string; liftgate?: boolean;
   podRequirement?: 'NONE' | 'PHOTO' | 'SIGNATURE' | 'PHOTO_AND_SIGNATURE'; stopStatus?: 'PENDING' | 'ARRIVED' | 'COMPLETED' | 'FAILED';
   plannedArrival?: string; plannedDeparture?: string; actualArrival?: string; actualDeparture?: string;
 }

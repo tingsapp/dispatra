@@ -20,7 +20,7 @@
 
 ## UX rules
 
-Preserve the Monitor: full-height Vancouver map, one compact sidebar, no permanent map header, floating white top-right search/notifications, Orders list date filter, bottom-right settings/zoom, hidden layer menu, active routes, contextual popovers, concise Needs Attention, one account menu, clear Manual/Auto switch; no dense TMS dashboard. Profile holds Company and Security; Settings (`/{slug}/settings`) holds Rate Cards, Service Level, Accessorials, Fuel Surcharge, Taxes, Vehicle Types, Package Types and Preferences; Vehicles is one fleet view. Don't restore removed Organization Settings pages. Confirmations use `confirmDialog` (`src/components/ui/ConfirmDialog.tsx`), never `window.confirm`. Provide loading/empty/error states, keyboard/focus support, non-color status cues and accessible non-map alternatives.
+Preserve the Monitor: full-height Vancouver map, one compact sidebar, no permanent map header, floating white top-right search/notifications, Orders list date filter, bottom-right settings/zoom, hidden layer menu, active routes, contextual popovers, concise Needs Attention, one account menu, clear Manual/Auto switch; no dense TMS dashboard. Profile holds Company and Security; Settings (`/{slug}/settings`) holds Rate Cards, Service Level, Accessorials, Extra time, Fuel Surcharge, Taxes, Vehicle Types, Package Types and Preferences; Vehicles is one fleet view. Don't restore removed Organization Settings pages. Confirmations use `confirmDialog` (`src/components/ui/ConfirmDialog.tsx`), never `window.confirm`. Provide loading/empty/error states, keyboard/focus support, non-color status cues and accessible non-map alternatives.
 
 ## Security
 

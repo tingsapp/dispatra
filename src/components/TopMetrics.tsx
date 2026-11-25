@@ -14,6 +14,8 @@ import { MonitorBadge } from './monitor/MonitorBadge';
 import { attentionEntries } from './monitor/attentionEntries';
 import { ReviewAttentionItem, hasReviewAttention, type ReviewAttentionProps } from './monitor/ReviewAttentionItem';
 import { ResolveIssue, type ResolveIssueHandler } from './monitor/ResolveIssue';
+import { IssuePhotos } from './monitor/IssuePhotos';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
 
 interface TopMetricsProps extends ReviewAttentionProps {
   drivers: Driver[];
@@ -226,6 +228,7 @@ export const TopMetrics: React.FC<TopMetricsProps> = ({
                         </div>
                         <p className="text-xs text-slate-700 line-clamp-2 [overflow-wrap:anywhere]" title={item.subtitle}>{item.subtitle}</p>
                         {item.pickupAddress && <p className="text-xs text-slate-500 truncate">Pickup · {item.pickupAddress.split(',')[0]}</p>}
+                        <IssuePhotos slug={companySlugForCurrentPath()} item={item} compact />
                         <ResolveIssue item={item} onResolve={onResolveIssue} />
                       </div>
                       <ChevronRight className="w-4 h-4 mt-0.5 text-slate-400 group-hover:text-slate-700 transition-colors shrink-0" />

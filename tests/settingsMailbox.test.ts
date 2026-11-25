@@ -5,7 +5,7 @@ import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/acme/settings', pretendToBeVisual: true });
 for (const name of ['window','document','navigator','HTMLElement','HTMLInputElement','Element','Node','Event','CustomEvent','MutationObserver','getComputedStyle','localStorage','location','history']) Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:dom.window[name as keyof Window]});
 HTMLElement.prototype.scrollIntoView=()=>{};
-const { render, screen, cleanup } = await import('@testing-library/react');
+const { render, screen, cleanup, waitFor } = await import('@testing-library/react');
 const { default: userEvent } = await import('@testing-library/user-event');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const { api } = await import('../src/portal/api');
@@ -17,7 +17,7 @@ afterEach(() => cleanup());
 
 const settings = { id: 's1', version: 1, created_at: '2026-10-06T00:00:00Z', data: { company_name: 'Acme', contact_name: '', email: '', phone: '', address: null, logo_url: '', currency: 'CAD',
   time_zone: 'America/Vancouver', weight_unit: 'lb', dimension_unit: 'in', distance_unit: 'km', tax_registration_number: '', gst_enabled: true, gst_percent: '5', provincial_enabled: false,
-  provincial_percent: '0', fuel_enabled: true, fuel_percent: '28.5', maximum_active_orders: 3, quote_validity_days: 14, dispatch_mode: 'MANUAL' } };
+  provincial_percent: '0', fuel_enabled: true, fuel_percent: '28.5', extra_time_minutes: 30, extra_time_amount: '50', stop_minutes_small_parcel: 10, stop_minutes_ltl: 20, stop_minutes_ftl: 45, maximum_active_orders: 3, quote_validity_days: 14, dispatch_mode: 'MANUAL' } };
 const account = { id: 'u1', login_id: 'dispatcher@example.com', display_name: 'Dispatcher', role: 'DISPATCHER', driver_id: null, shipper_id: null,
   organization: { id: 'o1', slug: 'acme', name: 'Acme', active: true, version: 1, created_at: '2026-10-06T00:00:00Z', updated_at: '2026-10-06T00:00:00Z' } };
 Object.assign(api, { companySettings: async () => settings });
@@ -59,13 +59,58 @@ test('the default service is chosen in Service Level, not in Mailbox', async () 
     const economy = (await screen.findByText('Scheduled Economy')).closest('tr')!;
     assert.ok(economy.textContent!.includes('Default'));
     assert.equal(screen.queryByRole('button', { name: 'Set Scheduled Economy as default' }), null);
-    await user.click(screen.getByRole('button', { name: 'Set Same-Day Standard as default' }));
+    const setDefault = screen.getByRole('button', { name: 'Set Same-Day Standard as default' });
+    assert.equal(setDefault.textContent, 'Default'); assert.equal(setDefault.querySelector('svg'), null);
+    await user.click(setDefault);
     assert.equal((saved[0] as { default_service_id: string }).default_service_id, 'svc_a');
-    assert.ok((await screen.findByText('Same-Day Standard')).closest('tr')!.textContent!.includes('Default'));
+    await waitFor(() => assert.equal(screen.queryByRole('button', { name: 'Set Same-Day Standard as default' }), null));
   } finally {
     Object.assign(api, { companySettings: async () => settings });
     Object.assign(allOperations, { catalog: async () => [] });
   }
+});
+
+test('Extra time follows Accessorials and saves the free block and its charge', async () => {
+  const user = userEvent.setup({ document });
+  const saved: Record<string, unknown>[] = [];
+  Object.assign(api, { saveCompanySettings: async (_slug: string, body: { version: number; data: typeof settings.data }) => { saved.push(body.data); return { ...settings, version: 2, data: body.data }; } });
+  try {
+    mount(React.createElement(RateCardsPage, {}));
+    const tab = await screen.findByRole('tab', { name: 'Extra time' });
+    const labels = screen.getAllByRole('tab').map(item => item.textContent);
+    assert.equal(labels[labels.indexOf('Accessorials') + 1], 'Extra time');
+    await user.click(tab);
+    const minutes = screen.getByLabelText('Charge every (minutes)') as HTMLInputElement, amount = screen.getByLabelText('Charge per block ($)') as HTMLInputElement;
+    assert.equal(minutes.value, '30'); assert.equal(amount.value, '50');
+    assert.ok(screen.getByText(/No charge for the first 30 minutes at a stop, then \$50\.00 for each started 30 minutes\. Example: a 75-minute stop costs \$100\.00\./));
+    await user.clear(minutes);
+    assert.equal((screen.getByRole('button', { name: 'Save Extra time' }) as HTMLButtonElement).disabled, true);
+    await user.type(minutes, '15'); await user.clear(amount); await user.type(amount, '25');
+    await user.click(screen.getByRole('button', { name: 'Save Extra time' }));
+    await waitFor(() => assert.equal(saved.length, 1));
+    assert.equal(saved[0].extra_time_minutes, 15); assert.equal(saved[0].extra_time_amount, '25');
+    await user.clear(amount); await user.type(amount, '0');
+    assert.ok(screen.getByText('Extra time is off. Orders are not charged for time at stops.'));
+  } finally { Object.assign(api, { companySettings: async () => settings }); }
+});
+
+test('Preferences sets the planned stop time for each load size', async () => {
+  const user = userEvent.setup({ document });
+  const saved: Record<string, unknown>[] = [];
+  Object.assign(api, { saveCompanySettings: async (_slug: string, body: { version: number; data: typeof settings.data }) => { saved.push(body.data); return { ...settings, version: 2, data: body.data }; } });
+  try {
+    mount(React.createElement(RateCardsPage, {}));
+    await user.click(await screen.findByRole('tab', { name: 'Preferences' }));
+    const ltl = screen.getByLabelText('LTL (minutes)') as HTMLInputElement;
+    assert.deepEqual(['Small parcel (minutes)', 'LTL (minutes)', 'Full truckload (FTL) (minutes)'].map(label => (screen.getByLabelText(label) as HTMLInputElement).value), ['10', '20', '45']);
+    await user.clear(ltl);
+    assert.ok(screen.getByText('Enter whole minutes from 0 to 480.'));
+    assert.equal((screen.getByRole('button', { name: 'Save Preferences' }) as HTMLButtonElement).disabled, true);
+    await user.type(ltl, '25');
+    await user.click(screen.getByRole('button', { name: 'Save Preferences' }));
+    await waitFor(() => assert.equal(saved.length, 1));
+    assert.equal(saved[0].stop_minutes_ltl, 25); assert.equal(saved[0].stop_minutes_ftl, 45);
+  } finally { Object.assign(api, { companySettings: async () => settings }); }
 });
 
 test('a provider fills the mail servers; Other shows them and SMTP follows IMAP until edited', async () => {

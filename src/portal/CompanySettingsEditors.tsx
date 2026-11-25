@@ -4,12 +4,14 @@ import { TaxSettings } from '../components/settings/TaxSettings';
 import { RegionalSettings } from '../components/settings/RegionalSettings';
 import { WorkHoursSettings } from '../components/settings/WorkHoursSettings';
 import { HolidaySettings } from '../components/settings/HolidaySettings';
+import { ExtraTimeSettings, extraTimeError } from '../components/settings/ExtraTimeSettings';
+import { PlannedStopTimeSettings, stopMinutesInvalid } from '../components/settings/PlannedStopTimeSettings';
 import { DEFAULT_WORK_HOURS, workHoursError } from '../lib/operatingCalendar';
 import { INITIAL_BILLING_CONFIG } from '../lib/billingStorage';
 import { companySettingsBilling } from '../lib/serverCompanySettings';
 import type { BillingConfig } from '../types/billing';
 
-/** Live company-settings editors for the Settings Taxes and Preferences tabs. */
+/** Live company-settings editors for the Settings Taxes, Extra time and Preferences tabs. */
 function useBillingDraft(editor: ReturnType<typeof useSettingsDraft>) {
   const { data } = editor;
   const config = companySettingsBilling(data, INITIAL_BILLING_CONFIG);
@@ -56,16 +58,31 @@ export function PreferencesEditor() {
   const editor = useSettingsDraft();
   const { config, patch } = useBillingDraft(editor);
   const workHours = editor.data.work_hours ?? DEFAULT_WORK_HOURS;
-  const invalid = !!workHoursError(workHours);
+  const invalid = !!workHoursError(workHours) || stopMinutesInvalid(editor.data);
   const timeZone = editor.data.time_zone ?? 'America/Vancouver';
   return <form className="space-y-5" onSubmit={e => { e.preventDefault(); if (!invalid) editor.save(); }}>
     <fieldset disabled={editor.pending} className="app-sections">
       <RegionalSettings editor={{ config, patch }} />
+      <PlannedStopTimeSettings values={editor.data} onChange={editor.patch} />
       <div className="mt-8 grid items-start gap-x-12 gap-y-8 xl:grid-cols-2">
         <WorkHoursSettings days={workHours} timeZone={timeZone} onChange={work_hours => editor.patch({ work_hours })} />
         <HolidaySettings holidays={editor.data.holidays ?? []} timeZone={timeZone} onChange={holidays => editor.patch({ holidays })} />
       </div>
     </fieldset>
     <SaveSettings editor={editor} label="Save Preferences" invalid={invalid} />
+  </form>;
+}
+
+export function ExtraTimeEditor() {
+  const editor = useSettingsDraft();
+  const minutes = editor.data.extra_time_minutes, amount = String(editor.data.extra_time_amount);
+  const invalid = !!extraTimeError(minutes, amount);
+  return <form className="w-full max-w-2xl space-y-5" onSubmit={e => { e.preventDefault(); if (!invalid) editor.save(); }}>
+    <fieldset disabled={editor.pending}>
+      <ExtraTimeSettings minutes={minutes} amount={amount} onChange={change => editor.patch({
+        ...(change.minutes !== undefined && { extra_time_minutes: change.minutes }), ...(change.amount !== undefined && { extra_time_amount: change.amount }) })} />
+      {invalid && <p role="alert" className="mt-2 text-sm text-red-600">{extraTimeError(minutes, amount)}</p>}
+    </fieldset>
+    <SaveSettings editor={editor} label="Save Extra time" invalid={invalid} />
   </form>;
 }

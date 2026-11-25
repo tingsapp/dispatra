@@ -14,7 +14,7 @@ import { listedVehicleTypes, offersLoadSize, suggestVehicleType } from '../../li
 import { DateTimePicker } from '../ui/DateTimePicker';
 import { AddressAutocomplete } from '../ui/AddressAutocomplete';
 import { ContactInput } from '../ui/ContactInput';
-import { HOLIDAY_WEEKEND_CODE, packageHasCharge, setPackageCharge, syncPackageAccessorials, type PackageChargeCode } from '../../lib/packageAccessorials';
+import { HOLIDAY_WEEKEND_CODE, isPackageCharge, liftgateStopType, packageHasCharge, setPackageCharge, syncPackageAccessorials, syncStopAccessorials, type PackageChargeCode } from '../../lib/packageAccessorials';
 import { organizationTime } from '../../lib/organizationWorkflows';
 import { closedReason } from '../../lib/operatingCalendar';
 import { applyPackageType, packageTypeOptions, prefillPackageTypes } from '../../lib/packageTypes';
@@ -135,7 +135,8 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
     const stops = value.stops.map((s) => (s.id === id ? { ...s, ...('label' in changes ? { ...addressChange(changes.label ?? ''), zoneId: zoneForAddress(changes.label ?? '', pricing.zones) } : {}), ...changes } : s));
     const readyTimes = stops.filter(s => s.type === 'PICKUP' && s.windowStart).map(s => s.windowStart!).sort();
     const deadlines = stops.filter(s => s.type === 'DROPOFF' && s.windowEnd).map(s => s.windowEnd!).sort();
-    patch({ stops, scheduledAt: readyTimes[0] ?? null, scheduledEndAt: deadlines[deadlines.length - 1] ?? null });
+    patch({ stops, scheduledAt: readyTimes[0] ?? null, scheduledEndAt: deadlines[deadlines.length - 1] ?? null,
+      ...('liftgate' in changes && { accessorials: syncStopAccessorials(stops, value.accessorials, catalogue.accessorials, true) }) });
   };
   const updatePackage = (id: string, changes: Partial<PricingPackageInput>) => {
     const packages = value.packages.map((p) => (p.id === id ? { ...p, ...changes } : p));
@@ -152,10 +153,16 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
   };
   const qtyOf = (id: string) => value.accessorials.find((a) => a.accessorialId === id)?.quantity ?? 0;
   const setQty = (id: string, quantity: number) => {
-    const linked = catalogue.accessorials.find(item => item.id === id && item.active && (item.code === 'FRAGILE' || item.code === 'DG'));
-    if (linked) {
+    const linked = catalogue.accessorials.find(item => item.id === id && item.active && (isPackageCharge(item) || !!liftgateStopType(item)));
+    if (linked && isPackageCharge(linked)) {
       const packages = value.packages.map(pkg => setPackageCharge(pkg, linked.code as PackageChargeCode, quantity > 0));
       patch({ packages, accessorials: syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials) });
+      return;
+    }
+    // A Liftgate charge applies at every pickup (or drop-off) until one is unticked; clearing it clears them all.
+    if (linked) {
+      const stops = value.stops.map(stop => stop.type === liftgateStopType(linked) ? { ...stop, liftgate: quantity > 0 } : stop);
+      patch({ stops, accessorials: syncStopAccessorials(stops, value.accessorials, catalogue.accessorials, true) });
       return;
     }
     patch({ accessorials: [...value.accessorials.filter((a) => a.accessorialId !== id), ...(quantity > 0 ? [{ accessorialId: id, quantity }] : [])] });
@@ -186,11 +193,13 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
     ? `Cargo (${Math.round(toDisplayWeight(totalWeight, units))} ${units.weightUnit}) exceeds ${currentVehicle.name} payload. Choose a larger vehicle type.` : null;
   /** Holiday / Weekend comes from the priced delivery days, so it shows as on when the price includes it. */
   const automaticOn = (acc: AccessorialItem) => snapshot.lines.some(l => l.group === 'ACCESSORIAL' && l.label === acc.name);
-  const accessorialOn = (acc: AccessorialItem) => acc.code === HOLIDAY_WEEKEND_CODE ? automaticOn(acc) : qtyOf(acc.id) > 0;
+  /** Fragile and DG show the package flags, so a package without a Qty yet still ticks them. */
+  const accessorialOn = (acc: AccessorialItem) => acc.code === HOLIDAY_WEEKEND_CODE ? automaticOn(acc)
+    : isPackageCharge(acc) ? value.packages.some(pkg => packageHasCharge(pkg, acc.code as PackageChargeCode)) : qtyOf(acc.id) > 0;
   const selectedAccessorials = activeAccessorials.filter(accessorialOn);
   React.useEffect(() => {
     const packages = fullTruck ? fullTruckLoad(value.packages, value.stops) : value.packages;
-    const accessorials = syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials);
+    const accessorials = syncStopAccessorials(value.stops, syncPackageAccessorials(packages, value.accessorials, catalogue.accessorials), catalogue.accessorials);
     if (packages !== value.packages || JSON.stringify(accessorials) !== JSON.stringify(value.accessorials)) onChange({ ...value, packages, accessorials });
   }, [value, fullTruck, catalogue.accessorials, onChange]);
 
@@ -264,7 +273,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
             return <div key={stop.id} className="rounded-lg border border-slate-200 p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-app-accent-soft text-app-accent' : 'bg-emerald-100 text-emerald-700'}`}>{stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
-                <button type="button" disabled={value.stops.length <= 2} onClick={() => onChange(removeOrderStop(value, stop.id))} className="ml-auto p-1.5 -mr-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 shrink-0" title="Remove stop" aria-label={`Remove stop ${i + 1}`}><Trash2 className="w-4 h-4" /></button>
+                <button type="button" disabled={value.stops.length <= 2} onClick={() => { const next = removeOrderStop(value, stop.id); onChange(stop.liftgate ? { ...next, accessorials: syncStopAccessorials(next.stops, next.accessorials, catalogue.accessorials, true) } : next); }} className="ml-auto p-1.5 -mr-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 shrink-0" title="Remove stop" aria-label={`Remove stop ${i + 1}`}><Trash2 className="w-4 h-4" /></button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {showStopAddresses && <div className="sm:col-span-2">
@@ -292,6 +301,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                     : <DateTimePicker aria-label={`Stop ${i + 1} deliver by`} datePlaceholder="Date" futureOnly={futureOnly} after={futureOnly ? latestPickup : undefined} value={stop.windowEnd ?? ''} onValueChange={windowEnd => updateStop(stop.id, { windowEnd: windowEnd || undefined })} timeZone={timeZone} />}
                   {pickupClosed && stop.type === 'PICKUP' && stop.windowStart === value.scheduledAt && <p role="alert" className="mt-1 text-xs text-rose-700">{pickupClosed} Choose a time when we're open.</p>}
                 </div>
+                <label className="sm:col-span-2 inline-flex items-center gap-2 cursor-pointer text-sm text-slate-700"><input type="checkbox" checked={!!stop.liftgate} onChange={e => updateStop(stop.id, { liftgate: e.target.checked })} className={checkbox} aria-label={`Stop ${i + 1} power lift gate`} />{stop.type === 'PICKUP' ? 'Power lift gate at pickup' : 'Power lift gate at drop-off'}</label>
               </div>
               {stop.type === 'DROPOFF' && pickups.length > 1 && <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600"><span>Picked up at:</span>{pickups.map(pickup => <label key={pickup.id} className="inline-flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={(stop.pickupIds ?? []).includes(pickup.id)} onChange={e => updateStop(stop.id, { pickupIds: e.target.checked ? [...(stop.pickupIds ?? []), pickup.id] : (stop.pickupIds ?? []).filter(p => p !== pickup.id) })} className={checkbox} />Stop {value.stops.indexOf(pickup) + 1}</label>)}</div>}
             </div>;
@@ -367,7 +377,7 @@ export const OrderPricingForm: React.FC<OrderPricingFormProps> = ({ value, onCha
                 <label key={acc.id} title={automatic ? 'Added automatically when a delivery falls on a weekend or company holiday.' : undefined} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg select-none min-w-0 ${automatic ? 'cursor-default' : 'hover:bg-slate-50 cursor-pointer'}`}>
                   <input type="checkbox" checked={on} disabled={automatic} onChange={() => setQty(acc.id, on ? 0 : 1)} className={checkbox} />
                   <span className="flex-1 min-w-0 truncate text-sm text-slate-800" title={acc.name}>{acc.name}{automatic && <span className="ml-1.5 text-xs text-slate-400">Auto</span>}</span>
-                  <span className="shrink-0 text-sm text-slate-500 tabular-nums">${acc.rate.toFixed(2)}{!fullTruck && (acc.code === 'FRAGILE' || acc.code === 'DG') ? ' / package' : ''}</span>
+                  <span className="shrink-0 text-sm text-slate-500 tabular-nums">${acc.rate.toFixed(2)}{!fullTruck && isPackageCharge(acc) ? ' / package' : ''}</span>
                 </label>
               );
             })}

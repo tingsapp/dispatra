@@ -47,6 +47,7 @@ export function OrderDossierSections({ job, ctx, dispatch, showShipper = true, s
           <div className="flex items-center gap-3">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${stop.type === 'PICKUP' ? 'bg-app-accent-soft text-app-accent' : 'bg-emerald-100 text-emerald-700'}`}>{i + 1} · {stop.type === 'PICKUP' ? 'Pickup' : 'Drop-off'}</span>
             {stop.residential && <span className="text-xs text-slate-500">Residential</span>}
+            {stop.liftgate && <span className="text-xs text-slate-500">Power liftgate</span>}
           </div>
           <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
             <Detail label={stop.type === 'PICKUP' ? 'Pickup address' : 'Delivery address'} value={stop.label} className={stop.zoneId ? 'sm:col-span-2' : 'sm:col-span-3'} />

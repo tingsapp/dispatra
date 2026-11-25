@@ -609,6 +609,22 @@ test('Monitor allows an on-route driver to be selected for server-validated live
   await user.click(screen.getByRole('button', { name: 'Assign' }));
   assert.equal(selected, 'alex');
 });
+test('Monitor Assign driver offers Unassign only for an assigned order that has not started', async()=>{
+  const { JobDetailPopover } = await import('../src/components/JobDetailPopover');
+  const { INITIAL_JOBS } = await import('../src/data/mockData');
+  const driver = normalizeDriver({ ...INITIAL_DRIVERS[0], id: 'xia', driverNumber: 'DDD-2693', name: 'Xia', dutyStatus: 'ON_DUTY', status: 'available', accountStatus: 'ACTIVE', currentVehicleId: 'van' });
+  let unassigned = 0;
+  const props = (lifecycleStatus: 'NEW' | 'ASSIGNED' | 'IN_PROGRESS', assignedDriverId?: string) => ({ job: { ...INITIAL_JOBS[0], lifecycleStatus, assignedDriverId }, live: true, drivers: [driver], showAssignDriver: true, showAiRecommendation: false, setShowAssignDriver: ()=>{}, setShowAiRecommendation: ()=>{}, onClose: ()=>{}, onApproveRecommendation: ()=>{}, onKeepCurrent: ()=>{}, onActionNotification: ()=>{}, onAssignDriver: ()=>{}, onUnassignDriver: ()=>{ unassigned++; } });
+  const view = render(React.createElement(JobDetailPopover, props('ASSIGNED', 'xia')));
+  const user = userEvent.setup({ document });
+  await user.click(screen.getByRole('button', { name: 'Unassign' }));
+  assert.equal(unassigned, 1);
+  view.rerender(React.createElement(JobDetailPopover, props('NEW')));
+  assert.equal(screen.queryByRole('button', { name: 'Unassign' }), null, 'An unassigned order has nothing to unassign');
+  view.rerender(React.createElement(JobDetailPopover, props('IN_PROGRESS', 'xia')));
+  const started = screen.queryByRole('button', { name: 'Unassign' }) as HTMLButtonElement | null;
+  assert.ok(!started || started.disabled, 'A started order cannot be unassigned');
+});
 test('dispatcher completes an assigned order from order details after confirming', async()=>{
   const {MonitorOrderDetails}=await import('../src/components/orders/MonitorOrderDetails');
   const {ConfirmDialogHost}=await import('../src/components/ui/ConfirmDialog');

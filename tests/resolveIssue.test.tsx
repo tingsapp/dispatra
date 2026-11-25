@@ -34,3 +34,32 @@ test('Resolve needs a short note, keeps errors visible for retry and never selec
   assert.deepEqual(calls, ['Rescheduled', 'Rescheduled']);
   assert.equal(rowClicks, 0);
 });
+
+test('report photos show on the issue and open full size', async () => {
+  const { IssuePhotos } = await import('../src/components/monitor/IssuePhotos');
+  const photographed = { ...item({ id: 'i1', version: 2 }), photoIds: ['p1', 'p2'] };
+  const { unmount } = render(<IssuePhotos slug="acme" item={photographed} />);
+  const images = screen.getAllByRole('img');
+  assert.deepEqual(images.map(image => image.getAttribute('src')), ['/api/v1/companies/acme/evidence/p1', '/api/v1/companies/acme/evidence/p2']);
+  assert.equal(images[0].getAttribute('alt'), 'Report photo 1 for ORD-7');
+  unmount();
+  render(<IssuePhotos slug="acme" item={photographed} compact />);
+  assert.ok(screen.getByText('2 report photos'));
+});
+
+test('Extra time lists each stop with its reason and lets dispatch waive or charge it', async () => {
+  const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+  const { operations } = await import('../src/operations/api');
+  const { ExtraTimeReview } = await import('../src/components/orders/ExtraTimeReview');
+  const calls: unknown[][] = [];
+  Object.assign(operations, { decideExtraTime: async (...args: unknown[]) => { calls.push(args); } });
+  const stop = (id: string, status: 'CHARGED' | 'EXCLUDED', reasons: string[]) => ({ stop_id: id, stop: id === 's1' ? 'Pickup 1' : 'Drop-off 1', minutes_over: 45, amount: '100.00', reasons, responsibility: status === 'EXCLUDED' ? 'CARRIER' as const : 'SHIPPER' as const, status, decided_by_dispatcher: false });
+  const job = { id: 'o1', version: 4, pricing: { extraTime: { minutes_free: 30, amount: '50', stops: [stop('s1', 'CHARGED', ['Waiting for staff']), stop('s2', 'EXCLUDED', ['Vehicle problem'])] } } } as never;
+  render(<QueryClientProvider client={new QueryClient()}><ExtraTimeReview slug="acme" job={job} /></QueryClientProvider>);
+  assert.ok(screen.getByText('Driver: Waiting for staff · Charged'));
+  assert.ok(screen.getByText('Driver: Vehicle problem · Not charged: carrier reason'));
+  const user = userEvent.setup({ document });
+  await user.click(screen.getByRole('button', { name: 'Waive' }));
+  await user.click(screen.getByRole('button', { name: 'Charge' }));
+  assert.deepEqual(calls, [['acme', { id: 'o1', version: 4 }, 's1', false], ['acme', { id: 'o1', version: 4 }, 's2', true]]);
+});

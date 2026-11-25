@@ -5,6 +5,7 @@ import { Maximize, Minus, Plus } from 'lucide-react';
 import { ShipperStopMarker } from '../components/orders/ShipperStopMarker';
 import { initialShipperCenter } from '../components/orders/shipperMapLocation';
 import { GoogleRoundedRoute } from '../components/map/GoogleRoundedRoute';
+import { CLEAN_MAP_STYLE } from '../components/map/mapStyle';
 import { GoogleVehicleMarkers } from '../components/monitor/GoogleVehicleMarkers';
 import { operations } from '../operations/api';
 import { driverRouteSequence, type DriverDayStop, type DriverRoute } from './driverDayPlan';
@@ -147,7 +148,7 @@ export function DriverDashboardMap(props: Props) {
     {!apiKey || failed ? <p role="status" className="driver-map-message">Map is unavailable. All stops are listed in the timeline.</p>
       : <APIProvider apiKey={apiKey} language="en" region="CA" onLoad={() => setLoaded(true)} onError={() => setFailed(true)}>
         {!loaded && <p role="status" className="driver-map-message">Loading map…</p>}
-        <GoogleMap defaultCenter={initialShipperCenter(undefined, props.timeZone)} defaultZoom={12} maxZoom={18}
+        <GoogleMap defaultCenter={initialShipperCenter(undefined, props.timeZone)} defaultZoom={12} maxZoom={18} styles={CLEAN_MAP_STYLE}
           disableDefaultUI clickableIcons={false} gestureHandling="greedy" keyboardShortcuts aria-label="Today's order map">
           <StopMap {...props} />
         </GoogleMap>

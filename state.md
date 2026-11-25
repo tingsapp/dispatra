@@ -1,3 +1,36 @@
+2026-11-25 Order form: Accessorials Fragile/DG checkboxes follow the package flags (a blank Qty no longer leaves them unticked); “Power lift gate at pickup/drop-off” checkboxes each linked both ways to Power Liftgate at Pickup / at Drop-off; order details and driver portal show it; schema.d.ts regenerated.
+Checks: tsc ok, build ok; orderFormLinks 2/2, loadSize 7/7, entities 19/19; earlier full run: 12 files fail identically with these edits reverted. Not checked in the running app (dispatcher sign-in unavailable).
+
+2026-11-25 Needs Attention shows driver report photos; completed order details add an Extra time review (per-stop reasons, status, Waive/Charge); schema.d.ts regenerated.
+Checks: tsc ok, build ok; resolveIssue 4/4 (2 new), monitorReview 18/18, todaysPlan 23/23, entities 19/19, loadSize 7/7; monitorOrderVisibility 13/14 (rounded-bend test fails only with the separate uncommitted map changes; passes at HEAD). Not checked in the running app.
+
+2026-11-25 Preferences › Planned stop time (Small parcel/LTL/FTL, 10/20/45 min); order payloads omit `service_minutes` unless stated; schema.d.ts regenerated.
+Checks: tsc ok, build ok; settingsMailbox 4/5 (new Planned stop time test passes; mail-provider test already failing), entities 19/19, loadSize 7/7, emailOrders 11/11, connectors 30/30, shipperOrders 13/14 (Preferred driver test fails with or without this change). Not deployed.
+
+2026-11-25 Settings › Extra time tab (workspaces, after Accessorials): Charge every (minutes, default 30) and Charge per block ($, default 50, 0 = off) with a worked example; `EXTRA_TIME` price-line group; schema.d.ts regenerated.
+Checks: tsc ok, build ok; connectors 30/30; settingsMailbox 3/4 incl. new Extra time test (mail-provider test already failing). Not checked in the running app; not deployed.
+
+2026-11-25 Monitor: Assign driver popover and dispatch recommendation panel label "AI Recommendation" renamed to "Recommendation" (also tooltips/aria labels and spec wording).
+Checks: tsc shows no errors in src (only pre-existing tests/connectors.test.tsx extra_time type errors from other in-progress work); grep confirms no visible "AI Recommendation" strings remain.
+
+2026-11-25: Spec only: fixed stale rule in the Order mutation paragraph; dispatchers may edit Orders at every lifecycle stage (matches the Order edit-form rule, API spec and code), shippers only NEW.
+Checks: none needed (doc change); confirmed `orderEditable` and API `update_order` already allow it.
+
+2026-11-25 Dispatcher Settings: Rate Card footer action, confirm dialog and notices say Delete instead of Archive (the API still archives, so priced orders keep their snapshot); Service Level and Package Type rows show a "Default" text button instead of the star icon.
+Checks: tsc ok, build ok; packageTypes 3/3; settingsMailbox 2/3 and settings 77/84, appActionLoading 10/11, rateCardSettings 0/1, with the same failures when my edits were undone (already broken). Not deployed.
+
+2026-11-25: Monitor, Shipper Tracking and driver web maps share `CLEAN_MAP_STYLE` (hides Google place and transit-station pins, keeps streets/area names/parks) to match the driver app's cleaner map; Monitor labels-off and satellite unchanged. Spec updated.
+Checks: tsc ok; build ok; monitorMarkers 10/10 (new style test), shipperMapCamera 8/8, driverPortal 22/22; not checked in the running app.
+
+2026-11-25: Monitor Assign driver popup adds Unassign beside Reassign for Assigned, not-started orders: after confirmation (warns when the route has other orders) `handleMonitorUnassignDriver` releases the planned route via existing `changeAssignment(..., null)`. No API change. Spec updated.
+Checks: tsc ok; build ok; assignment 5/5 (new test), entityForms new Unassign test passes (3 older failures also fail without this change); not checked in the running app.
+
+2026-11-25: Monitor vehicle-to-pickup approach line darkened from 40% to 60% opacity (`GoogleRoundedRoute`); spec and monitorMarkers expectations updated.
+Checks: tsc ok; monitorMarkers 9/9; not checked in the running app.
+
+2026-11-25: Web route corners match the driver app: shared `roundedRoutePath` simplifies road pixels within radius/8 (Douglas–Peucker), then curves each turn 22px either side (max 45% of a segment); Monitor drops its 24px override, so Monitor, Shipper Tracking and driver web maps share it. Spec wording updated.
+Checks: tsc ok; build ok; monitorMarkers 9/9 (route-shape tests updated; the hover assertions now use APP_ACCENT instead of a stale #1447e6); not checked in the running app (demo dispatcher password changed).
+
 2026-11-23: Dispatcher Order details make an Email order source a link that opens the source email in a popup (`SourceEmailDialog`, `operations.orderEmail`); schema.d.ts regenerated.
 Checks: tsc ok; emailOrders 11/11, dialogDismissal 20/20, new emailDraftForm test passes (its older 'collapsed email' test and 3 entityForms tests already failed before this change); checked DDO-3967 in the running local app, including Escape closing only the email popup.
 2026-11-23: Driver Today's jobs stops show the driver app's actions (Message, Upload POD, Report, then the route step Start/Navigate/Confirm arrival/Complete with its 100 m/75 m/30 s arrival check) via new `driverStopStep.ts`/`DriverStopActions`; stop reports (dialog and order details) are multi-select and send one issue with the highest-priority kind and every label, like the app.

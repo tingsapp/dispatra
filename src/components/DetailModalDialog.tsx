@@ -23,6 +23,8 @@ import { ReviewAttentionItem, hasReviewAttention, type ReviewAttentionProps } fr
 import { DialogHeader, DialogBody } from './ui/Dialog';
 import { useEntityDialog } from './entities/useEntityDialog';
 import { ResolveIssue, type ResolveIssueHandler } from './monitor/ResolveIssue';
+import { IssuePhotos } from './monitor/IssuePhotos';
+import { companySlugForCurrentPath } from '../lib/pageRoutes';
 
 interface DetailModalDialogProps extends OrderMapVisibilityProps, ReviewAttentionProps {
   isOpen?: boolean;
@@ -430,6 +432,7 @@ const AllExceptionsView: React.FC<ReviewAttentionProps & {
                 <MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-slate-400" />
                 <span className="min-w-0 [overflow-wrap:anywhere]">{item.pickupAddress}</span>
               </div>
+              <IssuePhotos slug={companySlugForCurrentPath()} item={item} />
               <ResolveIssue item={item} onResolve={onResolveIssue} />
             </div>
             {(onSelectJob || (item.jobNumber === '#461' && onApproveAiFix)) && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-3 sm:flex-col sm:items-end">

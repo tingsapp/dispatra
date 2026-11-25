@@ -26,7 +26,7 @@ export function orderToInput(order: Order): PricingOrderInput {
     scheduledAt: order.scheduled_at, scheduledEndAt: null,
     stops: facts.stops.map(stop => ({
       id: stop.id, type: stop.kind, label: stop.address.text, zoneId: null, residential: false, waitMinutes: 0,
-      contactName: stop.contact_name, contactPhone: stop.phone, instructions: stop.instructions,
+      contactName: stop.contact_name, contactPhone: stop.phone, instructions: stop.instructions, liftgate: stop.liftgate,
       windowStart: stop.window_start ?? undefined, windowEnd: stop.window_end ?? undefined,
       latitude: stop.address.latitude, longitude: stop.address.longitude, city: stop.address.city, countryCode: stop.address.country, provinceCode: stop.address.province,
       postalCode: stop.address.postal_code,
@@ -60,7 +60,7 @@ export function draftToInput(draft: Record<string, unknown>, extraction?: Record
     return { ...stop, id: stop.id || crypto.randomUUID(), address: { ...blank, ...recovered, ...stop.address }, contact_name: stop.contact_name ?? '', phone: stop.phone ?? '', instructions: stop.instructions ?? '' };
   });
   for (const kind of ['PICKUP', 'DROPOFF'] as const) {
-    if (!stops.some(stop => stop.kind === kind)) stops.push({ id: crypto.randomUUID(), kind, address: blank, contact_name: '', phone: '', instructions: '', service_minutes: 10, unattended_allowed: false, photo_required: false });
+    if (!stops.some(stop => stop.kind === kind)) stops.push({ id: crypto.randomUUID(), kind, address: blank, contact_name: '', phone: '', instructions: '', service_minutes: 10, unattended_allowed: false, photo_required: false, liftgate: false });
   }
   const extractedItems = extraction?.items as Array<Record<string, unknown>> | undefined;
   const rawItems = (facts.items?.length ? facts.items : [{ id: crypto.randomUUID() }]).map((item, index) => {
@@ -109,7 +109,7 @@ export function priceToUi(price: Order['pricing'], facts: Booking, createdAt: st
   const group = (name: string) => lines.filter(line => line.group === name).reduce((sum, line) => sum + line.amount, 0);
   const totalWeight = facts.items.reduce((sum, item) => sum + item.quantity * Number(item.weight_kg), 0);
   return {
-    engineVersion: 'api', pricedAt: createdAt, stage: price.stage, status: price.status,
+    engineVersion: 'api', pricedAt: createdAt, stage: price.stage, status: price.status, extraTime: price.extra_time ?? null,
     errors: price.review_reason ? [{ code: 'INVALID_ORDER', message: price.review_reason }] : [], warnings: [],
     currency: price.currency === 'USD' ? 'USD' : 'CAD',
     rateCard: rate ? { id: rate.id, name: rate.data.name, version: rate.version, scope: rate.is_default ? 'ORGANIZATION' : 'ORDER', source: 'OVERRIDE', pricingMethod: rate.data.method } : null,
@@ -194,7 +194,8 @@ function serializeBooking(input: PricingOrderInput, notes: string, timeZone: str
     stops: input.stops.map(stop => ({ id: stopIds.get(stop.id)!, kind: stop.type, address: partial ? { text: stop.label ?? '', city: stop.city ?? '', province: stop.provinceCode ?? '', postal_code: stop.postalCode ?? '', country: stop.countryCode === 'US' || postalCountry(stop.postalCode) === 'US' ? 'US' as const : 'CA' as const, latitude: stop.latitude ?? null, longitude: stop.longitude ?? null } : streetAddress(stop.label ?? '', undefined, { latitude: stop.latitude ?? null, longitude: stop.longitude ?? null, city: stop.city, province: stop.provinceCode, postalCode: stop.postalCode, country: stop.countryCode }),
       contact_name: stop.contactName ?? '', phone: stop.contactPhone ?? '', instructions: stop.instructions ?? '',
       window_start: stop.windowStart ? bookingInstant(stop.windowStart, timeZone) : null, window_end: stop.windowEnd ? bookingInstant(stop.windowEnd, timeZone) : null,
-      service_minutes: stop.handlingMinutes ?? 10, unattended_allowed: false, photo_required: stop.podRequirement === 'PHOTO' || stop.podRequirement === 'PHOTO_AND_SIGNATURE' })),
+      // Without stated minutes the API uses the company's planned stop time for the load size.
+      ...(stop.handlingMinutes != null && { service_minutes: stop.handlingMinutes }), unattended_allowed: false, photo_required: stop.podRequirement === 'PHOTO' || stop.podRequirement === 'PHOTO_AND_SIGNATURE', liftgate: stop.liftgate ?? false })),
     items: input.packages.map(item => ({ id: /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(item.id) ? item.id : crypto.randomUUID(),
       pickup_id: stopIds.get(item.pickupStopId ?? (pickups.length === 1 ? pickups[0].id : '')) ?? null, delivery_id: stopIds.get(item.deliveryStopId ?? (drops.length === 1 ? drops[0].id : '')) ?? null,
       // A full truckload line is one load whose weight is the line total.

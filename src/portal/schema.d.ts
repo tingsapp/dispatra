@@ -964,6 +964,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/orders/{identity}/extra-time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extra Time
+         * @description Waive or charge one stop's Extra time on a completed Order.
+         */
+        post: operations["extra_time_api_v1_companies__slug__orders__identity__extra_time_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/orders/{identity}/assign": {
         parameters: {
             query?: never;
@@ -1337,6 +1357,43 @@ export interface paths {
         put?: never;
         /** Evidence */
         post: operations["evidence_api_v1_companies__slug__driver_stops__identity__evidence_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{slug}/driver/stops/{identity}/report-photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report Photo */
+        post: operations["report_photo_api_v1_companies__slug__driver_stops__identity__report_photos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{slug}/driver/report-reasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report Reasons
+         * @description Dispatra's fixed stop report reasons, in display order.
+         */
+        get: operations["report_reasons_api_v1_companies__slug__driver_report_reasons_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4679,7 +4736,7 @@ export interface components {
              * Value
              * @enum {string}
              */
-            value: "ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "ACCESS_BLOCKED" | "HANDLING_IN_PROGRESS" | "VEHICLE_PROBLEM" | "TRAFFIC" | "RECIPIENT_UNAVAILABLE" | "NEED_HELPER" | "DAMAGED_ITEM" | "UNSAFE" | "OTHER" | "NO_PROBLEM";
+            value: "ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM";
             /** Label */
             label: string;
         };
@@ -5840,6 +5897,7 @@ export interface components {
             window_end?: string | null;
             /**
              * Service Minutes
+             * @description Planned minutes at the stop. Omit to use the company planned stop time for the load size.
              * @default 10
              */
             service_minutes: number;
@@ -5853,6 +5911,12 @@ export interface components {
              * @default false
              */
             photo_required: boolean;
+            /**
+             * Liftgate
+             * @description A power liftgate is needed at this stop; a pickup adds the active LIFTGATE and a drop-off the LIFTGATE_DROPOFF Accessorial, each once per Order with its vehicle equipment.
+             * @default false
+             */
+            liftgate: boolean;
         };
         /** DriverActivityView */
         DriverActivityView: {
@@ -6000,6 +6064,11 @@ export interface components {
             unattended_allowed: boolean;
             /** Photo Required */
             photo_required: boolean;
+            /**
+             * Liftgate
+             * @default false
+             */
+            liftgate: boolean;
         };
         /**
          * DriverOrderView
@@ -6351,6 +6420,58 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ExtraTimeDecision */
+        ExtraTimeDecision: {
+            /** Version */
+            version: number;
+            /**
+             * Stop Id
+             * Format: uuid
+             */
+            stop_id: string;
+            /** Charge */
+            charge: boolean;
+        };
+        /** ExtraTimeStop */
+        ExtraTimeStop: {
+            /**
+             * Stop Id
+             * Format: uuid
+             */
+            stop_id: string;
+            /** Stop */
+            stop: string;
+            /** Minutes Over */
+            minutes_over: number;
+            /** Amount */
+            amount: string;
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * Responsibility
+             * @enum {string}
+             */
+            responsibility: "SHIPPER" | "CARRIER" | "UNDECIDED";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "CHARGED" | "EXCLUDED" | "WAIVED";
+            /**
+             * Decided By Dispatcher
+             * @default false
+             */
+            decided_by_dispatcher: boolean;
+        };
+        /** ExtraTimeView */
+        ExtraTimeView: {
+            /** Minutes Free */
+            minutes_free: number;
+            /** Amount */
+            amount: string;
+            /** Stops */
+            stops: components["schemas"]["ExtraTimeStop"][];
+        };
         /** FleetSyncResult */
         FleetSyncResult: {
             drivers: components["schemas"]["SyncCounts"] | null;
@@ -6655,17 +6776,25 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
-        /** IssueInput */
+        /**
+         * IssueInput
+         * @description A stop report. Current drivers send `reasons` (Dispatra's fixed list) and notes; the kind and description follow.
+         *     Older clients send a kind and description only.
+         */
         IssueInput: {
             /** Stop Id */
             stop_id?: string | null;
+            /** Kind */
+            kind?: ("FAILED_PICKUP" | "FAILED_DELIVERY" | "SHORT_LOAD" | "WRONG_ADDRESS" | "UNSAFE" | "VEHICLE" | "OTHER") | null;
             /**
-             * Kind
-             * @enum {string}
+             * Description
+             * @default
              */
-            kind: "FAILED_PICKUP" | "FAILED_DELIVERY" | "SHORT_LOAD" | "WRONG_ADDRESS" | "UNSAFE" | "VEHICLE" | "OTHER";
-            /** Description */
             description: string;
+            /** Reasons */
+            reasons?: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM")[];
+            /** Photo Ids */
+            photo_ids?: string[];
         };
         /** IssueResolve */
         IssueResolve: {
@@ -6703,6 +6832,15 @@ export interface components {
             resolved: boolean;
             /** Resolution */
             resolution: string;
+            /** Reasons */
+            reasons?: string[];
+            /** Photo Ids */
+            photo_ids?: string[];
+            /**
+             * Holds Completion
+             * @default true
+             */
+            holds_completion: boolean;
         };
         /** ItemInput */
         "ItemInput-Input": {
@@ -7105,6 +7243,8 @@ export interface components {
              * Format: date-time
              */
             at: string;
+            /** Photo Ids */
+            photo_ids?: string[];
         };
         /** MonitorOrder */
         MonitorOrder: {
@@ -7588,6 +7728,7 @@ export interface components {
             context?: {
                 [key: string]: unknown;
             };
+            extra_time?: components["schemas"]["ExtraTimeView"] | null;
         };
         /** ProfileUpdate */
         ProfileUpdate: {
@@ -7697,6 +7838,8 @@ export interface components {
             order_number: string;
             /** Prompt */
             prompt: string;
+            /** Stop Id */
+            stop_id?: string | null;
             /** Choices */
             choices: components["schemas"]["Choice"][];
             /**
@@ -7705,7 +7848,9 @@ export interface components {
              */
             status: "OPEN" | "ANSWERED" | "CLOSED";
             /** Reason */
-            reason: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "ACCESS_BLOCKED" | "HANDLING_IN_PROGRESS" | "VEHICLE_PROBLEM" | "TRAFFIC" | "RECIPIENT_UNAVAILABLE" | "NEED_HELPER" | "DAMAGED_ITEM" | "UNSAFE" | "OTHER" | "NO_PROBLEM") | null;
+            reason: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM") | null;
+            /** Reasons */
+            reasons?: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM")[];
             /** Details */
             details: string;
             /** Estimated Ready At */
@@ -7983,15 +8128,27 @@ export interface components {
             /** Notifications Unread */
             notifications_unread?: number | null;
         };
-        /** Reply */
+        /** ReasonChoice */
+        ReasonChoice: {
+            /**
+             * Value
+             * @enum {string}
+             */
+            value: "ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM";
+            /** Label */
+            label: string;
+        };
+        /**
+         * Reply
+         * @description Current drivers send `reasons` and photos from the shared report form; older apps send one `reason`.
+         */
         Reply: {
             /** Version */
             version: number;
-            /**
-             * Reason
-             * @enum {string}
-             */
-            reason: "ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "ACCESS_BLOCKED" | "HANDLING_IN_PROGRESS" | "VEHICLE_PROBLEM" | "TRAFFIC" | "RECIPIENT_UNAVAILABLE" | "NEED_HELPER" | "DAMAGED_ITEM" | "UNSAFE" | "OTHER" | "NO_PROBLEM";
+            /** Reason */
+            reason?: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM") | null;
+            /** Reasons */
+            reasons?: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM")[];
             /**
              * Details
              * @default
@@ -7999,6 +8156,8 @@ export interface components {
             details: string;
             /** Estimated Ready At */
             estimated_ready_at?: string | null;
+            /** Photo Ids */
+            photo_ids?: string[];
         };
         /** RevenueCurrency */
         RevenueCurrency: {
@@ -8284,6 +8443,31 @@ export interface components {
              */
             fuel_percent: number | string;
             /**
+             * Extra Time Minutes
+             * @default 30
+             */
+            extra_time_minutes: number;
+            /**
+             * Extra Time Amount
+             * @default 50
+             */
+            extra_time_amount: number | string;
+            /**
+             * Stop Minutes Small Parcel
+             * @default 10
+             */
+            stop_minutes_small_parcel: number;
+            /**
+             * Stop Minutes Ltl
+             * @default 20
+             */
+            stop_minutes_ltl: number;
+            /**
+             * Stop Minutes Ftl
+             * @default 45
+             */
+            stop_minutes_ftl: number;
+            /**
              * Maximum Active Orders
              * @default 3
              */
@@ -8408,6 +8592,31 @@ export interface components {
              * @default 28.5
              */
             fuel_percent: string;
+            /**
+             * Extra Time Minutes
+             * @default 30
+             */
+            extra_time_minutes: number;
+            /**
+             * Extra Time Amount
+             * @default 50
+             */
+            extra_time_amount: string;
+            /**
+             * Stop Minutes Small Parcel
+             * @default 10
+             */
+            stop_minutes_small_parcel: number;
+            /**
+             * Stop Minutes Ltl
+             * @default 20
+             */
+            stop_minutes_ltl: number;
+            /**
+             * Stop Minutes Ftl
+             * @default 45
+             */
+            stop_minutes_ftl: number;
             /**
              * Maximum Active Orders
              * @default 3
@@ -8673,6 +8882,7 @@ export interface components {
             window_end?: string | null;
             /**
              * Service Minutes
+             * @description Planned minutes at the stop. Omit to use the company planned stop time for the load size.
              * @default 10
              */
             service_minutes: number;
@@ -8686,6 +8896,12 @@ export interface components {
              * @default false
              */
             photo_required: boolean;
+            /**
+             * Liftgate
+             * @description A power liftgate is needed at this stop; a pickup adds the active LIFTGATE and a drop-off the LIFTGATE_DROPOFF Accessorial, each once per Order with its vehicle equipment.
+             * @default false
+             */
+            liftgate: boolean;
         };
         /** SubmitShipperDraft */
         SubmitShipperDraft: {
@@ -16554,6 +16770,107 @@ export interface operations {
             };
         };
     };
+    extra_time_api_v1_companies__slug__orders__identity__extra_time_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraTimeDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     assign_api_v1_companies__slug__orders__identity__assign_post: {
         parameters: {
             query?: never;
@@ -18835,6 +19152,203 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    report_photo_api_v1_companies__slug__driver_stops__identity__report_photos_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvidenceInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    report_reasons_api_v1_companies__slug__driver_report_reasons_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReasonChoice"][];
                 };
             };
             /** @description Bad Request */

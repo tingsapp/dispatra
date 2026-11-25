@@ -13,6 +13,7 @@ import { GoogleOverlayMarker } from './monitor/GoogleOverlayMarker';
 import { GoogleOrderMarkers } from './monitor/GoogleOrderMarkers';
 import { GoogleVehicleMarkers } from './monitor/GoogleVehicleMarkers';
 import { VehicleMarkerCircle } from './map/VehicleMarkerCircle';
+import { CLEAN_MAP_STYLE } from './map/mapStyle';
 import { locatedOrderStops, separateStopMarkers, validMapPoint, type MapVehicle } from './monitor/mapLocations';
 import { MONITOR_CAMERA } from './monitor/mapScene';
 import { isActiveMonitorOrder } from './monitor/orderVisibility';
@@ -275,12 +276,12 @@ export function MonitorMapContent(props: GoogleMonitorMapProps) {
       </div>
     </GoogleOverlayMarker>
     </>}
-    {approaches.paths.map(path => <GoogleRoundedRoute key={path.id} radius={24} id={`approach-${path.id}`} points={path.points} selected={true}
+    {approaches.paths.map(path => <GoogleRoundedRoute key={path.id} id={`approach-${path.id}`} points={path.points} selected={true}
       approach {...routeHover(path.id)} />)}
     {visibleJobs.map(({ job, stops }) => {
       const path = roadPaths[job.id];
       return <Fragment key={job.id}>
-        {path && path.length > 1 && <GoogleRoundedRoute radius={24} id={job.id} points={path.map(point => [point.lat, point.lng])} selected={true}
+        {path && path.length > 1 && <GoogleRoundedRoute id={job.id} points={path.map(point => [point.lat, point.lng])} selected={true}
           {...routeHover(job.routeId ?? job.id)} />}
         <GoogleOrderMarkers job={job} stops={stops} onSelect={props.onSelectJob} />
       </Fragment>;
@@ -321,7 +322,7 @@ export function GoogleMonitorMap(props: GoogleMonitorMapProps) {
     <APIProvider apiKey={apiKey} language="en" onError={() => setError(true)}>
       <Map defaultCenter={MONITOR_CAMERA.center} defaultZoom={MONITOR_CAMERA.zoom} minZoom={4} maxZoom={19}
         mapTypeId={mode === 'map' ? 'roadmap' : labels ? 'hybrid' : 'satellite'}
-        styles={mode === 'map' && !labels ? NO_LABELS : undefined}
+        styles={labels ? CLEAN_MAP_STYLE : mode === 'map' ? NO_LABELS : undefined}
         disableDefaultUI clickableIcons={false} gestureHandling="greedy"
         onClick={() => props.onMapClick?.()}>
         <MonitorMapContent {...props} />

@@ -95,7 +95,7 @@ for (const operation of ['default', 'archive'] as const) {
     Object.assign(allOperations, { rates: async () => [rate] });
     Object.assign(operations, { updateRate: () => request.promise, archiveRate: () => request.promise });
     mount(<RateCardsPage />); const user = userEvent.setup({ document });
-    const button = await screen.findByRole('button', { name: operation === 'default' ? 'Set as default' : 'Archive' });
+    const button = await screen.findByRole('button', { name: operation === 'default' ? 'Set as default' : 'Delete' });
     await user.click(button); pending(button, true);
     assert.equal((screen.getByRole('button', { name: 'Save Card' }) as HTMLButtonElement).disabled, true);
     await act(async () => request.resolve(rate)); await waitFor(() => pending(button, false));
