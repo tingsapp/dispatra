@@ -419,7 +419,7 @@ test('saving Profile contact name and company logo updates the mounted authentic
  Object.defineProperty(globalThis,'FileReader',{configurable:true,value:dom.window.FileReader});
  let saved={...savedSettings(false),data:{...savedSettings(false).data,company_name:'Demo',contact_name:'John Smith',logo_url:''}};
  api.companySettings=async()=>saved;
- api.saveCompanySettings=async(_slug,body)=>{saved={...saved,version:saved.version+1,data:{...body.data,gst_percent:String(body.data.gst_percent),provincial_percent:String(body.data.provincial_percent),fuel_percent:String(body.data.fuel_percent),extra_time_amount:String(body.data.extra_time_amount),extra_time_review_above:body.data.extra_time_review_above==null?null:String(body.data.extra_time_review_above)}};return saved;};
+ api.saveCompanySettings=async(_slug,body)=>{saved={...saved,version:saved.version+1,data:{...body.data,gst_percent:String(body.data.gst_percent),provincial_percent:String(body.data.provincial_percent),fuel_percent:String(body.data.fuel_percent),extra_time_amount:String(body.data.extra_time_amount)}};return saved;};
  const user=mount(<WorkspaceAccount account={{...dispatcher,display_name:'John Smith'}}>
   <Sidebar activeTab="profile" isOpen onToggle={()=>{}} setActiveTab={()=>{}} showAccountPopover={false}
    setShowAccountPopover={()=>{}} onActionNotification={()=>{}} dispatchMode="AUTO" onDispatchModeChange={()=>{}} />

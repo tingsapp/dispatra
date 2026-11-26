@@ -1,3 +1,6 @@
+2026-11-26 Settings tab back to Extra time: free block and rate plus the stop reasons (name, shown at, responsible, Extra time, delete icon) in the fixed order; no review amount, reorder buttons, notes/photo checkboxes or active switches; Add reason inserts before Another issue. Spec updated.
+Checks: tsc ok; settingsMailbox Extra time + Stop reasons tests 2/2. Not released.
+
 2026-11-26 Settings › Stop reasons & charges (StopReasonSettings in the Extra time tab): reasons in driver order with name, stops, responsibility, Extra time charge, notes/photo rules, active, custom reasons on a built-in, review amount. Extra time shows Needs review with Charge/Waive and company-rule exclusions. Web driver portal reports and replies use the company list and send reason codes. Spec updated.
 Checks: tsc ok; settingsMailbox Stop reasons tests 2/2 (mail-server test fails identically at HEAD), resolveIssue 5/5, driverPortal 22/22, orderWatch 6/6, progressUpdates 2/2; settings page seen on a temporary sample page in the built-in browser (removed). Not released.
 

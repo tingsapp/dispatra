@@ -1,8 +1,7 @@
-import { ArrowDown, ArrowUp, Lock, Plus, Trash2 } from 'lucide-react';
+import { Lock, Plus, Trash2 } from 'lucide-react';
 import type { components } from '../../portal/schema';
 import { Select } from '../ui/Select';
-import { Switch } from '../ui/Switch';
-import { cardClass, checkboxClass, fieldClass, hintClass, labelClass } from './BillingFields';
+import { cardClass, fieldClass } from './BillingFields';
 
 export type ReasonPolicy = components['schemas']['ReasonPolicy'];
 
@@ -13,79 +12,62 @@ const SIDES = [{ value: 'SHIPPER', label: 'Shipper' }, { value: 'CARRIER', label
 const CHARGES = [{ value: 'AUTO', label: 'Charge automatically' }, { value: 'REVIEW', label: 'Review first' }, { value: 'NEVER', label: 'Don’t charge' }];
 const isCustom = (row: ReasonPolicy) => row.code.startsWith('CUSTOM_');
 
-export function stopReasonsError(rows: ReasonPolicy[], reviewAbove: string) {
+export function stopReasonsError(rows: ReasonPolicy[]) {
   // An empty list is the built-in defaults (the API fills it on read).
-  if (!rows.length) return reviewAbove.trim() !== '' && !(Number(reviewAbove) >= 0) ? 'Enter a review amount of $0 or more, or leave it empty.' : null;
+  if (!rows.length) return null;
   if (rows.some(row => row.label.trim().length < 2)) return 'Name every reason (2 characters or more).';
   const names = rows.map(row => row.label.trim().toLowerCase());
   if (new Set(names).size !== names.length) return 'Reason names must be unique.';
-  if (!rows.some(row => row.active)) return 'Keep at least one reason active.';
-  if (reviewAbove.trim() !== '' && !(Number(reviewAbove) >= 0)) return 'Enter a review amount of $0 or more, or leave it empty.';
   return null;
 }
 
-/** Company reasons for stop reports and progress replies: name, order, where they show, who is responsible, how Extra
- * time is charged and what the driver must add. Built-ins can be renamed and hidden; custom reasons sit on a built-in meaning. */
-export function StopReasonSettings({ rows, reviewAbove, onChange, onReviewAbove }: {
-  rows: ReasonPolicy[]; reviewAbove: string; onChange: (rows: ReasonPolicy[]) => void; onReviewAbove: (value: string) => void;
-}) {
+const GRID = 'lg:grid-cols-[minmax(13rem,1.6fr)_repeat(3,minmax(10rem,1fr))_2rem]';
+
+/** The company's complete stop reason list, in Dispatra's fixed order: name, where it shows, who is responsible and how
+ * Extra time is charged. Deleting a reason removes it for drivers; custom reasons sit on a built-in meaning. */
+export function StopReasonSettings({ rows, onChange }: { rows: ReasonPolicy[]; onChange: (rows: ReasonPolicy[]) => void }) {
   const builtIns = rows.filter(row => !isCustom(row));
   const update = (index: number, change: Partial<ReasonPolicy>) => onChange(rows.map((row, i) => i === index ? { ...row, ...change } : row));
-  const move = (index: number, by: number) => { const next = [...rows]; const [row] = next.splice(index, 1); next.splice(index + by, 0, row); onChange(next); };
-  const add = () => onChange([...rows, { code: `CUSTOM_${Date.now().toString(36).toUpperCase()}`, base: 'OTHER', label: '', stops: 'BOTH', active: true, responsibility: 'UNDECIDED', charge: 'REVIEW', notes_required: true, photo_required: false }]);
-  return <>
-    <section aria-label="Extra time review" className={`${cardClass} app-panel-plain max-w-2xl space-y-3`}>
-      <div><h2 className="app-section-title text-slate-900">Review before charging</h2>
-        <p id="review-above-help" className="text-xs text-slate-500 mt-0.5">Extra time at one stop above this amount waits for a dispatcher to charge or waive it, even when its reasons charge automatically.</p></div>
-      <div className="max-w-xs">
-        <label htmlFor="review-above" className={labelClass}>Review Extra time above ($)</label>
-        <input id="review-above" type="number" min="0" step="0.01" placeholder="No limit" aria-describedby="review-above-help" className={fieldClass} value={reviewAbove} onChange={event => onReviewAbove(event.target.value)} />
-        <p className={hintClass}>Leave empty to charge automatically at any amount.</p>
-      </div>
-    </section>
-    <section aria-label="Stop reasons" className={`${cardClass} app-panel-plain space-y-4`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="max-w-2xl"><h2 className="app-section-title text-slate-900">Stop reasons</h2>
-          <p className="text-xs text-slate-500 mt-0.5">What drivers choose when they report a problem or answer a progress question, in this order. Who is responsible and the Extra time rule decide each stop’s charge when the order completes; completed orders keep the charges they were priced with.</p></div>
-        <button type="button" className="app-button inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" onClick={add}><Plus className="h-3.5 w-3.5" />Add reason</button>
-      </div>
-      <div className="hidden grid-cols-[2rem_minmax(12rem,1.6fr)_repeat(3,minmax(9rem,1fr))_8.5rem_3.5rem] gap-3 px-3 text-xs font-medium text-slate-500 lg:grid" aria-hidden>
-        <span /><span>Reason</span><span>Shown at</span><span>Responsible</span><span>Extra time</span><span>Driver adds</span><span>Active</span>
-      </div>
-      <ol className="space-y-2" aria-label="Reasons in driver order">
-        {rows.map((row, index) => {
-          const carrier = row.responsibility === 'CARRIER';
-          const name = row.label.trim() || 'New reason';
-          return <li key={row.code} className={`grid grid-cols-1 gap-3 rounded-xl border p-3 lg:grid-cols-[2rem_minmax(12rem,1.6fr)_repeat(3,minmax(9rem,1fr))_8.5rem_3.5rem] lg:items-start ${row.active ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50'}`}>
-            <div className="flex gap-1 lg:flex-col">
-              <button type="button" aria-label={`Move ${name} up`} disabled={index === 0} className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30" onClick={() => move(index, -1)}><ArrowUp className="h-3.5 w-3.5" /></button>
-              <button type="button" aria-label={`Move ${name} down`} disabled={index === rows.length - 1} className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30" onClick={() => move(index, 1)}><ArrowDown className="h-3.5 w-3.5" /></button>
-            </div>
-            <div className="space-y-1.5">
-              <input aria-label="Reason name" maxLength={60} className={fieldClass} value={row.label} placeholder="Reason name" onChange={event => update(index, { label: event.target.value })} />
-              {isCustom(row)
-                ? <div className="flex items-center gap-2"><span className="shrink-0 text-xs text-slate-500">Treated as</span>
-                    <Select aria-label={`What ${name} means`} className="w-full" value={row.base ?? 'OTHER'} onValueChange={base => update(index, { base: base as ReasonPolicy['base'] })} options={builtIns.map(b => ({ value: b.code, label: b.label }))} /></div>
-                : HOLDS_COMPLETION.has(row.code) && <p className="flex items-center gap-1 text-xs text-slate-500"><Lock className="h-3 w-3" aria-hidden />Holds order completion until resolved</p>}
-            </div>
-            <Select className="w-full" aria-label={`Where ${name} shows`} value={row.stops} onValueChange={stops => update(index, { stops: stops as ReasonPolicy['stops'] })} options={STOPS} />
-            <Select className="w-full" aria-label={`Who is responsible for ${name}`} value={row.responsibility} onValueChange={side => update(index, { responsibility: side as ReasonPolicy['responsibility'], ...(side === 'CARRIER' && { charge: 'NEVER' }) })} options={SIDES} />
-            <div className="space-y-1">
-              <Select className="w-full" aria-label={`Extra time for ${name}`} disabled={carrier} value={carrier ? 'NEVER' : row.charge} onValueChange={charge => update(index, { charge: charge as ReasonPolicy['charge'] })} options={CHARGES} />
-              {carrier && <p className="text-xs text-slate-500">Carrier reasons are never charged.</p>}
-            </div>
-            <div className="flex items-center gap-4 text-xs text-slate-700 lg:min-h-9">
-              <label className="inline-flex items-center gap-2"><input type="checkbox" className={checkboxClass} checked={!!row.notes_required} onChange={event => update(index, { notes_required: event.target.checked })} />Notes</label>
-              <label className="inline-flex items-center gap-2"><input type="checkbox" className={checkboxClass} checked={!!row.photo_required} onChange={event => update(index, { photo_required: event.target.checked })} />Photo</label>
-            </div>
-            <div className="flex items-center gap-2 lg:flex-col lg:items-start">
-              <Switch aria-label={`${name} active`} checked={row.active !== false} onCheckedChange={active => update(index, { active })} />
-              {isCustom(row) && <button type="button" aria-label={`Remove ${name}`} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" onClick={() => onChange(rows.filter((_, i) => i !== index))}><Trash2 className="h-3.5 w-3.5" /></button>}
-            </div>
-          </li>;
-        })}
-      </ol>
-      <p className="text-xs text-slate-500">Built-in reasons can be renamed or turned off but not removed. A custom reason files and holds completion like the reason it is treated as. Reports already filed keep their reason and show its current name.</p>
-    </section>
-  </>;
+  // A new reason goes before Another issue, which stays last; the API keeps the fixed order on save.
+  const add = () => {
+    const at = rows.findIndex(row => row.code === 'OTHER');
+    const next = [...rows];
+    next.splice(at < 0 ? rows.length : at, 0, { code: `CUSTOM_${Date.now().toString(36).toUpperCase()}`, base: 'OTHER', label: '', stops: 'BOTH', responsibility: 'UNDECIDED', charge: 'REVIEW' });
+    onChange(next);
+  };
+  return <section aria-label="Stop reasons" className={`${cardClass} app-panel-plain space-y-4`}>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="max-w-2xl"><h2 className="app-section-title text-slate-900">Stop reasons</h2>
+        <p className="text-xs text-slate-500 mt-0.5">What drivers choose when they report a problem or answer a progress question. Who is responsible and the Extra time rule decide each stop’s charge when the order completes.</p></div>
+      <button type="button" className="app-button inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" onClick={add}><Plus className="h-3.5 w-3.5" />Add reason</button>
+    </div>
+    <div className={`hidden gap-3 px-3 text-xs font-medium text-slate-500 lg:grid ${GRID}`} aria-hidden>
+      <span>Reason</span><span>Shown at</span><span>Responsible</span><span>Extra time</span><span />
+    </div>
+    <ul className="space-y-2" aria-label="Stop reasons">
+      {rows.map((row, index) => {
+        const carrier = row.responsibility === 'CARRIER';
+        const name = row.label.trim() || 'New reason';
+        return <li key={row.code} className={`grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 lg:items-start ${GRID}`}>
+          <div className="space-y-1.5">
+            <input aria-label="Reason name" maxLength={60} className={fieldClass} value={row.label} placeholder="Reason name" onChange={event => update(index, { label: event.target.value })} />
+            {isCustom(row)
+              ? <div className="flex items-center gap-2"><span className="shrink-0 text-xs text-slate-500">Treated as</span>
+                  <Select aria-label={`What ${name} means`} className="w-full" value={row.base ?? 'OTHER'} onValueChange={base => update(index, { base: base as ReasonPolicy['base'] })} options={builtIns.map(b => ({ value: b.code, label: b.label }))} /></div>
+              : HOLDS_COMPLETION.has(row.code) && <p className="flex items-center gap-1 text-xs text-slate-500"><Lock className="h-3 w-3" aria-hidden />Holds order completion until resolved</p>}
+          </div>
+          <Select className="w-full" aria-label={`Where ${name} shows`} value={row.stops} onValueChange={stops => update(index, { stops: stops as ReasonPolicy['stops'] })} options={STOPS} />
+          <Select className="w-full" aria-label={`Who is responsible for ${name}`} value={row.responsibility} onValueChange={side => update(index, { responsibility: side as ReasonPolicy['responsibility'], ...(side === 'CARRIER' && { charge: 'NEVER' }) })} options={SIDES} />
+          <div className="space-y-1">
+            <Select className="w-full" aria-label={`Extra time for ${name}`} disabled={carrier} value={carrier ? 'NEVER' : row.charge} onValueChange={charge => update(index, { charge: charge as ReasonPolicy['charge'] })} options={CHARGES} />
+            {carrier && <p className="text-xs text-slate-500">Carrier reasons are never charged.</p>}
+          </div>
+          <button type="button" aria-label={`Delete ${name}`} title="Delete reason" disabled={rows.length === 1}
+            className="justify-self-end rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent lg:mt-0.5"
+            onClick={() => onChange(rows.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></button>
+        </li>;
+      })}
+    </ul>
+    <p className="text-xs text-slate-500">A custom reason files and holds completion like the reason it is treated as. Reports already filed keep their reason name, even after it is deleted.</p>
+  </section>;
 }

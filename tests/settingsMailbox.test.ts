@@ -70,23 +70,23 @@ test('the default service is chosen in Service Level, not in Mailbox', async () 
   }
 });
 
-test('Stop reasons & charges follows Accessorials and saves the free block and its charge', async () => {
+test('Extra time follows Accessorials and saves the free block and its charge', async () => {
   const user = userEvent.setup({ document });
   const saved: Record<string, unknown>[] = [];
   Object.assign(api, { saveCompanySettings: async (_slug: string, body: { version: number; data: typeof settings.data }) => { saved.push(body.data); return { ...settings, version: 2, data: body.data }; } });
   try {
     mount(React.createElement(RateCardsPage, {}));
-    const tab = await screen.findByRole('tab', { name: 'Stop reasons & charges' });
+    const tab = await screen.findByRole('tab', { name: 'Extra time' });
     const labels = screen.getAllByRole('tab').map(item => item.textContent);
-    assert.equal(labels[labels.indexOf('Accessorials') + 1], 'Stop reasons & charges');
+    assert.equal(labels[labels.indexOf('Accessorials') + 1], 'Extra time');
     await user.click(tab);
     const minutes = screen.getByLabelText('Charge every (minutes)') as HTMLInputElement, amount = screen.getByLabelText('Charge per block ($)') as HTMLInputElement;
     assert.equal(minutes.value, '30'); assert.equal(amount.value, '50');
     assert.ok(screen.getByText(/No charge for the first 30 minutes at a stop, then \$50\.00 for each started 30 minutes\. Example: a 75-minute stop costs \$100\.00\./));
     await user.clear(minutes);
-    assert.equal((screen.getByRole('button', { name: 'Save reasons & charges' }) as HTMLButtonElement).disabled, true);
+    assert.equal((screen.getByRole('button', { name: 'Save Extra time' }) as HTMLButtonElement).disabled, true);
     await user.type(minutes, '15'); await user.clear(amount); await user.type(amount, '25');
-    await user.click(screen.getByRole('button', { name: 'Save reasons & charges' }));
+    await user.click(screen.getByRole('button', { name: 'Save Extra time' }));
     await waitFor(() => assert.equal(saved.length, 1));
     assert.equal(saved[0].extra_time_minutes, 15); assert.equal(saved[0].extra_time_amount, '25');
     await user.clear(amount); await user.type(amount, '0');
@@ -94,37 +94,40 @@ test('Stop reasons & charges follows Accessorials and saves the free block and i
   } finally { Object.assign(api, { companySettings: async () => settings }); }
 });
 
-test('Stop reasons: rename, reorder, a carrier reason is never charged, a custom reason sits on a built-in, review amount saves', async () => {
+test('Stop reasons: rename, a carrier reason is never charged, add a custom reason before Another issue, delete one', async () => {
   const user = userEvent.setup({ document });
   const saved: Record<string, unknown>[] = [];
-  const reason = (code: string, label: string, responsibility: 'SHIPPER' | 'CARRIER' | 'UNDECIDED', charge: 'AUTO' | 'REVIEW' | 'NEVER') => ({ code, base: null, label, stops: 'BOTH' as const, active: true, responsibility, charge, notes_required: code === 'OTHER', photo_required: false });
-  const withReasons = { ...settings, data: { ...settings.data, stop_reasons: [reason('ITEMS_NOT_READY', 'Goods not ready', 'SHIPPER', 'AUTO'), reason('TRAFFIC', 'Traffic delay', 'UNDECIDED', 'AUTO'), reason('OTHER', 'Another issue', 'UNDECIDED', 'AUTO')], extra_time_review_above: null } };
+  const reason = (code: string, label: string, responsibility: 'SHIPPER' | 'CARRIER' | 'UNDECIDED', charge: 'AUTO' | 'REVIEW' | 'NEVER') => ({ code, base: null as string | null, label, stops: 'BOTH' as const, responsibility, charge });
+  const withReasons = { ...settings, data: { ...settings.data, stop_reasons: [reason('ITEMS_NOT_READY', 'Goods not ready', 'SHIPPER', 'AUTO'), reason('TRAFFIC', 'Traffic delay', 'UNDECIDED', 'AUTO'), reason('OTHER', 'Another issue', 'UNDECIDED', 'AUTO')] } };
   Object.assign(api, { companySettings: async () => withReasons, saveCompanySettings: async (_slug: string, body: { version: number; data: typeof settings.data }) => { saved.push(body.data); return { ...withReasons, version: 2, data: body.data }; } });
   try {
     mount(React.createElement(RateCardsPage, {}));
-    await user.click(await screen.findByRole('tab', { name: 'Stop reasons & charges' }));
+    await user.click(await screen.findByRole('tab', { name: 'Extra time' }));
     const names = () => (screen.getAllByLabelText('Reason name') as HTMLInputElement[]).map(input => input.value);
     assert.deepEqual(names(), ['Goods not ready', 'Traffic delay', 'Another issue']);
+    // A clean list: no review amount, reorder buttons, notes/photo checkboxes or active switches.
+    assert.equal(screen.queryByLabelText('Review Extra time above ($)'), null);
+    assert.equal(screen.queryByRole('button', { name: /Move .* up/ }), null);
+    assert.equal(screen.queryAllByRole('checkbox').length + screen.queryAllByRole('switch').length, 0);
     assert.ok(screen.getAllByText('Holds order completion until resolved').length === 1, 'only Another issue holds completion here');
-    await user.clear(screen.getAllByLabelText('Reason name')[1]); await user.type(screen.getAllByLabelText('Reason name')[1], 'Road congestion');
-    await user.click(screen.getByRole('button', { name: 'Move Road congestion up' }));
-    assert.deepEqual(names(), ['Road congestion', 'Goods not ready', 'Another issue']);
-    await user.click(screen.getByRole('combobox', { name: 'Who is responsible for Goods not ready' }));
+    await user.clear(screen.getAllByLabelText('Reason name')[0]); await user.type(screen.getAllByLabelText('Reason name')[0], 'Freight not ready');
+    await user.click(screen.getByRole('combobox', { name: 'Who is responsible for Freight not ready' }));
     await user.click(await screen.findByRole('option', { name: 'Carrier (us)' }));
     assert.ok(screen.getByText('Carrier reasons are never charged.'));
     await user.click(screen.getByRole('button', { name: 'Add reason' }));
-    const save = screen.getByRole('button', { name: 'Save reasons & charges' }) as HTMLButtonElement;
+    const save = screen.getByRole('button', { name: 'Save Extra time' }) as HTMLButtonElement;
     assert.equal(save.disabled, true, 'a new reason needs a name');
-    await user.type(screen.getAllByLabelText('Reason name')[3], 'Dock busy');
+    assert.deepEqual(names(), ['Freight not ready', 'Traffic delay', '', 'Another issue']);
+    await user.type(screen.getAllByLabelText('Reason name')[2], 'Dock busy');
     await user.click(screen.getByRole('combobox', { name: 'What Dock busy means' }));
-    await user.click(await screen.findByRole('option', { name: 'Road congestion' }));
-    await user.type(screen.getByLabelText('Review Extra time above ($)'), '120');
+    await user.click(await screen.findByRole('option', { name: 'Traffic delay' }));
+    await user.click(screen.getByRole('button', { name: 'Delete Traffic delay' }));
     await user.click(save);
     await waitFor(() => assert.equal(saved.length, 1));
     const rows = saved[0].stop_reasons as ReturnType<typeof reason>[];
-    assert.deepEqual(rows.map(row => [row.label, row.responsibility, row.charge]), [['Road congestion', 'UNDECIDED', 'AUTO'], ['Goods not ready', 'CARRIER', 'NEVER'], ['Another issue', 'UNDECIDED', 'AUTO'], ['Dock busy', 'UNDECIDED', 'REVIEW']]);
-    assert.match(String(rows[3].code), /^CUSTOM_[A-Z0-9]+$/); assert.equal(rows[3].base, 'TRAFFIC');
-    assert.equal(saved[0].extra_time_review_above, '120');
+    assert.deepEqual(rows.map(row => [row.label, row.responsibility, row.charge]), [['Freight not ready', 'CARRIER', 'NEVER'], ['Dock busy', 'UNDECIDED', 'REVIEW'], ['Another issue', 'UNDECIDED', 'AUTO']]);
+    assert.match(String(rows[1].code), /^CUSTOM_[A-Z0-9]+$/); assert.equal(rows[1].base, 'TRAFFIC');
+    assert.equal('extra_time_review_above' in saved[0], false);
   } finally { Object.assign(api, { companySettings: async () => settings }); }
 });
 

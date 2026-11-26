@@ -8240,7 +8240,7 @@ export interface components {
         };
         /**
          * ReasonPolicy
-         * @description One driver reason in a company's list: a built-in (code = its value, base ignored) or a CUSTOM_ reason on a built-in base.
+         * @description One driver reason in a company's complete list: a built-in (code = its value, base ignored) or a CUSTOM_ reason on a built-in base.
          */
         ReasonPolicy: {
             /** Code */
@@ -8256,11 +8256,6 @@ export interface components {
              */
             stops: "BOTH" | "PICKUP" | "DROPOFF";
             /**
-             * Active
-             * @default true
-             */
-            active: boolean;
-            /**
              * Responsibility
              * @enum {string}
              */
@@ -8270,16 +8265,6 @@ export interface components {
              * @enum {string}
              */
             charge: "AUTO" | "REVIEW" | "NEVER";
-            /**
-             * Notes Required
-             * @default false
-             */
-            notes_required: boolean;
-            /**
-             * Photo Required
-             * @default false
-             */
-            photo_required: boolean;
         };
         /**
          * Reply
@@ -8599,8 +8584,6 @@ export interface components {
             extra_time_amount: number | string;
             /** Stop Reasons */
             stop_reasons?: components["schemas"]["ReasonPolicy"][];
-            /** Extra Time Review Above */
-            extra_time_review_above?: number | string | null;
             /**
              * Stop Minutes Small Parcel
              * @default 10
@@ -8753,8 +8736,6 @@ export interface components {
             extra_time_amount: string;
             /** Stop Reasons */
             stop_reasons?: components["schemas"]["ReasonPolicy"][];
-            /** Extra Time Review Above */
-            extra_time_review_above?: string | null;
             /**
              * Stop Minutes Small Parcel
              * @default 10

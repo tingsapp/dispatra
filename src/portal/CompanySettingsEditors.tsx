@@ -12,7 +12,7 @@ import { INITIAL_BILLING_CONFIG } from '../lib/billingStorage';
 import { companySettingsBilling } from '../lib/serverCompanySettings';
 import type { BillingConfig } from '../types/billing';
 
-/** Live company-settings editors for the Settings Taxes, Stop reasons & charges and Preferences tabs. */
+/** Live company-settings editors for the Settings Taxes, Extra time and Preferences tabs. */
 function useBillingDraft(editor: ReturnType<typeof useSettingsDraft>) {
   const { data } = editor;
   const config = companySettingsBilling(data, INITIAL_BILLING_CONFIG);
@@ -78,18 +78,16 @@ export function ExtraTimeEditor() {
   const editor = useSettingsDraft();
   const minutes = editor.data.extra_time_minutes, amount = String(editor.data.extra_time_amount);
   const reasons = editor.data.stop_reasons ?? [];
-  const reviewAbove = editor.data.extra_time_review_above == null ? '' : String(editor.data.extra_time_review_above);
-  const problem = extraTimeError(minutes, amount) ?? stopReasonsError(reasons, reviewAbove);
+  const problem = extraTimeError(minutes, amount) ?? stopReasonsError(reasons);
   return <form className="w-full max-w-6xl space-y-5" onSubmit={e => { e.preventDefault(); if (!problem) editor.save(); }}>
     <fieldset disabled={editor.pending} className="space-y-5">
-      <div className="max-w-2xl space-y-5">
+      <div className="max-w-2xl">
         <ExtraTimeSettings minutes={minutes} amount={amount} onChange={change => editor.patch({
           ...(change.minutes !== undefined && { extra_time_minutes: change.minutes }), ...(change.amount !== undefined && { extra_time_amount: change.amount }) })} />
       </div>
-      <StopReasonSettings rows={reasons} reviewAbove={reviewAbove} onChange={stop_reasons => editor.patch({ stop_reasons })}
-        onReviewAbove={value => editor.patch({ extra_time_review_above: value.trim() === '' ? null : value })} />
+      <StopReasonSettings rows={reasons} onChange={stop_reasons => editor.patch({ stop_reasons })} />
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
     </fieldset>
-    <SaveSettings editor={editor} label="Save reasons & charges" invalid={!!problem} />
+    <SaveSettings editor={editor} label="Save Extra time" invalid={!!problem} />
   </form>;
 }
