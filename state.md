@@ -1,3 +1,6 @@
+2026-11-26 A failed lazy page load from an earlier build (vite:preloadError) reloads the tab once per minute (installStaleReleaseReload in main.tsx), so a tab left open over a release recovers instead of showing Failed to fetch.
+Checks: tests/staleRelease.test.ts 1/1 (added to npm test); tsc ok. Not released.
+
 2026-11-26 Settings tab back to Extra time: free block and rate plus the stop reasons (name, shown at, responsible, Extra time, delete icon) in the fixed order; no review amount, reorder buttons, notes/photo checkboxes or active switches; Add reason inserts before Another issue. Spec updated.
 Checks: tsc ok; settingsMailbox Extra time + Stop reasons tests 2/2. Not released.
 
