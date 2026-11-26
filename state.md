@@ -1,3 +1,6 @@
+2026-11-26 Home Connected team uses new real portal screenshots (public/home/{dispatcher,shipper,driver}-portal.webp, cropped to page content); driver shows the phone on a soft panel without the browser bar; old previews, crop transform and logo overlay removed; build chmod points at *-portal.*.
+Checks: tsc ok; publicHome tests pass; build ok; checked all three tabs at 1440px and 375px (no horizontal scroll). Not released.
+
 2026-11-26 A failed lazy page load from an earlier build (vite:preloadError) reloads the tab once per minute (installStaleReleaseReload in main.tsx), so a tab left open over a release recovers instead of showing Failed to fetch.
 Checks: tests/staleRelease.test.ts 1/1 (added to npm test); tsc ok. Released 16:07Z (stale_reload_20261126, see api/state.md).
 
