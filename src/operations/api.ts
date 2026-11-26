@@ -108,6 +108,7 @@ export const operations = {
   sendQuote: async (slug: string, quote: Quote, recipient: string) => unwrap(await client.POST('/api/v1/companies/{slug}/quotes/{identity}/send', { body: { version: quote.version, recipient }, params: { path: entity(slug, quote.id), header: mutation() } })),
   orderTracking: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}/tracking', { params: { path: entity(slug, identity) } })),
   deliveryProof: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}/delivery-proof', { params: { path: entity(slug, identity) } })),
+  progressUpdates: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}/progress-updates', { params: { path: entity(slug, identity) } })),
   orderRoadPath: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}/road-path', { params: { path: entity(slug, identity) } })),
   routeApproach: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/routes/{identity}/approach', { params: { path: entity(slug, identity) } })),
   getOrder: async (slug: string, identity: string) => unwrap(await client.GET('/api/v1/companies/{slug}/orders/{identity}', { params: { path: entity(slug, identity) } })),

@@ -1140,6 +1140,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{slug}/orders/{identity}/progress-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Progress Updates
+         * @description The Order's driver progress feed, newest first: progress questions with their answers, and stop reports (resolved
+         *     ones included) with reasons, responsibility, notes and photos. A report filed by a reply is shown on that reply.
+         */
+        get: operations["progress_updates_api_v1_companies__slug__orders__identity__progress_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{slug}/booking-preferences": {
         parameters: {
             query?: never;
@@ -7754,6 +7775,56 @@ export interface components {
             address: string;
             /** Version */
             version: number;
+        };
+        /**
+         * ProgressUpdateView
+         * @description One entry of an Order's driver progress feed for dispatch: a progress question with the driver's answer, or a stop report.
+         *     Photos are internal operations evidence; shippers never see them.
+         */
+        ProgressUpdateView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "QUESTION" | "REPORT";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Stop Kind */
+            stop_kind: ("PICKUP" | "DROPOFF") | null;
+            /** Address */
+            address: string;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "OPEN" | "ANSWERED" | "CLOSED" | "RESOLVED";
+            /** Reasons */
+            reasons: string[];
+            /** Responsibility */
+            responsibility: ("SHIPPER" | "CARRIER" | "UNDECIDED") | null;
+            /** Notes */
+            notes: string;
+            /** Photo Ids */
+            photo_ids: string[];
+            /** Replied At */
+            replied_at?: string | null;
+            /** Estimated Ready At */
+            estimated_ready_at?: string | null;
+            /**
+             * Resolution
+             * @default
+             */
+            resolution: string;
         };
         /** ProofEvidence */
         ProofEvidence: {
@@ -17680,6 +17751,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeliveryProofView"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    progress_updates_api_v1_companies__slug__orders__identity__progress_updates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                identity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressUpdateView"][];
                 };
             };
             /** @description Bad Request */

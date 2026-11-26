@@ -1,3 +1,6 @@
+2026-11-26 Order details (dispatcher) gain a Progress updates tab (ProgressUpdates, GET /orders/{id}/progress-updates): progress questions with the driver's answer and stop reports, newest first, with stop, times, status chip, reasons, responsibility, notes, expected ready time, photos and resolution. schema.d.ts regenerated. Spec updated.
+Checks: npx tsc --noEmit ok; new tests/progressUpdates.test.tsx 2/2 (added to npm test). Needs the API release; not checked in a browser.
+
 2026-11-25 Order form: Accessorials Fragile/DG checkboxes follow the package flags (a blank Qty no longer leaves them unticked); “Power lift gate at pickup/drop-off” checkboxes each linked both ways to Power Liftgate at Pickup / at Drop-off; order details and driver portal show it; schema.d.ts regenerated.
 Checks: tsc ok, build ok; orderFormLinks 2/2, loadSize 7/7, entities 19/19; earlier full run: 12 files fail identically with these edits reverted. Not checked in the running app (dispatcher sign-in unavailable).
 
