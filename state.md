@@ -1,3 +1,6 @@
+2026-11-26 Web photos open in a shared in-page viewer (PhotoViewer/PhotoThumbnails, portal above dialogs, caption, counter, arrows + arrow keys, Escape/x/outside closes) instead of a new tab: Progress updates, Proof of delivery, Needs Attention. Progress update cards keep the status chip on the title row. Spec updated.
+Checks: tsc ok; progressUpdates 2/2, resolveIssue 4/4 (viewer open, next, Escape), driverPortal 22/22. Seen in the built-in browser on a temporary sample-data page (removed): opens over the order dialog, steps, closes. Not released.
+
 2026-11-26 Order details (dispatcher) gain a Progress updates tab (ProgressUpdates, GET /orders/{id}/progress-updates): progress questions with the driver's answer and stop reports, newest first, with stop, times, status chip, reasons, responsibility, notes, expected ready time, photos and resolution. schema.d.ts regenerated. Spec updated.
 Checks: npx tsc --noEmit ok; new tests/progressUpdates.test.tsx 2/2 (added to npm test). Needs the API release; not checked in a browser.
 

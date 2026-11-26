@@ -4,7 +4,7 @@ import { after, afterEach, test } from 'node:test';
 import React from 'react';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/acme/', pretendToBeVisual: true });
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'Element', 'Node', 'NodeFilter', 'Event', 'CustomEvent', 'MutationObserver', 'getComputedStyle']) Object.defineProperty(globalThis, name, { configurable: true, value: dom.window[name as keyof Window] });
-const { render, screen, cleanup } = await import('@testing-library/react');
+const { render, screen, cleanup, within } = await import('@testing-library/react');
 const { default: userEvent } = await import('@testing-library/user-event');
 const { ResolveIssue } = await import('../src/components/monitor/ResolveIssue');
 import type { NeedsAttentionItem } from '../src/types';
@@ -42,6 +42,16 @@ test('report photos show on the issue and open full size', async () => {
   const images = screen.getAllByRole('img');
   assert.deepEqual(images.map(image => image.getAttribute('src')), ['/api/v1/companies/acme/evidence/p1', '/api/v1/companies/acme/evidence/p2']);
   assert.equal(images[0].getAttribute('alt'), 'Report photo 1 for ORD-7');
+  // A thumbnail opens the viewer over the page; the arrows step to the next photo and Escape closes it.
+  screen.getByRole('button', { name: 'View Report photo 1 for ORD-7' }).click();
+  const viewer = await screen.findByRole('dialog');
+  screen.getByRole('button', { name: 'Next photo' }).click();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(within(viewer).getByRole('img').getAttribute('src'), '/api/v1/companies/acme/evidence/p2');
+  assert.ok(within(viewer).getByText('2 / 2'));
+  document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(screen.queryByRole('dialog'), null);
   unmount();
   render(<IssuePhotos slug="acme" item={photographed} compact />);
   assert.ok(screen.getByText('2 report photos'));

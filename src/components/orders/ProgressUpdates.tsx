@@ -4,6 +4,7 @@ import type { components } from '../../portal/schema';
 import { operations } from '../../operations/api';
 import { evidenceUrl } from './ProofOfDelivery';
 import { formatWhen } from './OrderDossierSections';
+import { PhotoThumbnails } from '../ui/PhotoViewer';
 
 type Update = components['schemas']['ProgressUpdateView'];
 
@@ -28,8 +29,8 @@ export function ProgressUpdates({ slug, orderId, timeZone }: { slug: string; ord
       const Icon = question ? MessageCircleQuestion : ClipboardList;
       const answered = !question || !!row.replied_at;
       return <li key={row.id} className="rounded-xl border border-slate-200 p-4 text-sm space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="flex min-w-0 items-start gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
             <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700"><Icon className="h-4 w-4" aria-hidden /></span>
             <div className="min-w-0">
               <p className="font-medium text-slate-900">{question ? 'Progress question' : 'Stop report'}</p>
@@ -49,9 +50,7 @@ export function ProgressUpdates({ slug, orderId, timeZone }: { slug: string; ord
           {row.estimated_ready_at && <p className="text-xs text-slate-500">Expected ready {formatWhen(row.estimated_ready_at, timeZone)}</p>}
           {row.photo_ids.length > 0 && <div className="space-y-1.5">
             <p className="flex items-center gap-1 text-xs text-slate-500"><Camera className="h-3.5 w-3.5" aria-hidden />{row.photo_ids.length} photo{row.photo_ids.length === 1 ? '' : 's'}</p>
-            <div className="flex flex-wrap gap-2">{row.photo_ids.map((id, index) => <a key={id} href={evidenceUrl(slug, id)} target="_blank" rel="noreferrer" title="Open photo in full size" className="block">
-              <img src={evidenceUrl(slug, id)} alt={`Photo ${index + 1}, ${place(row)}`} loading="lazy" className="h-20 w-28 rounded-lg border border-slate-200 bg-white object-cover hover:border-slate-400" />
-            </a>)}</div>
+            <PhotoThumbnails thumbClassName="h-20 w-28 rounded-lg border border-slate-200 bg-white object-cover" photos={row.photo_ids.map((id, index) => ({ src: evidenceUrl(slug, id), alt: `Photo ${index + 1}, ${place(row)}`, caption: `${place(row)} · ${question ? 'Progress answer' : 'Stop report'}` }))} />
           </div>}
         </div>}
         {row.resolution && <p className="text-xs text-slate-500">Resolution: {row.resolution}</p>}

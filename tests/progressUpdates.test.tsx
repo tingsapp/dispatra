@@ -29,7 +29,15 @@ test('the feed shows questions with the driver answer and stop reports with reas
   assert.ok(within(answered).getByText('Goods not ready'));
   assert.ok(within(answered).getByText('Shipper responsible'));
   assert.ok(within(answered).getByText('“Still packing”'));
-  assert.deepEqual(within(answered).getAllByRole('link').map(a => a.getAttribute('href')), ['/api/v1/companies/acme/evidence/p1']);
+  // Photos open in the viewer dialog, not a new tab: no links, a button per photo.
+  assert.equal(within(answered).queryAllByRole('link').length, 0);
+  within(answered).getByRole('button', { name: 'View Photo 1, Pickup · 1 Main St' }).click();
+  const viewer = await screen.findByRole('dialog');
+  assert.equal(within(viewer).getByRole('img').getAttribute('src'), '/api/v1/companies/acme/evidence/p1');
+  assert.ok(within(viewer).getByText('Pickup · 1 Main St · Progress answer'));
+  within(viewer).getByRole('button', { name: 'Close photo' }).click();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(screen.queryByRole('dialog'), null);
   assert.ok(within(waiting).getByText('Waiting for driver'));
   assert.equal(within(waiting).queryByText('Driver’s answer'), null);
   assert.ok(within(report).getByText('Stop report'));
