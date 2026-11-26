@@ -8158,6 +8158,8 @@ export interface components {
             estimated_ready_at?: string | null;
             /** Photo Ids */
             photo_ids?: string[];
+            /** Stop Id */
+            stop_id?: string | null;
         };
         /** RevenueCurrency */
         RevenueCurrency: {
