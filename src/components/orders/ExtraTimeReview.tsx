@@ -4,7 +4,10 @@ import { Button } from '../ui/button';
 import { operations } from '../../operations/api';
 import type { Job } from '../../types';
 
-const STATUS = { CHARGED: 'Charged', EXCLUDED: 'Not charged: carrier reason', WAIVED: 'Waived' } as const;
+const STATUS = { CHARGED: 'Charged', REVIEW: 'Needs review', WAIVED: 'Waived' } as const;
+type Stop = NonNullable<NonNullable<Job['pricing']>['extraTime']>['stops'][number];
+// Carrier reasons are never charged; another reason set to Don't charge is the company's rule.
+const status = (stop: Stop) => stop.status === 'EXCLUDED' ? (stop.responsibility === 'CARRIER' ? 'Not charged: carrier reason' : 'Not charged: company rule') : STATUS[stop.status];
 
 /** Extra time per stop on a completed Order: why it is charged or not, and the dispatcher's waive/charge decision. */
 export function ExtraTimeReview({ slug, job }: { slug: string; job: Job }) {
@@ -23,13 +26,16 @@ export function ExtraTimeReview({ slug, job }: { slug: string; job: Job }) {
   };
   return <section className="rounded-xl border border-slate-200 p-5 space-y-3 text-sm" aria-label="Extra time">
     <div><h4 className="app-section-title">Extra time</h4>
-      <p className="text-xs text-slate-500">First {extra.minutes_free} minutes free at each stop, then ${Number(extra.amount).toFixed(2)} for each started {extra.minutes_free} minutes. Stops with a carrier reason are not charged.</p></div>
-    <ul className="divide-y divide-slate-100">{extra.stops.map(stop => <li key={stop.stop_id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+      <p className="text-xs text-slate-500">First {extra.minutes_free} minutes free at each stop, then ${Number(extra.amount).toFixed(2)} for each started {extra.minutes_free} minutes. Stops with a carrier reason are not charged; Needs review stops are not on the price until you charge them.</p></div>
+    <ul className="divide-y divide-slate-100">{extra.stops.map(stop => <li key={stop.stop_id} className={`flex flex-wrap items-center justify-between gap-3 py-2 ${stop.status === 'REVIEW' ? '-mx-2 rounded-lg bg-amber-50 px-2' : ''}`}>
       <div className="min-w-0">
         <p className="font-medium text-slate-900">{stop.stop} · {stop.minutes_over} min over · ${Number(stop.amount).toFixed(2)}</p>
-        <p className="text-xs text-slate-500">{stop.reasons.length ? `Driver: ${stop.reasons.join(', ')}` : 'No reason reported'} · {STATUS[stop.status]}{stop.decided_by_dispatcher ? ' by dispatcher' : ''}</p>
+        <p className="text-xs text-slate-500">{stop.reasons.length ? `Driver: ${stop.reasons.join(', ')}` : 'No reason reported'} · {status(stop)}{stop.decided_by_dispatcher ? ' by dispatcher' : ''}</p>
       </div>
-      {stop.status === 'CHARGED'
+      {stop.status === 'REVIEW'
+        ? <div className="flex gap-2"><Button type="button" size="xs" loading={pending === stop.stop_id} disabled={!!pending} onClick={() => decide(stop.stop_id, true)}>Charge</Button>
+            <Button type="button" size="xs" variant="outline" disabled={!!pending} onClick={() => decide(stop.stop_id, false)}>Waive</Button></div>
+        : stop.status === 'CHARGED'
         ? <Button type="button" size="xs" variant="outline" loading={pending === stop.stop_id} disabled={!!pending} onClick={() => decide(stop.stop_id, false)}>Waive</Button>
         : <Button type="button" size="xs" variant="outline" loading={pending === stop.stop_id} disabled={!!pending} onClick={() => decide(stop.stop_id, true)}>Charge</Button>}
     </li>)}</ul>

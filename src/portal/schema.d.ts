@@ -1410,7 +1410,7 @@ export interface paths {
         };
         /**
          * Report Reasons
-         * @description Dispatra's fixed stop report reasons, in display order.
+         * @description The company's active stop report reasons in display order, each with the stops it applies to and its notes and photo rules.
          */
         get: operations["report_reasons_api_v1_companies__slug__driver_report_reasons_get"];
         put?: never;
@@ -4753,13 +4753,26 @@ export interface components {
         };
         /** Choice */
         Choice: {
-            /**
-             * Value
-             * @enum {string}
-             */
-            value: "ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM";
+            /** Value */
+            value: string;
             /** Label */
             label: string;
+            /**
+             * Stops
+             * @default BOTH
+             * @enum {string}
+             */
+            stops: "BOTH" | "PICKUP" | "DROPOFF";
+            /**
+             * Notes Required
+             * @default false
+             */
+            notes_required: boolean;
+            /**
+             * Photo Required
+             * @default false
+             */
+            photo_required: boolean;
         };
         /** ClientDiagnostic */
         ClientDiagnostic: {
@@ -6477,7 +6490,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "CHARGED" | "EXCLUDED" | "WAIVED";
+            status: "CHARGED" | "EXCLUDED" | "REVIEW" | "WAIVED";
             /**
              * Decided By Dispatcher
              * @default false
@@ -6799,7 +6812,7 @@ export interface components {
         };
         /**
          * IssueInput
-         * @description A stop report. Current drivers send `reasons` (Dispatra's fixed list) and notes; the kind and description follow.
+         * @description A stop report. Current drivers send `reasons` (the company's list) and notes; the kind and description follow.
          *     Older clients send a kind and description only.
          */
         IssueInput: {
@@ -6813,7 +6826,7 @@ export interface components {
              */
             description: string;
             /** Reasons */
-            reasons?: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM")[];
+            reasons?: string[];
             /** Photo Ids */
             photo_ids?: string[];
         };
@@ -7919,9 +7932,9 @@ export interface components {
              */
             status: "OPEN" | "ANSWERED" | "CLOSED";
             /** Reason */
-            reason: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM") | null;
+            reason: string | null;
             /** Reasons */
-            reasons?: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM")[];
+            reasons?: string[];
             /** Details */
             details: string;
             /** Estimated Ready At */
@@ -8199,15 +8212,74 @@ export interface components {
             /** Notifications Unread */
             notifications_unread?: number | null;
         };
-        /** ReasonChoice */
+        /**
+         * ReasonChoice
+         * @description A reason the driver can choose, with the company's rules for it.
+         */
         ReasonChoice: {
-            /**
-             * Value
-             * @enum {string}
-             */
-            value: "ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM";
+            /** Value */
+            value: string;
             /** Label */
             label: string;
+            /**
+             * Stops
+             * @default BOTH
+             * @enum {string}
+             */
+            stops: "BOTH" | "PICKUP" | "DROPOFF";
+            /**
+             * Notes Required
+             * @default false
+             */
+            notes_required: boolean;
+            /**
+             * Photo Required
+             * @default false
+             */
+            photo_required: boolean;
+        };
+        /**
+         * ReasonPolicy
+         * @description One driver reason in a company's list: a built-in (code = its value, base ignored) or a CUSTOM_ reason on a built-in base.
+         */
+        ReasonPolicy: {
+            /** Code */
+            code: string;
+            /** Base */
+            base?: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM") | null;
+            /** Label */
+            label: string;
+            /**
+             * Stops
+             * @default BOTH
+             * @enum {string}
+             */
+            stops: "BOTH" | "PICKUP" | "DROPOFF";
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /**
+             * Responsibility
+             * @enum {string}
+             */
+            responsibility: "SHIPPER" | "CARRIER" | "UNDECIDED";
+            /**
+             * Charge
+             * @enum {string}
+             */
+            charge: "AUTO" | "REVIEW" | "NEVER";
+            /**
+             * Notes Required
+             * @default false
+             */
+            notes_required: boolean;
+            /**
+             * Photo Required
+             * @default false
+             */
+            photo_required: boolean;
         };
         /**
          * Reply
@@ -8217,9 +8289,9 @@ export interface components {
             /** Version */
             version: number;
             /** Reason */
-            reason?: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM") | null;
+            reason?: string | null;
             /** Reasons */
-            reasons?: ("ITEMS_NOT_READY" | "WAITING_FOR_STAFF" | "HANDLING_IN_PROGRESS" | "ACCESS_BLOCKED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "MISSING_ITEMS" | "DAMAGED_ITEM" | "VEHICLE_PROBLEM" | "WRONG_EQUIPMENT" | "NEED_HELPER" | "TRAFFIC" | "UNSAFE" | "OTHER" | "NO_PROBLEM")[];
+            reasons?: string[];
             /**
              * Details
              * @default
@@ -8525,6 +8597,10 @@ export interface components {
              * @default 50
              */
             extra_time_amount: number | string;
+            /** Stop Reasons */
+            stop_reasons?: components["schemas"]["ReasonPolicy"][];
+            /** Extra Time Review Above */
+            extra_time_review_above?: number | string | null;
             /**
              * Stop Minutes Small Parcel
              * @default 10
@@ -8675,6 +8751,10 @@ export interface components {
              * @default 50
              */
             extra_time_amount: string;
+            /** Stop Reasons */
+            stop_reasons?: components["schemas"]["ReasonPolicy"][];
+            /** Extra Time Review Above */
+            extra_time_review_above?: string | null;
             /**
              * Stop Minutes Small Parcel
              * @default 10

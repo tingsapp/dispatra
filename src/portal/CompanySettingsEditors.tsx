@@ -5,13 +5,14 @@ import { RegionalSettings } from '../components/settings/RegionalSettings';
 import { WorkHoursSettings } from '../components/settings/WorkHoursSettings';
 import { HolidaySettings } from '../components/settings/HolidaySettings';
 import { ExtraTimeSettings, extraTimeError } from '../components/settings/ExtraTimeSettings';
+import { StopReasonSettings, stopReasonsError } from '../components/settings/StopReasonSettings';
 import { PlannedStopTimeSettings, stopMinutesInvalid } from '../components/settings/PlannedStopTimeSettings';
 import { DEFAULT_WORK_HOURS, workHoursError } from '../lib/operatingCalendar';
 import { INITIAL_BILLING_CONFIG } from '../lib/billingStorage';
 import { companySettingsBilling } from '../lib/serverCompanySettings';
 import type { BillingConfig } from '../types/billing';
 
-/** Live company-settings editors for the Settings Taxes, Extra time and Preferences tabs. */
+/** Live company-settings editors for the Settings Taxes, Stop reasons & charges and Preferences tabs. */
 function useBillingDraft(editor: ReturnType<typeof useSettingsDraft>) {
   const { data } = editor;
   const config = companySettingsBilling(data, INITIAL_BILLING_CONFIG);
@@ -76,13 +77,19 @@ export function PreferencesEditor() {
 export function ExtraTimeEditor() {
   const editor = useSettingsDraft();
   const minutes = editor.data.extra_time_minutes, amount = String(editor.data.extra_time_amount);
-  const invalid = !!extraTimeError(minutes, amount);
-  return <form className="w-full max-w-2xl space-y-5" onSubmit={e => { e.preventDefault(); if (!invalid) editor.save(); }}>
-    <fieldset disabled={editor.pending}>
-      <ExtraTimeSettings minutes={minutes} amount={amount} onChange={change => editor.patch({
-        ...(change.minutes !== undefined && { extra_time_minutes: change.minutes }), ...(change.amount !== undefined && { extra_time_amount: change.amount }) })} />
-      {invalid && <p role="alert" className="mt-2 text-sm text-red-600">{extraTimeError(minutes, amount)}</p>}
+  const reasons = editor.data.stop_reasons ?? [];
+  const reviewAbove = editor.data.extra_time_review_above == null ? '' : String(editor.data.extra_time_review_above);
+  const problem = extraTimeError(minutes, amount) ?? stopReasonsError(reasons, reviewAbove);
+  return <form className="w-full max-w-6xl space-y-5" onSubmit={e => { e.preventDefault(); if (!problem) editor.save(); }}>
+    <fieldset disabled={editor.pending} className="space-y-5">
+      <div className="max-w-2xl space-y-5">
+        <ExtraTimeSettings minutes={minutes} amount={amount} onChange={change => editor.patch({
+          ...(change.minutes !== undefined && { extra_time_minutes: change.minutes }), ...(change.amount !== undefined && { extra_time_amount: change.amount }) })} />
+      </div>
+      <StopReasonSettings rows={reasons} reviewAbove={reviewAbove} onChange={stop_reasons => editor.patch({ stop_reasons })}
+        onReviewAbove={value => editor.patch({ extra_time_review_above: value.trim() === '' ? null : value })} />
+      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
     </fieldset>
-    <SaveSettings editor={editor} label="Save Extra time" invalid={invalid} />
+    <SaveSettings editor={editor} label="Save reasons & charges" invalid={!!problem} />
   </form>;
 }

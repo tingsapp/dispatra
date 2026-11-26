@@ -279,7 +279,7 @@ export function RateCardsPage({ onNotification }: SettingsPageProps) {
       { id: 'services', label: 'Service Level', content: <CatalogueSection section="services" onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
       { id: 'accessorials', label: 'Accessorials', content: <CatalogueSection section="accessorials" onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },
       // Extra time is charged by the API when an Order completes, so /prototype has no Extra time tab.
-      ...(workspace ? [{ id: 'extra-time', label: 'Extra time', content: <ExtraTimeEditor /> }] : []),
+      ...(workspace ? [{ id: 'extra-time', label: 'Stop reasons & charges', content: <ExtraTimeEditor /> }] : []),
       { id: 'fuel', label: 'Fuel Surcharge', content: <BillingSettingsForm section="fuel" onNotification={refreshDefaults} /> },
       { id: 'taxes', label: 'Taxes', content: workspace ? <TaxEditor /> : <BillingSettingsForm section="taxes" onNotification={refreshDefaults} /> },
       { id: 'vehicle-types', label: 'Vehicle Types', content: <VehicleTypesSection onNotification={onNotification} onChanged={() => setRevision(value => value + 1)} /> },

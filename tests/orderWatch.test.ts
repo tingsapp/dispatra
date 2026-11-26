@@ -62,7 +62,7 @@ test('Monitor opens operational evidence without queuing a worker',async()=>{
 
 test('Driver selects a reason and retry preserves payload and key',async()=>{
   const user=userEvent.setup({document});let pending=true;
-  const question={id:'q',version:1,order_id:'order',order_number:'DAO-1842',prompt:'What is happening at pickup?',choices:[{value:'ITEMS_NOT_READY' as const,label:'Items not ready'},{value:'OTHER' as const,label:'Another issue'}],status:'OPEN' as const,reason:null,details:'',estimated_ready_at:null,created_at:time,answered_at:null};
+  const question={id:'q',version:1,order_id:'order',order_number:'DAO-1842',prompt:'What is happening at pickup?',choices:[{value:'ITEMS_NOT_READY',label:'Items not ready',stops:'BOTH' as const,notes_required:false,photo_required:false},{value:'OTHER',label:'Another issue',stops:'BOTH' as const,notes_required:true,photo_required:false}],status:'OPEN' as const,reason:null,details:'',estimated_ready_at:null,created_at:time,answered_at:null};
   api.driverOperationalQuestions=async()=>pending?[question]:[];
   const attempts: {body:unknown;key:string}[]=[];
   api.replyToOperationalQuestion=async(_slug,_id,body,key)=>{attempts.push({body,key});if(attempts.length===1)throw new ApiError(503,'Please retry.');pending=false;return {...question,...body,status:'ANSWERED',answered_at:time};};
@@ -78,7 +78,7 @@ test('Driver selects a reason and retry preserves payload and key',async()=>{
   assert.equal(attempts.length,2);assert.deepEqual(attempts[0],attempts[1]);
 });
 
-const driverQuestion = (index: number) => ({ id: `q${index}`, version: 1, order_id: `order${index % 2}`, order_number: `DAO-${index % 2}`, prompt: `Request ${index}: confirm current progress.`, choices: [{ value: 'ITEMS_NOT_READY' as const, label: 'Items not ready' }, { value: 'OTHER' as const, label: 'Another issue' }], status: 'OPEN' as const, reason: null, details: '', estimated_ready_at: null, created_at: time, answered_at: null });
+const driverQuestion = (index: number) => ({ id: `q${index}`, version: 1, order_id: `order${index % 2}`, order_number: `DAO-${index % 2}`, prompt: `Request ${index}: confirm current progress.`, choices: [{ value: 'ITEMS_NOT_READY', label: 'Items not ready', stops: 'BOTH' as const, notes_required: false, photo_required: false }, { value: 'OTHER', label: 'Another issue', stops: 'BOTH' as const, notes_required: true, photo_required: false }], status: 'OPEN' as const, reason: null, details: '', estimated_ready_at: null, created_at: time, answered_at: null });
 
 test('a large request queue stays compact; reviewing one request preserves drafts and retry identity across navigation', async () => {
   const user = userEvent.setup({ document });

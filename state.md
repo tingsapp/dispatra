@@ -1,3 +1,6 @@
+2026-11-26 Settings › Stop reasons & charges (StopReasonSettings in the Extra time tab): reasons in driver order with name, stops, responsibility, Extra time charge, notes/photo rules, active, custom reasons on a built-in, review amount. Extra time shows Needs review with Charge/Waive and company-rule exclusions. Web driver portal reports and replies use the company list and send reason codes. Spec updated.
+Checks: tsc ok; settingsMailbox Stop reasons tests 2/2 (mail-server test fails identically at HEAD), resolveIssue 5/5, driverPortal 22/22, orderWatch 6/6, progressUpdates 2/2; settings page seen on a temporary sample page in the built-in browser (removed). Not released.
+
 2026-11-26 Web photos open in a shared in-page viewer (PhotoViewer/PhotoThumbnails, portal above dialogs, caption, counter, arrows + arrow keys, Escape/x/outside closes) instead of a new tab: Progress updates, Proof of delivery, Needs Attention. Progress update cards keep the status chip on the title row. Spec updated.
 Checks: tsc ok; progressUpdates 2/2, resolveIssue 4/4 (viewer open, next, Escape), driverPortal 22/22. Seen in the built-in browser on a temporary sample-data page (removed): opens over the order dialog, steps, closes. Not released.
 

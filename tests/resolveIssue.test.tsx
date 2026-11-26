@@ -73,3 +73,21 @@ test('Extra time lists each stop with its reason and lets dispatch waive or char
   await user.click(screen.getByRole('button', { name: 'Charge' }));
   assert.deepEqual(calls, [['acme', { id: 'o1', version: 4 }, 's1', false], ['acme', { id: 'o1', version: 4 }, 's2', true]]);
 });
+
+test('Extra time waiting for review offers Charge and Waive; a company Don’t charge rule reads as such', async () => {
+  const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+  const { operations } = await import('../src/operations/api');
+  const { ExtraTimeReview } = await import('../src/components/orders/ExtraTimeReview');
+  const calls: unknown[][] = [];
+  Object.assign(operations, { decideExtraTime: async (...args: unknown[]) => { calls.push(args); } });
+  const stop = (id: string, status: 'REVIEW' | 'EXCLUDED', reasons: string[]) => ({ stop_id: id, stop: id, minutes_over: 45, amount: '150.00', reasons, responsibility: 'UNDECIDED' as const, status, decided_by_dispatcher: false });
+  const job = { id: 'o1', version: 4, pricing: { extraTime: { minutes_free: 30, amount: '50', stops: [stop('Pickup 1', 'REVIEW', ['Traffic delay']), stop('Drop-off 1', 'EXCLUDED', ['Need handling assistance'])] } } } as never;
+  render(<QueryClientProvider client={new QueryClient()}><ExtraTimeReview slug="acme" job={job} /></QueryClientProvider>);
+  assert.ok(screen.getByText('Driver: Traffic delay · Needs review'));
+  assert.ok(screen.getByText('Driver: Need handling assistance · Not charged: company rule'));
+  const user = userEvent.setup({ document });
+  const [charge] = screen.getAllByRole('button', { name: 'Charge' });
+  await user.click(charge);
+  await user.click(screen.getByRole('button', { name: 'Waive' }));
+  assert.deepEqual(calls.map(call => [call[2], call[3]]), [['Pickup 1', true], ['Pickup 1', false]]);
+});

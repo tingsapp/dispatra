@@ -11,7 +11,7 @@ import { OrderChat } from '../components/chat/OrderChat';
 import { Tabs } from '../components/ui/Tabs';
 import { SignaturePad } from './SignaturePad';
 import { DriverChoiceBadges } from './DriverChoiceBadges';
-import { driverIssueReport, driverReportChoices, driverReportReady, toggleReason, type DriverReportReason } from './driverReportOptions';
+import { driverReportProblem, reasonsForStop, toggleReason, useReportReasons } from './driverReportOptions';
 import { Button, Notice } from './ui';
 import { formatPhone, phoneHref } from '../lib/phone';
 import type { DriverOrder, DriverRoute as Route, DriverVisit as Visit } from './driverDayPlan';
@@ -93,8 +93,11 @@ export function VisitControls({ slug, route, visit, current, report = true, onCh
   const evidence = evidenceQuery.data ?? [];
   const signature = [...evidence].reverse().find(item => item.kind === 'SIGNATURE');
   const photo = [...evidence].reverse().find(item => item.kind === 'PHOTO');
-  const [issueReasons, setIssueReasons] = useState<DriverReportReason[]>([]);
+  const [issueReasons, setIssueReasons] = useState<string[]>([]);
   const [issueText, setIssueText] = useState('');
+  const reasonList = useReportReasons(slug);
+  const issueChoices = reasonsForStop(reasonList.data ?? [], visit.stop.kind);
+  const issueProblem = driverReportProblem(issueReasons, issueText, issueChoices);
   const [issueOpen, setIssueOpen] = useState(false);
   const call = async (action: () => Promise<unknown>) => { setBusy(true); setError(undefined); try { await action(); await onChange(); } catch (cause) { setError(cause); } finally { setBusy(false); } };
   const save = async (kind: 'PHOTO' | 'SIGNATURE', content: string, mediaType: 'image/png' | 'image/jpeg') => {
@@ -116,11 +119,11 @@ export function VisitControls({ slug, route, visit, current, report = true, onCh
     <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium">{visit.position + 1}. {dropoff ? 'Delivery' : 'Pickup'}</p><p className="text-sm text-slate-600">{visit.stop.address.text}</p></div><span className="text-xs text-slate-500">{visit.status === 'COMPLETED' ? 'Completed' : visit.arrived_at ? 'Arrived' : current ? 'Next stop' : 'Upcoming'}</span></div>
     <Notice error={error || evidenceQuery.error} />
     {current && report && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => setIssueOpen(value => !value)}>Report issue</Button>{issueOpen && <div className="space-y-3">
-      <DriverChoiceBadges choices={driverReportChoices} value={issueReasons} disabled={busy} onSelect={reason => setIssueReasons(current => toggleReason(current, reason))} />
+      <DriverChoiceBadges choices={issueChoices} value={issueReasons} disabled={busy} onSelect={reason => setIssueReasons(current => toggleReason(current, reason))} />
       <label className="block text-sm">Additional details (optional)<input aria-label="Additional details (optional)" className="app-input mt-1 w-full" maxLength={1900} value={issueText} onChange={event => setIssueText(event.target.value)} placeholder="Add context that will help dispatch respond" /></label>
-      <Button type="button" size="sm" disabled={busy || !driverReportReady(issueReasons, issueText)} onClick={() => call(async () => {
-        const issue = driverIssueReport(issueReasons, visit.stop.kind, issueText);
-        await operations.reportStopIssue(slug, visit.stop_id, issue.kind, issue.description);
+      {issueReasons.length > 0 && issueProblem && <p className="text-sm text-slate-600">{issueProblem}</p>}
+      <Button type="button" size="sm" disabled={busy || !!issueProblem} onClick={() => call(async () => {
+        await operations.reportStopIssue(slug, visit.stop_id, issueReasons, issueText);
         setIssueOpen(false); setIssueReasons([]); setIssueText('');
       })}>Submit issue</Button>
     </div>}</div>}

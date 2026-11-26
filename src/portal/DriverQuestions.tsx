@@ -30,6 +30,10 @@ function QuestionReply({ slug, question, session, position, total, onPrevious, o
 }) {
   const [draft, setDraft] = useState(session.draft);
   const { reason, details, minutes } = draft;
+  // The company's rules for the chosen reason; the web portal has no report camera, so photo reasons need the app.
+  const choice = question.choices.find(option => option.value === reason);
+  const problem = choice?.photo_required ? `${choice.label} needs a photo. Answer from the driver app.`
+    : choice?.notes_required && details.trim().length < 3 ? `Describe the issue when choosing ${choice.label}.` : null;
   const update = (change: Partial<Draft>) => { session.draft = { ...draft, ...change }; setDraft(session.draft); };
   const cache = useQueryClient();
   const reply = useMutation({ mutationFn: () => {
@@ -71,9 +75,10 @@ function QuestionReply({ slug, question, session, position, total, onPrevious, o
       <form onSubmit={event => { event.preventDefault(); reply.mutate(); }} className="space-y-4">
         <p className="text-sm text-app-muted">{question.prompt}</p>
         <DriverChoiceBadges choices={question.choices} value={reason} disabled={reply.isPending} onSelect={reason => update({ reason })} />
+        {problem && reason && <p className="text-sm text-slate-600">{problem}</p>}
         <Field label="Additional details" value={details} maxLength={1000} onChange={event => update({ details: event.target.value })} disabled={reply.isPending} />
         <Field label="Expected ready in minutes (optional)" type="number" min={1} max={1440} step={1} value={minutes} onChange={event => update({ minutes: event.target.value })} disabled={reply.isPending} />
-        <Notice error={reply.error} /><Button loading={reply.isPending} type="submit" disabled={reply.isPending || !reason || (reason === 'OTHER' && details.trim().length < 3)}>{reply.isPending ? 'Sending update…' : 'Send progress update'}</Button>
+        <Notice error={reply.error} /><Button loading={reply.isPending} type="submit" disabled={reply.isPending || !reason || !!problem}>{reply.isPending ? 'Sending update…' : 'Send progress update'}</Button>
       </form>
   </ReplySurface>;
 }

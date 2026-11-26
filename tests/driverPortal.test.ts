@@ -32,6 +32,10 @@ const calls: string[] = [];
 let online = false;
 const stub = (name: string, value: unknown) => Object.assign(operations, { [name]: async (...args: unknown[]) => { calls.push(name); return typeof value === 'function' ? (value as (...a: unknown[]) => unknown)(...args) : value; } });
 stub('driverProfile', () => profile(online));
+// The company's reason list (GET /driver/report-reasons); a pickup-only and a photo reason show how its rules apply.
+const reason = (value: string, label: string, extra = {}) => ({ value, label, stops: 'BOTH', notes_required: false, photo_required: false, ...extra });
+stub('reportReasons', [reason('ITEMS_NOT_READY', 'Items not ready', { stops: 'PICKUP' }), reason('UNSAFE', 'Unsafe situation'), reason('TRAFFIC', 'Traffic delay'),
+  reason('DAMAGED_ITEM', 'Item damaged', { photo_required: true }), reason('OTHER', 'Another issue', { notes_required: true })]);
 // Order details include the order chat; an empty channel list keeps these tests about stop execution.
 Object.assign(chat, { channels: async () => [], inbox: async () => [], companyChannel: async () => ({kind:'DISPATCH_DRIVER',title:'Company',conversation_id:null,driver_id:'d1',unread:0,can_send:true,closed_reason:null,last_message_at:null}) });
 stub('driverOrders', [order]);
@@ -125,7 +129,7 @@ test('order execution reports use the same progress badges as the dashboard', as
     assert.equal(itemsNotReady.getAttribute('data-size'), 'xs');
     await user.click(itemsNotReady);
     await user.click(within(dialog).getByRole('button', { name: 'Submit issue' }));
-    await waitFor(() => assert.deepEqual(submitted, ['acme', 's1', 'OTHER', 'Items not ready']));
+    await waitFor(() => assert.deepEqual(submitted, ['acme', 's1', ['ITEMS_NOT_READY'], '']));
   } finally {
     operations.reportStopIssue = original;
     stub('driverRoutes', [route]);
@@ -286,10 +290,11 @@ test('the order’s next stop reports several reasons at once in a popup', async
     assert.deepEqual(within(dialog).getAllByRole('button', { pressed: true }).map(button => button.textContent), ['Items not ready', 'Unsafe situation']);
     await user.click(within(dialog).getByRole('button', { name: 'Another issue' }));
     assert.equal((within(dialog).getByRole('button', { name: 'Send report' }) as HTMLButtonElement).disabled, true, 'Another issue needs details');
+    assert.ok(within(dialog).getByText('Describe the issue when choosing Another issue.'));
     await user.type(within(dialog).getByRole('textbox', { name: /Additional details/ }), 'The gate is blocked');
     await user.click(within(dialog).getByRole('button', { name: 'Send report' }));
     await waitFor(() => assert.equal(screen.queryByRole('dialog'), null));
-    assert.deepEqual(submitted, ['acme', 's1', 'UNSAFE', 'Items not ready; Unsafe situation; Another issue\n\nThe gate is blocked']);
+    assert.deepEqual(submitted, ['acme', 's1', ['ITEMS_NOT_READY', 'UNSAFE', 'OTHER'], 'The gate is blocked']);
   } finally { operations.reportStopIssue = original; stub('driverOrders', [order]); stub('driverRoutes', [route]); }
 });
 
@@ -495,7 +500,7 @@ test('driver logo returns to Dashboard from Orders and Profile, including compac
 
 test('pending progress requests do not appear on Orders or the Today’s jobs card', async () => {
   const user = userEvent.setup({ document });
-  const question = { id: 'progress-1', version: 1, order_id: order.id, order_number: order.number, prompt: 'What is happening at pickup?', choices: [{ value: 'ITEMS_NOT_READY' as const, label: 'Items not ready' }], status: 'OPEN' as const, reason: null, details: '', estimated_ready_at: null, created_at: new Date().toISOString(), answered_at: null };
+  const question = { id: 'progress-1', version: 1, order_id: order.id, order_number: order.number, prompt: 'What is happening at pickup?', choices: [{ value: 'ITEMS_NOT_READY', label: 'Items not ready', stops: 'BOTH' as const, notes_required: false, photo_required: false }], status: 'OPEN' as const, reason: null, details: '', estimated_ready_at: null, created_at: new Date().toISOString(), answered_at: null };
   let questionRequests = 0;
   api.driverOperationalQuestions = async () => { questionRequests++; return [question]; };
   try {
