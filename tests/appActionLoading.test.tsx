@@ -54,7 +54,7 @@ test('cancelling confirmation restores focus after the initiating button release
   await waitFor(() => { pending(button, false); assert.equal(document.activeElement === button, true); });
 });
 
-const settings = { id: 'settings', version: 1, created_at: '2026-11-09T00:00:00Z', data: { company_name: 'Acme', contact_name: 'Dispatcher', email: '', phone: '', address: null, logo_url: '', currency: 'CAD', time_zone: 'America/Vancouver', weight_unit: 'lb', dimension_unit: 'in', distance_unit: 'km', tax_registration_number: '', gst_enabled: true, gst_percent: '5', provincial_enabled: false, provincial_percent: '0', fuel_enabled: true, fuel_percent: '20', maximum_active_orders: 3, quote_validity_days: 14, dispatch_mode: 'MANUAL', dispatch_zones: [] } };
+const settings = { id: 'settings', version: 1, created_at: '2026-11-09T00:00:00Z', data: { company_name: 'Acme', contact_name: 'Dispatcher', email: '', phone: '', address: null, logo_url: '', currency: 'CAD', time_zone: 'America/Vancouver', weight_unit: 'lb', dimension_unit: 'in', distance_unit: 'km', tax_registration_number: '', gst_enabled: true, gst_percent: '5', provincial_enabled: false, provincial_percent: '0', fuel_enabled: true, fuel_percent: '20', maximum_active_orders: 3, quote_validity_days: 14, dispatch_mode: 'MANUAL' } };
 const account = { id: 'user', login_id: 'dispatcher@example.com', display_name: 'Dispatcher', role: 'DISPATCHER', organization: { id: 'company', slug: 'acme', name: 'Acme' } };
 function mount(page: React.ReactElement) {
   cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false, gcTime: 0 } } });

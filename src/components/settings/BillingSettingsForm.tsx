@@ -1,4 +1,3 @@
-import { DispatchPlanningSettings } from './DispatchPlanningSettings';
 import { Button } from '../ui/button';
 import { RegionalSettings } from './RegionalSettings';
 import { cardClass, fieldClass, labelClass } from './BillingFields';
@@ -10,7 +9,7 @@ import type { Notify } from '../ui/popupFeedback';
 const SAVE_LABELS = { taxes: 'Taxes', preferences: 'Preferences', fuel: 'Fuel Surcharge' } as const;
 export function BillingSettingsForm({ section, onNotification }: { section: keyof typeof SAVE_LABELS; onNotification?: Notify }) {
   const editor = useBillingSettings(onNotification);
-  return <><form noValidate={section === 'taxes'} onSubmit={event => { event.preventDefault(); editor.handleSave(); }} className={`space-y-5 ${section === 'fuel' ? 'w-full max-w-2xl' : ''}`}>
+  return <form noValidate={section === 'taxes'} onSubmit={event => { event.preventDefault(); editor.handleSave(); }} className={`space-y-5 ${section === 'fuel' ? 'w-full max-w-2xl' : ''}`}>
     <fieldset disabled={editor.pending} className="contents">
     {section === 'taxes' && <div className="app-sections">
       <section className={`${cardClass} app-panel-plain`} aria-labelledby="tax-registration-heading">
@@ -33,5 +32,5 @@ export function BillingSettingsForm({ section, onNotification }: { section: keyo
       <span role="status" className="text-xs text-slate-500">{editor.isSaved && !editor.dirty ? 'Settings saved' : ''}</span>
       <Button loading={editor.pending} type="submit" disabled={!editor.dirty || editor.pending} className="app-action app-primary rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-40">Save {SAVE_LABELS[section]}</Button>
     </div>
-  </form>{section === 'preferences' && <DispatchPlanningSettings />}</>;
+  </form>;
 }

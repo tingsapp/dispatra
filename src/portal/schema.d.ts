@@ -4427,6 +4427,11 @@ export interface components {
              */
             zone_match: boolean;
             /**
+             * Home Zone Match
+             * @description Morning pass for a Zone Rate Card Order: whether the vehicle parks in its delivery zone; null when the rule does not apply
+             */
+            home_zone_match?: boolean | null;
+            /**
              * Direction
              * @default UNKNOWN
              */
@@ -5578,20 +5583,6 @@ export interface components {
              * @default 0
              */
             value: string;
-        };
-        /** DispatchZone */
-        "DispatchZone-Input": {
-            /** Name */
-            name: string;
-            /** Postal Codes */
-            postal_codes: string[];
-        };
-        /** DispatchZone */
-        "DispatchZone-Output": {
-            /** Name */
-            name: string;
-            /** Postal Codes */
-            postal_codes: string[];
         };
         /** DispatcherCreate */
         DispatcherCreate: {
@@ -8615,8 +8606,6 @@ export interface components {
              * @enum {string}
              */
             dispatch_mode: "AUTO" | "MANUAL";
-            /** Dispatch Zones */
-            dispatch_zones?: components["schemas"]["DispatchZone-Input"][];
             /** Work Hours */
             work_hours?: components["schemas"]["WorkDay"][];
             /** Holidays */
@@ -8767,8 +8756,6 @@ export interface components {
              * @enum {string}
              */
             dispatch_mode: "AUTO" | "MANUAL";
-            /** Dispatch Zones */
-            dispatch_zones?: components["schemas"]["DispatchZone-Output"][];
             /** Work Hours */
             work_hours?: components["schemas"]["WorkDay"][];
             /** Holidays */

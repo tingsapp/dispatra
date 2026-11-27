@@ -334,7 +334,7 @@ Public assistant replies reveal progressively with a subtle trailing cursor, whi
 
 ## Geographic dispatch planning (2026-10-16)
 
-Company Orders does not expose a fleet planning button or approval popup. Preferences includes separate Dispatch planning controls for named postal-prefix zones. There is no maximum active Orders per driver control; vehicle Maximum stops limits routes. Unmatched addresses group automatically; dispatch zones do not affect pricing. Preserve existing settings/pricing UI and explicit pending/error/retry states.
+Company Orders does not expose a fleet planning button or approval popup. There is no separate dispatch zone list (retired 2026-11-26): morning AUTO dispatch uses the Zone Rate Card zones and each vehicle's parking address, and delivery areas otherwise group automatically. There is no maximum active Orders per driver control; vehicle Maximum stops limits routes. Preserve existing settings/pricing UI and explicit pending/error/retry states.
 
 Direct manual assignment may join an executing route through allow_live only; blocked/locked planned routes still fail. The current driver sees a Route updated review with the complete remaining sequence and an acknowledgement action. Execution stays disabled until acknowledgement; use current route version/generation and a stable retry key. An update does not start GPS or discard pending evidence. Route updates refresh through the existing authorized event feed. Frozen prices and Shipper-assigned driver requirements remain unchanged.
 

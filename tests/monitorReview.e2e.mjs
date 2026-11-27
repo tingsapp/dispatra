@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 const origin=process.env.E2E_ORIGIN || 'http://127.0.0.1:5319';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(origin).hostname));
 const output='/tmp/dispatra-monitor-review';await mkdir(output,{recursive:true});
-const settings={company_name:'Acme Logistics',tms_workspace:false,contact_name:'Dispatch',email:'',phone:'',address:null,logo_url:'',currency:'CAD',time_zone:'America/Vancouver',weight_unit:'lb',dimension_unit:'in',distance_unit:'km',tax_registration_number:'',gst_enabled:true,gst_percent:'5',provincial_enabled:false,provincial_percent:'0',fuel_enabled:false,fuel_percent:'0',maximum_active_orders:3,quote_validity_days:14,dispatch_mode:'MANUAL',dispatch_zones:[],default_service_id:null};
+const settings={company_name:'Acme Logistics',tms_workspace:false,contact_name:'Dispatch',email:'',phone:'',address:null,logo_url:'',currency:'CAD',time_zone:'America/Vancouver',weight_unit:'lb',dimension_unit:'in',distance_unit:'km',tax_registration_number:'',gst_enabled:true,gst_percent:'5',provincial_enabled:false,provincial_percent:'0',fuel_enabled:false,fuel_percent:'0',maximum_active_orders:3,quote_validity_days:14,dispatch_mode:'MANUAL',default_service_id:null};
 const draft={id:'draft-1',version:1,status:'NEEDS_REVIEW',received_at:'2026-11-09T12:00:00Z',from_name:'Khan',from_address:'khan@example.com',shipper_name:'Books Warehouse',subject:'Tomorrow’s book delivery',missing:['Drop-off postal code','Package weight'],summary:'One pallet of books',draft:{items:[],stops:[]},body:'One pallet of books, tomorrow at 2 pm.',extraction:null,shipper_id:null,sender_verified:true};
 const browser=await chromium.launch({headless:true,channel:'chrome'});
 try {for (const width of [1440,390]) {

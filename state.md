@@ -1,3 +1,6 @@
+2026-11-26 Removed Preferences > Dispatch planning (separate zone list): morning AUTO zones now come from Zone Rate Cards and vehicle parking addresses. Regenerated schema.d.ts (no dispatch_zones; candidate home_zone_match); dropped dispatch_zones from test fixtures.
+Checks: tsc ok; build ok; appActionLoading 10/11 and settings 77/84 fail the same tests before and after; dispatchRecommendation and dispatchRoster pass. Preferences page not checked in a browser. Not released.
+
 2026-11-26 Home Connected team uses new real portal screenshots (public/home/{dispatcher,shipper,driver}-portal.webp, cropped to page content); driver shows the phone on a soft panel without the browser bar; old previews, crop transform and logo overlay removed; build chmod points at *-portal.*.
 Checks: tsc ok; publicHome tests pass; build ok; checked all three tabs at 1440px and 375px (no horizontal scroll). Not released.
 

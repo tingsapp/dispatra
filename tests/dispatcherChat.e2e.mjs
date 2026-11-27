@@ -4,7 +4,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 const origin=process.env.E2E_ORIGIN||'http://127.0.0.1:5318',output=process.env.E2E_OUTPUT||'/tmp/dispatra-chat-ui';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(origin).hostname));await mkdir(output,{recursive:true});
-const settings={company_name:'Acme Logistics',tms_workspace:false,contact_name:'Jo Dispatch',email:'',phone:'',address:null,logo_url:'',currency:'CAD',time_zone:'America/Vancouver',weight_unit:'lb',dimension_unit:'in',distance_unit:'km',tax_registration_number:'',gst_enabled:true,gst_percent:'5',provincial_enabled:false,provincial_percent:'0',fuel_enabled:false,fuel_percent:'0',maximum_active_orders:3,quote_validity_days:14,dispatch_mode:'MANUAL',dispatch_zones:[],default_service_id:null};
+const settings={company_name:'Acme Logistics',tms_workspace:false,contact_name:'Jo Dispatch',email:'',phone:'',address:null,logo_url:'',currency:'CAD',time_zone:'America/Vancouver',weight_unit:'lb',dimension_unit:'in',distance_unit:'km',tax_registration_number:'',gst_enabled:true,gst_percent:'5',provincial_enabled:false,provincial_percent:'0',fuel_enabled:false,fuel_percent:'0',maximum_active_orders:3,quote_validity_days:14,dispatch_mode:'MANUAL',default_service_id:null};
 const browser=await chromium.launch({headless:true,channel:'chrome'}),results=[];
 try{for(const admin of [false,true]){
  const mode=admin?'admin':'dispatcher',context=await browser.newContext({viewport:{width:1440,height:900}});
