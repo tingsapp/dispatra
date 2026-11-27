@@ -215,7 +215,7 @@ test('dispatcher order message tabs isolate recipients and preserve drafts on th
  chat.channels = async (_slug,id) => {assert.equal(id,'o1');return [row(),row('other',{kind:'DRIVER_SHIPPER',title:'Oversight',can_send:false})];};
  chat.messages = async () => ({messages:[],has_more:false});
  mount(<><OrderDetailsDialog job={job} ctx={loadPricingContext()} drivers={INITIAL_DRIVERS} onClose={() => closes++} onReassign={() => {}} /><DispatcherChatPopup slug="acme" /></>);
- assert.deepEqual(screen.getAllByRole('tab').map(tab=>tab.textContent), ['Details', 'Message shipper', 'Message driver']);
+ assert.deepEqual(screen.getAllByRole('tab').map(tab=>tab.textContent), ['Details', 'Progress updates', 'Message shipper', 'Message driver']);
  assert.equal(screen.queryByRole('button',{name:'Chat with shipper'}),null);
  assert.equal(screen.queryByRole('button',{name:'Chat with driver'}),null);
  assert.equal(screen.queryByRole('textbox',{name:'Message Fresh Foods'}),null);

@@ -43,7 +43,8 @@ stub('sync', { cursor: '1-0', changes: [], unread: 0, reset: false, next_poll_ms
 stub('driverRoutes', [route]);
 stub('startRoute', route);
 stub('endDuty', () => { online = false; return duty; });
-stub('updateDriverProfile', (_slug: unknown, version: unknown, phone: unknown) => ({ ...profile(online), version: Number(version) + 1, phone }));
+const profileUpdates: Record<string, unknown>[] = [];
+stub('updateDriverProfile', (_slug: unknown, body: { version: number; phone: string; name: string; address: unknown; avatar_url: string }) => { profileUpdates.push(body); return { ...profile(online), ...body, version: body.version + 1 }; });
 const mount = () => render(React.createElement(QueryClientProvider, { client: client() },
   React.createElement(DriverPortal, { slug: 'acme', company: 'Acme Logistics', login: 'dana@example.com', onLogout: () => calls.push('logout'), loggingOut: false, logoutError: null })));
 
@@ -166,19 +167,30 @@ test('location sharing starts from Start route and stops locally even when End D
   }
 });
 
-test('driver profile has Details and Security tabs and saves only the phone', async () => {
-  const user = userEvent.setup({ document }); online = false; calls.length = 0;
+test('driver profile edits name, phone and address with email and vehicle disabled and duty beside the avatar', async () => {
+  const user = userEvent.setup({ document }); online = false; calls.length = 0; profileUpdates.length = 0;
   history.replaceState(null, '', '/acme/driver/profile');
   mount();
   assert.ok(screen.getByRole('button', { name: 'Details' })); assert.ok(screen.getByRole('button', { name: 'Security' }));
   const phone = await screen.findByLabelText('Phone');
   assert.equal((phone as HTMLInputElement).value, '(604) 555-0102');
-  assert.equal((screen.getByLabelText('Email') as HTMLInputElement).readOnly, true);
-  assert.equal((screen.getByLabelText('Vehicle') as HTMLInputElement).value, 'Test Van · TEST123');
+  assert.equal((screen.getByLabelText('Email') as HTMLInputElement).disabled, true);
+  const vehicle = screen.getByLabelText('Vehicle') as HTMLInputElement;
+  assert.equal(vehicle.value, 'Test Van · TEST123'); assert.equal(vehicle.disabled, true);
+  assert.equal(screen.queryByLabelText('Status'), null);
+  assert.ok(screen.getByRole('button', { name: 'Upload driver avatar' }).parentElement!.textContent!.includes('Off duty'));
+  assert.equal((screen.getByRole('button', { name: 'Save profile' }) as HTMLButtonElement).disabled, true);
+  const name = screen.getByLabelText('Name');
+  await user.clear(name); await user.type(name, 'Dana Rivera');
   await user.clear(phone); await user.type(phone, '6045550199');
+  const home = screen.getByLabelText('Address');
+  await user.clear(home); await user.type(home, '1055 West Hastings Street, Vancouver, BC V6E 2E9');
   await user.click(screen.getByRole('button', { name: 'Save profile' }));
   assert.ok(await screen.findByText('Profile saved.'));
-  assert.ok(calls.includes('updateDriverProfile'));
+  const [saved] = profileUpdates as { name: string; phone: string; address: { text: string; postal_code: string }; avatar_url: string }[];
+  assert.equal(saved.name, 'Dana Rivera'); assert.match(saved.phone, /555.?0199/);
+  assert.equal(saved.address.text, '1055 West Hastings Street, Vancouver, BC V6E 2E9'); assert.equal(saved.address.postal_code, 'V6E 2E9');
+  assert.equal(saved.avatar_url, '');
   await user.click(screen.getByRole('button', { name: 'Security' }));
   assert.ok(screen.getByRole('heading', { name: 'Change password' }));
 });

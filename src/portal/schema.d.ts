@@ -6139,6 +6139,11 @@ export interface components {
             version: number;
             /** Phone */
             phone: string;
+            /** Name */
+            name?: string | null;
+            address?: components["schemas"]["Address"] | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
         };
         /** DriverProfileView */
         DriverProfileView: {
@@ -6169,6 +6174,11 @@ export interface components {
             location_permission: string;
             /** Vehicle Name */
             vehicle_name?: string | null;
+            /**
+             * Avatar Url
+             * @default
+             */
+            avatar_url: string;
         };
         /** DriverRouteView */
         DriverRouteView: {

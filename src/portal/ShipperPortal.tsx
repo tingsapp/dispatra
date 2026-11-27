@@ -8,7 +8,6 @@ import { PortalShell } from './PortalShell';
 import { CustomerProfile } from './ProfilePage';
 import { PasswordPage } from './PasswordPage';
 import { ShipperOrders } from './ShipperOrders';
-import { ShipperOrderSearch } from './ShipperOrderSearch';
 import { ShipperTracking } from './ShipperTracking';
 import { Button, Notice } from './ui';
 import { NotificationBell } from './Notifications';
@@ -42,7 +41,7 @@ export function ShipperPortal({ slug, company, login, onLogout, loggingOut, logo
   const companyChat = useCompanyChannel(slug, undefined, profile.data?.id);
   const unreadMessages = companyChat.data?.unread ?? 0;
   return <PortalShell company={company} login={login} primary={page.label} icon={page.icon} settings={false} homeOnExpand
-    headerActions={<>{page.path !== 'messages' && page.path !== 'tracking' && <ShipperOrderSearch slug={slug} onSelect={id => go(`${base}/tracking?order=${encodeURIComponent(id)}`)} />}<NotificationBell slug={slug} surface={page.path === 'tracking' ? 'white' : true} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} /></>}
+    headerActions={<NotificationBell slug={slug} surface={page.path === 'tracking' ? 'white' : true} onOpen={row => { if (row.conversation_id) setNotificationChat(row.conversation_id); else go(base); }} />}
     actions={page.path === 'orders' && <Button onClick={() => setNewOrderOpen(true)}><Plus size={16} />New order</Button>}
     reading={page.path === 'profile'} map={page.path === 'tracking'} chat={page.path === 'messages'}
     account={{ logoUrl: profile.data?.logo_url, name: profile.data?.name || login, role: 'Shipper', profileCurrent: page.path === 'profile' }}

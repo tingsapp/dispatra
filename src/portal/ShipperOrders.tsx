@@ -24,7 +24,8 @@ import { useEntityDialog } from '../components/entities/useEntityDialog';
 import type { Job } from '../types';
 import type { PricingOrderInput } from '../types/pricing';
 import { ShipperOrderDialog } from './ShipperOrderDialog';
-import { OrderChatSection } from '../components/chat/OrderChat';
+import { OrderChat } from '../components/chat/OrderChat';
+import { Tabs } from '../components/ui/Tabs';
 import { Notice } from './ui';
 
 const dateIn = (iso: string | null | undefined, timeZone: string) => iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone }) : '';
@@ -153,12 +154,18 @@ export function ShipperOrders({ slug, open, onClose, onNavigate, draftId }: { dr
         {detail.pricing?.status === 'PRICED' && <span className="text-sm font-normal text-slate-600">${detail.pricing.total.toFixed(2)} {detail.pricing.currency}</span>}
       </>} />
       <DialogBody className="space-y-5">
-        <OrderDossierSections job={detail} ctx={ctx} showShipper={false} showMargin={false} dispatch={<section className="rounded-xl border border-slate-200 p-5 space-y-3 text-sm">
-          <h4 className="app-section-title">Delivery</h4>
-          <p>Status: <span className="font-medium">{lifecycleLabel(detail)}</span>{detail.lifecycleStatus === 'NEW' && <span className="text-slate-500"> · awaiting dispatch</span>}</p>
-        </section>} />
-        {proofAvailable(detail.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={detail.id} timeZone={timeZone} />}
-        <OrderChatSection slug={slug} orderId={detail.id} driverOnly />
+        <Tabs key={detail.id} label="Order details tabs" items={[
+          { id: 'details', label: 'Details', content: <>
+            <OrderDossierSections job={detail} ctx={ctx} showShipper={false} showMargin={false} dispatch={<section className="rounded-xl border border-slate-200 p-5 space-y-3 text-sm">
+              <h4 className="app-section-title">Delivery</h4>
+              <p>Status: <span className="font-medium">{lifecycleLabel(detail)}</span>{detail.lifecycleStatus === 'NEW' && <span className="text-slate-500"> · awaiting dispatch</span>}</p>
+            </section>} />
+            {proofAvailable(detail.lifecycleStatus) && <ProofOfDelivery slug={slug} orderId={detail.id} timeZone={timeZone} />}
+          </> },
+          // The shipper feed carries no assignment, so the thread itself explains when no driver is assigned yet.
+          { id: 'driver-message', label: 'Message driver', keepMounted: false,
+            content: <OrderChat key={detail.id} slug={slug} orderId={detail.id} initialKind="DRIVER_SHIPPER" driverOnly timeZone={timeZone} /> },
+        ]} />
       </DialogBody>
       <DialogFooter note={shipperEditable(detail) ? undefined : 'Orders can be edited until they are assigned to a driver.'}>
         <Button variant="outline" asChild><a href={`/${slug}/shipper/tracking?order=${encodeURIComponent(detail.id)}`} onClick={event => {

@@ -19,7 +19,10 @@ import { DriverOrderDialog } from './DriverOrderDialog';
 import { NotificationBell } from './Notifications';
 import { useSync } from './sync';
 import { PasswordPage } from './PasswordPage';
-import { Button, Card, Field, Notice } from './ui';
+import { AddressField, Button, Card, Field, Notice } from './ui';
+import { LogoUpload } from '../components/settings/LogoUpload';
+import { streetAddress } from '../operations/adapters';
+import type { SelectedAddress } from '../components/ui/AddressAutocomplete';
 import type { components } from './schema';
 
 type Route = components['schemas']['RouteView'];
@@ -151,21 +154,33 @@ function DriverProfilePage({ slug, profile, loading, error }: { slug: string; pr
 
 function DriverProfileForm({ slug, profile }: { slug: string; profile: Profile }) {
   const cache = useQueryClient();
-  const [phone, setPhone] = useState(profile.phone);
+  const [form, setForm] = useState({ name: profile.name, phone: profile.phone, address: profile.address.text, avatar_url: profile.avatar_url ?? '' });
+  const [selectedAddress, setSelectedAddress] = useState<SelectedAddress>();
   const [saved, setSaved] = useState(false);
-  const mutation = useMutation({ mutationFn: () => operations.updateDriverProfile(slug, profile.version, phone.trim()), onSuccess: data => { cache.setQueryData(['driver-profile', slug], data); setSaved(true); } });
+  const edit = (changes: Partial<typeof form>) => { setSaved(false); setForm(current => ({ ...current, ...changes })); };
+  const mutation = useMutation({
+    mutationFn: () => operations.updateDriverProfile(slug, { version: profile.version, name: form.name.trim(), phone: form.phone.trim(),
+      address: streetAddress(form.address, profile.address, selectedAddress), avatar_url: form.avatar_url }),
+    onSuccess: data => { cache.setQueryData(['driver-profile', slug], data); setSaved(true); },
+  });
+  const unchanged = form.name.trim() === profile.name && form.phone.trim() === profile.phone && form.address.trim() === profile.address.text && !selectedAddress && form.avatar_url === (profile.avatar_url ?? '');
+  const onDuty = !!profile.duty;
   return <Card plain title="Driver details" description={`${profile.name} · ${profile.number}`}><form className="space-y-5" onSubmit={event => { event.preventDefault(); setSaved(false); mutation.mutate(); }}>
+    <fieldset disabled={mutation.isPending} className="space-y-5">
+    <LogoUpload label="Avatar" subject="driver avatar" round value={form.avatar_url} onChange={avatar_url => edit({ avatar_url })}
+      aside={<span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${onDuty ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+        <span aria-hidden className={`size-1.5 rounded-full ${onDuty ? 'bg-emerald-500' : 'bg-slate-400'}`} />{onDuty ? 'On duty' : 'Off duty'}</span>} />
     <div className="grid gap-5 sm:grid-cols-2">
-      <Field label="Name" readOnly value={profile.name} />
-      <Field label="Email" type="email" readOnly value={profile.email} />
-      <Field label="Phone" type="tel" required minLength={3} maxLength={50} value={phone} onChange={event => { setSaved(false); setPhone(event.target.value); }} />
-      <div className="sm:col-span-2"><Field label="Address" readOnly value={profile.address.text} /></div>
-      <Field label="Vehicle" readOnly value={profile.vehicle_name ?? 'No vehicle assigned'} />
-      <Field label="Status" readOnly value={profile.duty ? 'On duty' : 'Off duty'} />
+      <Field label="Name" required maxLength={160} value={form.name} onChange={event => edit({ name: event.target.value })} />
+      <Field label="Email" type="email" disabled value={profile.email} />
+      <Field label="Phone" type="tel" required minLength={3} maxLength={50} value={form.phone} onChange={event => edit({ phone: event.target.value })} />
+      <Field label="Vehicle" disabled value={profile.vehicle_name ?? 'No vehicle assigned'} />
+      <div className="sm:col-span-2"><AddressField label="Address" required maxLength={500} value={form.address} onChange={(address, selected) => { setSelectedAddress(selected); edit({ address }); }} /></div>
     </div>
+    </fieldset>
     <Notice error={mutation.error} success={saved ? 'Profile saved.' : undefined} />
-    <div className="flex gap-3"><Button loading={mutation.isPending} disabled={mutation.isPending || phone.trim() === profile.phone}>{mutation.isPending ? 'Saving…' : 'Save profile'}</Button></div>
-    <p className="text-xs text-slate-500">Contact your dispatcher to change your name, email, address or vehicle.</p>
+    <div className="flex gap-3"><Button loading={mutation.isPending} disabled={mutation.isPending || unchanged}>{mutation.isPending ? 'Saving…' : 'Save profile'}</Button></div>
+    <p className="text-xs text-slate-500">Contact your dispatcher to change your email or vehicle.</p>
   </form></Card>;
 }
 

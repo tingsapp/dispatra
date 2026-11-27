@@ -1,8 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { MessageSquare, ArrowUpRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ChatPopup } from './ChatPopup';
-import { useChatInbox, useOrderChannels, type ChatChannel, type ChatKind } from '../../chat/api';
+import { useOrderChannels, type ChatChannel, type ChatKind } from '../../chat/api';
 import { ChatThread } from './ChatThread';
 
 const channelKey = (channel: ChatChannel) => `${channel.kind}:${channel.driver_id ?? ''}`;
@@ -44,21 +43,6 @@ export function OrderChat({ slug, orderId, initialKind, initialConversation, exp
     <div className="flex min-h-0 flex-1 flex-col" role={rows.length > 1 ? 'tabpanel' : undefined}><ChatThread key={channelKey(current)} slug={slug} orderId={orderId} channel={current} timeZone={timeZone} /></div>
   </div>;
   return onClose ? <ChatPopup slug={slug} channel={!channels.isPending && !channels.error ? current : undefined} orderNumber={orderNumber} onClose={onClose}>{orderPicker}{content}</ChatPopup> : content;
-}
-
-/** Every order details view launches the same conversation popup. */
-export function OrderChatSection({ slug, orderId, driverOnly = false }: { slug: string; orderId: string; driverOnly?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const inbox = useChatInbox(slug, driverOnly);
-  const unread = inbox.data?.find(row => row.order_id === orderId && row.kind === 'DRIVER_SHIPPER')?.unread ?? 0;
-  return <section aria-label="Messages" className="rounded-xl border border-slate-200 p-4">
-    <button type="button" onClick={() => setOpen(true)} className="flex w-full items-center gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-app-accent" aria-label={driverOnly ? "Open driver chat" : "Open order messages"}>
-      <MessageSquare className="size-5 shrink-0 text-slate-500" aria-hidden="true" />
-      <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{driverOnly ? 'Chat with driver' : 'Messages'}{driverOnly && unread > 0 && <span className="ml-2 rounded-full bg-rose-100 px-1.5 text-xs text-rose-700" aria-label={`${unread} unread driver messages`}>{unread}</span>}</span><span className="mt-0.5 block text-xs text-slate-500">{driverOnly ? 'Talk with the driver assigned to this order.' : 'Talk with the people on this order.'}</span></span>
-      <ArrowUpRight className="size-4 text-slate-400" aria-hidden="true" />
-    </button>
-    {open && <ChatDialog slug={slug} orderId={orderId} driverOnly={driverOnly} onClose={() => setOpen(false)} />}
-  </section>;
 }
 
 /** One shared popup for order contacts, tracking, profiles and the inbox. */

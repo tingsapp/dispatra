@@ -26,7 +26,7 @@ export function CompanyChatDialog({ slug, driverId, shipperId, onClose }: Target
 /** Sidebar Chat always opens one ongoing company conversation, with no Order or driver picker. */
 export function CompanyChatPage({ company, ...target }: Target & { company: string }) {
   const query = useCompanyChannel(target.slug, target.driverId, target.shipperId);
-  return <section aria-label={`Conversation with ${company}`} className="flex min-h-0 w-full flex-1 flex-col">
+  return <section aria-label={`Conversation with ${company}`} className="chat-page-full flex min-h-0 w-full flex-1 flex-col">
     <CompanyThread {...target} query={query} page />
   </section>;
 }

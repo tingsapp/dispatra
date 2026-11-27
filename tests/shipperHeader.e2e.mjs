@@ -51,6 +51,8 @@ try {
     else if (path.endsWith('/sync')) { json = { cursor: '1-0', changes, unread, reset: false, next_poll_ms: 60000 }; changes = []; }
     else if (path.endsWith('/notifications/n1/read')) { unread = 0; notification.read_at = new Date().toISOString(); json = notification; }
     else if (path.endsWith('/notifications')) json = [notification];
+    else if (path.endsWith('/chats')) json = path.includes('/orders/1/') ? [{ kind: 'DRIVER_SHIPPER', title: 'Dana Driver', conversation_id: null, driver_id: 'driver-1', can_send: true, closed_reason: null, unread: 0, last_message_at: null }] : [];
+    else if (path.endsWith('/chat-inbox')) json = { items: [], next_cursor: null };
     else if (path.endsWith('/orders')) {
       if (failOrders) return route.fulfill({ status: 500, json: { error: { message: 'Orders unavailable.' } } });
       json = orders;
@@ -133,7 +135,7 @@ try {
   await page.getByRole('heading', { name: 'Orders', exact: true }).waitFor();
   await checkHeader();
   const nav = page.getByRole('navigation', { name: 'Portal navigation' });
-  assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Orders', 'Tracking']);
+  assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Orders', 'Tracking', 'Chat']);
   await nav.getByRole('link', { name: 'Tracking', exact: true }).click();
   await page.getByRole('heading', { name: 'No orders to track', exact: true }).waitFor();
   await checkHeader();
@@ -190,6 +192,12 @@ try {
   await detail.waitFor();
   assert.equal(await detail.getByRole('region', { name: 'Tracking' }).count(), 0);
   assert.deepEqual(trackingReads, [], 'Orders and order details do not request tracking');
+  assert.deepEqual(await detail.getByRole('tab').allTextContents(), ['Details', 'Message driver']);
+  assert.equal(await detail.getByRole('button', { name: 'Open driver chat' }).count(), 0, 'The driver chat card is replaced by the tab');
+  await detail.getByRole('tab', { name: 'Message driver' }).click();
+  await detail.getByRole('textbox', { name: 'Message Dana Driver' }).waitFor();
+  await page.screenshot({ path: '/tmp/dispatra-shipper-order-message-driver.png' });
+  await detail.getByRole('tab', { name: 'Details' }).click();
   const track = detail.getByRole('link', { name: 'Track', exact: true });
   assert.equal(await track.getAttribute('href'), '/demo/shipper/tracking?order=1');
   await detail.getByRole('button', { name: 'Close dialog', exact: true }).focus();
@@ -278,10 +286,8 @@ try {
   assert.equal(await page.locator('.shipper-tracking-card').count(), 1, 'Progress, stops and timeline share one card');
   assert.equal(await header.getByRole('searchbox', { name: 'Search your orders' }).count(), 0, 'Tracking has no order search field');
   await nav.getByRole('link', { name: 'Orders', exact: true }).click();
-  const orderSearch = header.getByRole('searchbox', { name: 'Search your orders' });
-  await orderSearch.fill('REF-2');
-  await page.getByRole('dialog', { name: 'Your order search results' }).getByRole('button', { name: /^DDO-1042/ }).click();
-  await page.waitForURL(origin + '/demo/shipper/tracking?order=2');
+  await page.getByRole('button', { name: 'New order' }).waitFor();
+  assert.equal(await header.getByRole('searchbox').count(), 0, 'Orders has no header search field');
   await page.goto(origin + '/demo/shipper/tracking?order=5');
   await page.waitForURL(origin + '/demo/shipper/tracking?order=5');
   if (liveMap) {
@@ -373,5 +379,5 @@ try {
     await checkHeader();
   }
   assert.deepEqual(errors, []);
-  console.log('PASS: Shipper header background/alignment, persistent navigation, separate tracking, Track links, own-order search/keyboard selection/history/reload, one combined card, all open orders on map, terminal-map exclusion, all delivery states, unavailable/error/retry states and desktop/mobile bounds.');
+  console.log('PASS: Shipper header background/alignment, persistent navigation, separate tracking, Track links, no header order search, order details Message driver tab, history/reload, one combined card, all open orders on map, terminal-map exclusion, all delivery states, unavailable/error/retry states and desktop/mobile bounds.');
 } finally { await browser.close(); }

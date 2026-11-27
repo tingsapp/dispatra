@@ -10,7 +10,7 @@ const {QueryClient,QueryClientProvider}=await import('@tanstack/react-query');
 const {chat}=await import('../src/chat/api');
 const {PersonContactActions}=await import('../src/components/contact/PersonContactActions');
 const {DriverChatDialog}=await import('../src/components/chat/DriverChatDialog');
-const {OrderChatSection,ChatDialog}=await import('../src/components/chat/OrderChat');
+const {ChatDialog}=await import('../src/components/chat/OrderChat');
 const original={...chat};let cache:InstanceType<typeof QueryClient>|undefined;
 afterEach(()=>{cleanup();cache?.clear();Object.assign(chat,original);});
 function mount(node:React.ReactElement){cache=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0},mutations:{retry:false,gcTime:0}}});return render(<QueryClientProvider client={cache}>{node}</QueryClientProvider>);}
@@ -37,9 +37,10 @@ test('unavailable company chat explains the failure without launching SMS',async
  chat.companyChannel=async()=>{throw new Error('Network down');};mount(<DriverChatDialog slug="acme" driver={driver} onClose={()=>{}}/>);
  assert.ok(await screen.findByRole('alert'));assert.equal(screen.queryByRole('textbox'),null);assert.equal(document.querySelector('a[href^="sms:"]'),null);
 });
-test('order detail entry opens the reusable portalled popup and closes by Escape',async()=>{
- chat.channels=async()=>[channel];mount(<OrderChatSection slug="acme" orderId="one"/>);
- fireEvent.click(screen.getByRole('button',{name:'Open order messages'}));
+test('the order chat popup is portalled and closes by Escape',async()=>{
+ chat.channels=async()=>[channel];
+ function Host(){const[open,setOpen]=React.useState(true);return open?<ChatDialog slug="acme" orderId="one" onClose={()=>setOpen(false)}/>:null;}
+ mount(<Host/>);
  assert.ok(await screen.findByRole('textbox',{name:'Message Dana'}));const popup=screen.getByRole('dialog',{name:'Chat with Dana'});
  assert.equal(popup.parentElement,document.body);assert.equal(document.body.style.overflow,'hidden');
  fireEvent.keyDown(document,{key:'Escape'});await waitFor(()=>assert.equal(screen.queryByRole('dialog'),null));assert.equal(document.body.style.overflow,'');

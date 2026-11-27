@@ -30,7 +30,6 @@
   scrollbar-gutter: stable;
 }
 .app-page.app-page-with-header { padding-top: 2rem; }
-.shipper-order-search { width: 18rem; max-width: calc(100vw - 128px); min-width: 0; }
 /* Match the scrolling canvas's available width, including its reserved gutter. */
 .app-workspace-header { overflow-y: auto; scrollbar-gutter: stable; }
 .shipper-tracking-overlays {
@@ -526,6 +525,7 @@ textarea.app-input { min-height: 6rem; resize: vertical; }
 
 /* Company logo doubles as the upload trigger, keeping its preview shape. */
 .app-button.app-company-logo { border-radius: .75rem; }
+.app-button.app-company-logo.app-avatar-upload { border-radius: 9999px; }
 
 /* Operational lists: summary cards share the table's gutters, corners and neutral palette. */
 .app-list-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: .5rem; margin: 0 0 1.25rem; }

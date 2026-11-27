@@ -213,7 +213,8 @@ test('shipper sidebar company badge excludes driver messages and opens the pinne
   assert.equal(screen.queryByRole('searchbox',{name:'Search your orders'}),null);
   assert.ok(screen.getByRole('button',{name:/Notifications/}));
   await user.click(screen.getByRole('link',{name:'Orders, 3 unread'}));
-  assert.ok(await screen.findByRole('searchbox',{name:'Search your orders'}));
+  assert.ok(await screen.findByRole('button',{name:/New order/}));
+  assert.equal(screen.queryByRole('searchbox',{name:'Search your orders'}),null);
   await user.click(screen.getByRole('link',{name:'Chat, 2 unread'}));
   assert.ok(await screen.findByRole('button',{name:'Company, always open, 2 unread'}));
   assert.equal(screen.queryByRole('searchbox',{name:'Search your orders'}),null);

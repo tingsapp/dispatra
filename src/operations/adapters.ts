@@ -97,7 +97,7 @@ export function driverToUi(row: ApiDriver, vehicle?: ApiVehicle, monitor?: { on_
 export function driverFromUi(form: UiDriver, previous?: ApiDriver, coordinates?: SelectedAddress, timeZone = 'America/Vancouver'): DriverInput {
   const old = previous?.data as Partial<DriverInput> | undefined;
   return {
-    name: form.name.trim(), avatar_url: form.avatar.startsWith('http') ? form.avatar : '', email: form.email?.trim() ?? '',
+    name: form.name.trim(), avatar_url: /^(https?:|data:image\/(png|jpeg);base64,)/.test(form.avatar) ? form.avatar : '', email: form.email?.trim() ?? '',
     phone: form.phone?.trim() ?? '', address: streetAddress(form.address ?? '', previous?.address, coordinates),
     vehicle_id: form.currentVehicleId || null,
     qualifications: form.skills ?? old?.qualifications ?? [], crew_size: form.crewSize ?? old?.crew_size ?? 1,

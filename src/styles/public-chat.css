@@ -168,6 +168,8 @@
 .chat-page--intro { justify-content: center; gap: 0; padding-bottom: 3rem; }
 .chat-page-dock { flex-shrink: 0; width: 100%; }
 .chat-page--intro .chat-page-dock { max-width: 36rem; margin-inline: auto; }
+/* The driver's Chat page fills its reading column so the composer lines up with the page title. */
+.chat-page-full .chat-page--intro .chat-page-dock { max-width: none; }
 
 /* Operational conversations share the compact Monitor composer. */
 .app-message-composer.public-chat-composer { min-height: 44px; padding: 5px 7px; box-shadow: none; }
