@@ -312,3 +312,23 @@ test('an automatic briefing failure retries without inserting a user message', a
   assert.deepEqual(bodies[0], bodies[1]);
   assert.equal(screen.queryByLabelText('Your message'), null);
 });
+
+test('Monitor sends active order/driver selection context and summarizes cards in history', async () => {
+  const sent: Array<{ kind?: string; context?: { selected_order_id?: string | null; selected_driver_id?: string | null } | null; history?: { content: string }[] }> = [];
+  operations.assistant = async (_slug, body) => {
+    sent.push(body);
+    return { message: body.kind === 'BRIEFING' ? 'Briefing ready.' : 'Checked.', references: [], mode: 'AI', observed_at: new Date().toISOString(), limited: false,
+      briefing: body.kind === 'BRIEFING' ? { day: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()), time_zone: 'America/Vancouver', evening: false, received: 3, unassigned: 2, assigned: 1, in_progress: 0, completed: 0, overdue_count: 0, open_incidents: 1, dispatch_mode: 'MANUAL', assigned_by_driver: [] } : null };
+  };
+  cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } } });
+  cache.setQueryDefaults(syncKey('acme'), { gcTime: Infinity });
+  cache.setQueryData(syncKey('acme'), { unread: 0 });
+  const orderId = '11111111-1111-4111-8111-111111111111';
+  render(<QueryClientProvider client={cache}><MonitorActions active selectedOrderId={orderId} onActionNotification={() => {}} /></QueryClientProvider>);
+  await screen.findByLabelText('Daily briefing');
+  await userEvent.setup({ document }).type(screen.getByRole('textbox', { name: 'Message Dispatra' }), 'Who can take this order?{Enter}');
+  await screen.findByText('Checked.');
+  assert.equal(sent[0].context, undefined, 'automatic briefings omit selection context');
+  assert.deepEqual(sent[1].context, { selected_order_id: orderId, selected_driver_id: null });
+  assert.ok(sent[1].history?.some(turn => turn.content.includes('Daily briefing') && turn.content.includes('2 unassigned')));
+});

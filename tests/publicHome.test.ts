@@ -9,7 +9,7 @@ for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInput
 Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', { configurable: true, value: () => null });
 // Scene motion is covered in the browser; keep these interaction checks deterministic.
 Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
-const { render, screen, cleanup, waitFor, within, configure } = await import('@testing-library/react');
+const { render, screen, cleanup, waitFor, within, configure, fireEvent } = await import('@testing-library/react');
 // Visibility and animation are checked in the real-browser smoke test.
 configure({ defaultHidden: true });
 after(() => dom.window.close());
@@ -126,4 +126,21 @@ test('plan paths and FAQ answers reuse the established public destinations and c
   const questions = screen.getByRole('region', { name: /Get to know Dispatra/ });
   assert.equal(questions.querySelectorAll('details').length, 6);
   assert.ok(questions.textContent?.includes('Both modes optimize routes after assignment'));
+});
+
+test('connected team driver tab renders the map backdrop behind the mobile frame', () => {
+  api.me = anonymous;
+  render(React.createElement(PublicHome));
+  const team = screen.getByRole('region', { name: /AI keeps your whole team in sync/ });
+  assert.equal(team.querySelector('.home-team-backdrop'), null);
+  fireEvent.click(within(team).getByRole('tab', { name: 'Driver' }));
+  const backdrop = team.querySelector('img.home-team-backdrop');
+  assert.ok(backdrop);
+  assert.equal(backdrop.getAttribute('src'), '/home/driver-portal-map.webp');
+  assert.equal(backdrop.getAttribute('aria-hidden'), 'true');
+  assert.equal(backdrop.getAttribute('alt'), '');
+  const phone = within(team).getByRole('img', { name: /Driver app showing today's jobs/ });
+  assert.equal(phone.getAttribute('src'), '/home/driver-portal.webp');
+  fireEvent.click(within(team).getByRole('tab', { name: 'Shipper' }));
+  assert.equal(team.querySelector('.home-team-backdrop'), null);
 });

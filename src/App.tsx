@@ -850,6 +850,8 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
               onOpenEmailDrafts={() => setReviewOpen(true)}
               onActionNotification={showToast}
               jobs={jobs}
+              selectedOrderId={slug ? (showJobDetail ? activeJob.id : dossierJob?.id ?? null) : null}
+              selectedDriverId={slug && showDriverPopover ? activeDriver.id : null}
             />
 
           </div>}

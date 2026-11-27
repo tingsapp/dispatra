@@ -8,8 +8,30 @@ import { syncKey, type SyncSummary } from '../../portal/sync';
 export type ActionState = { status: 'open' | 'saving' | 'done'; error?: string; key?: string; password?: string };
 export type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string; reply?: AssistantReply; action?: ActionState };
 
+/** Summarize one turn for stateless history without ever including one-time passwords. */
+function historyContent(row: ChatMessage): string {
+  const parts: string[] = [row.content];
+  const briefing = row.reply?.briefing;
+  if (briefing) {
+    parts.push(`Daily briefing (${briefing.day}): ${briefing.received} orders (${briefing.unassigned} unassigned, ${briefing.assigned} assigned, ${briefing.in_progress} in progress, ${briefing.completed} completed), ${briefing.open_incidents} open issues, dispatch mode ${briefing.dispatch_mode}.`);
+  }
+  const action = row.reply?.action;
+  if (action) {
+    parts.push(`Proposed assignment (${row.action?.status ?? 'open'}): order ${action.order_number} to ${action.driver_name} (${action.vehicle_name}).`);
+  }
+  const change = row.reply?.change;
+  if (change) {
+    const summary = change.lines.slice(0, 6).map(line => `${line.field}: ${line.after ?? 'Empty'}`).join('; ');
+    parts.push(`Proposed change (${row.action?.status ?? 'open'}): ${change.title} ${change.subject}${summary ? ` [${summary}]` : ''}.`);
+  }
+  for (const ref of row.reply?.references ?? []) {
+    parts.push(`${ref.kind}: ${ref.label}${ref.detail ? ` (${ref.detail.slice(0, 120)})` : ''}`);
+  }
+  return parts.filter(Boolean).join('\n').slice(0, 2400);
+}
+
 /** Ephemeral company-scoped conversation, retained through panel close/reopen, never browser-persisted. */
-export function useAssistantChat(slug: string) {
+export function useAssistantChat(slug: string, selection?: { selectedOrderId?: string | null; selectedDriverId?: string | null }) {
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -28,7 +50,13 @@ export function useAssistantChat(slug: string) {
     if (request.current) return;
     const message = automatic ? 'Give me the current daily operational briefing.' : draft.trim();
     if (!retry && !message) return;
-    const body = retry ? failed.current : { message, kind: automatic ? 'BRIEFING' as const : 'CHAT' as const, history: messages.slice(-10).map(row => ({ role: row.role, content: [row.content, ...(row.reply?.references ?? []).map(ref => `${ref.kind}: ${ref.label}`)].join('\n').slice(0, 1000) })) };
+    const context = !automatic && (selection?.selectedOrderId || selection?.selectedDriverId)
+      ? { selected_order_id: selection.selectedOrderId ?? null, selected_driver_id: selection.selectedDriverId ?? null } : undefined;
+    const body: AssistantQuestion | null = retry ? failed.current : {
+      message, kind: automatic ? 'BRIEFING' as const : 'CHAT' as const,
+      history: messages.slice(-10).map(row => ({ role: row.role, content: historyContent(row) })),
+      ...(context ? { context } : {}),
+    };
     if (!body) return;
     const controller = new AbortController();
     request.current = controller;

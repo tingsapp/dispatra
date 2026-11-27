@@ -4164,6 +4164,16 @@ export interface components {
             /** Initial Password */
             initial_password?: string | null;
         };
+        /**
+         * AssistantContext
+         * @description Optional Monitor selection hints sent by the client; always re-verified inside the caller's company.
+         */
+        AssistantContext: {
+            /** Selected Order Id */
+            selected_order_id?: string | null;
+            /** Selected Driver Id */
+            selected_driver_id?: string | null;
+        };
         /** AssistantReference */
         AssistantReference: {
             /** Key */
@@ -4508,6 +4518,12 @@ export interface components {
              * @description Estimated extra fleet driving: trip to pickup plus the Order, or the increase of a planned Route
              */
             extra_minutes: number;
+            /**
+             * Extra Wait Minutes
+             * @description Additional idle wait time between stops introduced when joining a Route
+             * @default 0
+             */
+            extra_wait_minutes: number;
             /**
              * Deadhead Km
              * @description Straight-line distance from the driver to the first pickup
@@ -10013,6 +10029,7 @@ export interface components {
              * @enum {string}
              */
             kind: "CHAT" | "BRIEFING";
+            context?: components["schemas"]["AssistantContext"] | null;
         };
         /** Zone */
         "Zone-Input": {

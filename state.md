@@ -1,3 +1,10 @@
+2026-11-27 Monitor chat context & memory: pass active Monitor selection (`selectedOrderId`, `selectedDriverId`) to `/assistant/messages`, include non-secret briefing/action/change card summaries in stateless history, and regenerate `src/portal/schema.d.ts` from `api/openapi.json`.
+Checks: `npm run lint` ok; `tests/activityFeed.test.tsx` 15/15 passed; `npm run build` ok. Not released.
+
+
+2026-11-27 Home Connected team Driver tab now places the same Vancouver map (`public/home/driver-portal-map.webp`, radial mask invisible at center `0%–34%` and fading out to 100% opaque corners on `#fff`) behind the mobile frame in `HomeTeam.tsx`/`homepage.css`; updated `package.json` build chmod glob to `dist/home/*-portal*`.
+Checks: `npm run lint` (tsc) ok; `tests/publicHome.test.ts` 10/10 (new Driver backdrop test); `npm run build` ok; verified invisible center halo and 100% opaque map corners in Chromium. Not released.
+
 2026-11-27 Shipper header order search removed (ShipperOrderSearch deleted); Shipper order details get Details/Message driver tabs instead of the chat card (OrderChatSection removed). Driver web Chat composer spans the reading column. Driver web Profile edits name, phone, address and a round avatar; email/vehicle disabled; duty label beside the avatar; dispatcher driver saves keep data-URL avatars. schema.d.ts regenerated.
 Checks: tsc ok; build ok; driverPortal 22/22, chat 16/16, contactActions 9/9, shipperProfile 4/4, dialogDismissal 20/20, notifications 5/5; chatWorkspace tabs/contact tests pass (stale tab list updated for Progress updates; the full file still stalls after test 2 as on HEAD); shipperOrders 1 and entityForms 3 fail identically on clean HEAD. Driver chat/profile and shipper tab checked by screenshot with mocked API; shipperHeader e2e passes the new checks, then stops at an older tracking SMS assertion. Not released.
 

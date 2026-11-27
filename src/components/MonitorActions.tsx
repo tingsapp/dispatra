@@ -30,6 +30,8 @@ interface MonitorActionsProps {
   onOpenEmailDrafts?: () => void;
   onActionNotification: (msg: string) => void;
   jobs?: Job[];
+  selectedOrderId?: string | null;
+  selectedDriverId?: string | null;
 }
 
 interface DispatchAlert {
@@ -53,7 +55,9 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   onSelectJob,
   onOpenEmailDrafts,
   onActionNotification,
-  jobs = []
+  jobs = [],
+  selectedOrderId,
+  selectedDriverId
 }) => {
   // Local states if not passed
   const [internalNotificationOpen, setInternalNotificationOpen] = useState(false);
@@ -113,7 +117,7 @@ export const MonitorActions: React.FC<MonitorActionsProps> = ({
   return (
     <>
       {slug && <div ref={dock} className="monitor-assistant-dock absolute bottom-6 left-6 z-40 pointer-events-auto">
-        <MonitorActivity jobs={jobs} timeZone={timeZone} key={slug} slug={slug} open={activityOpen} active={active} onSelectReference={onSelectReference} onOpenChange={next => {
+        <MonitorActivity jobs={jobs} timeZone={timeZone} key={slug} slug={slug} open={activityOpen} active={active} selectedOrderId={selectedOrderId} selectedDriverId={selectedDriverId} onSelectReference={onSelectReference} onOpenChange={next => {
           setActivityOpen(next);
           if (next) setIsNotificationOpen(false);
         }} />

@@ -8,11 +8,11 @@ import { useAssistantChat } from './useAssistantChat';
 import type { AssistantReference } from '../../operations/api';
 import { useActivityPresence } from './useActivity';
 
-export function MonitorActivity({ slug, open, active, onOpenChange, onSelectReference, jobs: _jobs, timeZone: _timeZone }: { jobs?: Job[]; timeZone?: string; slug: string; open: boolean; active: boolean; onOpenChange: (open: boolean) => void; onSelectReference?: (reference: AssistantReference) => void }) {
+export function MonitorActivity({ slug, open, active, onOpenChange, onSelectReference, jobs: _jobs, timeZone: _timeZone, selectedOrderId, selectedDriverId }: { jobs?: Job[]; timeZone?: string; slug: string; open: boolean; active: boolean; selectedOrderId?: string | null; selectedDriverId?: string | null; onOpenChange: (open: boolean) => void; onSelectReference?: (reference: AssistantReference) => void }) {
   const contentId = useId();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { visible, reducedMotion } = useActivityPresence();
-  const chat = useAssistantChat(slug);
+  const chat = useAssistantChat(slug, { selectedOrderId, selectedDriverId });
   const opening = !chat.messages.some(message => message.role === 'user');
   useEffect(() => { if (active) onOpenChange(true); }, [active]);
   const briefingRequested = useRef(false);
