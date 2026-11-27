@@ -45,11 +45,11 @@ export function StopReasonSettings({ rows, onChange }: { rows: ReasonPolicy[]; o
       <div className={`hidden gap-3 border-b border-slate-200 pb-2 text-xs font-medium text-slate-500 lg:grid ${GRID}`} aria-hidden>
         <span>Reason</span><span>Shown at</span><span>Responsible</span><span>Extra time</span><span />
       </div>
-      <ul className="divide-y divide-slate-100 border-b border-slate-200" aria-label="Delay reasons">
+      <ul className="pt-1.5" aria-label="Delay reasons">
         {rows.map((row, index) => {
           const carrier = row.responsibility === 'CARRIER';
           const name = row.label.trim() || 'New reason';
-          return <li key={row.code} className={`grid grid-cols-1 gap-3 py-3 lg:items-start ${GRID}`}>
+          return <li key={row.code} className={`grid grid-cols-1 gap-3 py-1.5 lg:items-start ${GRID}`}>
             <div className="space-y-1.5">
               <input aria-label="Reason name" maxLength={60} className={fieldClass} value={row.label} placeholder="Reason name" onChange={event => update(index, { label: event.target.value })} />
               {isCustom(row)

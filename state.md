@@ -1,3 +1,6 @@
+2026-11-27 Delay reasons table: removed the lines between rows and under the list (header rule kept), tighter row spacing. Spec line updated.
+Checks: tsc ok; Delay reasons test passes; build ok. Not checked in a browser. Not released.
+
 2026-11-27 Settings › Extra time: Stop reasons section renamed Delay reasons; reason rows are now one flat table (header rule, divider rows) instead of bordered cards. Spec line updated.
 Checks: tsc ok; build ok; settingsMailbox Delay reasons test passes (mail-server test fails the same before and after). Not checked in a browser. Not released.
 
