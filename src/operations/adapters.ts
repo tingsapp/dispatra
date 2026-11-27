@@ -191,3 +191,9 @@ export function vehicleTypeToCatalog(type: VehicleType, previous?: CatalogItem):
     load_sizes: type.loadSizes ?? previous?.data.load_sizes ?? VEHICLE_LOAD_SIZES,
   };
 }
+
+/** Stop id → when the driver moved it up (`route.plan.driver_moves`, latest move wins). */
+export function driverMoves(plan?: Record<string, unknown> | null): Record<string, string> {
+  const moves = Array.isArray(plan?.driver_moves) ? plan.driver_moves as { stop_id?: unknown; at?: unknown }[] : [];
+  return Object.fromEntries(moves.filter(move => typeof move?.stop_id === 'string' && typeof move.at === 'string').map(move => [move.stop_id as string, move.at as string]));
+}

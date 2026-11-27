@@ -16,7 +16,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companySlugForCurrentPath, pathForPage } from './lib/pageRoutes';
 import { allOperations, operations } from './operations/api';
 import { changeAssignment } from './operations/assignment';
-import { driverToUi } from './operations/adapters';
+import { driverMoves, driverToUi } from './operations/adapters';
 import { vehicleMapLocations } from './components/monitor/mapLocations';
 import { monitorTiming } from './operations/monitorTiming';
 import { api } from './portal/api';
@@ -772,6 +772,7 @@ export default function App({ onSignOut, loggingOut = false, logoutError }: { on
                   live={!!slug}
                   drivers={drivers}
                   stopStatuses={Object.fromEntries((routeQuery.data?.find(route => route.id === activeJob.routeId)?.stops ?? []).map(visit => [visit.stop_id, visit.status]))}
+                  stopMoves={driverMoves(routeQuery.data?.find(route => route.id === activeJob.routeId)?.plan)}
                   onAssignDriver={driverId => handleMonitorAssignDriver(activeJob, driverId)}
                   onUnassignDriver={slug ? () => handleMonitorUnassignDriver(activeJob) : undefined}
                   onClose={handleCloseJobDetailPopover}

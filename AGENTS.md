@@ -12,7 +12,7 @@
 
 - Exactly `AUTO` and `MANUAL` dispatch. AUTO assigns eligible Ready Orders; MANUAL waits for dispatcher assignment. Both optimize afterward.
 - Order is the commercial/pricing unit. Routes hold multiple Orders and bind one driver and one vehicle; multiple pickups/drop-offs, explicit precedence, intermediate capacity and stable RouteStops are mandatory.
-- No driver self-assignment, arbitrary route reorder, price changes from assignment or silent active-route mutation.
+- No driver self-assignment, arbitrary route reorder (a driver may only choose the next visit, validated by the API), price changes from assignment or silent active-route mutation.
 - Show customer price separately from route distance/internal cost; display immutable PricingSnapshot/ChargeLine detail.
 - Completed is the final successful Order status. V1 keeps prices and Quotes but has no invoices, Invoiced status, payment terms, payment collection or receivables.
 - Creating a Driver or Shipper creates the matching least-privilege account; public trial signup creates only a company and its dispatcher. No forced initial password change. Initial/reset credentials never enter persisted browser state, logs or query keys.

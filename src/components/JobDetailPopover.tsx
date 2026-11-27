@@ -8,6 +8,7 @@ import { DriverAvatar } from './DriverAvatar';
 import { useOverlayMotion } from './ui/useOverlayMotion';
 import { lifecycleLabel, orderAttention } from '../domain/validation';
 import { formatWhen } from './orders/OrderDossierSections';
+import { clockTime } from '../lib/dateTimeFormat';
 import type { PricingStopInput } from '../types/pricing';
 import { formatPhone, phoneHref } from '../lib/phone';
 import React, { useEffect, useState } from 'react';
@@ -46,6 +47,8 @@ interface JobDetailPopoverProps {
   live?: boolean;
   drivers?: Driver[];
   stopStatuses?: Record<string, string>;
+  /** Stops the driver chose to visit earlier than planned, with when they changed the order. */
+  stopMoves?: Record<string, string>;
   onMessage?: (kind: ChatKind) => void;
   onAssignDriver?: (driverId: string) => void | Promise<void>;
   /** Return the order to Unassigned by releasing its planned route; offered only while it has a driver. */
@@ -73,6 +76,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
   live = false,
   drivers = [],
   stopStatuses = {},
+  stopMoves = {},
   onMessage,
   onAssignDriver,
   onUnassignDriver,
@@ -255,6 +259,7 @@ export const JobDetailPopover: React.FC<JobDetailPopoverProps> = ({
                   <span className="text-slate-500">{visitLabel(stopStatuses[stop.id])}</span>
                 </div>
                 <div className="text-slate-700">{stop.label || '-'}</div>
+                {stopMoves[stop.id] && <div className="font-medium text-app-accent">Moved up by driver at {clockTime(stopMoves[stop.id], timeZone)}</div>}
                 {(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd) && <div className="text-slate-500">{stop.type === 'PICKUP' ? 'Ready at' : 'Deliver by'} {when(stop.type === 'PICKUP' ? stop.windowStart : stop.windowEnd)}</div>}
                 {(stop.contactName || stop.contactPhone) && <div className="flex items-center justify-between gap-2 text-slate-600">
                   <span className="truncate">{[stop.contactName, formatPhone(stop.contactPhone)].filter(Boolean).join(' · ')}</span>

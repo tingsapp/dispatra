@@ -1,6 +1,9 @@
 2026-11-27 Shipper header order search removed (ShipperOrderSearch deleted); Shipper order details get Details/Message driver tabs instead of the chat card (OrderChatSection removed). Driver web Chat composer spans the reading column. Driver web Profile edits name, phone, address and a round avatar; email/vehicle disabled; duty label beside the avatar; dispatcher driver saves keep data-URL avatars. schema.d.ts regenerated.
 Checks: tsc ok; build ok; driverPortal 22/22, chat 16/16, contactActions 9/9, shipperProfile 4/4, dialogDismissal 20/20, notifications 5/5; chatWorkspace tabs/contact tests pass (stale tab list updated for Progress updates; the full file still stalls after test 2 as on HEAD); shipperOrders 1 and entityForms 3 fail identically on clean HEAD. Driver chat/profile and shipper tab checked by screenshot with mocked API; shipperHeader e2e passes the new checks, then stops at an older tracking SMS assertion. Not released.
 
+2026-11-27 Monitor shows driver-chosen next stops: order details Stops tab marks "Moved up by driver at HH:mm" from route.plan.driver_moves (driverMoves adapter); route sync already refreshes the Monitor on route.resequenced. schema.d.ts regenerated.
+Checks: tsc ok; build ok; new driverMoves test passes; related tests pass except orderVehicle (4) and entityForms (3), which fail identically on a clean HEAD worktree. Not checked in a browser. Not released.
+
 2026-11-27 Delay reasons table: removed the lines between rows and under the list (header rule kept), tighter row spacing. Spec line updated.
 Checks: tsc ok; Delay reasons test passes; build ok. Not checked in a browser. Not released.
 
