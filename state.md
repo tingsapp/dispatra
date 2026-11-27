@@ -1,3 +1,6 @@
+2026-11-27 Settings › Extra time: Stop reasons section renamed Delay reasons; reason rows are now one flat table (header rule, divider rows) instead of bordered cards. Spec line updated.
+Checks: tsc ok; build ok; settingsMailbox Delay reasons test passes (mail-server test fails the same before and after). Not checked in a browser. Not released.
+
 2026-11-26 Removed Preferences > Dispatch planning (separate zone list): morning AUTO zones now come from Zone Rate Cards and vehicle parking addresses. Regenerated schema.d.ts (no dispatch_zones; candidate home_zone_match); dropped dispatch_zones from test fixtures.
 Checks: tsc ok; build ok; appActionLoading 10/11 and settings 77/84 fail the same tests before and after; dispatchRecommendation and dispatchRoster pass. Preferences page not checked in a browser. Not released.
 

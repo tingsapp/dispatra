@@ -94,7 +94,7 @@ test('Extra time follows Accessorials and saves the free block and its charge', 
   } finally { Object.assign(api, { companySettings: async () => settings }); }
 });
 
-test('Stop reasons: rename, a carrier reason is never charged, add a custom reason before Another issue, delete one', async () => {
+test('Delay reasons: rename, a carrier reason is never charged, add a custom reason before Another issue, delete one', async () => {
   const user = userEvent.setup({ document });
   const saved: Record<string, unknown>[] = [];
   const reason = (code: string, label: string, responsibility: 'SHIPPER' | 'CARRIER' | 'UNDECIDED', charge: 'AUTO' | 'REVIEW' | 'NEVER') => ({ code, base: null as string | null, label, stops: 'BOTH' as const, responsibility, charge });
